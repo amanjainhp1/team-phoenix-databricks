@@ -14,7 +14,11 @@ import os
 
 # COMMAND ----------
 
-# MAGIC %run ./common/aws_secrets_get
+# MAGIC %run ./common/secrets_manager_utils
+
+# COMMAND ----------
+
+# MAGIC %run ./common/s3_utils
 
 # COMMAND ----------
 
@@ -85,15 +89,17 @@ filtered_ib_df2 = filtered_ib_df1.filter("country = 'US'")
 
 # COMMAND ----------
 
+# mount s3 bucket to cluster
+s3_mount("dataos-core-dev-team-phoenix/proto/example-bucket/", "example-bucket")
+
+# COMMAND ----------
+
 filtered_ib_df2.write \
   .format("csv") \
   .mode("overwrite") \
-  .save("dbfs:/mnt/usage-share/test/")
+  .save("dbfs:/mnt/example-bucket/test/")
 
 # COMMAND ----------
 
-dbutils.fs.ls("dbfs:/mnt/usage-share/test/")
-
-# COMMAND ----------
-
-
+# MAGIC %sh
+# MAGIC ls -lh ../../dbfs/mnt/example-bucket/test/
