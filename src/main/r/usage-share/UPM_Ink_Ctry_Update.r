@@ -75,8 +75,6 @@ ib <- read.jdbc(
   driver="com.microsoft.sqlserver.jdbc.SQLServerDriver",
   numPartitions=16)
 
-ib <- SparkR::filter(ib, ib$version == "2021.09.28.1" & ib$measure == "ib")
-
 createOrReplaceTempView(ib, "ib")
 
 hardware_xref <- read.jdbc(
