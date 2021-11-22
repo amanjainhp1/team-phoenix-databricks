@@ -72,8 +72,7 @@ ib <- read.jdbc(
   tableName="dbo.ib",
   user="databricks_user",
   password="databricksdemo123",
-  driver="com.microsoft.sqlserver.jdbc.SQLServerDriver",
-  numPartitions=16)
+  driver="com.microsoft.sqlserver.jdbc.SQLServerDriver")
 
 createOrReplaceTempView(ib, "ib")
 
@@ -3675,38 +3674,22 @@ new4 <- SparkR::sql('select distinct aa1.*
 # COMMAND ----------
 
 # Step 67 - Calculating iMPV using decay rate for all future platforms
-new4_baseR<- SparkR::collect(new4)
-new4_baseR$NA3 <- new4_baseR$NA2/((1+new4_baseR$NAd)^30)
-new4_baseR$CED3 <- new4_baseR$CED2/((1+new4_baseR$CEDd)^30)
-new4_baseR$CEE3 <- new4_baseR$CEE2/((1+new4_baseR$CEEd)^30)
-new4_baseR$GAD3 <- new4_baseR$GAD2/((1+new4_baseR$GADd)^30)
-new4_baseR$GAE3 <- new4_baseR$GAE2/((1+new4_baseR$GAEd)^30)
-new4_baseR$GCD3 <- new4_baseR$GCD2/((1+new4_baseR$GCDd)^30)
-new4_baseR$GCE3 <- new4_baseR$GCE2/((1+new4_baseR$GCEd)^30)
-new4_baseR$IN3 <- new4_baseR$IN2/((1+new4_baseR$INd)^30)
-new4_baseR$IS3 <- new4_baseR$IS2/((1+new4_baseR$ISd)^30)
-new4_baseR$LA3 <- new4_baseR$LA2/((1+new4_baseR$LAd)^30)
-new4_baseR$NE3 <- new4_baseR$NE2/((1+new4_baseR$NEd)^30)
-new4_baseR$SE3 <- new4_baseR$SE2/((1+new4_baseR$SEd)^30)
-new4_baseR$UK3 <- new4_baseR$UK2/((1+new4_baseR$UKd)^30)
 
-createOrReplaceTempView(as.DataFrame(new4_baseR), "new4")
+new4$NA3 <- (new4$NA2)/((new4$NAd+1)^30)
+new4$CED3 <- new4$CED2/((new4$CEDd+1)^30)
+new4$CEE3 <- new4$CEE2/((new4$CEEd+ 1)^30)
+new4$GAD3 <- new4$GAD2/((new4$GADd+1)^30)
+new4$GAE3 <- new4$GAE2/((new4$GAEd+1)^30)
+new4$GCD3 <- new4$GCD2/((new4$GCDd+1)^30)
+new4$GCE3 <- new4$GCE2/((new4$GCEd+1)^30)
+new4$IN3 <- new4$IN2/((new4$INd+1)^30)
+new4$IS3 <- new4$IS2/((new4$ISd+1)^30)
+new4$LA3 <- new4$LA2/((new4$LAd+1)^30)
+new4$NE3 <- new4$NE2/((new4$NEd+1)^30)
+new4$SE3 <- new4$SE2/((new4$SEd+1)^30)
+new4$UK3 <- new4$UK2/((new4$UKd+1)^30)
 
-new4$NA3 <- new4$NA2/((1+new4$NAd)^30)
-# new4$CED3 <- new4$CED2/((1+new4$CEDd)^30)
-# new4$CEE3 <- new4$CEE2/((1+new4$CEEd)^30)
-# new4$GAD3 <- new4$GAD2/((1+new4$GADd)^30)
-# new4$GAE3 <- new4$GAE2/((1+new4$GAEd)^30)
-# new4$GCD3 <- new4$GCD2/((1+new4$GCDd)^30)
-# new4$GCE3 <- new4$GCE2/((1+new4$GCEd)^30)
-# new4$IN3 <- new4$IN2/((1+new4$INd)^30)
-# new4$IS3 <- new4$IS2/((1+new4$ISd)^30)
-# new4$LA3 <- new4$LA2/((1+new4$LAd)^30)
-# new4$NE3 <- new4$NE2/((1+new4$NEd)^30)
-# new4$SE3 <- new4$SE2/((1+new4$SEd)^30)
-# new4$UK3 <- new4$UK2/((1+new4$UKd)^30)
-
-# createOrReplaceTempView(new4, "new4")
+createOrReplaceTempView(new4, "new4")
 
 # COMMAND ----------
 
