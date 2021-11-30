@@ -12,7 +12,7 @@ dbutils.widgets.text("REDSHIFT_USERNAME", "")
 dbutils.widgets.text("REDSHIFT_PASSWORD", "")
 dbutils.widgets.text("SFAI_USERNAME", "")
 dbutils.widgets.text("SFAI_PASSWORD", "")
-dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prod"))
+dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prd"))
 dbutils.widgets.text("AWS_IAM_ROLE", "")
 
 // COMMAND ----------
@@ -21,20 +21,21 @@ dbutils.widgets.text("AWS_IAM_ROLE", "")
 
 // COMMAND ----------
 
-val env = dbutils.widgets.get("ENVIRONMENT")
-
-val sfaiUsername = dbutils.widgets.get("SFAI_USERNAME")
-val sfaiPassword = dbutils.widgets.get("SFAI_PASSWORD")
-
-val redshiftUsername = dbutils.widgets.get("REDSHIFT_USERNAME")
-val redshiftPassword = dbutils.widgets.get("REDSHIFT_PASSWORD")
-val redshiftAwsRole = dbutils.widgets.get("AWS_IAM_ROLE")
-val redshiftUrl = "jdbc:redshift://" + REDSHIFT_URLS(env) + ":" + REDSHIFT_PORTS(env) + "/" + env + "?ssl_verify=None"
-val redshiftTempBucket = S3_BASE_BUCKETS("dev") + "redshift_temp/"
+// MAGIC %run ../common/DatabaseUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../common/DatabaseUtils
+var configs: Map[String, String] = Map()
+configs += ("env" -> dbutils.widgets.get("ENVIRONMENT"),
+            "sfaiUsername" -> dbutils.widgets.get("SFAI_USERNAME"),
+            "sfaiPassword" -> dbutils.widgets.get("SFAI_PASSWORD"),
+            "sfaiUrl" -> SFAI_URL,
+            "sfaiDriver" -> SFAI_DRIVER,
+            "redshiftUsername" -> dbutils.widgets.get("REDSHIFT_USERNAME"),
+            "redshiftPassword" -> dbutils.widgets.get("REDSHIFT_PASSWORD"),
+            "redshiftAwsRole" -> dbutils.widgets.get("AWS_IAM_ROLE"),
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("ENVIRONMENT"))}:${REDSHIFT_PORTS(dbutils.widgets.get("ENVIRONMENT"))}/${dbutils.widgets.get("ENVIRONMENT")}?ssl_verify=None""",
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("ENVIRONMENT"))}redshift_temp/""")
 
 // COMMAND ----------
 
@@ -46,7 +47,7 @@ FROM Archer_Prod.dbo.f_report_units('LTF-IE2')
 WHERE record LIKE ('LTF-%')
 """
 
-val fReportUnits = readSqlServerToDF
+val fReportUnits = readSqlServerToDF(configs)
   .option("query", fReportUnitsQuery)
   .load()
   .cache()
@@ -80,7 +81,7 @@ val record = "hw_fcst"
 // if forecastName.count() > 1, then exit
 // else if record_name in forecastName exists as source_name in version, where record = "hw_fcst", then exit
 
-val versionCount = readRedshiftToDF
+val versionCount = readRedshiftToDF(configs)
     .option("query", s"""SELECT * FROM prod.version WHERE record = '${record}' AND source_name = '${forecastNameRecordName}'""")
     .load()
     .count()
@@ -95,7 +96,7 @@ if (forecastNameRecordNames.size > 1 ) {
 
 // --add record to version table for 'hw_fcst'
 
-submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"""CALL prod.addversion_sproc('${record}', '${forecastNameRecordName}');""")
+submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), s"""CALL prod.addversion_sproc('${record}', '${forecastNameRecordName}');""")
 
 // COMMAND ----------
 
@@ -111,7 +112,7 @@ WHERE record = '${record}' AND source_name = '${forecastNameRecordName}'
 GROUP BY record
 """
 
-val version = readRedshiftToDF
+val version = readRedshiftToDF(configs)
   .option("query", versionQuery)
   .load()
 
@@ -155,7 +156,7 @@ firstTransformation.createOrReplaceTempView("first_transformation")
 // COMMAND ----------
 
 // --second transformation:
-val rdma = readRedshiftToDF
+val rdma = readRedshiftToDF(configs)
   .option("dbtable", "mdm.rdma")
   .load()
 
@@ -192,7 +193,7 @@ secondTransformation.createOrReplaceTempView("second_transformation")
 
 // COMMAND ----------
 
-val hardwareXref = readRedshiftToDF
+val hardwareXref = readRedshiftToDF(configs)
   .option("dbtable", "mdm.hardware_xref")
   .load()
   .select("id", "platform_subset")
@@ -220,11 +221,11 @@ val thirdTransformation = spark.sql(s"""
 
 // COMMAND ----------
 
-writeDFToRedshift(thirdTransformation, "prod.hardware_ltf", "append")
+writeDFToRedshift(configs, thirdTransformation, "prod.hardware_ltf", "append")
 
 // COMMAND ----------
 
-writeDFToS3(fReportUnits, S3_BASE_BUCKETS(env) + s"""/proto/${forecastNameRecordName}/${maxVersion}/f_report_units/""", "parquet", "overwrite")
+writeDFToS3(fReportUnits, S3_BASE_BUCKETS(configs("env")) + s"""/proto/${forecastNameRecordName}/${maxVersion}/f_report_units/""", "parquet", "overwrite")
 
 // COMMAND ----------
 

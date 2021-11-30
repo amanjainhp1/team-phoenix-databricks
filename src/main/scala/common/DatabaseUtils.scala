@@ -1,4 +1,10 @@
 // Databricks notebook source
+// register database driver/s
+Class.forName("com.amazon.redshift.jdbc.Driver")
+Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver")
+
+// COMMAND ----------
+
 import java.sql.Connection
 import java.sql.Statement
 import java.sql.DriverManager
@@ -7,6 +13,7 @@ def submitRemoteQuery(url: String, username: String, password: String, query: St
   
   var conn: Connection = null
   conn = DriverManager.getConnection(url, username, password)
+  
   if (conn != null) {
       print(s"""Connected to ${url}\n""")
   }
@@ -20,39 +27,38 @@ def submitRemoteQuery(url: String, username: String, password: String, query: St
 
 // COMMAND ----------
 
-def readSqlServerToDF(): org.apache.spark.sql.DataFrameReader = {
+def readSqlServerToDF(configs: Map[String, String]): org.apache.spark.sql.DataFrameReader = {
   val dfReader = spark.read
     .format("jdbc")
-    .option("url", SFAI_URL)
-    .option("user", sfaiUsername)
-    .option("password", sfaiPassword)
-    .option("driver", SFAI_DRIVER)
+    .option("url", configs("sfaiUrl"))
+    .option("user", configs("sfaiUsername"))
+    .option("password", configs("sfaiPassword"))
   return dfReader
 }
 
 // COMMAND ----------
 
-def readRedshiftToDF(): org.apache.spark.sql.DataFrameReader = {
+def readRedshiftToDF(configs: Map[String, String]): org.apache.spark.sql.DataFrameReader = {
   val dfReader = spark.read
     .format("com.databricks.spark.redshift")
-    .option("url", redshiftUrl)
-    .option("tempdir", redshiftTempBucket)
-    .option("aws_iam_role", redshiftAwsRole)
-    .option("user", redshiftUsername)
-    .option("password", redshiftPassword)
+    .option("url", configs("redshiftUrl"))
+    .option("tempdir", configs("redshiftTempBucket"))
+    .option("aws_iam_role", configs("redshiftAwsRole"))
+    .option("user", configs("redshiftUsername"))
+    .option("password", configs("redshiftPassword"))
   return dfReader
 }
 
 // COMMAND ----------
 
-def writeDFToRedshift(dataframe: org.apache.spark.sql.Dataset[Row], destination: String, mode: String): Unit = {
+def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.sql.Dataset[Row], destination: String, mode: String): Unit = {
   dataframe.write
   .format("com.databricks.spark.redshift")
-  .option("url", redshiftUrl)
-  .option("tempdir", redshiftTempBucket)
-  .option("aws_iam_role", redshiftAwsRole)
-  .option("user", redshiftUsername)
-  .option("password", redshiftPassword)
+  .option("url", configs("redshiftUrl"))
+  .option("tempdir", configs("redshiftTempBucket"))
+  .option("aws_iam_role", configs("redshiftAwsRole"))
+  .option("user", configs("redshiftUsername"))
+  .option("password", configs("redshiftPassword"))
   .option("dbtable", destination)
   .mode(mode)
   .save()

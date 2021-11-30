@@ -3,7 +3,7 @@ dbutils.widgets.text("REDSHIFT_USERNAME", "")
 dbutils.widgets.text("REDSHIFT_PASSWORD", "")
 dbutils.widgets.text("SFAI_USERNAME", "")
 dbutils.widgets.text("SFAI_PASSWORD", "")
-dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prod"))
+dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prd"))
 dbutils.widgets.text("AWS_IAM_ROLE", "")
 
 // COMMAND ----------
@@ -12,60 +12,61 @@ dbutils.widgets.text("AWS_IAM_ROLE", "")
 
 // COMMAND ----------
 
-val env = dbutils.widgets.get("ENVIRONMENT")
-
-val sfaiUsername = dbutils.widgets.get("SFAI_USERNAME")
-val sfaiPassword = dbutils.widgets.get("SFAI_PASSWORD")
-
-val redshiftUsername = dbutils.widgets.get("REDSHIFT_USERNAME")
-val redshiftPassword = dbutils.widgets.get("REDSHIFT_PASSWORD")
-val redshiftAwsRole = dbutils.widgets.get("AWS_IAM_ROLE")
-val redshiftUrl = "jdbc:redshift://" + REDSHIFT_URLS(env) + ":" + REDSHIFT_PORTS(env) + "/" + env + "?ssl_verify=None"
-val redshiftTempBucket = S3_BASE_BUCKETS("dev") + "redshift_temp/"
-
-// COMMAND ----------
-
 // MAGIC %run ../common/DatabaseUtils
 
 // COMMAND ----------
 
-val hardwareLtf = readSqlServerDF
+var configs: Map[String, String] = Map()
+configs += ("env" -> dbutils.widgets.get("ENVIRONMENT"),
+            "sfaiUsername" -> dbutils.widgets.get("SFAI_USERNAME"),
+            "sfaiPassword" -> dbutils.widgets.get("SFAI_PASSWORD"),
+            "sfaiUrl" -> SFAI_URL,
+            "sfaiDriver" -> SFAI_DRIVER,
+            "redshiftUsername" -> dbutils.widgets.get("REDSHIFT_USERNAME"),
+            "redshiftPassword" -> dbutils.widgets.get("REDSHIFT_PASSWORD"),
+            "redshiftAwsRole" -> dbutils.widgets.get("AWS_IAM_ROLE"),
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("ENVIRONMENT"))}:${REDSHIFT_PORTS(dbutils.widgets.get("ENVIRONMENT"))}/${dbutils.widgets.get("ENVIRONMENT")}?ssl_verify=None""",
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("ENVIRONMENT"))}redshift_temp/""")
+
+// COMMAND ----------
+
+val hardwareLtf = readSqlServerToDF(configs)
   .option("dbtable", "ie2_prod.dbo.hardware_ltf")
   .load()
   .select("record", "version", "cal_date", "base_product_number", "country_alpha2", "units")
   .distinct()
 
-val flash = readSqlServerDF
+val flash = readSqlServerToDF(configs)
   .option("dbtable", "ie2_prod.dbo.flash")
   .load()
   .select("record", "version", "cal_date", "base_product_number", "country_alpha2", "units", "forecast_name")
   .distinct()
 
-val rdma = readSqlServerDF
+val rdma = readSqlServerToDF(configs)
   .option("dbtable", "ie2_prod.dbo.rdma")
   .load()
   .select("Base_Prod_Number", "Platform_Subset", "pl")
   .distinct()
 
-val hardwareXref = readSqlServerDF
+val hardwareXref = readSqlServerToDF(configs)
   .option("dbtable", "ie2_prod.dbo.hardware_xref")
   .load()
   .select("platform_subset", "category_feature", "technology")
   .distinct()
 
-val isoCountryCodeXref = readSqlServerDF
+val isoCountryCodeXref = readSqlServerToDF(configs)
   .option("dbtable", "ie2_prod.dbo.iso_country_code_xref")
   .load()
   .select("country_alpha2", "region_5")
   .distinct()
 
-val stfWd3CountrySpeedlicVw = readSqlServerDF
+val stfWd3CountrySpeedlicVw = readSqlServerToDF(configs)
   .option("dbtable", "archer_prod.dbo.stf_wd3_country_speedlic_vw")
   .load()
   .select("date", "base_prod_number", "geo", "record", "load_date", "units", "version")
   .distinct()
 
-val productLineXref = readSqlServerDF
+val productLineXref = readSqlServerToDF(configs)
   .option("dbtable", "ie2_prod.dbo.product_line_xref")
   .load()
   .select("Technology", "PL", "PL_category")
@@ -439,7 +440,7 @@ wd3AllocatedLtfFinal.createOrReplaceTempView("wd3_allocated_ltf_final")
 // COMMAND ----------
 
 // --add record to version table
-submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, """CALL prod.addversion_sproc('allocated_ltf', 'wd3_allocated_flash_plus_ltf');""")
+submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), """CALL prod.addversion_sproc('allocated_ltf', 'wd3_allocated_flash_plus_ltf');""")
 
 // COMMAND ----------
 
@@ -453,7 +454,7 @@ WHERE record = 'allocated_ltf'
 GROUP BY record
 """
 
-val version = readRedshiftToDF
+val version = readRedshiftToDF(configs)
   .option("query", versionQuery)
   .load()
 
@@ -507,7 +508,7 @@ hardwareStfLanding.createOrReplaceTempView("hardware_stf_landing")
 // COMMAND ----------
 
 // --Add version to version table
-submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, """CALL prod.addversion_sproc('hw_stf_fcst', 'Archer');""")
+submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), """CALL prod.addversion_sproc('hw_stf_fcst', 'Archer');""")
 
 // COMMAND ----------
 
@@ -521,7 +522,7 @@ WHERE record = 'hw_stf_fcst'
 GROUP BY record
 """
 
-val version = readRedshiftToDF
+val version = readRedshiftToDF(configs)
   .option("query", versionQuery)
   .load()
 
@@ -555,7 +556,7 @@ hardwareStfStaging.createOrReplaceTempView("hardware_stf_staging")
 
 // COMMAND ----------
 
-submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, "UPDATE prod.hardware_ltf SET official = 0 WHERE record = 'hw_stf_fcst' AND official=1;")
+submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), "UPDATE prod.hardware_ltf SET official = 0 WHERE record = 'hw_stf_fcst' AND official=1;")
 
 // COMMAND ----------
 
@@ -588,20 +589,24 @@ WHERE c.Technology IN ('INK','LASER','PWA') AND c.PL_category = 'HW'
 
 // DBTITLE 0,Untitled
 wd3AllocatedLtfLtfUnits.cache()
-writeDFToRedshift(wd3AllocatedLtfLtfUnits, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
+writeDFToRedshift(configs, wd3AllocatedLtfLtfUnits, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
 
 wd3AllocatedLtfFlashUnits.cache()
-writeDFToRedshift(wd3AllocatedLtfFlashUnits, "stage.wd3_allocated_ltf_flash_units", "overwrite")
+writeDFToRedshift(configs, wd3AllocatedLtfFlashUnits, "stage.wd3_allocated_ltf_flash_units", "overwrite")
 
 wd3AllocatedLtfWd3Units.cache()
-writeDFToRedshift(wd3AllocatedLtfWd3Units, "stage.wd3_allocated_ltf_wd3_units", "overwrite")
+writeDFToRedshift(configs, wd3AllocatedLtfWd3Units, "stage.wd3_allocated_ltf_wd3_units", "overwrite")
 
 wd3AllocatedLtfWd3Pct.cache()
-writeDFToRedshift(wd3AllocatedLtfWd3Pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite")
+writeDFToRedshift(configs, wd3AllocatedLtfWd3Pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite")
 
-writeDFToRedshift(hardwareLtf, "prod.hardware_ltf", "append")
+writeDFToRedshift(configs, hardwareLtf, "prod.hardware_ltf", "append")
 
 wd3AllocatedLtfLtfUnits.unpersist()
 wd3AllocatedLtfFlashUnits.unpersist()
 wd3AllocatedLtfWd3Units.unpersist()
 wd3AllocatedLtfWd3Pct.unpersist()
+
+// COMMAND ----------
+
+
