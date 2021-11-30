@@ -3,15 +3,38 @@
 
 // COMMAND ----------
 
-dbutils.widgets.text("REDSHIFT_USERNAME", "")
-dbutils.widgets.text("REDSHIFT_PASSWORD", "")
+// import needed scala/java libraries
+import org.apache.spark.sql.functions._
 
 // COMMAND ----------
 
-val jdbcUsername = "databricks_user" //placeholder
-val jdbcPassword = "databricksdemo123" //placeholder
+dbutils.widgets.text("REDSHIFT_USERNAME", "")
+dbutils.widgets.text("REDSHIFT_PASSWORD", "")
+dbutils.widgets.text("SFAI_USERNAME", "")
+dbutils.widgets.text("SFAI_PASSWORD", "")
+dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prod"))
+dbutils.widgets.text("AWS_IAM_ROLE", "")
 
-val jdbcUrl = "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database="
+// COMMAND ----------
+
+// MAGIC %run ../common/Constants
+
+// COMMAND ----------
+
+val env = dbutils.widgets.get("ENVIRONMENT")
+
+val sfaiUsername = dbutils.widgets.get("SFAI_USERNAME")
+val sfaiPassword = dbutils.widgets.get("SFAI_PASSWORD")
+
+val redshiftUsername = dbutils.widgets.get("REDSHIFT_USERNAME")
+val redshiftPassword = dbutils.widgets.get("REDSHIFT_PASSWORD")
+val redshiftAwsRole = dbutils.widgets.get("AWS_IAM_ROLE")
+val redshiftUrl = "jdbc:redshift://" + REDSHIFT_URLS(env) + ":" + REDSHIFT_PORTS(env) + "/" + env + "?ssl_verify=None"
+val redshiftTempBucket = S3_BASE_BUCKETS("dev") + "redshift_temp/"
+
+// COMMAND ----------
+
+// MAGIC %run ../common/DatabaseUtils
 
 // COMMAND ----------
 
@@ -23,13 +46,8 @@ FROM Archer_Prod.dbo.f_report_units('LTF-IE2')
 WHERE record LIKE ('LTF-%')
 """
 
-val fReportUnits = spark.read
-  .format("jdbc")
-  .option("url", jdbcUrl)
+val fReportUnits = readSqlServerToDF
   .option("query", fReportUnitsQuery)
-  .option("user", jdbcUsername)
-  .option("password", jdbcPassword)
-  .option("driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
   .load()
   .cache()
 
@@ -62,13 +80,7 @@ val record = "hw_fcst"
 // if forecastName.count() > 1, then exit
 // else if record_name in forecastName exists as source_name in version, where record = "hw_fcst", then exit
 
-val versionCount = spark.read
-    .format("com.databricks.spark.redshift")
-    .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None")
-    .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/")
-    .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role")
-    .option("user", dbutils.widgets.get("REDSHIFT_USERNAME"))
-    .option("password", dbutils.widgets.get("REDSHIFT_PASSWORD"))
+val versionCount = readRedshiftToDF
     .option("query", s"""SELECT * FROM prod.version WHERE record = '${record}' AND source_name = '${forecastNameRecordName}'""")
     .load()
     .count()
@@ -81,13 +93,9 @@ if (forecastNameRecordNames.size > 1 ) {
 
 // COMMAND ----------
 
-// MAGIC %run ../common/CallStoredProcedure
-
-// COMMAND ----------
-
 // --add record to version table for 'hw_fcst'
 
-callStoredProcedure("redshift", "dataos-redshift-core-dev-01.hp8.us", "5439", "/dev?ssl_verify=None", dbutils.widgets.get("REDSHIFT_USERNAME"), dbutils.widgets.get("REDSHIFT_PASSWORD"), s"""CALL prod.addversion_sproc('${record}', '${forecastNameRecordName}');""")
+submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"""CALL prod.addversion_sproc('${record}', '${forecastNameRecordName}');""")
 
 // COMMAND ----------
 
@@ -103,13 +111,7 @@ WHERE record = '${record}' AND source_name = '${forecastNameRecordName}'
 GROUP BY record
 """
 
-val version = spark.read
-  .format("com.databricks.spark.redshift")
-  .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None")
-  .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/")
-  .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role")
-  .option("user", dbutils.widgets.get("REDSHIFT_USERNAME"))
-  .option("password", dbutils.widgets.get("REDSHIFT_PASSWORD"))
+val version = readRedshiftToDF
   .option("query", versionQuery)
   .load()
 
@@ -123,7 +125,6 @@ val maxLoadDate = version.select("load_date").distinct().collect().map(_.getTime
 // COMMAND ----------
 
 // --first transformation:
-import org.apache.spark.sql.functions._
 
 val firstTransformation = spark.sql(s"""
 SELECT  a.record
@@ -154,13 +155,7 @@ firstTransformation.createOrReplaceTempView("first_transformation")
 // COMMAND ----------
 
 // --second transformation:
-val rdma = spark.read
-  .format("com.databricks.spark.redshift")
-  .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None")
-  .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/")
-  .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role")
-  .option("user", dbutils.widgets.get("REDSHIFT_USERNAME"))
-  .option("password", dbutils.widgets.get("REDSHIFT_PASSWORD"))
+val rdma = readRedshiftToDF
   .option("dbtable", "mdm.rdma")
   .load()
 
@@ -197,13 +192,7 @@ secondTransformation.createOrReplaceTempView("second_transformation")
 
 // COMMAND ----------
 
-val hardwareXref = spark.read
-  .format("com.databricks.spark.redshift")
-  .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None")
-  .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/")
-  .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role")
-  .option("user", dbutils.widgets.get("REDSHIFT_USERNAME"))
-  .option("password", dbutils.widgets.get("REDSHIFT_PASSWORD"))
+val hardwareXref = readRedshiftToDF
   .option("dbtable", "mdm.hardware_xref")
   .load()
   .select("id", "platform_subset")
@@ -231,23 +220,11 @@ val thirdTransformation = spark.sql(s"""
 
 // COMMAND ----------
 
-thirdTransformation.write
-  .format("com.databricks.spark.redshift")
-  .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None")
-  .option("dbtable", "prod.hardware_ltf")
-  .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/")
-  .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role")
-  .option("user", dbutils.widgets.get("REDSHIFT_USERNAME"))
-  .option("password", dbutils.widgets.get("REDSHIFT_PASSWORD"))
-  .option("tempformat", "CSV GZIP")
-  .mode("append")
-  .save()
+writeDFToRedshift(thirdTransformation, "prod.hardware_ltf", "append")
 
 // COMMAND ----------
 
-fReportUnits.write
-  .format("parquet")
-  .save(s"""s3a://dataos-core-dev-team-phoenix/proto/${forecastNameRecordName}/${maxVersion}/f_report_units/""")
+writeDFToS3(fReportUnits, S3_BASE_BUCKETS(env) + s"""/proto/${forecastNameRecordName}/${maxVersion}/f_report_units/""", "parquet", "overwrite")
 
 // COMMAND ----------
 
