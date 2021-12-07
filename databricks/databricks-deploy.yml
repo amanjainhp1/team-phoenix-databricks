@@ -1,0 +1,55 @@
+resources:
+  repositories:
+    - repository: templates
+      type: githubenterprise
+      name: codeway/templates
+      endpoint: ghe
+    - repository: jobs
+      type: githubenterprise
+      name: hp-data-platform/team-phoenix-databricks-jobs-config
+      endpoint: ghe
+
+variables:
+- group: databricks-cd
+- group: Defaults
+- name: jobs_file
+  value: springboard.yml
+- name: stack
+  value: dev
+
+trigger: 
+  branches:
+    include:
+    - main
+
+pr: none
+
+pool: 'CodeWayAWSLinux'
+
+jobs:
+  - template: projects/dataos/stages/databricks_deployment.yml@templates
+    parameters:
+      account: '740156627385'
+      region: 'us-west-2'
+      roleARN: $(dataos_core_dev_databricks_cd_role_arn)
+      externalId: $(dataos_core_dev_databricks_cd_external_id)
+      secrets:
+        - secretName: codeway/databricks/springboard
+          secretProperty: token
+          variable: DATABRICKS_TOKEN
+        - secretName: codeway/deployment/nexus
+          secretProperty: password
+          variable: NEXUS_PASSWORD
+        - secretName: codeway/deployment/nexus
+          secretProperty: username
+          variable: NEXUS_USERNAME
+      configs:
+        "DATABRICKS_HOST": "dataos-dev-internal.cloud.databricks.com"
+      conf_prefix: 'team-phoenix-databricks-jobs-config/jobs'
+      scripts_prefix: 'templates'
+      library_path_prefix: 'dbfs:/dataos-pipeline-springboard'
+      workspace_path_prefix: '/team-phoenix'
+      nexus_repo: "https://nexus-int.corp.hpicloud.net/repository"
+      jobs_file: $(jobs_file)
+      stack: $(stack)
+      jobs_file_prefix: 'team-phoenix-databricks-test-deployment/databricks'
