@@ -20,7 +20,7 @@ variables:
 trigger: 
   branches:
     include:
-    - main
+    - master
 
 pr: none
 
