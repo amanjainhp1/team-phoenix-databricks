@@ -1,5 +1,10 @@
 default_policy_id: "E05E27B13F000388"
 
+default_custom_tags:
+  Custom1: "US98008272"
+  Custom2: "team-springboard"
+  Custom3: "Dev"
+
 airflow_gitops:
   publish_job_ids: true
   repo: https://github.azc.ext.hp.com/hp-data-platform/k8s-dataos-core-dev-2.git
