@@ -34,7 +34,7 @@ jobs:
       roleARN: $(dataos_core_dev_databricks_cd_role_arn)
       externalId: $(dataos_core_dev_databricks_cd_external_id)
       secrets:
-        - secretName: codeway/databricks/springboard
+        - secretName: codeway/databricks/deployment-team-phoenix
           secretProperty: token
           variable: DATABRICKS_TOKEN
         - secretName: codeway/deployment/nexus
