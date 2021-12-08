@@ -29,10 +29,10 @@ pool: 'CodeWayAWSLinux'
 jobs:
   - template: projects/dataos/stages/databricks_deployment.yml@templates
     parameters:
-      account: '740156627385'
+      account: '435705730031'
       region: 'us-west-2'
-      roleARN: $(dataos_core_dev_databricks_cd_role_arn)
-      externalId: $(dataos_core_dev_databricks_cd_external_id)
+      roleARN: $(dataos_dev_internal_databricks_cd_role_arn)
+      externalId: $(dataos_dev_internal_databricks_cd_external_id)
       secrets:
         - secretName: codeway/databricks/deployment-team-phoenix
           secretProperty: token
