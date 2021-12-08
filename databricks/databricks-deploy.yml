@@ -6,7 +6,7 @@ resources:
       endpoint: ghe
     - repository: jobs
       type: githubenterprise
-      name: hp-data-platform/team-phoenix-databricks-jobs-config
+      name: supplies-bd/team-phoenix-databricks-jobs-config
       endpoint: ghe
 
 variables:
