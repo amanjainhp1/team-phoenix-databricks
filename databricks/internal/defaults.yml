@@ -4,6 +4,8 @@ default_custom_tags:
   Custom1: "US98008272"
   Custom2: "team-phoenix"
   Custom3: "Dev"
+  Custom4: "Category"
+  Custom5: "CostManagement"
 
 airflow_gitops:
   publish_job_ids: true
