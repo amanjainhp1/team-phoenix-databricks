@@ -21,6 +21,10 @@ trigger:
   branches:
     include:
     - master
+  paths:
+    exclude:
+      - databricks/internal/dev-springboard.yml
+      - README.md
 
 pr: none
 
