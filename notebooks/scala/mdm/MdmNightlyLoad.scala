@@ -14,15 +14,15 @@ dbutils.widgets.text("AWS_IAM_ROLE", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../common/Constants
+// MAGIC %run ./common/Constants
 
 // COMMAND ----------
 
-// MAGIC %run ../common/DatetimeUtils
+// MAGIC %run ./common/DatetimeUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../common/ParallelNotebooks
+// MAGIC %run ./common/ParallelNotebooks
 
 // COMMAND ----------
 
