@@ -23,15 +23,15 @@ dbutils.widgets.text("bdtbl", "dashboard.print_share_usage_agg_stg")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../scala/common/Constants.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
+# MAGIC %run ../../scala/common/DatabaseUtils.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/secrets_manager_utils.py
 
 # COMMAND ----------
 
@@ -56,7 +56,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check
+# MAGIC %run ../common/package_check.r
 
 # COMMAND ----------
 
