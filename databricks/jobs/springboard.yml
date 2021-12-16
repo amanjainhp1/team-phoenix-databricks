@@ -1,3 +1,5 @@
 ---
 Jobs:
   - mdm-nightly-load
+  - toner-usage-total
+  - toner-usage-color
