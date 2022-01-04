@@ -5,8 +5,7 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sfai_username", "")
-dbutils.widgets.text("sfai_password", "")
+dbutils.widgets.text("sqlserver_secrets_name", "")
 dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("bdtbl", "dashboard.print_share_usage_agg_stg")
@@ -32,6 +31,10 @@ dbutils.widgets.text("upm_date", "")
 # MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
 # MAGIC dbutils.widgets.text("redshift_username", redshift_secrets["username"])
 # MAGIC dbutils.widgets.text("redshift_password", redshift_secrets["password"])
+# MAGIC 
+# MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
+# MAGIC dbutils.widgets.text("sfai_username", sqlserver_secrets["username"])
+# MAGIC dbutils.widgets.text("sfai_password", sqlserver_secrets["password"])
 
 # COMMAND ----------
 
