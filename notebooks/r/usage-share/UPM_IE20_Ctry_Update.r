@@ -18,7 +18,7 @@ dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
 dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
 dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("bdtbl", "dashboard.print_share_usage_agg_stg")
+dbutils.widgets.text("bdtbl", "")
 
 # COMMAND ----------
 
@@ -38,12 +38,12 @@ dbutils.widgets.text("bdtbl", "dashboard.print_share_usage_agg_stg")
 # MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 # MAGIC 
 # MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC dbutils.widgets.text("redshift_username", redshift_secrets["username"])
-# MAGIC dbutils.widgets.text("redshift_password", redshift_secrets["password"])
+# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
+# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
 # MAGIC 
 # MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC dbutils.widgets.text("sfai_username", sqlserver_secrets["username"])
-# MAGIC dbutils.widgets.text("sfai_password", sqlserver_secrets["password"])
+# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
+# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
 
 # COMMAND ----------
 
@@ -84,12 +84,12 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 # MAGIC %scala
 # MAGIC var configs: Map[String, String] = Map()
 # MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> dbutils.widgets.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> dbutils.widgets.get("sfai_password"),
+# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
+# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
 # MAGIC             "sfaiUrl" -> SFAI_URL,
 # MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> dbutils.widgets.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> dbutils.widgets.get("redshift_password"),
+# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
+# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
 # MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
 # MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
 # MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
@@ -142,11 +142,6 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 
 # COMMAND ----------
 
-#TODO: delete when BDBT DB is shared in team-phoenix Redshift cluster
-zeroi <- SparkR::collect(SparkR::sql("SELECT * FROM zeroi"))
-
-# COMMAND ----------
-
 sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
 
 cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", dbutils.widgets.get("sfai_username"), ";password=", dbutils.widgets.get("sfai_password")))
@@ -191,7 +186,7 @@ options(stringsAsFactors= FALSE)
 options(scipen=999)
 
 #--------Lock weights-----------------------------------------------------------------------------#
-lock_weights <- 1   #0 for use calculated, 1 for use stated version
+lock_weights <- 0   #0 for use calculated, 1 for use stated version
 lockwt_file <- 'toner_weights_75_Q4_qe_2021-11-16'
 
 #--------Big Data Table Name----------------------------------------------------------------------#
@@ -205,46 +200,8 @@ outnm_dt <- 'Q4_pulse'
 
 # Step 1 - query for Normalized extract specific to PE and RM
 
-# zeroi <- dbGetQuery(ch,paste(						
-# " 
-# SELECT  tri_printer_usage_sn.printer_platform_name  
-#                     , tri_printer_usage_sn.printer_region_code 
-#                     , tri_printer_usage_sn.printer_country_iso_code
-#                     , tri_printer_usage_sn.date_month_dim_ky as yyyymm
-#                     --, CASE
-#                         --WHEN SUBSTRING(tri_printer_usage_sn.date_month_dim_ky,5,6) IN ('11','12') 
-#                               --THEN (CAST(tri_printer_usage_sn.date_month_dim_ky AS int) + 100 -10)
-#                         --WHEN SUBSTRING(tri_printer_usage_sn.date_month_dim_ky,5,6) BETWEEN '01' AND'10' 
-#                               --THEN (CAST(tri_printer_usage_sn.date_month_dim_ky AS int) + 2)
-#                         --ELSE tri_printer_usage_sn.date_month_dim_ky 
-#                         --END as FYearMo
-#                     , CAST(tri_printer_usage_sn.date_month_dim_ky AS int) as FYearMo
-#                     , tri_printer_usage_sn.printer_chrome_code AS CM
-#                     , tri_printer_usage_sn.platform_business_code AS EP
-#                     , tri_printer_usage_sn.printer_function_code as platform_function_code
-#                     , tri_printer_usage_sn.platform_market_code
-#                     , SUM(COALESCE(tri_printer_usage_sn.print_pages_total_ib_ext_sum,0)) as UsageNumerator
-#                     , SUM(COALESCE(tri_printer_usage_sn.print_months_ib_ext_sum,0)) AS UsageDenominator
-#                     , SUM(tri_printer_usage_sn.printer_count_month_usage_flag_sum) AS SumN
-#                     FROM 
-#                       ",bdtbl," tri_printer_usage_sn with (NOLOCK)
-#                     WHERE 
-#                       1=1
-#                       AND printer_route_to_market_ib='Aftermarket'
-#                    GROUP BY
-#                       printer_platform_name  
-#                     , printer_region_code 
-#                     , printer_country_iso_code
-#                     , yyyymm
-#                     , FYearMo
-#                     , CM
-#                     , EP
-#                     , platform_function_code
-#                     , platform_market_code
+zeroi <- SparkR::collect(SparkR::sql("SELECT * FROM zeroi"))
 
-
-
-#  ",sep = " ", collapse = NULL))
 zeroi$SumMPV <- ifelse(zeroi$usagedenominator>0,zeroi$sumn*zeroi$usagenumerator/zeroi$usagedenominator,0)
 # # s3write_using(x=zeroi,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/BD_Zeroi(",Sys.Date(),").parquet"))
 
@@ -1848,9 +1805,9 @@ wtaverage[is.na(wtaverage)] <- 1
 #  #---Write out weight file------------#
 #  s3write_using(x=wtaverage,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_weights_75_",outnm_dt,"_(",Sys.Date(),").csv"), row.names=FALSE, na="")
  
-#  if(lock_weights==1){
-#    wtavgin <- s3read_using(FUN = read_csv, object = paste0("s3://insights-environment-sandbox/BrentT/",lockwt_file,".csv"), col_names=TRUE, na="")
-#    wtaverage <- wtavgin
+ if(lock_weights==1){
+   wtavgin <- s3read_using(FUN = read_csv, object = paste0("s3://insights-environment-sandbox/BrentT/",lockwt_file,".csv"), col_names=TRUE, na="")
+   wtaverage <- wtavgin
 
 # COMMAND ----------
 
