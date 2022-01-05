@@ -5,24 +5,43 @@ import scala.language.postfixOps
 
 // COMMAND ----------
 
-dbutils.widgets.text("REDSHIFT_USERNAME", "")
-dbutils.widgets.text("REDSHIFT_PASSWORD", "")
-dbutils.widgets.text("SFAI_USERNAME", "")
-dbutils.widgets.text("SFAI_PASSWORD", "")
-dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prd"))
-dbutils.widgets.text("AWS_IAM_ROLE", "")
+dbutils.widgets.text("redshift_secrets_name", "")
+dbutils.widgets.text("redshift_username", "")
+dbutils.widgets.text("redshift_password", "")
+dbutils.widgets.text("sqlserver_secrets_name", "")
+dbutils.widgets.text("sfai_username", "")
+dbutils.widgets.text("sfai_password", "")
+dbutils.widgets.dropdown("environment", "dev", Seq("dev", "itg", "prd"))
+dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ./common/Constants
+// MAGIC %run ../../scala/common/Constants.scala
 
 // COMMAND ----------
 
-// MAGIC %run ./common/DatetimeUtils
+// MAGIC %run ../python/common/secrets_manager_utils.py
 
 // COMMAND ----------
 
-// MAGIC %run ./common/ParallelNotebooks
+// MAGIC %run ../scala/common/DatetimeUtils.scala
+
+// COMMAND ----------
+
+// MAGIC %run ../scala/common/ParallelNotebooks.scala
+
+// COMMAND ----------
+
+// MAGIC %python
+// MAGIC // retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
+// MAGIC 
+// MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
+// MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
+// MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
+// MAGIC 
+// MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
+// MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
+// MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
 
 // COMMAND ----------
 
@@ -43,22 +62,22 @@ val tables: Seq[String] = Seq("calendar",
                               "yield")
 
 var configs: Map[String, String] = Map()
-configs += ("env" -> dbutils.widgets.get("ENVIRONMENT"),
-            "sfaiUsername" -> dbutils.widgets.get("SFAI_USERNAME"),
-            "sfaiPassword" -> dbutils.widgets.get("SFAI_PASSWORD"),
+configs += ("env" -> dbutils.widgets.get("environment"),
+            "sfaiUsername" -> spark.conf.get("sfai_username"),
+            "sfaiPassword" -> spark.conf.get("sfai_password"),
             "sfaiUrl" -> SFAI_URL,
-            "redshiftUsername" -> dbutils.widgets.get("REDSHIFT_USERNAME"),
-            "redshiftPassword" -> dbutils.widgets.get("REDSHIFT_PASSWORD"),
-            "redshiftAwsRole" -> dbutils.widgets.get("AWS_IAM_ROLE"),
-            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("ENVIRONMENT"))}:${REDSHIFT_PORTS(dbutils.widgets.get("ENVIRONMENT"))}/${dbutils.widgets.get("ENVIRONMENT")}?ssl_verify=None""",
-            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("ENVIRONMENT"))}redshift_temp/""",
+            "redshiftUsername" -> spark.conf.get("redshift_username"),
+            "redshiftPassword" -> spark.conf.get("redshift_password"),
+            "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("environment"))}:${REDSHIFT_PORTS(dbutils.widgets.get("environment"))}/${dbutils.widgets.get("ENVIRONMENT")}?ssl_verify=None""",
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("environment"))}redshift_temp/""",
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),
             "timestamp" -> currentTime.getTimestamp().toString)
 
 for (table <- tables) {
   configs += ("table" -> table)
-  notebooks = NotebookData("MoveSfaiDataToRedshift",
+  notebooks = NotebookData("MoveSfaiDataToRedshift.scala",
                           0,
                           configs
                          ) +: notebooks
