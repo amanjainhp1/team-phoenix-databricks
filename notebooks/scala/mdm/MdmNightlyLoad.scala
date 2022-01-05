@@ -33,7 +33,7 @@ dbutils.widgets.text("aws_iam_role", "")
 // COMMAND ----------
 
 // MAGIC %python
-// MAGIC // retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
+// MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 // MAGIC 
 // MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
 // MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
@@ -69,7 +69,7 @@ configs += ("env" -> dbutils.widgets.get("environment"),
             "redshiftUsername" -> spark.conf.get("redshift_username"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("environment"))}:${REDSHIFT_PORTS(dbutils.widgets.get("environment"))}/${dbutils.widgets.get("ENVIRONMENT")}?ssl_verify=None""",
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("environment"))}:${REDSHIFT_PORTS(dbutils.widgets.get("environment"))}/${dbutils.widgets.get("environment")}?ssl_verify=None""",
             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("environment"))}redshift_temp/""",
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),
