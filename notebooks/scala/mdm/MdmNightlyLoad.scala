@@ -20,15 +20,15 @@ dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../python/common/secrets_manager_utils.py
+// MAGIC %run ../../python/common/secrets_manager_utils.py
 
 // COMMAND ----------
 
-// MAGIC %run ../scala/common/DatetimeUtils.scala
+// MAGIC %run ../../scala/common/DatetimeUtils.scala
 
 // COMMAND ----------
 
-// MAGIC %run ../scala/common/ParallelNotebooks.scala
+// MAGIC %run ../../scala/common/ParallelNotebooks.scala
 
 // COMMAND ----------
 
