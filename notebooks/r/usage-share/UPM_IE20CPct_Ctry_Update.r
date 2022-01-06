@@ -29,12 +29,12 @@ dbutils.widgets.text("upm_date", "")
 # MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 # MAGIC 
 # MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC dbutils.widgets.text("redshift_username", redshift_secrets["username"])
-# MAGIC dbutils.widgets.text("redshift_password", redshift_secrets["password"])
+# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
+# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
 # MAGIC 
 # MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC dbutils.widgets.text("sfai_username", sqlserver_secrets["username"])
-# MAGIC dbutils.widgets.text("sfai_password", sqlserver_secrets["password"])
+# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
+# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
 
 # COMMAND ----------
 
@@ -85,12 +85,12 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 # MAGIC %scala
 # MAGIC var configs: Map[String, String] = Map()
 # MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> dbutils.widgets.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> dbutils.widgets.get("sfai_password"),
+# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
+# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
 # MAGIC             "sfaiUrl" -> SFAI_URL,
 # MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> dbutils.widgets.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> dbutils.widgets.get("redshift_password"),
+# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
+# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
 # MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
 # MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
 # MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
@@ -101,9 +101,9 @@ UPMDate <- Sys.Date() #Change to date if not running on same date as UPM "2019-1
 
 sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
 
-cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", dbutils.widgets.get("sfai_username"), ";password=", dbutils.widgets.get("sfai_password")))
+cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
 
-clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Landing;user=", dbutils.widgets.get("sfai_username"), ";password=", dbutils.widgets.get("sfai_password")))
+clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Landing;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
 
 # COMMAND ----------
 
@@ -514,7 +514,7 @@ threee <- sqldf('SELECT CM, platform_market_code, printer_region_code,market10, 
                 ')
 threef <- sqldf('SELECT CM, platform_market_code, printer_region_code,market10, de, printer_platform_name, sf_mf
               , max(NormMPV) as NormMPV, SUM(pgs) as sumPgs
-              FROM two WHERE NormMPV > 0
+              FROM two WHERE NormMPV > 0 AND pgs > 0
               GROUP BY CM, platform_market_code, printer_region_code,market10, de, printer_platform_name, sf_mf
               ')
 threef <- threef %>% dplyr::group_by(CM, platform_market_code, printer_region_code,market10, de, sf_mf) %>% plyr::mutate(wmedNMPVpg = weighted.median(x=NormMPV, w=sumPgs, na.rm=TRUE)) %>% 
