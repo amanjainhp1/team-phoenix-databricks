@@ -61,7 +61,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check
+# MAGIC %run ../common/package_check.r
 
 # COMMAND ----------
 
