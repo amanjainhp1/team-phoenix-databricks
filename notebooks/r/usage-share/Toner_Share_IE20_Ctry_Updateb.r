@@ -3970,6 +3970,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 WHERE MPV_n is not null AND MPV_n >0
                  
                  "))
+                                            
 mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 '",rec1,"' as record
                 , year_month_float as cal_date
@@ -3991,7 +3992,49 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                  
                  "))
 
-mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen)
+mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'k_usage' as measure
+                , Usage as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage is not null
+                 
+                 "))
+
+mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'color_usage' as measure
+                , Usage_c as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
+                                            
+mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
 
 mdm_tbl$cal_date <- to_date(mdm_tbl$cal_date,format="yyyy-MM-dd")
 mdm_tbl$forecast_created_date <- to_date(mdm_tbl$forecast_created_date,format="yyyy-MM-dd")
@@ -4009,7 +4052,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .format("parquet")
 # MAGIC   .mode("overwrite")
 # MAGIC   .partitionBy("measure")
-# MAGIC   .save("dbfs:/mnt/usage-share/toner/toner_usage_share_75_Q4_qe.parquet")
+# MAGIC   .save("dbfs:/mnt/usage-share/toner/output/toner_usage_share_75_Q4_qe.parquet")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
 # MAGIC   
@@ -4032,7 +4075,3 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 
 notebook_end_time <- Sys.time()
 notebook_total_time <- notebook_end_time - notebook_start_time;notebook_total_time
-
-# COMMAND ----------
-
-
