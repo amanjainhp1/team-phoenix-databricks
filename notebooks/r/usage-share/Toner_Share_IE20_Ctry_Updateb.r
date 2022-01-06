@@ -24,15 +24,15 @@ dbutils.widgets.text("writeout", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../scala/common/Constants.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
+# MAGIC %run ../../scala/common/DatabaseUtils.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/secrets_manager_utils.py
 
 # COMMAND ----------
 
