@@ -1805,9 +1805,10 @@ wtaverage[is.na(wtaverage)] <- 1
 #  #---Write out weight file------------#
 #  s3write_using(x=wtaverage,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_weights_75_",outnm_dt,"_(",Sys.Date(),").csv"), row.names=FALSE, na="")
  
- if(lock_weights==1){
+ if(lock_weights==1) {
    wtavgin <- s3read_using(FUN = read_csv, object = paste0("s3://insights-environment-sandbox/BrentT/",lockwt_file,".csv"), col_names=TRUE, na="")
    wtaverage <- wtavgin
+  }
 
 # COMMAND ----------
 
