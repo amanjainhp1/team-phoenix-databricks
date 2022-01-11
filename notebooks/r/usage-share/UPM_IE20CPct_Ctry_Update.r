@@ -73,8 +73,8 @@ tempdir(check=TRUE)
 # COMMAND ----------
 
 # mount s3 bucket to cluster
-aws_bucket_name <- "dataos-core-dev-team-phoenix/proto/usage-share/"
-mount_name <- "usage-share"
+aws_bucket_name <- "insights-environment-sandbox/BrentT/"
+mount_name <- "insights-environment-sandbox"
 
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
@@ -563,7 +563,7 @@ threeg <- rbind(threeg,threegj)
 
 #UPM <- s3read_using(FUN = read.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",UPMDate,").csv"),  header=TRUE, sep=",", na="")
 UPMDate <- dbutils.widgets.get("upm_date")
-UPM0 <- SparkR::read.parquet(path=paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/UPM_ctry(",UPMDate,").parquet"))
+UPM0 <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
 
 # UPM <- s3read_using(FUN = read_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",UPMDate,").parquet"))
 
@@ -672,7 +672,7 @@ start.time2 <- Sys.time()
 
 # s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
 # s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").parquet"))
-SparkR::write.parquet(x=final9, path=paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/UPMColor_ctry(",Sys.Date(),").parquet"), mode="overwrite")
+SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPMColor_ctry(",Sys.Date(),").parquet"), mode="overwrite")
 
 
 end.time2 <- Sys.time()

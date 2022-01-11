@@ -76,8 +76,8 @@ UPMColorDate <- '2021-11-16' #Sys.Date() #Change to date if not running on same 
 # COMMAND ----------
 
 # mount s3 bucket to cluster
-aws_bucket_name <- "dataos-core-dev-team-phoenix/proto/usage-share/"
-mount_name <- "usage-share"
+aws_bucket_name <- "insights-environment-sandbox/BrentT/"
+mount_name <- "insights-environment-sandbox"
 
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
@@ -181,15 +181,9 @@ clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicl
 
 # COMMAND ----------
 
-#TODO: delete when BDBT DB is shared in team-phoenix Redshift cluster
-# table_month0 <- SparkR::collect(SparkR::read.parquet("/mnt/usage-share/toner/input/share/table_month0.parquet"))
-# createOrReplaceTempView(table_month0, "table_month0")
-
-# COMMAND ----------
-
 table_month0 <- SparkR::sql("SELECT * FROM table_month0")
 
-SparkR::write.parquet(x=table_month0, path=paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/BD_data(",Sys.Date(),").parquet"), mode="overwrite")
+SparkR::write.parquet(x=table_month0, path=paste0("s3://", aws_bucket_name, "BD_data(",Sys.Date(),").parquet"), mode="overwrite")
 
 table_month0 <- SparkR::collect(table_month0)
 
@@ -446,7 +440,7 @@ table_month <- sqldf("
 # MAGIC   .option("delimiter", ",")
 # MAGIC   .option("quote", "\"")
 # MAGIC   .option("header", "true")
-# MAGIC   .csv("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/source/Predecessor_List_5Nov19.csv")
+# MAGIC   .csv("s3://insights-environment-sandbox/BrentT/Predecessor_List_5Nov19.csv")
 # MAGIC 
 # MAGIC predRawFile.createOrReplaceTempView("pred_raw_file")
 
@@ -2835,8 +2829,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 #Uncomment when ready to run
-UPM <- SparkR::read.parquet(path=paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/UPM_ctry(",UPMDate,").parquet"))
-UPMC <- SparkR::read.parquet(path=paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/UPMColor_ctry(",UPMDate,").parquet"))
+UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
+UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPMColor_ctry(",UPMDate,").parquet"))
 # UPM <- s3read_using(FUN = read.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",UPMDate,").csv"),  header=TRUE, sep=",", na="")
 # UPMC <- s3read_using(FUN = read.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",UPMColorDate,").csv"),  header=TRUE, sep=",", na="")
 
@@ -3591,7 +3585,7 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
 # Change to match MDM format
 
 final_list8 <- filter(final_list7, !isNull(final_list7$Page_Share))  #missing intro date
-final_list8$fiscal_date <- to_date(concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01")), format = "yyyy-mm-dd")
+final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
 
 #final_list8jp <- subset(final_list8,Region=="AP" & Platform_Subset_Nm %in% c('ANNAPURNA','ANTARES PQ','AZALEA','BLUEFIN','CORDOBA','CORDOBA MANAGED','CYPRESS'
                             #,'DENALI MFP','EVEREST MFP','FIJIMFP','GARNETAK','MADRID','MADRID LITE','MADRID MANAGED','MAPLE','NOVA PQ','REDWOOD','SAPPHIRE MFP'
@@ -3600,7 +3594,7 @@ final_list8$fiscal_date <- to_date(concat_ws(sep = "-", substr(final_list8$FYear
 #final_list8 <- rbind(final_list8,final_list8jp)
 
 #Change from Fiscal Date to Calendar Date
-final_list8$year_month_float <- to_date(final_list8$fiscal_date)
+final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 #month(final_list8$year_month_float) <- month(final_list8$year_month_float)-2
 
 today <- Sys.Date()
@@ -4054,6 +4048,8 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .save("dbfs:/mnt/usage-share/toner/output/toner_usage_share_75_Q4_qe.parquet")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
+# MAGIC 
+# MAGIC   submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), "TRUNCATE stage.usage_share_country_landing_G2")
 # MAGIC   
 # MAGIC   mdmTbl.write
 # MAGIC     .format("com.databricks.spark.redshift")
@@ -4062,9 +4058,9 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC     .option("aws_iam_role", configs("redshiftAwsRole"))
 # MAGIC     .option("user", configs("redshiftUsername"))
 # MAGIC     .option("password", configs("redshiftPassword"))
-# MAGIC     .option("dbtable", "stage.mdm_tbl")
+# MAGIC     .option("dbtable", "stage.usage_share_country_landing_G2")
 # MAGIC     .partitionBy("measure")
-# MAGIC     .mode("overwrite")
+# MAGIC     .mode("append")
 # MAGIC     .save()
 # MAGIC   
 # MAGIC   submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), "GRANT ALL ON ALL TABLES IN schema stage TO group dev_arch_eng")

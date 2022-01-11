@@ -72,8 +72,8 @@ tempdir(check=TRUE)
 # COMMAND ----------
 
 # mount s3 bucket to cluster
-aws_bucket_name <- "dataos-core-dev-team-phoenix/proto/usage-share/"
-mount_name <- "usage-share"
+aws_bucket_name <- "insights-environment-sandbox/BrentT/"
+mount_name <- "insights-environment-sandbox"
 
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
@@ -1806,7 +1806,7 @@ wtaverage[is.na(wtaverage)] <- 1
 #  s3write_using(x=wtaverage,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_weights_75_",outnm_dt,"_(",Sys.Date(),").csv"), row.names=FALSE, na="")
  
  if(lock_weights==1) {
-   wtavgin <- s3read_using(FUN = read_csv, object = paste0("s3://insights-environment-sandbox/BrentT/",lockwt_file,".csv"), col_names=TRUE, na="")
+   wtavgin <- s3read_using(FUN = read_csv, object = paste0("s3://", aws_bucket_name, lockwt_file,".csv"), col_names=TRUE, na="")
    wtaverage <- wtavgin
   }
 
@@ -4082,7 +4082,7 @@ start.time2 <- Sys.time()
 
 #s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
 # s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",Sys.Date(),").parquet"))
-SparkR::write.parquet(x=final9, path=paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/UPM_ctry(",Sys.Date(),").parquet"), mode="overwrite")
+SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPM_ctry(",Sys.Date(),").parquet"), mode="overwrite")
 
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
