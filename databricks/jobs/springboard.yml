@@ -5,3 +5,6 @@ Jobs:
   - toner-usage-color
   - toner-share
   - example-job
+  - ink-usage-total
+  - ink-usage-color
+  - ink-share
