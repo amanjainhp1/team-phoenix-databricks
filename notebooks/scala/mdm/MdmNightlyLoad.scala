@@ -6,11 +6,7 @@ import scala.language.postfixOps
 // COMMAND ----------
 
 dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("redshift_username", "")
-dbutils.widgets.text("redshift_password", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.text("sfai_username", "")
-dbutils.widgets.text("sfai_password", "")
 dbutils.widgets.dropdown("environment", "dev", Seq("dev", "itg", "prd"))
 dbutils.widgets.text("aws_iam_role", "")
 
@@ -90,4 +86,7 @@ res.value
 
 // COMMAND ----------
 
+if (res.toString.contains("FAILED")) {
+  throw new Exception("Job failed. At least one notebook job has returned a FAILED status. Check jobs above for more information.")
+}
 
