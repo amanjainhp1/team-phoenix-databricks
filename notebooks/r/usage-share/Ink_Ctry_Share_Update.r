@@ -1450,6 +1450,7 @@ proxylist1 <-rbind(proxylist1,proxylist_iter)
 predlist_use <- anti_join(predlist_iter,proxylist_iter,by=c("printer_platform_name","country_alpha2","rtm"))
 
 if(all(is.na(predlist_use$pred_iter))){break}
+if(y<-15){break}
 }
 
 predlist_use$pred_iter <- predlist_use$printer_platform_name
@@ -1490,6 +1491,7 @@ proxylist1 <-rbind(proxylist1,proxylist_iter)
 predlist_use <- anti_join(predlist_iter,proxylist_iter,by=c("printer_platform_name","country_alpha2","rtm"))
 
 if(all(is.na(predlist_use$pred_iter))){break}
+if(y>15){break}
 }
 #successor list empty
 
