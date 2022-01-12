@@ -15,9 +15,7 @@ variables:
 - name: jobs_file
   value: springboard.yml
 - name: stack
-  values: 
-    - 'dev'
-    - 'itg'
+  value: dev
 
 trigger: 
   branches:
