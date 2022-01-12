@@ -14,6 +14,8 @@ variables:
 - group: Defaults
 - name: jobs_file
   value: springboard.yml
+
+parameters:
 - name: stack
   displayName: 'stack'
   type: string
