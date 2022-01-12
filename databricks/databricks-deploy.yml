@@ -9,13 +9,19 @@ resources:
       name: supplies-bd/team-phoenix-databricks-jobs-config
       endpoint: ghe
 
+parameters:
+- name: stack
+  displayName: 'stack'
+  type: string
+  values: 
+    - 'dev'
+    - 'itg'
+
 variables:
 - group: databricks-cd
 - group: Defaults
 - name: jobs_file
-  value: springboard.yml
-- name: stack
-  value: dev
+  value: ${{ parameters.stack }}-springboard.yml
 
 trigger: 
   branches:
@@ -24,6 +30,7 @@ trigger:
   paths:
     exclude:
       - databricks/internal/dev-springboard.yml
+      - databricks/internal/itg-springboard.yml
       - README.md
 
 pr: none
@@ -55,5 +62,5 @@ jobs:
       workspace_path_prefix: '/team-phoenix'
       nexus_repo: "https://nexus-int.corp.hpicloud.net/repository"
       jobs_file: $(jobs_file)
-      stack: $(stack)
+      stack: ${{ parameters.stack }}
       jobs_file_prefix: 'team-phoenix-databricks/databricks'
