@@ -9,12 +9,6 @@ resources:
       name: supplies-bd/team-phoenix-databricks-jobs-config
       endpoint: ghe
 
-variables:
-- group: databricks-cd
-- group: Defaults
-- name: jobs_file
-  value: springboard.yml
-
 parameters:
 - name: stack
   displayName: 'stack'
@@ -23,6 +17,12 @@ parameters:
     - 'dev'
     - 'itg'
 
+variables:
+- group: databricks-cd
+- group: Defaults
+- name: jobs_file
+  value: ${{ parameters.stack }}-springboard.yml
+
 trigger: 
   branches:
     include:
@@ -30,6 +30,7 @@ trigger:
   paths:
     exclude:
       - databricks/internal/dev-springboard.yml
+      - databricks/internal/itg-springboard.yml
       - README.md
 
 pr: none
