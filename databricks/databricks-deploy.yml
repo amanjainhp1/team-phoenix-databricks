@@ -15,7 +15,9 @@ variables:
 - name: jobs_file
   value: springboard.yml
 - name: stack
-  value: dev
+  values: 
+    - 'dev'
+    - 'itg'
 
 trigger: 
   branches:
@@ -55,5 +57,5 @@ jobs:
       workspace_path_prefix: '/team-phoenix'
       nexus_repo: "https://nexus-int.corp.hpicloud.net/repository"
       jobs_file: $(jobs_file)
-      stack: $(stack)
+      stack: ${{ parameters.stack }}
       jobs_file_prefix: 'team-phoenix-databricks/databricks'
