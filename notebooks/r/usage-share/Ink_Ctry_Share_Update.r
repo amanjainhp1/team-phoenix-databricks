@@ -1,5 +1,4 @@
 # Databricks notebook source
-# Databricks notebook source
 # ---
 # Version 2021.11.29.1
 # title: "100% IB Ink Share DE with IE 2.0 IB"
@@ -25,15 +24,15 @@ dbutils.widgets.text("writeout", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../scala/common/Constants.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
+# MAGIC %run ../../scala/common/DatabaseUtils.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/secrets_manager_utils.py
 
 # COMMAND ----------
 
@@ -62,7 +61,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check
+# MAGIC %run ../common/package_check.r
 
 # COMMAND ----------
 
@@ -78,6 +77,11 @@ UPMDateC <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if
 # mount s3 bucket to cluster
 aws_bucket_name <- "insights-environment-sandbox/BrentT/"
 mount_name <- "insights-environment-sandbox"
+
+sparkR.session(sparkConfig = list(
+  aws_bucket_name = aws_bucket_name,
+  mount_name = mount_name
+))
 
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
@@ -1575,7 +1579,7 @@ plotlook <- sqldf("select a.*, b.printer_intro_month as PIM
   plotlook$a <- as.numeric(plotlook$a)
   plotlook$b <- as.numeric(plotlook$b)
 
-  plotlook$dtdiff <- abs(plotlook$printer_intro_month-plotlook$PIM)
+  plotlook$dtdiff <- abs(as.Date(plotlook$printer_intro_month)-as.Date(plotlook$PIM))
   
 plotlook_srt <- plotlook[order(plotlook$printer_platform_name,plotlook$country_alpha2,plotlook$rtm,plotlook$dtdiff),]
 plotlook_dual<- plotlook_srt[which(duplicated(plotlook_srt[,c('printer_platform_name','country_alpha2','rtm')])==T),]
@@ -2679,7 +2683,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .format("parquet")
 # MAGIC   .mode("overwrite")
 # MAGIC   .partitionBy("measure")
-# MAGIC   .save("dbfs:/mnt/usage-share/ink/output/toner_usage_share_75_Q4_qe.parquet")
+# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}ink_usage_share_75_Q4_qe.parquet""")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
 # MAGIC   
