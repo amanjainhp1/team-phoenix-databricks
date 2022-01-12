@@ -1,5 +1,4 @@
 # Databricks notebook source
-# Databricks notebook source
 # ---
 # Version 2021.11.29.1
 # title: "100% IB Ink Share DE with IE 2.0 IB"
@@ -25,15 +24,15 @@ dbutils.widgets.text("writeout", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../scala/common/Constants.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
+# MAGIC %run ../../scala/common/DatabaseUtils.scala
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/secrets_manager_utils.py
 
 # COMMAND ----------
 
@@ -41,12 +40,12 @@ dbutils.widgets.text("writeout", "")
 # MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 # MAGIC 
 # MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC dbutils.widgets.text("redshift_username", redshift_secrets["username"])
-# MAGIC dbutils.widgets.text("redshift_password", redshift_secrets["password"])
+# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
+# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
 # MAGIC 
 # MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC dbutils.widgets.text("sfai_username", sqlserver_secrets["username"])
-# MAGIC dbutils.widgets.text("sfai_password", sqlserver_secrets["password"])
+# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
+# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
 
 # COMMAND ----------
 
@@ -62,7 +61,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check
+# MAGIC %run ../common/package_check.r
 
 # COMMAND ----------
 
@@ -79,6 +78,11 @@ UPMDateC <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if
 aws_bucket_name <- "insights-environment-sandbox/BrentT/"
 mount_name <- "insights-environment-sandbox"
 
+sparkR.session(sparkConfig = list(
+  aws_bucket_name = aws_bucket_name,
+  mount_name = mount_name
+))
+
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
  print("Mount does not exist or is already mounted to cluster"))
@@ -88,12 +92,12 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 # MAGIC %scala
 # MAGIC var configs: Map[String, String] = Map()
 # MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> dbutils.widgets.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> dbutils.widgets.get("sfai_password"),
+# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
+# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
 # MAGIC             "sfaiUrl" -> SFAI_URL,
 # MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> dbutils.widgets.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> dbutils.widgets.get("redshift_password"),
+# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
+# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
 # MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
 # MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
 # MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
@@ -104,7 +108,7 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 
 sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
 
-sfai <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", dbutils.widgets.get("sfai_username"), ";password=", dbutils.widgets.get("sfai_password")))
+sfai <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
 
 # COMMAND ----------
 
@@ -577,7 +581,7 @@ product_ib2 <- sqldf(paste("
 # MAGIC   .option("delimiter", ",")
 # MAGIC   .option("quote", "\"")
 # MAGIC   .option("header", "true")
-# MAGIC   .csv("s3:/insights-environment-sandbox/BrentT/Predecessor_List_5Nov19.csv")
+# MAGIC   .csv("s3a://insights-environment-sandbox/BrentT/Predecessor_List_5Nov19.csv")
 # MAGIC 
 # MAGIC predRawFile.createOrReplaceTempView("pred_raw_file")
 
@@ -1575,7 +1579,7 @@ plotlook <- sqldf("select a.*, b.printer_intro_month as PIM
   plotlook$a <- as.numeric(plotlook$a)
   plotlook$b <- as.numeric(plotlook$b)
 
-  plotlook$dtdiff <- abs(plotlook$printer_intro_month-plotlook$PIM)
+  plotlook$dtdiff <- abs(as.Date(plotlook$printer_intro_month)-as.Date(plotlook$PIM))
   
 plotlook_srt <- plotlook[order(plotlook$printer_platform_name,plotlook$country_alpha2,plotlook$rtm,plotlook$dtdiff),]
 plotlook_dual<- plotlook_srt[which(duplicated(plotlook_srt[,c('printer_platform_name','country_alpha2','rtm')])==T),]
@@ -2679,7 +2683,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .format("parquet")
 # MAGIC   .mode("overwrite")
 # MAGIC   .partitionBy("measure")
-# MAGIC   .save("dbfs:/mnt/usage-share/ink/output/toner_usage_share_75_Q4_qe.parquet")
+# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}ink_usage_share_75_Q4_qe.parquet""")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
 # MAGIC   

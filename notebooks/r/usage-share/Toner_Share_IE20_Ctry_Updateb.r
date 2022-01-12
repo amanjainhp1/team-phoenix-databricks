@@ -79,6 +79,11 @@ UPMColorDate <- '2021-11-16' #Sys.Date() #Change to date if not running on same 
 aws_bucket_name <- "insights-environment-sandbox/BrentT/"
 mount_name <- "insights-environment-sandbox"
 
+sparkR.session(sparkConfig = list(
+  aws_bucket_name = aws_bucket_name,
+  mount_name = mount_name
+))
+
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
  print("Mount does not exist or is already mounted to cluster"))
@@ -4045,7 +4050,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .format("parquet")
 # MAGIC   .mode("overwrite")
 # MAGIC   .partitionBy("measure")
-# MAGIC   .save("dbfs:/mnt/usage-share/toner/output/toner_usage_share_75_Q4_qe.parquet")
+# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}toner_usage_share_75_Q4_qe.parquet""")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
 # MAGIC 
