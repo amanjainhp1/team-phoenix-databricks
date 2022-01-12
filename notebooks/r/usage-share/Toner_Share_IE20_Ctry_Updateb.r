@@ -445,7 +445,7 @@ table_month <- sqldf("
 # MAGIC   .option("delimiter", ",")
 # MAGIC   .option("quote", "\"")
 # MAGIC   .option("header", "true")
-# MAGIC   .csv("s3://insights-environment-sandbox/BrentT/Predecessor_List_5Nov19.csv")
+# MAGIC   .csv("s3a://insights-environment-sandbox/BrentT/Predecessor_List_5Nov19.csv")
 # MAGIC 
 # MAGIC predRawFile.createOrReplaceTempView("pred_raw_file")
 
