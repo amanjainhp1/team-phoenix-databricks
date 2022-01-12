@@ -21,7 +21,7 @@ variables:
 - group: databricks-cd
 - group: Defaults
 - name: jobs_file
-  value: ${{ parameters.stack }}-springboard.yml
+  value: springboard.yml
 
 trigger: 
   branches:
