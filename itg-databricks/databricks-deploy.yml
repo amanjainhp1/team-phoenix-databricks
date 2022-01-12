@@ -13,7 +13,7 @@ variables:
 - group: databricks-cd
 - group: Defaults
 - name: jobs_file
-  value: itg-springboard.yml
+  value: springboard.yml
 - name: stack
   value: itg
 
