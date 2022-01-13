@@ -20,6 +20,10 @@ dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
+// MAGIC %run ../../scala/common/DatabaseUtils.scala
+
+// COMMAND ----------
+
 // MAGIC %run ../../scala/common/DatetimeUtils.scala
 
 // COMMAND ----------

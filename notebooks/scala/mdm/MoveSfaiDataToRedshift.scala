@@ -15,7 +15,7 @@ val timestamp = dbutils.widgets.get("timestamp")
 // COMMAND ----------
 
 //retrieve data from SFAI
-val tableDF = spark.read
+var tableDF = spark.read
   .format("jdbc")
   .option("url", sfaiUrl + "database=" + sfaiDatabase)
   .option("dbTable", s"""dbo.${table}""")
@@ -24,10 +24,17 @@ val tableDF = spark.read
   .option("driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
   .load()
 
+if(table == "hardware_xref") {
+  tableDF = tableDF.drop("id")
+}
+
 // write data to S3
 tableDF.write
   .format("csv")
   .save(s"s3a://dataos-core-dev-team-phoenix/proto/landing/${table}/${datestamp}/${timestamp}/")
+
+// truncate existing redshift data
+submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"TRUNCATE mdm.${table}")
 
 // write data to redshift
 tableDF.write
