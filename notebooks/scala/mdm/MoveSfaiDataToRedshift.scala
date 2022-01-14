@@ -54,19 +54,20 @@ val outputTableCols = spark.read
 var query = "SELECT \n"
 
 for (col <- outputTableCols; if (!(List("cal_id", "geo_id", "id", "iso_cc_id", "pl_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
-
-  if (inputTableCols.contains(col)) {
-    query = query + col
-  } else {
-    if (col == "official") query = query + "1 AS official"
-    if (col == "last_modified_date") query = query + "load_date AS last_modified_date"
-    if (col == "profit_center_code" && table == "product_line_xref") query = query + "profit_center AS profit_center_code"
-    if (col == "load_date") query = query + s"""\"${redshiftTimestamp}\" AS load_date"""
+  if (col == "id" && table == "hardware_xref") {} else {
+    if (inputTableCols.contains(col)) {
+      query = query + col
+    } else {
+      if (col == "official") query = query + "1 AS official"
+      if (col == "last_modified_date") query = query + "load_date AS last_modified_date"
+      if (col == "profit_center_code" && table == "product_line_xref") query = query + "profit_center AS profit_center_code"
+      if (col == "load_date") query = query + s"""\"${redshiftTimestamp}\" AS load_date"""
+    }
+    
+    if (outputTableCols.dropRight(1).contains(col)) query = query + ","
+    
+    query = query + "\n"
   }
-  
-  if (outputTableCols.dropRight(1).contains(col)) query = query + ","
-  
-  query = query + "\n"
 }
 
 val finalTableDF = spark.sql(query + "FROM tableDF")
