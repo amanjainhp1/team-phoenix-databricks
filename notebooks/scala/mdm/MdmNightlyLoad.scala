@@ -7,7 +7,7 @@ import scala.language.postfixOps
 
 dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("environment", "dev", Seq("dev", "itg", "prd"))
+dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prd"))
 dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
@@ -17,10 +17,6 @@ dbutils.widgets.text("aws_iam_role", "")
 // COMMAND ----------
 
 // MAGIC %run ../../python/common/secrets_manager_utils.py
-
-// COMMAND ----------
-
-// MAGIC %run ../../scala/common/DatabaseUtils.scala
 
 // COMMAND ----------
 
@@ -62,18 +58,19 @@ val tables: Seq[String] = Seq("calendar",
                               "yield")
 
 var configs: Map[String, String] = Map()
-configs += ("env" -> dbutils.widgets.get("environment"),
+configs += ("stack" -> dbutils.widgets.get("stack"),
             "sfaiUsername" -> spark.conf.get("sfai_username"),
             "sfaiPassword" -> spark.conf.get("sfai_password"),
             "sfaiUrl" -> SFAI_URL,
             "redshiftUsername" -> spark.conf.get("redshift_username"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("environment"))}:${REDSHIFT_PORTS(dbutils.widgets.get("environment"))}/${dbutils.widgets.get("environment")}?ssl_verify=None""",
-            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("environment"))}redshift_temp/""",
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),
-            "timestamp" -> currentTime.getTimestamp().toString)
+            "timestamp" -> currentTime.getTimestamp().toString,
+            "redshiftTimestamp" -> currentTime.getRedshiftTimestamp.toString)
 
 for (table <- tables) {
   configs += ("table" -> table)
@@ -93,4 +90,3 @@ res.value
 if (res.toString.contains("FAILED")) {
   throw new Exception("Job failed. At least one notebook job has returned a FAILED status. Check jobs above for more information.")
 }
-
