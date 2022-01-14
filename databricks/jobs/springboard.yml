@@ -1,10 +1,12 @@
 ---
 Jobs:
-  - mdm-nightly-load
-  - toner-usage-total
-  - toner-usage-color
-  - toner-share
   - example-job
-  - ink-usage-total
-  - ink-usage-color
+  - hardware-ltf
+  - hardware-stf
   - ink-share
+  - ink-usage-color
+  - ink-usage-total
+  - mdm-nightly-load
+  - toner-share
+  - toner-usage-color
+  - toner-usage-total
