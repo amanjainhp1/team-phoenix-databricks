@@ -53,7 +53,7 @@ val outputTableCols = spark.read
 
 var query = "SELECT \n"
 
-for (col <- outputTableCols; if (!(List("geo_id", "id", "iso_cc_id", "pl_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
+for (col <- outputTableCols; if (!(List("cal_id", "geo_id", "id", "iso_cc_id", "pl_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
 
   if (inputTableCols.contains(col)) {
     query = query + col
