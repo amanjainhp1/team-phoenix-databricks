@@ -34,6 +34,11 @@ git push origin new-branch-name
 dataos-dev-internal: https://dataos-dev-internal.cloud.databricks.com/  
 dataos-dev: https://dataos-dev.cloud.databricks.com   
 
+## Azure DevOps Pipeline URLs
+
+dev: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=8937    
+itg: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373    
+
 ## Informative Links
 DataOS: Guide to the Cloud: https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/    
 Scala Style Guide: https://github.com/databricks/scala-style-guide  
