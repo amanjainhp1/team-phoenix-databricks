@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# #Version 2021.11.29.1#
+# #Version 2021.01.19.1#
 # title: "UPM with IE2.0 IB Country Level"
 # output: html_notebook
 # ---
@@ -194,7 +194,7 @@ lockwt_file <- 'toner_weights_75_Q4_qe_2021-11-16'
 bdtbl <- dbutils.widgets.get("bdtbl")
 
 #--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
-outnm_dt <- 'Q4_pulse'
+outnm_dt <- dbutils.widgets.get("outnm_dt")
 
 # COMMAND ----------
 
@@ -683,10 +683,12 @@ sourceReplacement <- function(x, replace)
 
 outcome <- sourceReplacement(outcome0, replace)
 outcome$b1check <- outcome$b1                      #For checking limits
-outcome$b1 <- ifelse(outcome$b1 > -0.01, -.01,outcome$b1)
-outcome$b1 <- ifelse(outcome$b1 < -0.15, -0.15,outcome$b1)
-outcome$b1c <- ifelse(outcome$b1c > -0.01, -.01,outcome$b1c)
-outcome$b1c <- ifelse(outcome$b1c < -0.15, -0.15,outcome$b1c)
+  outcome$b1 <- ifelse(outcome$b1 > -0.01, -.01,outcome$b1)
+  outcome$b1 <- ifelse(outcome$b1 < -0.10, -0.10,outcome$b1)
+  outcome$b1c <- ifelse(outcome$b1c > -0.01, -.01,outcome$b1c)
+  outcome$b1c <- ifelse(outcome$b1c < -0.10, -0.10,outcome$b1c)
+  # outcome$b1 <- -0.1
+  #outcome$b1c <- -0.1
   ## What to do when decay is not negative ###
 
 
@@ -2569,7 +2571,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Latin America] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Latin America] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [Latin America] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Latin America] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dla
+                                WHEN [Latin America] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Latin America] is null and [ISE] is not null then 'IS'
                                 WHEN [Latin America] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Latin America] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -3541,6 +3543,31 @@ route <- rbind(route1B, route5B, route6B)
 
 routeT <- reshape2::dcast(route, platform_market_code + CM +printer_platform_name ~printer_region_code, value.var="Route")
 
+  route <- sqldf("SELECT *,
+                  CASE WHEN Route = 'Self' THEN 'modelled: Self'
+                       WHEN Route = 'NA' THEN 'proxied: NA ;'||CM||platform_market_code
+                       WHEN Route = 'UK' THEN 'proxied: UK ;'||CM||platform_market_code
+                       WHEN Route = 'IS' THEN 'proxied: IS ;'||CM||platform_market_code
+                       WHEN Route = 'IN' THEN 'proxied: IN ;'||CM||platform_market_code
+                       WHEN Route = 'GAD' THEN 'proxied: GAD ;'||CM||platform_market_code
+                       WHEN Route = 'GAE' THEN 'proxied: GAE ;'||CM||platform_market_code
+                       WHEN Route = 'GCD' THEN 'proxied: GCD ;'||CM||platform_market_code
+                       WHEN Route = 'GCE' THEN 'proxied: GCE ;'||CM||platform_market_code
+                       WHEN Route = 'CED' THEN 'proxied: CED ;'||CM||platform_market_code
+                       WHEN Route = 'CEE' THEN 'proxied: CEE ;'||CM||platform_market_code
+                       WHEN Route = 'LA' THEN 'proxied: LA ;'||CM||platform_market_code
+                       WHEN Route = 'NE' THEN 'proxied: NE ;'||CM||platform_market_code
+                       WHEN Route = 'SE' THEN 'proxied: SE ;'||CM||platform_market_code
+                       WHEN Route = 'Modeled' THEN 'ML'
+                       WHEN Route = 'Future' THEN 'HW POR'
+                  END AS label
+                  FROM route 
+                  
+                 
+                 ")
+   
+  routeT <- reshape2::dcast(route, platform_market_code + CM +printer_platform_name ~printer_region_code, value.var="label")
+
 # rm(route1B)
 # rm(route5B)
 # rm(route6B)
@@ -3755,6 +3782,8 @@ normdataFinal0 <- sqldf("
                     ON src.printer_platform_name=por.printer_platform_name
                    LEFT JOIN normdatadate2 dt
                     ON src.printer_platform_name=dt.printer_platform_name AND src.mde=dt.printer_region_code
+                  --LEFT JOIN route rt
+                    --ON src.printer_platform_name=rt.printer_platform_name AND src.market10=rt.market10
                    ")
 
 # normdataFinal0 <- sqldf('select aa1.*, aa2.introdate as introdate0
