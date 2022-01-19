@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# #Version 2021.11.16.1#
+# #Version 2021.01.19.1#
 # title: "100% IB Toner Share (country level)"
 # output:
 #   html_notebook: default
@@ -71,7 +71,10 @@ options(stringsAsFactors = FALSE)
 tempdir(check=TRUE)
 # writeout <- 'NO' #change to YES to write to MDM
 UPMDate <- dbutils.widgets.get("upm_date") #Sys.Date() #Change to date if not running on same date as UPM "2021-07-19" #  '2021-09-10' #
-UPMColorDate <- '2021-11-16' #Sys.Date() #Change to date if not running on same date as UPM "2021-07-19" # '2021-09-10' #
+UPMColorDate <- dbutils.widgets.get("upm_color_date") #Sys.Date() #Change to date if not running on same date as UPM "2021-07-19" # '2021-09-10' #
+
+#--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
+outnm_dt <- dbutils.widgets.get("outnm_dt")
 
 # COMMAND ----------
 
@@ -117,7 +120,7 @@ clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicl
 
 # MAGIC %scala
 # MAGIC 
-# MAGIC val cutoffDate = "202111"
+# MAGIC val cutoffDate = dbutils.widgets.get("cutoff_dt")
 # MAGIC val tableMonth0Query = s"""
 # MAGIC            SELECT  tpmib.printer_group  
 # MAGIC            , tpmib.printer_platform_name as platform_name 
@@ -161,6 +164,15 @@ clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicl
 # MAGIC             WHERE 1=1 
 # MAGIC             --AND tpmib.date_month_dim_ky < '${cutoffDate}'
 # MAGIC             AND printer_route_to_market_ib='Aftermarket'
+# MAGIC             AND printer_platform_name not in ('CICADA PLUS ROW',
+# MAGIC                                       'TSUNAMI 4:1 ROW',
+# MAGIC                                       'CRICKET',
+# MAGIC                                       'LONE PINE',
+# MAGIC                                       'MANTIS',
+# MAGIC                                       'CARACAL',
+# MAGIC                                       'EAGLE EYE',
+# MAGIC                                       'SID',
+# MAGIC                                       'TSUNAMI 4:1 CH/IND')
 # MAGIC             GROUP BY tpmib.printer_group  
 # MAGIC            , tpmib.printer_platform_name
 # MAGIC            , tpmib.platform_std_name  
@@ -188,19 +200,20 @@ clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicl
 
 table_month0 <- SparkR::sql("SELECT * FROM table_month0")
 
-SparkR::write.parquet(x=table_month0, path=paste0("s3://", aws_bucket_name, "BD_data(",Sys.Date(),").parquet"), mode="overwrite")
+SparkR::write.parquet(x=table_month0, path=paste0("s3://", aws_bucket_name, "BD_data_" ,outnm_dt, "(", Sys.Date(), ").parquet"), mode="overwrite")
 
 table_month0 <- SparkR::collect(table_month0)
 
 # COMMAND ----------
 
-# %scala
-# val dmVersionQuery = s"""select distinct insert_ts from ${dbutils.widgets.get("bdtbl")} tri_printer_usage_sn with (NOLOCK)"""
-# val dmVersion = readRedshiftToDF(configs)
-#   .option("query", dmVersionQuery)
-#   .load()
-
-# dmVersion.createOrReplaceTempView("dm_version")
+# MAGIC %scala
+# MAGIC // ######Big Data Version#########
+# MAGIC val dmVersionQuery = s"""select distinct insert_ts from ${dbutils.widgets.get("bdtbl")} tri_printer_usage_sn with (NOLOCK)"""
+# MAGIC val dmVersion: String = readRedshiftToDF(configs)
+# MAGIC   .option("query", dmVersionQuery)
+# MAGIC   .load().collect().map(_.getTimestamp(0)).mkString("")
+# MAGIC 
+# MAGIC spark.conf.set("dm_version", dmVersion)
 
 # COMMAND ----------
 
@@ -209,7 +222,7 @@ table_month0 <- SparkR::collect(table_month0)
 ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
 #ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
 
-# dm_version <-  SparkR::collect(SparkR::sql("SELECT * FROM dm_version"))
+dm_version <- as.character(sparkR.conf("dm_version"))
 #be sure ib versions match in these next two tables
 ibtable <- dbGetQuery(cprod,paste("
                    select  a.platform_subset
@@ -3082,7 +3095,7 @@ dashampv2$campv<- dashampv2$ampv_c/dashampv2$ampv_d
 ###Combine Results
 
 hwlookup <- as.DataFrame(dbGetQuery(cprod,"
-                       SELECT distinct platform_subset, technology, pl
+                       SELECT distinct platform_subset, technology, pl, sf_mf AS SM
                        FROM IE2_Prod.dbo.hardware_xref"))
 
 createOrReplaceTempView(UPM2, "UPM2")
@@ -3123,7 +3136,7 @@ final_list2 <- SparkR::sql("
                       , idt.intro_month as FIntroDt
                       --, g.EP
                       , g.CM
-                      --, g.SM
+                      , hw.SM
                       , g.Mkt
                       --, g.K_PPM
                       --, g.Clr_PPM
@@ -3404,6 +3417,29 @@ final_list7 <- SparkR::sql("
                         FROM final_list7
                         GROUP BY Platform_Subset_Nm,Country_Cd
                 )
+                , subusev as (
+                    SELECT Platform_Subset_Nm,Country_Cd, FYearMo, Usage, IB
+                    FROM final_list7
+                    WHERE Usage_Source='Dashboard'
+                  )
+                , subusev2 as (
+                    SELECT Platform_Subset_Nm,Country_Cd, FYearMo, Usage*IB as UIB, IB, ROW_NUMBER() 
+                        OVER (PARTITION BY Platform_Subset_Nm,Country_Cd
+                        ORDER BY Platform_Subset_Nm,Country_Cd, FYearMo DESC ) AS Rank
+                    FROM subusev 
+                    order by FYearMo
+                  )
+                , subusev3 as (
+                    SELECT Platform_Subset_Nm,Country_Cd, max(FYearMo) as FYearMo, sum(UIB) as sumUIB, sum(IB) as IB
+                    FROM subusev2
+                    WHERE Rank < 4
+                    GROUP BY Platform_Subset_Nm,Country_Cd
+                  )
+                , subusev4 as (
+                  SELECT Platform_Subset_Nm,Country_Cd, sumUIB/IB as avgUsage
+                  FROM subusev3
+                  GROUP BY Platform_Subset_Nm,Country_Cd
+                )
                 , sub1ps as( 
                     SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_ps_i
                         ,final_list7.Page_Share_sig-final_list7.lagShare_PS AS hd_mchange_ps
@@ -3429,7 +3465,7 @@ final_list7 <- SparkR::sql("
                           --and final_list7.hd_mchange_cu_i=sub0.hd_mchange_cu_i
                   --)
                   , sub1use as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_use_i
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_use_i,final_list7.Usage
                         ,final_list7.Usage-final_list7.lagShare_Usage AS hd_mchange_use
                         FROM final_list7
                         INNER JOIN 
@@ -3452,6 +3488,16 @@ final_list7 <- SparkR::sql("
                         sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
                           and final_list7.index1=sub0.hd_mchange_use_i-1
                   )
+                  , sub1used2 as( 
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo, subusev4.avgUsage, sub1use.hd_mchange_use_i,final_list7.Usage
+                        ,sub1use.Usage-subusev4.avgUsage AS hd_mchange_useavg, sub1use.hd_mchange_use
+                        FROM final_list7
+                        LEFT JOIN 
+                        subusev4 ON final_list7.Platform_Subset_Nm=subusev4.Platform_Subset_Nm and final_list7.Country_Cd=subusev4.Country_Cd
+                        INNER JOIN 
+                        sub1use ON final_list7.Platform_Subset_Nm=sub1use.Platform_Subset_Nm and final_list7.Country_Cd=sub1use.Country_Cd  
+                          and final_list7.index1=sub1use.hd_mchange_use_i-1
+                  )
                   
                   , sub2 as (
                      SELECT a.*
@@ -3465,6 +3511,8 @@ final_list7 <- SparkR::sql("
                       ,sub1use.hd_mchange_use_i as adjust_use_i
                       --,sub1cu.hd_mchange_cu as adjust_cu
                       --,sub1cu.hd_mchange_cu_i as adjust_cu_i
+                      ,subusev4.avgUsage as avgUsage
+                      ,sub1used2.hd_mchange_useavg as adjust_useav
                         
                       FROM final_list7 a
                       LEFT JOIN 
@@ -3482,6 +3530,12 @@ final_list7 <- SparkR::sql("
                       LEFT JOIN 
                         sub1used
                         ON a.Platform_Subset_Nm=sub1used.Platform_Subset_Nm and a.Country_Cd=sub1used.Country_Cd --and a.FYearMo=sub1used.FYearMo
+                      LEFT JOIN 
+                        subusev4
+                        ON a.Platform_Subset_Nm=subusev4.Platform_Subset_Nm and a.Country_Cd=subusev4.Country_Cd --and a.FYearMo=subusev4.FYearMo
+                      LEFT JOIN 
+                        sub1used2
+                        ON a.Platform_Subset_Nm=sub1used2.Platform_Subset_Nm and a.Country_Cd=sub1used2.Country_Cd --and a.FYearMo=sub1used2.FYearMo
                       --LEFT JOIN 
                         --sub1cu
                        -- ON a.Platform_Subset_Nm=sub1cu.Platform_Subset_Nm and a.Country_Cd=sub1cu.Country_Cd --and a.FYearMo=sub1cu.FYearMo
@@ -3501,6 +3555,7 @@ final_list7$adjust_ps <- ifelse(final_list7$adjust_ps == -Inf, 0, final_list7$ad
 final_list7$adjust_used <- ifelse(isNull(final_list7$adjust_used),0,final_list7$adjust_used)
 final_list7$adjust_use <- ifelse(isNull(final_list7$adjust_use),0,final_list7$adjust_use)
 final_list7$adjust_usec <- ifelse(isNull(final_list7$adjust_usec),0,final_list7$adjust_usec)
+final_list7$adjust_useav <- ifelse(is.na(final_list7$adjust_useav),0,final_list7$adjust_useav)
 
 # final_list7$Page_Share_Adj <- ifelse(final_list7$Share_Source_PS=="Modeled",
 #                                      ifelse((final_list7$adjust_ps>0) & final_list7$adjust_ps_i<= final_list7$index1,
@@ -3528,8 +3583,10 @@ final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final
 #final_list7$CU_Share_Adj <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse((final_list7$adjust_cu>0) & final_list7$adjust_cu_i<= final_list7$index1,pmax(final_list7$Crg_Unit_Share -2*(final_list7$adjust_  cu),0.05),ifelse((final_list7$adjust_cu< -0.05) & final_list7$adjust_cu_i<= final_list7$index1,pmax(final_list7$Crg_Unit_Share -.95*(final_list7$adjust_cu),0.05),final_list7$Crg_Unit_Share)),final_list7$Crg_Unit_Share)
 #final_list7$CU_Share_Adj <- ifelse(final_list7$CU_Share_Adj>1,1,ifelse(final_list7$CU_Share_Adj<0,0,final_list7$CU_Share_Adj))
 
-final_list7$adjust_used <- ifelse(final_list7$adjust_used==0,1,final_list7$adjust_used)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1, ifelse(final_list7$Usage -(final_list7$adjust_use+lit(0.95)*final_list7$adjust_used) > 0.05, final_list7$Usage -(final_list7$adjust_use+lit(0.95)*final_list7$adjust_used), 0.05), final_list7$Usage), final_list7$Usage)
+###ADJUST USAGE
+final_list7$adjust_use_i <- ifelse(is.na(final_list7$adjust_use_i),0,final_list7$adjust_use_i)
+#final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+0.95*final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index,pmax((final_list7$Usage-final_list7$adjust_useav),0.05),final_list7$Usage),final_list7$Usage)
 
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 
@@ -3591,6 +3648,7 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
 
 final_list8 <- filter(final_list7, !isNull(final_list7$Page_Share))  #missing intro date
 final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
+final_list8$model_group <- concat(final_list8$CM,final_list8$SM,final_list8$Mkt,"_",final_list8$market10,"_",final_list8$Region_DE)
 
 #final_list8jp <- subset(final_list8,Region=="AP" & Platform_Subset_Nm %in% c('ANNAPURNA','ANTARES PQ','AZALEA','BLUEFIN','CORDOBA','CORDOBA MANAGED','CYPRESS'
                             #,'DENALI MFP','EVEREST MFP','FIJIMFP','GARNETAK','MADRID','MADRID LITE','MADRID MANAGED','MAPLE','NOVA PQ','REDWOOD','SAPPHIRE MFP'
@@ -3603,7 +3661,7 @@ final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 #month(final_list8$year_month_float) <- month(final_list8$year_month_float)-2
 
 today <- Sys.Date()
-vsn <- '2021.11.16.1'  #for DUPSM
+vsn <- '2022.01.19.1  #for DUPSM
 #vsn <- 'New Version'
 rec1 <- 'usage_share'
 geog1 <- 'country'
@@ -3618,269 +3676,6 @@ gc()
 
 createOrReplaceTempView(final_list8, "final_list8")
 cacheTable("final_list8")
-
-# COMMAND ----------
-
-# mdm_tbl_share <- SparkR::sql(paste0("select distinct
-#                 '",rec1,"' as record
-#                 , year_month_float as cal_date
-#                 , '",geog1,"' as geography_grain
-#                 , Country_Cd as geography
-#                 , Platform_Subset_Nm as platform_subset
-#                 , 'Trad' as customer_engagement
-#                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-#                 , '",today,"' as forecast_created_date
-#                 , Share_Source_PS as data_source
-#                 , '",vsn,"' as version
-#                 , 'hp_share' as measure
-#                 , Page_Share as units
-#                 , Proxy_PS as proxy_used
-#                 , '",ibversion,"' as ib_version
-#                 , '",today,"' as load_date
-#                 from final_list8
-                 
-#                  "))
-
-# #, '",dm_version,"' as dm_version
-# # mdm_tbl_cshare <- sqldf(paste("select
-# #                 '",rec1,"' as record
-# #                 , year_month_float as cal_date
-# #                 , '",geog1,"' as geography_grain
-# #                 , Country_Cd as geography
-# #                 , Platform_Subset_Nm as platform_subset
-# #                 , 'Trad' as customer_engagement
-# #                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-# #                 , '",today,"' as forecast_created_date
-# #                 , Share_Source_CU as data_source
-# #                 , '",vsn,"' as version
-# #                 , 'hp_cu_share' as measure
-# #                 , Crg_Unit_Share as units
-# #                 , Proxy_CU as proxy_used
-# #                 , '",ibversion,"' as ib_version
-# #                 from final_list8
-# #                  
-# #                  ",sep=""))
-# mdm_tbl_usage <- SparkR::sql(paste0("select distinct
-#                 '",rec1,"' as record
-#                 , year_month_float as cal_date
-#                 , '",geog1,"' as geography_grain
-#                 , Country_Cd as geography
-#                 , Platform_Subset_Nm as platform_subset
-#                 , 'Trad' as customer_engagement
-#                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-#                 , '",today,"' as forecast_created_date
-#                 , Usage_Source as data_source
-#                 , '",vsn,"' as version
-#                 , 'usage' as measure
-#                 , Usage as units
-#                 , IMPV_Route as proxy_used
-#                 , '",ibversion,"' as ib_version
-#                 , '",today,"' as load_date
-#                 from final_list8
-#                 WHERE Usage is not null
-                 
-#                  "))
-# mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
-#                 '",rec1,"' as record
-#                 , year_month_float as cal_date
-#                 , '",geog1,"' as geography_grain
-#                 , Country_Cd as geography
-#                 , Platform_Subset_Nm as platform_subset
-#                 , 'Trad' as customer_engagement
-#                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-#                 , '",today,"' as forecast_created_date
-#                 , Usage_Source as data_source
-#                 , '",vsn,"' as version
-#                 , 'Usage_n' as measure
-#                 , MPV_n as units
-#                 , IMPV_Route as proxy_used
-#                 , '",ibversion,"' as ib_version
-#                 , '",today,"' as load_date
-#                 from final_list8
-#                 WHERE MPV_n is not null AND MPV_n >0
-                 
-#                  "))
-# mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
-#                 '",rec1,"' as record
-#                 , year_month_float as cal_date
-#                 , '",geog1,"' as geography_grain
-#                 , Country_Cd as geography
-#                 , Platform_Subset_Nm as platform_subset
-#                 , 'Trad' as customer_engagement
-#                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-#                 , '",today,"' as forecast_created_date
-#                 , Usage_Source as data_source
-#                 , '",vsn,"' as version
-#                 , 'Share_n' as measure
-#                 , Share_Raw_N_PS as units
-#                 , IMPV_Route as proxy_used
-#                 , '",ibversion,"' as ib_version
-#                 , '",today,"' as load_date
-#                 from final_list8
-#                 WHERE Share_Raw_N_PS is not null AND Share_Raw_N_PS >0
-                 
-#                  "))
-# # mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
-# #                 '",rec1,"' as record
-# #                 , year_month_float as cal_date
-# #                 , '",geog1,"' as geography_grain
-# #                 , Country_Cd as geography
-# #                 , Platform_Subset_Nm as platform_subset
-# #                 , 'Trad' as customer_engagement
-# #                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-# #                 , '",today,"' as forecast_created_date
-# #                 , Usage_Source as data_source
-# #                 , '",vsn,"' as version
-# #                 , 'k_usage' as measure
-# #                 , Usage as units
-# #                 , IMPV_Route as proxy_used
-# #                 , '",ibversion,"' as ib_version
-# #                 , '",today,"' as load_date
-# #                 from final_list8
-# #                 WHERE Usage is not null
-                 
-# #                  "))
-
-# # mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
-# #                 '",rec1,"' as record
-# #                 , year_month_float as cal_date
-# #                 , '",geog1,"' as geography_grain
-# #                 , Country_Cd as geography
-# #                 , Platform_Subset_Nm as platform_subset
-# #                 , 'Trad' as customer_engagement
-# #                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-# #                 , '",today,"' as forecast_created_date
-# #                 , Usage_Source as data_source
-# #                 , '",vsn,"' as version
-# #                 , 'color_usage' as measure
-# #                 , Usage_c as units
-# #                 , IMPV_Route as proxy_used
-# #                 , '",ibversion,"' as ib_version
-# #                 , '",today,"' as load_date
-# #                 from final_list8
-# #                 WHERE Usage_c is not null AND Usage_c >0
-                 
-# #                  "))
-# # mdm_tbl_cusagec <- SparkR::sql(paste0("select distinct
-# #                 '",rec1,"' as record
-# #                 , year_month_float as cal_date
-# #                 , '",geog1,"' as geography_grain
-# #                 , Country_Cd as geography
-# #                 , Platform_Subset_Nm as platform_subset
-# #                 , 'Trad' as customer_engagement
-# #                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-# #                 , '",today,"' as forecast_created_date
-# #                 , Usage_Source as data_source
-# #                 , '",vsn,"' as version
-# #                 , 'color_usage_c' as measure
-# #                 , Usage_c as units
-# #                 , IMPV_Route as proxy_used
-# #                 , '",ibversion,"' as ib_version
-# #                 , '",today,"' as load_date
-# #                 from final_list8
-# #                 WHERE Usage_c is not null AND Usage_c >0
-                 
-# #                  "))
-# # mdm_tbl_cusagem <- SparkR::sql(paste0("select distinct
-# #                 '",rec1,"' as record
-# #                 , year_month_float as cal_date
-# #                 , '",geog1,"' as geography_grain
-# #                 , Country_Cd as geography
-# #                 , Platform_Subset_Nm as platform_subset
-# #                 , 'Trad' as customer_engagement
-# #                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-# #                 , '",today,"' as forecast_created_date
-# #                 , Usage_Source as data_source
-# #                 , '",vsn,"' as version
-# #                 , 'color_usage_m' as measure
-# #                 , Usage_c as units
-# #                 , IMPV_Route as proxy_used
-# #                 , '",ibversion,"' as ib_version
-# #                 , '",today,"' as load_date
-# #                 from final_list8
-# #                 WHERE Usage_c is not null AND Usage_c >0
-                 
-# #                  "))
-# # mdm_tbl_cusagey <- SparkR::sql(paste0("select distinct
-# #                 '",rec1,"' as record
-# #                 , year_month_float as cal_date
-# #                 , '",geog1,"' as geography_grain
-# #                 , Country_Cd as geography
-# #                 , Platform_Subset_Nm as platform_subset
-# #                 , 'Trad' as customer_engagement
-# #                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
-# #                 , '",today,"' as forecast_created_date
-# #                 , Usage_Source as data_source
-# #                 , '",vsn,"' as version
-# #                 , 'color_usage_y' as measure
-# #                 , Usage_c as units
-# #                 , IMPV_Route as proxy_used
-# #                 , '",ibversion,"' as ib_version
-# #                 , '",today,"' as load_date
-# #                 from final_list8
-# #                 WHERE Usage_c is not null AND Usage_c >0
-                 
-# #                  "))
-# #mdm_tbl <- rbind(mdm_tbl_share,mdm_tbl_usage,mdm_tbl_cusage,mdm_tbl_kusage,mdm_tbl_usagen,mdm_tbl_sharen)
-#                  #mdm_tbl_cusagec,mdm_tbl_cusagey,mdm_tbl_cusagem ,mdm_tbl_cshare)
-
-# mdm_tbl_share$cal_date<- to_date(mdm_tbl_share$cal_date,format="yyyy-MM-dd")
-# mdm_tbl_share$forecast_created_date<- to_date(mdm_tbl_share$forecast_created_date,format="yyyy-MM-dd")
-# mdm_tbl_share$load_date<- to_date(mdm_tbl_share$load_date,format="yyyy-MM-dd")
-
-# mdm_tbl_usage$cal_date<- to_date(mdm_tbl_usage$cal_date,format="yyyy-MM-dd")
-# mdm_tbl_usage$forecast_created_date<- to_date(mdm_tbl_usage$forecast_created_date,format="yyyy-MM-dd")
-# mdm_tbl_usage$load_date<- to_date(mdm_tbl_usage$load_date,format="yyyy-MM-dd")
-
-# # mdm_tbl_cusage$cal_date<- to_date(mdm_tbl_cusage$cal_date,format="yyyy-MM-dd")
-# # mdm_tbl_cusage$forecast_created_date<- to_date(mdm_tbl_cusage$forecast_created_date,format="yyyy-MM-dd")
-# # mdm_tbl_cusage$load_date<- to_date(mdm_tbl_cusage$load_date,format="yyyy-MM-dd")
-
-# # mdm_tbl_kusage$cal_date<- to_date(mdm_tbl_kusage$cal_date,format="yyyy-MM-dd")
-# # mdm_tbl_kusage$forecast_created_date<- to_date(mdm_tbl_kusage$forecast_created_date,format="yyyy-MM-dd")
-# # mdm_tbl_kusage$load_date<- to_date(mdm_tbl_kusage$load_date,format="yyyy-MM-dd")
-
-# mdm_tbl_usagen$cal_date<- to_date(mdm_tbl_usagen$cal_date,format="yyyy-MM-dd")
-# mdm_tbl_usagen$forecast_created_date<- to_date(mdm_tbl_usagen$forecast_created_date,format="yyyy-MM-dd")
-# mdm_tbl_usagen$load_date<- to_date(mdm_tbl_usagen$load_date,format="yyyy-MM-dd")
-
-# mdm_tbl_sharen$cal_date<- to_date(mdm_tbl_sharen$cal_date,format="yyyy-MM-dd")
-# mdm_tbl_sharen$forecast_created_date<- to_date(mdm_tbl_sharen$forecast_created_date,format="yyyy-MM-dd")
-# mdm_tbl_sharen$load_date<- to_date(mdm_tbl_sharen$load_date,format="yyyy-MM-dd")
-
-# #mdm_tbl <- subset(mdm_tbl,!is.na(units))
-
-# tblout <- "usage_share_country_landing_G2"  #For DUPSM
-# # #tblout <- "usage_share_landing"
-
-# #s3write_using(x=mdm_tbl,FUN = write.csv, object = "s3://insights-environment-sandbox/BrentT/mdm_100_adj.csv", row.names=FALSE)
-# # if(dbutils.widgets.get("writeout")=="YES"){
-# # #dbGetQuery(clanding,"TRUNCATE TABLE IE2_Landing.dbo.usage_share_landing") #clear temp table for new data
-# # #dbExistsTable(con=clanding,"usage_share2_landing")
-# #   dbWriteTable(con=clanding,value=mdm_tbl_share, name=tblout, row.names=FALSE, append=TRUE)
-# #   dbWriteTable(con=clanding,value=mdm_tbl_usage, name=tblout, row.names=FALSE, append=TRUE)
-# #   dbWriteTable(con=clanding,value=mdm_tbl_cusage, name=tblout, row.names=FALSE, append=TRUE)
-# #   dbWriteTable(con=clanding,value=mdm_tbl_kusage, name=tblout, row.names=FALSE, append=TRUE)
-# #   dbWriteTable(con=clanding,value=mdm_tbl_usagen, name=tblout, row.names=FALSE, append=TRUE)
-# #   dbWriteTable(con=clanding,value=mdm_tbl_sharen, name=tblout, row.names=FALSE, append=TRUE)
-# # }
-
-# # test_mdmtbl <- sqldf("select region_5, year_month_float, customer_engagement, platform_subset, measure
-# #                     , count(*) as obs
-# #                      from mdm_tbl
-# #                      group by region_5, year_month_float, customer_engagement, platform_subset, measure
-# #                      ")
-# # table(test_mdmtbl$obs)
-
-# # s3write_using(x=mdm_tbl_share,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_share_75_Q4_qe_",Sys.Date(),".csv"), row.names=FALSE, na="")
-# # s3write_using(x=mdm_tbl_usage,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_usage_75_Q4_qe_",Sys.Date(),".csv"), row.names=FALSE, na="")
-# # s3write_using(x=mdm_tbl_sharen,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_sharen_75_Q4_qe_",Sys.Date(),".csv"), row.names=FALSE, na="")
-# # s3write_using(x=mdm_tbl_usagen,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_usagen_75_Q4_qe_",Sys.Date(),".csv"), row.names=FALSE, na="")
-
-# write.parquet(x=mdm_tbl_share, path = paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/toner_share_75_Q4_qe_", Sys.Date(),".parquet"), mode = "ovewrite")
-# write.parquet(x=mdm_tbl_usage, path = paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/toner_usage_75_Q4_qe_", Sys.Date(),".parquet"), mode = "ovewrite")
-# write.parquet(x=mdm_tbl_sharen, path = paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/toner_sharen_75_Q4_qe_", Sys.Date(),".parquet"), mode = "ovewrite")
-# write.parquet(x=mdm_tbl_usagen, path = paste0("s3://dataos-core-dev-team-phoenix/proto/usage-share/toner/output/toner_usagen_75_Q4_qe_", Sys.Date(),".parquet"), mode = "ovewrite")
 
 # COMMAND ----------
 
@@ -3923,6 +3718,7 @@ mdm_tbl_share <- SparkR::sql(paste0("select distinct
                 , Proxy_PS as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
+                , model_group
                 from final_list8
                  
                  "))
@@ -3943,6 +3739,7 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
+                , model_group
                 from final_list8
                 WHERE Usage is not null
                  
@@ -3964,6 +3761,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
+                , model_group
                 from final_list8
                 WHERE MPV_n is not null AND MPV_n >0
                  
@@ -3985,6 +3783,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
+                , model_group
                 from final_list8
                 WHERE Share_Raw_N_PS is not null AND Share_Raw_N_PS >0
                  
@@ -4006,6 +3805,7 @@ mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
+                , model_group
                 from final_list8
                 WHERE Usage is not null
                  
@@ -4027,6 +3827,7 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
+                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -4037,6 +3838,8 @@ mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, m
 mdm_tbl$cal_date <- to_date(mdm_tbl$cal_date,format="yyyy-MM-dd")
 mdm_tbl$forecast_created_date <- to_date(mdm_tbl$forecast_created_date,format="yyyy-MM-dd")
 mdm_tbl$load_date <- to_date(mdm_tbl$load_date,format="yyyy-MM-dd")
+
+mdm_tbl$dm_version <- lit(dm_version)
 
 createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 
