@@ -3554,7 +3554,7 @@ final_list7$adjust_ps <- ifelse(final_list7$adjust_ps == -Inf, 0, final_list7$ad
 final_list7$adjust_used <- ifelse(isNull(final_list7$adjust_used),0,final_list7$adjust_used)
 final_list7$adjust_use <- ifelse(isNull(final_list7$adjust_use),0,final_list7$adjust_use)
 final_list7$adjust_usec <- ifelse(isNull(final_list7$adjust_usec),0,final_list7$adjust_usec)
-final_list7$adjust_useav <- ifelse(is.na(final_list7$adjust_useav),0,final_list7$adjust_useav)
+final_list7$adjust_useav <- ifelse(isNull(final_list7$adjust_useav),0,final_list7$adjust_useav)
 
 # final_list7$Page_Share_Adj <- ifelse(final_list7$Share_Source_PS=="Modeled",
 #                                      ifelse((final_list7$adjust_ps>0) & final_list7$adjust_ps_i<= final_list7$index1,
