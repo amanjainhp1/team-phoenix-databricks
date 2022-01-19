@@ -6,8 +6,9 @@ from pyspark.sql.types import IntegerType
 # COMMAND ----------
 
 region_name = "us-west-2"
-secret_name = "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj"
-s3_bucket = "dataos-core-dev-team-phoenix"
+# secret_name = "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj"
+secret_name = dbutils.widgets.get("redshift_secret_name")
+s3_bucket = f"""dataos-core-{dbutils.widgets.get("stack")}-team-phoenix"""
 
 # COMMAND ----------
 
@@ -27,29 +28,23 @@ spark.conf.set('password',password)
 
 # COMMAND ----------
 
-# MAGIC %scala
-# MAGIC val username: String = spark.conf.get("username")
-# MAGIC val password: String = spark.conf.get("password")
+import glob
+import os
+import builtins
+list_of_files = glob.glob('../../dbfs/mnt/rdma-load/rdma_product-full*') # * means all if need specific format then *.csv
+latest_file = builtins.max(list_of_files, key=os.path.getctime)
+latest_file = latest_file.split("/")[len(latest_file.split("/"))-1]
+print(latest_file)
 
 # COMMAND ----------
 
-# MAGIC %sh
-# MAGIC aws s3 ls s3://hp-bigdata-prod-enrichment/ie2_deliverables/rdma/
+df = spark.read \
+.format("com.databricks.spark.csv") \
+.option("header","True") \
+.option("sep", "") \
+.load(f"s3a://hp-bigdata-prod-enrichment/ie2_deliverables/rdma/{latest_file}")
 
-# COMMAND ----------
-
-# MAGIC %scala
-# MAGIC val rdmaDf = spark.read
-# MAGIC   .format("com.databricks.spark.csv")
-# MAGIC   .option("header","True")
-# MAGIC   .option("sep", "")
-# MAGIC   .load("s3a://hp-bigdata-prod-enrichment/ie2_deliverables/rdma/rdma_product-full{*}")
-# MAGIC 
-# MAGIC rdmaDf.createOrReplaceTempView("df")
-
-# COMMAND ----------
-
-df= spark.sql('select * from df')
+# df.createOrReplaceTempView("df")
 
 # COMMAND ----------
 
@@ -84,10 +79,11 @@ df=df.select('Base_Prod_Number','PL','Base_Prod_Name','Base_Prod_Desc','Product_
 
 # COMMAND ----------
 
+#write data to redhift staging
 df.write \
   .format("com.databricks.spark.redshift") \
   .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
-  .option("dbtable", "stage.rdma_stage") \
+  .option("dbtable", "stage.rdma_staging") \
   .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
   .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
   .option("user", username) \
@@ -97,82 +93,28 @@ df.write \
 
 # COMMAND ----------
 
-import java.sql.Connection
-import java.sql.Statement
-import java.sql.DriverManager
-
-def submitRemoteQuery(url: String, username: String, password: String, query: String) {
-  
-  var conn: Connection = null
-  conn = DriverManager.getConnection(url, username, password)
-  
-  if (conn != null) {
-      print(s"""Connected to ${url}\n""")
-  }
-
-  val statement: Statement = conn.createStatement()
-  
-  statement.executeUpdate(query)
-  
-  conn.close()
-}
-
-# COMMAND ----------
-
 # MAGIC %scala
-# MAGIC 
 # MAGIC import java.sql.Connection
-# MAGIC import java.sql.DriverManager
-# MAGIC import java.sql.ResultSet
-# MAGIC import java.sql.ResultSetMetaData
-# MAGIC import java.sql.SQLException
 # MAGIC import java.sql.Statement
-# MAGIC import java.util.StringJoiner
+# MAGIC import java.sql.DriverManager
 # MAGIC 
-# MAGIC class RedshiftQuery (var username: String, var password: String, var redshiftQuery: String) {
+# MAGIC def submitRemoteQuery(url: String, username: String, password: String, query: String) {
 # MAGIC   
 # MAGIC   var conn: Connection = null
-# MAGIC   conn = DriverManager.getConnection("jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None",username,password)
+# MAGIC   conn = DriverManager.getConnection(url, username, password)
+# MAGIC   
 # MAGIC   if (conn != null) {
-# MAGIC       print("Connected to Redshift\n")
+# MAGIC       print(s"""Connected to ${url}\n""")
 # MAGIC   }
 # MAGIC 
 # MAGIC   val statement: Statement = conn.createStatement()
-# MAGIC   val query: String = redshiftQuery
-# MAGIC   val queryLower: String = redshiftQuery.toLowerCase()
 # MAGIC   
-# MAGIC   try {
-# MAGIC     if (queryLower.contains("select")) {
-# MAGIC      val  resultSet: ResultSet = statement.executeQuery(query)
-# MAGIC       val rsmd: ResultSetMetaData = resultSet.getMetaData()
-# MAGIC       val columnsNumber: Int = rsmd.getColumnCount();
-# MAGIC       
-# MAGIC       print("Printing result...\n")
-# MAGIC 
-# MAGIC       while (resultSet.next()) {
-# MAGIC         val sj: StringJoiner = new StringJoiner("|")
-# MAGIC         for (i <- 1 to columnsNumber) {
-# MAGIC           val columnValue: String = resultSet.getString(i)
-# MAGIC           sj.add(rsmd.getColumnName(i) + ": " + columnValue)
-# MAGIC         }
-# MAGIC         print(sj.toString() + "\n")
-# MAGIC       }
-# MAGIC       
-# MAGIC     } else if (queryLower.contains("delete") || queryLower.contains("call") || queryLower.contains("truncate")) {
-# MAGIC       statement.executeUpdate(query)
-# MAGIC     }
-# MAGIC     conn.close()
+# MAGIC   statement.executeUpdate(query)
 # MAGIC   
-# MAGIC   } catch {
-# MAGIC     case e: SQLException => println("SQL exception. Check your SQL query")
-# MAGIC     case _: Throwable => println("Got some other kind of Throwable exception")
-# MAGIC   }
+# MAGIC   conn.close()
 # MAGIC }
-
-# COMMAND ----------
-
-# MAGIC %scala
-# MAGIC new RedshiftQuery(username,password,s"""CALL prod.p_rdma();""")
+# MAGIC 
+# MAGIC submitRemoteQuery({dbutils.widgets.get("url")},{dbutils.widgets.get("username")},{dbutils.widgets.get("password")}, s"""CALL prod.p_rdma();""")
 
 # COMMAND ----------
 
