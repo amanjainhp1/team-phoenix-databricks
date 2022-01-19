@@ -3438,7 +3438,6 @@ final_list7 <- SparkR::sql("
                 , subusev4 as (
                   SELECT Platform_Subset_Nm,Country_Cd, sumUIB/IB as avgUsage
                   FROM subusev3
-                  GROUP BY Platform_Subset_Nm,Country_Cd
                 )
                 , sub1ps as( 
                     SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_ps_i
