@@ -1,4 +1,14 @@
 # Databricks notebook source
+# ---
+# #Version 2021.01.18.1#
+# title: "UPM with IE2.0 IB Color Pct"
+# output:
+#   word_document: default
+#   html_notebook: default
+# ---
+
+# COMMAND ----------
+
 notebook_start_time <- Sys.time()
 
 # COMMAND ----------
@@ -165,6 +175,15 @@ options(scipen=999)
 # MAGIC                   ${dbutils.widgets.get("bdtbl")} tpmib
 # MAGIC                 WHERE 1=1 
 # MAGIC                   AND printer_route_to_market_ib='Aftermarket'
+# MAGIC                   AND printer_platform_name not in ('CICADA PLUS ROW',
+# MAGIC                                           'TSUNAMI 4:1 ROW',
+# MAGIC                                           'CRICKET',
+# MAGIC                                           'LONE PINE',
+# MAGIC                                           'MANTIS',
+# MAGIC                                           'CARACAL',
+# MAGIC                                           'EAGLE EYE',
+# MAGIC                                           'SID',
+# MAGIC                                           'TSUNAMI 4:1 CH/IND')
 # MAGIC                 GROUP BY tpmib.printer_platform_name  
 # MAGIC                , tpmib.platform_std_name  
 # MAGIC                , tpmib.printer_country_iso_code  
@@ -517,6 +536,7 @@ threef <- sqldf('SELECT CM, platform_market_code, printer_region_code,market10, 
               FROM two WHERE NormMPV > 0 AND pgs > 0
               GROUP BY CM, platform_market_code, printer_region_code,market10, de, printer_platform_name, sf_mf
               ')
+threef$sumPgs <- ifelse(threef$sumPgs==0,1,threef$sumPgs)
 threef <- threef %>% dplyr::group_by(CM, platform_market_code, printer_region_code,market10, de, sf_mf) %>% plyr::mutate(wmedNMPVpg = weighted.median(x=NormMPV, w=sumPgs, na.rm=TRUE)) %>% 
     plyr::mutate(wmnNMPVpg = weighted.mean(x=NormMPV, w=sumPgs, na.rm=TRUE))
 threeg <- sqldf('SELECT CM, platform_market_code,market10, de, printer_region_code, sf_mf, max(wmedNMPVpg) as wmedNMPVpg, max(wmnNMPVpg) as wmnNMPVpg from threef group by CM, platform_market_code, printer_region_code,market10, de, sf_mf 
@@ -533,51 +553,48 @@ threeg <- rbind(threeg,threegj)
 # # Step 5 - drop groups if respective number < 200 and create MUT
 
 # four <- sqldf(paste("select three.CM, one.platform_market_code, one.printer_region_code, one.market10, one.de, one.printer_platform_name, one.sf_mf
-#                     , one.NormMPV
-#                     , three.medNMPV
-#                     , threec.wmedNMPV
-#                     , threee.wmedNMPVib
-#                     , threeg.wmedNMPVpg
-#                     , three.mnMPV
-#                     , threec.wmnNMPV
-#                     , threee.wmnNMPVib
-#                     , threeg.wmnNMPVpg
-#                     from one
-#                     left join three 
-#                     on one.platform_market_code=three.platform_market_code and one.printer_region_code=three.printer_region_code 
-#                       and one.sf_mf=three.sf_mf and one.market10=three.market10 and one.de=three.de
-#                     left join threec 
-#                     on one.platform_market_code=threec.platform_market_code and one.printer_region_code=threec.printer_region_code 
-#                       and one.sf_mf=threec.sf_mf and one.market10=threec.market10 and one.de=threec.de
-#                     left join threee 
-#                     on one.platform_market_code=threee.platform_market_code and one.printer_region_code=threee.printer_region_code 
-#                       and one.sf_mf=threee.sf_mf and one.market10=threee.market10 and one.de=threee.de
-#                     left join threeg 
-#                     on one.platform_market_code=threeg.platform_market_code and one.printer_region_code=threeg.printer_region_code 
-#                       and one.sf_mf=threeg.sf_mf and one.market10=threeg.market10 and one.de=threeg.de
-#                     where SumN >=", minSize, " and medNMPV is not null 
-#                     order by three.CM, one.platform_market_code, one.printer_region_code", sep = " ")
-# )
+#                       , one.NormMPV
+#                       , three.medNMPV
+#                       , threec.wmedNMPV
+#                       , threee.wmedNMPVib
+#                       , threeg.wmedNMPVpg
+#                       , three.mnMPV
+#                       , threec.wmnNMPV
+#                       , threee.wmnNMPVib
+#                       , threeg.wmnNMPVpg
+#                       from one
+#                       left join three 
+#                       on one.platform_market_code=three.platform_market_code and one.printer_region_code=three.printer_region_code 
+#                         and one.sf_mf=three.sf_mf and one.market10=three.market10 and one.de=three.de
+#                       left join threec 
+#                       on one.platform_market_code=threec.platform_market_code and one.printer_region_code=threec.printer_region_code 
+#                         and one.sf_mf=threec.sf_mf and one.market10=threec.market10 and one.de=threec.de
+#                       left join threee 
+#                       on one.platform_market_code=threee.platform_market_code and one.printer_region_code=threee.printer_region_code 
+#                         and one.sf_mf=threee.sf_mf and one.market10=threee.market10 and one.de=threee.de
+#                       left join threeg 
+#                       on one.platform_market_code=threeg.platform_market_code and one.printer_region_code=threeg.printer_region_code 
+#                         and one.sf_mf=threeg.sf_mf and one.market10=threeg.market10 and one.de=threeg.de
+#                       where SumN >=", minSize, " and medNMPV is not null 
+#                       order by three.CM, one.platform_market_code, one.printer_region_code", sep = " ")
+#   )
 
 # COMMAND ----------
 
-#UPM <- s3read_using(FUN = read.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",UPMDate,").csv"),  header=TRUE, sep=",", na="")
-UPMDate <- dbutils.widgets.get("upm_date")
-UPM0 <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
+UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
 
-# UPM <- s3read_using(FUN = read_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",UPMDate,").parquet"))
+UPM <- SparkR::filter(UPM, "CM == 'C'")
 
-UPM1 <- SparkR::filter(UPM0, "CM == 'C'")
-
-createOrReplaceTempView(UPM1, "UPM")
+createOrReplaceTempView(UPM, "UPM")
 createOrReplaceTempView(as.DataFrame(hwval), "hwval")
 
 UPM <- SparkR::sql("select upm.*, hw.sf_mf as SM, hw.pro_vs_ent as EP
               from UPM upm left join hwval hw on upm.Platform_Subset_Nm =hw.platform_subset")
 
 createOrReplaceTempView(UPM, "UPM")
+# createOrReplaceTempView(as.DataFrame(threeg), "threeg")
 
-# UPMc <- sqldf("SELECT upm.*, b.wmedNMPVpg
+# UPMc <- SparkR::sql("SELECT upm.*, b.wmedNMPVpg
 #                FROM UPM upm
 #                LEFT JOIN threeg b
 #                 ON upm.Mkt=b.platform_market_code and upm.Region=b.printer_region_code and upm.SM=b.sf_mf
