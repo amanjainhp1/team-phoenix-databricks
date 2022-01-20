@@ -84,7 +84,7 @@ df.write \
   .option("url", url) \
   .option("dbtable", "stage.rdma_staging") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
-  .option("aws_iam_role", dbutils.widgets.get("aws_iam_role") \
+  .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
   .option("user", username) \
   .option("password", password) \
   .mode("overwrite") \
