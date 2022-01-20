@@ -3647,7 +3647,7 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
 
 final_list8 <- filter(final_list7, !isNull(final_list7$Page_Share))  #missing intro date
 final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
-final_list8$model_group <- concat(final_list8$CM,final_list8$SM,final_list8$Mkt,"_",final_list8$market10,"_",final_list8$Region_DE)
+final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mkt, lit("_"), final_list8$market10, lit("_"), final_list8$Region_DE)
 
 #final_list8jp <- subset(final_list8,Region=="AP" & Platform_Subset_Nm %in% c('ANNAPURNA','ANTARES PQ','AZALEA','BLUEFIN','CORDOBA','CORDOBA MANAGED','CYPRESS'
                             #,'DENALI MFP','EVEREST MFP','FIJIMFP','GARNETAK','MADRID','MADRID LITE','MADRID MANAGED','MAPLE','NOVA PQ','REDWOOD','SAPPHIRE MFP'
