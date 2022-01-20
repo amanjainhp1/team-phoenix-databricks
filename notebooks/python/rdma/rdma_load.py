@@ -6,9 +6,9 @@ from pyspark.sql.types import IntegerType
 # COMMAND ----------
 
 region_name = "us-west-2"
-# secret_name = "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj"
-secret_name = dbutils.widgets.get("redshift_secret_name")
+secret_name = dbutils.widgets.get("redshift_secrets_name")
 s3_bucket = f"""dataos-core-{dbutils.widgets.get("stack")}-team-phoenix"""
+url = f"""jdbc:redshift://dataos-redshift-core-{dbutils.widgets.get("stack")}-01.hp8.us:5439/{dbutils.widgets.get("stack")}?ssl_verify=None"""
 
 # COMMAND ----------
 
@@ -23,8 +23,9 @@ def secrets_get(secret_name):
 username = secrets_get(secret_name)['username']
 password = secrets_get(secret_name)['password']
 
-spark.conf.set('username',username)
-spark.conf.set('password',password)
+spark.conf.set('username', username)
+spark.conf.set('password', password)
+spark.conf.set('url', url)
 
 # COMMAND ----------
 
@@ -43,8 +44,6 @@ df = spark.read \
 .option("header","True") \
 .option("sep", "") \
 .load(f"s3a://hp-bigdata-prod-enrichment/ie2_deliverables/rdma/{latest_file}")
-
-# df.createOrReplaceTempView("df")
 
 # COMMAND ----------
 
@@ -82,10 +81,10 @@ df=df.select('Base_Prod_Number','PL','Base_Prod_Name','Base_Prod_Desc','Product_
 #write data to redhift staging
 df.write \
   .format("com.databricks.spark.redshift") \
-  .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+  .option("url", url) \
   .option("dbtable", "stage.rdma_staging") \
-  .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
-  .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+  .option("tempdir", "s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/") \
+  .option("aws_iam_role", dbutils.widgets.get("aws_iam_role") \
   .option("user", username) \
   .option("password", password) \
   .mode("overwrite") \
@@ -113,9 +112,11 @@ df.write \
 # MAGIC   
 # MAGIC   conn.close()
 # MAGIC }
-# MAGIC 
-# MAGIC submitRemoteQuery({dbutils.widgets.get("url")},{dbutils.widgets.get("username")},{dbutils.widgets.get("password")}, s"""CALL prod.p_rdma();""")
 
 # COMMAND ----------
+# MAGIC %scala  
+# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, s"""CALL prod.p_rdma();""")          
 
-
+# COMMAND ----------
+# MAGIC %scala  
+# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, "GRANT ALL ON stage.rdma_staging TO group dev_arch_eng")          
