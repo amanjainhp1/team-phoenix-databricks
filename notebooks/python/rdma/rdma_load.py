@@ -83,7 +83,7 @@ df.write \
   .format("com.databricks.spark.redshift") \
   .option("url", url) \
   .option("dbtable", "stage.rdma_staging") \
-  .option("tempdir", "s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/") \
+  .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role") \
   .option("user", username) \
   .option("password", password) \
