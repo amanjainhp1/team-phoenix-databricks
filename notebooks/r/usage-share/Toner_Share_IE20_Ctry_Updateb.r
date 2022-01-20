@@ -3585,7 +3585,7 @@ final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final
 ###ADJUST USAGE
 final_list7$adjust_use_i <- ifelse(isNull(final_list7$adjust_use_i),0,final_list7$adjust_use_i)
 #final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+0.95*final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1,pmax((final_list7$Usage-final_list7$adjust_useav),0.05),final_list7$Usage),final_list7$Usage)
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), final_list7$Usage), final_list7$Usage)
 
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 
@@ -3660,7 +3660,7 @@ final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 #month(final_list8$year_month_float) <- month(final_list8$year_month_float)-2
 
 today <- Sys.Date()
-vsn <- '2022.01.19.1  #for DUPSM
+vsn <- '2022.01.19.1'  #for DUPSM
 #vsn <- 'New Version'
 rec1 <- 'usage_share'
 geog1 <- 'country'
@@ -3675,29 +3675,6 @@ gc()
 
 createOrReplaceTempView(final_list8, "final_list8")
 cacheTable("final_list8")
-
-# COMMAND ----------
-
-# createOrReplaceTempView(mdm_tbl_share, "mdm_tbl_share")
-# createOrReplaceTempView(mdm_tbl_usage, "mdm_tbl_usage")
-# createOrReplaceTempView(mdm_tbl_sharen, "mdm_tbl_sharen")
-# createOrReplaceTempView(mdm_tbl_usagen, "mdm_tbl_usagen")
-
-# COMMAND ----------
-
-# %scala
-# if (dbutils.widgets.get("writeout") == "YES") {
-  
-#   val mdmTblShare = spark.sql("SELECT * FROM mdm_tbl_share")
-#   val mdmTblUsage = spark.sql("SELECT * FROM mdm_tbl_usage")
-#   val mdmTblShareN = spark.sql("SELECT * FROM mdm_tbl_sharen")
-#   val mdmTblUsageN = spark.sql("SELECT * FROM mdm_tbl_usagen")
-  
-#   writeDFToRedshift(configs, mdmTblShare, "stage.mdm_tbl_share", mode = "overwrite")
-#   writeDFToRedshift(configs, mdmTblUsage, "stage.mdm_tbl_usage", mode = "overwrite")
-#   writeDFToRedshift(configs, mdmTblShareN, "stage.mdm_tbl_sharen", mode = "overwrite")
-#   writeDFToRedshift(configs, mdmTblUsageN, "stage.mdm_tbl_usagen", mode = "overwrite")
-# }
 
 # COMMAND ----------
 
@@ -3852,7 +3829,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .format("parquet")
 # MAGIC   .mode("overwrite")
 # MAGIC   .partitionBy("measure")
-# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}toner_usage_share_75_Q4_qe.parquet""")
+# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}toner_usage_share_75_${dbutils.widgets.get("outnm_dt")}.parquet""")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
 # MAGIC 
