@@ -1,5 +1,6 @@
 ---
 Jobs:
+  - actuals-hw
   - example-job
   - hardware-ltf
   - hardware-stf
