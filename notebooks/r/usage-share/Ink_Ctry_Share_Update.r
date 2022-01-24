@@ -114,7 +114,7 @@ sfai <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.
 
 # MAGIC %scala
 # MAGIC 
-# MAGIC val cutoffDate = "202110"
+# MAGIC val cutoffDate = dbutils.widgets.get("cutoff_dt")
 # MAGIC 
 # MAGIC val tableMonthQuery = s"""
 # MAGIC            --Share and Usage Splits (Trad)
@@ -2683,7 +2683,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC   .format("parquet")
 # MAGIC   .mode("overwrite")
 # MAGIC   .partitionBy("measure")
-# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}ink_usage_share_75_Q4_qe.parquet""")
+# MAGIC   .save(s"""s3://${spark.conf.get("aws_bucket_name")}ink_usage_share_75_${dbutils.widgets.get("outnm_dt")}.parquet""")
 # MAGIC 
 # MAGIC if (dbutils.widgets.get("writeout") == "YES") {
 # MAGIC   
