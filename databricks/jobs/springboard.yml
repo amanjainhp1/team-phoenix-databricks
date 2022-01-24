@@ -8,7 +8,7 @@ Jobs:
   - ink-usage-color
   - ink-usage-total
   - mdm-nightly-load
-  - rdma-load
+  - rdma-full-load
   - toner-share
   - toner-usage-color
   - toner-usage-total
