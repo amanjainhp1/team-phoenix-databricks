@@ -4148,21 +4148,33 @@ final9 <- SparkR::sql('
                 , developed_emerging AS Region_DE
                 , market10 AS market10
                 , country_alpha2 AS Country_Cd
-                , "" AS Country_Nm
-                , yyyymm AS FYearMo
+                , NULL AS Country_Nm
+                , yyyymm as FYearMo
+                --, rFYearMo_Ad AS rFYearMo
+                --, FYearQtr
+                --, rFYearQtr
+                --, year AS FYear
+                --, month AS FMo
+                --, MoSI
                 , UPM_MPV AS MPV_UPM
                 , TS_MPV AS MPV_TS
+                , TD_MPV AS MPV_TD
                 , MPVA AS MPV_Raw
                 , NA AS MPV_N
+                --, IB
+                --, introdate AS FIntroDt
                 , platform_division_code
                 , product_brand
                 , rtm
-                , iMPV AS MPV_Init
+                , iMPV as MPV_Init
                 , Decay
                 , Seasonality
+                --, Cyclical
+                --, MUT
                 , Trend
                 , Route AS IMPV_Route
                 FROM final1  
+                --where IB is not null --and intro_price != 0
                 ')
 
 final9$FYearMo <- cast(final9$FYearMo, "string")
