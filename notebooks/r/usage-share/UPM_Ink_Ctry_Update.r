@@ -4093,23 +4093,7 @@ createOrReplaceTempView(d4, "final1")
 
 createOrReplaceTempView(as.DataFrame(usage), "usage")
 
-final1 <- SparkR::sql("SELECT DISTINCT aa1.printer_platform_name 
-                , aa1.printer_region_code
-                , aa1.developed_emerging
-                , aa1.market10
-                , aa1.country_alpha2
-                , aa1.yyyymm
-                , aa1.printer_region_code
-                , aa1.UPM_MPV
-                , aa1.TS_MPV
-                , aa1.platform_division_code
-                , aa1.product_brand
-                , aa1.rtm
-                , aa1.iMPV
-                , aa1.Decay
-                , aa1.Seasonality
-                , aa1.Trend
-                , aa1.Route
+final1 <- SparkR::sql("SELECT DISTINCT aa1.*
                 , aa2.mpva
                 , aa2.na
                 FROM final1 aa1
