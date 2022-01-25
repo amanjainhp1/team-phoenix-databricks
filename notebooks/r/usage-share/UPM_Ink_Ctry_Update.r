@@ -61,6 +61,17 @@ packages <- c("rJava", "RJDBC", "tidyverse", "lubridate", "SparkR", "zoo", "sqld
 
 # COMMAND ----------
 
+# mount s3 bucket to cluster
+aws_bucket_name <- "insights-environment-sandbox/BrentT/"
+mount_name <- "insights-environment-sandbox"
+
+tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
+ error = function(e)
+ print("Mount does not exist or is already mounted to cluster"))
+
+
+# COMMAND ----------
+
 # MAGIC %scala
 # MAGIC var configs: Map[String, String] = Map()
 # MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
@@ -112,22 +123,8 @@ oldNewDemarcation <- end1
 
 # COMMAND ----------
 
-# mount s3 bucket to cluster
-aws_bucket_name <- "insights-environment-sandbox/BrentT/"
-mount_name <- "insights-environment-sandbox"
-
-tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
- error = function(e)
- print("Mount does not exist or is already mounted to cluster"))
-
-# COMMAND ----------
-
 # MAGIC %scala
-# MAGIC import org.apache.spark.sql.functions.regexp_replace
-# MAGIC 
-# MAGIC //Step 1 - query for Normalized extract specific to PE and RM
-# MAGIC 
-# MAGIC val zeroQuery = s"""
+# MAGIC val zeroQuery = """
 # MAGIC           --Share and Usage Splits (Trad)
 # MAGIC WITH sub_a AS (
 # MAGIC 	SELECT printer_id
@@ -400,7 +397,6 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 # MAGIC val zero = readRedshiftToDF(configs)
 # MAGIC   .option("query", zeroQuery)
 # MAGIC   .load()
-# MAGIC   .withColumn("rdma_platform_subset_name", regexp_replace($"rdma_platform_subset_name", " EM | DM ", " "))
 # MAGIC 
 # MAGIC zero.createOrReplaceTempView("zero")
 
@@ -414,7 +410,6 @@ zero <- SparkR::collect(SparkR::sql("SELECT * FROM zero"))
 
 zero$rdma_platform_subset_name <- ifelse(str_sub(zero$rdma_platform_subset_name,start=-3)==' EM',substr(zero$rdma_platform_subset_name,1,nchar(zero$rdma_platform_subset_name)-3),zero$rdma_platform_subset_name)
 zero$rdma_platform_subset_name <- ifelse(str_sub(zero$rdma_platform_subset_name,start=-3)==' DM',substr(zero$rdma_platform_subset_name,1,nchar(zero$rdma_platform_subset_name)-3),zero$rdma_platform_subset_name)
-
 
 ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
 #ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
@@ -441,7 +436,7 @@ ibtable <- dbGetQuery(cprod,paste0("
                       and (upper(d.technology)='INK' or (d.technology='PWA' and (upper(d.hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
                           and a.platform_subset not like 'PANTHER%' and a.platform_subset not like 'JAGUAR%'))
                       and d.product_lifecycle_status not in ('E','M') 
-                    group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.customer_engagement,a.version, d.hw_product_family
+                    group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.version, d.hw_product_family
                           --, b.developed_emerging
                             , b.region_5, a.country
                    "))
@@ -469,7 +464,7 @@ missing_name <- sqldf("select a.*, b.product_lifecycle_status, b.successor, b.pr
                       left join hw_info2 b on a.ib_name=b.platform_subset 
                       where ib_name not in (select rdma_platform_subset_name from nmlst)
                       ")
-  table(missing_name$product_lifecycle_status)
+table(missing_name$product_lifecycle_status)
 missing_name2 <- sqldf("select a.*, b.product_lifecycle_status, b.successor, b.predecessor 
                        from nmlst a left join hw_info2 b on a.rdma_platform_subset_name=b.platform_subset where rdma_platform_subset_name not in (select ib_name from nmlst2)")
 print(missing_name)
@@ -505,7 +500,6 @@ country_info <- dbGetQuery(cprod,"
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
                            ")
-
 
 zero <- sqldf("
             --with sub0 as (select rdma_platform_subset_name,printer_region_code,country_alpha2,printer_managed
@@ -1000,7 +994,7 @@ iblist <- sqldf("select distinct ib.platform_subset as printer_platform_name, ib
                 from ibtable ib left join country_info ci
                 on ib.country=ci.country_alpha2")
 
-u2 <- sqldf('with prc as (select printer_platform_name, printer_region_code,platform_division_code, developed_emerging, rtm, FYearMo
+u2 <- sqldf('with prc as (select printer_platform_name, printer_region_code, platform_division_code, developed_emerging, rtm, FYearMo
             , sum(Na) as SNA
             from usage
             group by printer_platform_name, printer_region_code, platform_division_code, developed_emerging, rtm, FYearMo
@@ -1074,7 +1068,6 @@ str(u2)
 # variable created "Source_vlook". The following logic was implemented to create Source_vlook 
 # = "PE" when SNPE >= 200, = "IS", when (SNPE is NULL and SNIS >=200) or (SNPE < 200 and SNIS >=200), else = "RM"
 
-
 sourceR <- sqldf("
                  select ib.printer_platform_name, ib.rtm, ib.printer_region_code, ib.developed_emerging, ib.market10, ib.country_alpha2, ib.platform_division_code,
                  COALESCE(u2.prcN,0) as prcN, COALESCE(u2.mktN,0) as mktN, COALESCE(u2.demN,0) as demN,COALESCE(u2.ctyN,0) as ctyN
@@ -1111,7 +1104,6 @@ usage2 <- sqldf('select aa1.*
                 upper(aa1.rtm)=upper(aa2.rtm)
                 ORDER BY
                 printer_platform_name, country_alpha2, fyearmo, platform_division_code, product_brand, rtm')
-
 
 # COMMAND ----------
 
@@ -4133,7 +4125,7 @@ final9 <- SparkR::sql('
                 , market10 AS market10
                 , country_alpha2 AS Country_Cd
                 , CAST(null AS STRING) AS Country_Nm
-                , yyyymm as FYearMo
+                , yyyymm AS FYearMo
                 --, rFYearMo_Ad AS rFYearMo
                 --, FYearQtr
                 --, rFYearQtr
@@ -4150,7 +4142,7 @@ final9 <- SparkR::sql('
                 , platform_division_code
                 , product_brand
                 , rtm
-                , iMPV as MPV_Init
+                , iMPV AS MPV_Init
                 , Decay
                 , Seasonality
                 --, Cyclical
@@ -4169,7 +4161,7 @@ final9$FYearMo <- cast(final9$FYearMo, "string")
 
 start.time2 <- Sys.time()
 
-SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(",Sys.Date(),").parquet"), mode="overwrite")
+SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(", Sys.Date(), ").parquet"), mode="overwrite")
   
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB

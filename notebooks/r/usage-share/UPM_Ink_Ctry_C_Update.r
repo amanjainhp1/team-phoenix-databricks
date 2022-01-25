@@ -57,7 +57,7 @@ packages <- c("rJava", "RJDBC", "tidyverse", "lubridate", "SparkR", "zoo", "sqld
 
 # COMMAND ----------
 
-# MAGIC  %run ../common/package_check.r
+# MAGIC %run ../common/package_check.r
 
 # COMMAND ----------
 
@@ -68,6 +68,7 @@ mount_name <- "insights-environment-sandbox"
 tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
  error = function(e)
  print("Mount does not exist or is already mounted to cluster"))
+
 
 # COMMAND ----------
 
@@ -89,7 +90,6 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
 
 cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
-clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Landing;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
 
 # COMMAND ----------
 
@@ -392,7 +392,6 @@ oldNewDemarcation <- end1
 # MAGIC ORDER BY date_month_dim_ky
 # MAGIC 	, printer_region_code
 # MAGIC 	, printer_platform_name
-# MAGIC ;
 # MAGIC """
 # MAGIC 
 # MAGIC val zero = readRedshiftToDF(configs)
@@ -414,6 +413,7 @@ zero$rdma_platform_subset_name <- ifelse(str_sub(zero$rdma_platform_subset_name,
 
 ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
 #ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
+
 ibtable <- dbGetQuery(cprod,paste0("
                    select  a.platform_subset
                           , cal_date
@@ -435,9 +435,10 @@ ibtable <- dbGetQuery(cprod,paste0("
                       and a.version='",ib_version,"'
                       and (upper(d.technology)='INK' or (d.technology='PWA' and (upper(d.hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
                           and a.platform_subset not like 'PANTHER%' and a.platform_subset not like 'JAGUAR%'))
-                    group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.customer_engagement,a.version
+                          and d.product_lifecycle_status not in ('E','M') 
+                    group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.version, d.hw_product_family
                           --, b.developed_emerging
-                            , b.region_5, a.country,d.hw_product_family
+                            , b.region_5, a.country
                    "))
 
 hw_info <- dbGetQuery(cprod,
@@ -448,6 +449,7 @@ hw_info <- dbGetQuery(cprod,
                       from IE2_Prod.dbo.hardware_xref with (NOLOCK)
                       "
                       )
+
 ibintrodt <- dbGetQuery(cprod,"
               SELECT  a.platform_subset
                       ,min(cal_date) AS intro_date
@@ -932,16 +934,17 @@ str(decay)
 #zeroa <- zero
 #zeroa$product_brand <- ifelse(zeroa$printer_platform_name %in% c('MALBEC','MANHATTAN','WEBER BASE'),"OJP",zeroa$product_brand)  #These are listed as both OJ and OJP
 
-usage <- sqldf("select CASE WHEN rdma_platform_subset_name is not null and rdma_platform_subset_name <> '' then rdma_platform_subset_name
-ELSE printer_platform_name 
-END as printer_platform_name
+usage <- sqldf("select --CASE WHEN rdma_platform_subset_name is not null and rdma_platform_subset_name <> '' then rdma_platform_subset_name
+-- ELSE printer_platform_name 
+ --END as printer_platform_name
+rdma_platform_subset_name as printer_platform_name
 , printer_region_code, market10, developed_emerging, country_alpha2,rtm, FYearMo, platform_division_code, product_brand
 , MAX(MPVa) AS MPVa
 , SUM(sumn) AS Na
 from zero
 group by 1=1
---, rdma_platform_subset_name, printer_platform_name
-, CASE WHEN rdma_platform_subset_name is not null and rdma_platform_subset_name <> '' then rdma_platform_subset_name ELSE printer_platform_name END
+, rdma_platform_subset_name  --, printer_platform_name
+--, CASE WHEN rdma_platform_subset_name is not null and rdma_platform_subset_name <> '' then rdma_platform_subset_name ELSE printer_platform_name END
 , printer_region_code, market10, developed_emerging, country_alpha2, rtm, FYearMo, platform_division_code, product_brand
 order by printer_platform_name, printer_region_code, market10, developed_emerging, country_alpha2, rtm, FYearMo, platform_division_code, product_brand")
 head(usage)
@@ -966,37 +969,36 @@ usage_platformList <- reshape2::dcast(usage_platform, printer_platform_name~prin
 
 # Based on Usage Matrix (outcome of Step 10), Calculate sum of N for each of 
 # the 5 Sources for all groups defined by Plat_Nm and Region_Cd.
-iblist <- sqldf("select distinct ib.platform_subset as printer_platform_name, ib.rtm, ci.country_alpha2, ci.region_5 as printer_region_code, ci.market10
-    , substr(ci.developed_emerging,1,1) as developed_emerging, platform_division_code
+iblist <- sqldf("select distinct ib.platform_subset as printer_platform_name, ib.rtm, ci.country_alpha2, ci.region_5 as printer_region_code, ci.market10, substr(ci.developed_emerging,1,1) as developed_emerging, platform_division_code
                 from ibtable ib left join country_info ci
                 on ib.country=ci.country_alpha2")
 
 u2 <- sqldf('with prc as (select printer_platform_name, printer_region_code, platform_division_code, developed_emerging, rtm, FYearMo
             , sum(Na) as SNA
             from usage
-            group by printer_platform_name, printer_region_code, platform_division_code, rtm,FYearMo
+            group by printer_platform_name, printer_region_code, platform_division_code, developed_emerging, rtm, FYearMo
             order by printer_platform_name, printer_region_code, rtm,FYearMo
             )
-            ,prc2 as (select printer_platform_name, printer_region_code,platform_division_code,rtm
+            ,prc2 as (select printer_platform_name, printer_region_code, platform_division_code, rtm
             , max(SNA) as SNA
             from prc
-            group by printer_platform_name, printer_region_code,platform_division_code,rtm
+            group by printer_platform_name, printer_region_code, platform_division_code,rtm
             order by printer_platform_name, printer_region_code,rtm
             )
-            ,dem as (select printer_platform_name, printer_region_code, market10, developed_emerging,platform_division_code, rtm, FYearMo
+            ,dem as (select printer_platform_name, printer_region_code, market10, developed_emerging, platform_division_code, rtm, FYearMo
             , sum(Na) as SNA
             from usage
-            group by printer_platform_name, printer_region_code, market10, developed_emerging,platform_division_code, rtm, FYearMo
+            group by printer_platform_name, printer_region_code, market10, developed_emerging, platform_division_code, rtm, FYearMo
             order by printer_platform_name, printer_region_code, market10, developed_emerging, rtm, FYearMo
             )
-            ,dem2 as (select printer_platform_name, printer_region_code, market10, developed_emerging,platform_division_code,rtm
+            ,dem2 as (select printer_platform_name, printer_region_code, market10, developed_emerging, platform_division_code, rtm
             , MAX(SNA) as SNA
             from dem
-            group by printer_platform_name, printer_region_code, market10, developed_emerging,platform_division_code,rtm
+            group by printer_platform_name, printer_region_code, market10, developed_emerging, platform_division_code,rtm
             order by printer_platform_name, printer_region_code, market10, developed_emerging,rtm
             )
             ,mkt10 as (
-            select printer_platform_name, market10, FYearMo,platform_division_code,rtm
+            select printer_platform_name, market10, FYearMo, platform_division_code,rtm
             , sum(na) as SNA
             from usage
             group by printer_platform_name, market10, FYearMo,platform_division_code,rtm
@@ -1009,7 +1011,7 @@ u2 <- sqldf('with prc as (select printer_platform_name, printer_region_code, pla
             group by printer_platform_name, market10,platform_division_code,rtm
             order by printer_platform_name, market10,rtm
             )
-            ,ctry as (select printer_platform_name, country_alpha2,platform_division_code, FYearMo,rtm
+            ,ctry as (select printer_platform_name, country_alpha2, FYearMo,platform_division_code,rtm
             , sum(na) as SNA
             from usage
             group by printer_platform_name, country_alpha2, FYearMo,platform_division_code,rtm
@@ -1025,7 +1027,7 @@ u2 <- sqldf('with prc as (select printer_platform_name, printer_region_code, pla
             , b.SNA as prcN, d.SNA as mktN, c.SNA as demN, e.SNA as ctyN
             from iblist a
             left join prc2 b
-            on a.printer_platform_name=b.printer_platform_name and a.printer_region_code=b.printer_region_code and a.rtm=b.rtm  and a.platform_division_code=b.platform_division_code
+            on a.printer_platform_name=b.printer_platform_name and a.printer_region_code=b.printer_region_code and a.rtm=b.rtm and a.platform_division_code=b.platform_division_code
             left join dem2 c
             on a.printer_platform_name=c.printer_platform_name and a.printer_region_code=c.printer_region_code and a.developed_emerging=c.developed_emerging
               and a.market10=c.market10 and a.rtm=c.rtm and a.platform_division_code=c.platform_division_code
@@ -1147,6 +1149,7 @@ usage3 <- sqldf("with reg as (
 # Step 15 - Combining Usage and Decay matrices
 
 # Combine Usage (outcome of Step 14) and Decay (outcome of Step 9) matrices by using Region_Cd, VV, CM and SM.
+
 usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.country_alpha2, aa1.market10, aa1.developed_emerging, aa1.rtm, aa1.product_brand, aa1.fyearmo, aa1.MPV, aa1.N
                 , aa2.b1, aa1.platform_division_code
               from 
@@ -1362,7 +1365,7 @@ usageSummaryR5$y <- usageSummaryR5$SumNLNMPV/usageSummaryR5$SumN
 
 decay2 <- sqldf('select distinct printer_platform_name, country_alpha2, product_brand, rtm, b1 from usage5 order by printer_platform_name, country_alpha2')
 decay2Mkt <- sqldf('select printer_platform_name, market10, product_brand, rtm, sum(b1*N)/sum(N) as b1 from usage5 group by printer_platform_name, market10, product_brand, rtm')
-decay2DE <- sqldf('select printer_platform_name, market10,developed_emerging,product_brand, rtm, sum(b1*N)/sum(N) as b1 from usage5 group by printer_platform_name, market10,developed_emerging,product_brand')
+decay2DE <- sqldf('select printer_platform_name, market10,developed_emerging,product_brand, rtm, sum(b1*N)/sum(N) as b1 from usage5 group by printer_platform_name, market10,developed_emerging,product_brand, rtm')
 decay2R5 <- sqldf('select printer_platform_name, printer_region_code, product_brand, rtm, sum(b1*N)/sum(N) as b1 from usage5 group by printer_platform_name, printer_region_code, product_brand, rtm')
 
 # COMMAND ----------
@@ -1472,6 +1475,8 @@ usageSummary2Tde <- reshape2::dcast(usageSummary2DEKeep, printer_platform_name+p
 usageSummary2Tr5 <- reshape2::dcast(usageSummary2R5Keep, printer_platform_name+product_brand+rtm ~printer_region_code, value.var="iMPV",fun.aggregate = mean)
 
 # COMMAND ----------
+
+# Step 22 - Extracting Platforms which have iMPVs calculated for NA and for at least for one more Region
 
 # Extract Platforms which have iMPVs calculated for North America (NA) and for at least one more Region 
 # and having a sample size of at least 50. Initially, iMPVs could be calculated for 201 platforms, however, 
@@ -2086,6 +2091,8 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                           on 
                           (aa1.rtm = aa2.rtm
                           and 
+                          aa1.platform_division_code = aa2.platform_division_code
+                          and
                           aa1.product_brand = aa2.product_brand)
                           order by rtm, product_brand, platform_division_code')
 
@@ -2897,7 +2904,7 @@ usageSummary2TE_D3 <- sqldf("select *
                    LEFT JOIN usageSummary2R5 e
                     ON a.printer_platform_name=e.printer_platform_name and a.printer_region_code=e.printer_region_code and a.rtm=e.rtm 
                    LEFT JOIN usageSummary2TE_D3 f
-                    ON a.printer_platform_name=f.printer_platform_name and a.rtm=f.rtm
+                    ON a.printer_platform_name=f.printer_platform_name and a.rtm=f.rtm and a.platform_division_code=f.platform_division_code
                    ")
 
 # COMMAND ----------
@@ -3445,7 +3452,7 @@ new1b <- sqldf("SELECT a.*
             GROUP BY
                 a.printer_platform_name, a.platform_division_code, a.product_brand
                 , b.rtm
-            , c.market10
+            , c.market10, c.developed_emerging
             , b.month_begin")
 new1b <- subset(new1b,!is.na(market10))
 new1c <- sqldf("SELECT platform_division_code, product_brand, printer_platform_name, rtm as rtm, market10, SUBSTR(developed_emerging,1,1) as developed_emerging
@@ -3465,7 +3472,7 @@ new1cc <- sqldf("SELECT platform_division_code, product_brand, printer_platform_
             order by platform_division_code, product_brand, printer_platform_name, rtm")
 
 new1cc$sumINSTALLED_BASE_COUNT <- as.numeric(new1cc$sumINSTALLED_BASE_COUNT)
-new1d <- new1d <- reshape2::dcast(new1c, platform_division_code+product_brand+printer_platform_name+rtm ~ market10+developed_emerging, value.var = "sumINSTALLED_BASE_COUNT", fun.aggregate=sum)
+new1d <- reshape2::dcast(new1c, platform_division_code+product_brand+printer_platform_name+rtm ~ market10+developed_emerging, value.var = "sumINSTALLED_BASE_COUNT", fun.aggregate=sum)
 new <- sqldf("SELECT a.* ,b.sumINSTALLED_BASE_COUNT 
             , COALESCE(a.[North America_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBNorth_America
             , COALESCE(a.[Latin America_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBLatin_America
@@ -3806,6 +3813,7 @@ combined2 <- sqldf('select aa2.*
 # COMMAND ----------
 
 # Step - 73 Normalize introDate data with respect to VV, CM, SM and Plat_Nm
+
 normdatadate2 <- reshape2::melt(normdatadate, id.vars = c("platform_division_code", "product_brand", "printer_platform_name", "rtm"),
                         variable.name = "printer_region_code", 
                         value.name = "introdate")
@@ -3921,10 +3929,14 @@ normdataFinal$strata2 <- apply( normdataFinal[ , cols ] , 1 , paste , collapse =
 
 # Step 75 - Creating two artifical columns to capture year and month since Jan 1990
 
+#clean up memory  
+# rm(list= ls()[!(ls() %in% c('normdataFinal','outcome','usage','cprod'))])  ###Clear up memory- gets rid of all but these 3 tables
+gc(reset=TRUE, full=TRUE, verbose=TRUE)
 s1 <- as.data.frame(seq(1990, 2057, 1))
 s2 <- as.data.frame(seq(1, 12, 1))
 s3 <- merge(s1,s2,all=TRUE)
-
+# names(s3)[names(s3)=="seq(1990, 2020, 1)"] <- "year"
+# names(s3)[names(s3)=="seq(1, 12, 1)"] <- "month"te
 names(s3)[1] <- "year"
 names(s3)[2] <- "month"
 
@@ -4052,23 +4064,23 @@ createOrReplaceTempView(d4, "final1")
 
 createOrReplaceTempView(as.DataFrame(usage), "usage")
 
-final1 <- SparkR::sql("select distinct aa1.*
+final1 <- SparkR::sql("SELECT DISTINCT aa1.*
                   , aa2.mpva
                   , aa2.na
-                  from final1 aa1
-                  left outer join
+                  FROM final1 aa1
+                  LEFT JOIN
                   usage aa2
-                  on
+                  ON
                   aa1.printer_platform_name = aa2.printer_platform_name
-                  and
+                  AND
                   aa1.country_alpha2 = aa2.country_alpha2
-                  and
+                  AND
                   aa1.yyyymm = aa2.FYearMo
-                  and
+                  AND
                   aa1.platform_division_code = aa2.platform_division_code
-                  and
+                  AND
                   aa1.product_brand = aa2.product_brand
-                  and
+                  AND
                   aa1.rtm=aa2.rtm
                   ")
 
@@ -4076,71 +4088,11 @@ createOrReplaceTempView(final1, "final1")
 
 # COMMAND ----------
 
-# Step 81 - Attaching MUT
-
-# final4 <- sqldf('select distinct aa1.*
-#                 --, aa2.MUT
-#                 from final1 aa1
-#                 left outer join
-#                 outcome aa2
-#                 on
-#                 aa1.market10 = aa2.market10
-#                 and 
-#                 aa1.developed_emerging=aa2.developed_emerging
-#                 and
-#                 aa1.yyyymm = aa2.FYearMo
-#                 and
-#                 aa1.platform_division_code = aa2.platform_division_code
-#                 and
-#                 aa1.product_brand = aa2.product_brand
-#                 and
-#                 aa1.rtm=aa2.rtm
-#                 ')
-
-# COMMAND ----------
-
-# Step 82 - Attaching all 3 Speed segment infomration
- 
-#final7 <- final6
-
-# COMMAND ----------
-
-# Step 83 - Exatracting and Attaching Installed Base infomration
-
-######Not keeping all IB######
-# final4 <- sqldf('select aa1.*
-#                 , aa2.ib as IB
-#                 from final4 aa1
-#                 left outer join 
-#                 ibtable aa2
-#                 on 
-#                 aa1.printer_platform_name = aa2.platform_subset
-#                 and 
-#                 aa1.country_alpha2 = aa2.country
-#                 and
-#                 aa1.yyyymm = aa2.month_begin
-#                 ')
-# 
-# final4$yyyymm <- as.integer(final4$yyyymm)
-# 
-# final4$FYearQtr <-ifelse((as.numeric(substr(final4$yyyymm, 5,6))<= 3),paste(final4$year, "Q1",sep = "", collapse = NULL), 
-#                   ifelse ((as.numeric(substr(final4$yyyymm, 5,6)) > 3 & as.numeric(substr(final4$yyyymm, 5,6)) <= 6),paste(final4$year, "Q2",sep = "", collapse = NULL), 
-#                   ifelse((as.numeric(substr(final4$yyyymm, 5,6)) > 6 & as.numeric(substr(final4$yyyymm, 5,6)) <= 9),paste(final4$year, "Q3",sep = "", collapse = NULL),paste(final4$year, "Q4",sep = "", collapse = NULL) )
-#                          )
-# )
-# 
-# 
-# final4$rFYearQtr <- as.numeric(substr(final4$FYearQtr,1,4))*1 +  ((as.numeric(substr(final4$FYearQtr,6,6)) - 1)/4) + (1/8)
-# 
-# final4$rFYearMo_Ad <- final4$rFYearMo + (1/24)
-
-# COMMAND ----------
-
 # Step 84 - Renaming and aligning Variables
 
 final9 <- SparkR::sql('
-                  select distinct 
-                  printer_platform_name as Platform_Subset_Nm
+                  SELECT DISTINCT 
+                  printer_platform_name AS Platform_Subset_Nm
                   , CASE 
                       WHEN SUBSTR(printer_region_code,1,2) = "AP" THEN "APJ"
                       WHEN SUBSTR(printer_region_code,1,2) = "JP" THEN "APJ"
@@ -4151,81 +4103,36 @@ final9 <- SparkR::sql('
                   , developed_emerging AS Region_DE
                   , market10 AS market10
                   , country_alpha2 AS Country_Cd
-                  , NULL AS Country_Nm
-                  , yyyymm as FYearMo
-                  --, rFYearMo_Ad as rFYearMo
+                  , CAST(null AS STRING) AS Country_Nm
+                  , yyyymm AS FYearMo
+                  --, rFYearMo_Ad AS rFYearMo
                   --, FYearQtr
                   --, rFYearQtr
-                  --, year as FYear
-                  --, month as FMo
+                  --, year AS FYear
+                  --, month AS FMo
                   --, MoSI
-                  , UPM_MPV as MPV_UPM
+                  , UPM_MPV AS MPV_UPM
                   , TS_MPV AS MPV_TS
                   , TD_MPV AS MPV_TD
-                  , MPVA as MPV_Raw
-                  , NA as MPV_N
+                  , MPVA AS MPV_Raw
+                  , NA AS MPV_N
                   --, IB
-                  --, introdate as FIntroDt
+                  --, introdate AS FIntroDt
                   , platform_division_code
                   , product_brand
                   , rtm
-                  , iMPV as MPV_Init
+                  , iMPV AS MPV_Init
                   , Decay
                   , Seasonality
                   --, Cyclical
                   --, MUT
                   , Trend
-                  , Route as IMPV_Route
-                  from final1  
+                  , Route AS IMPV_Route
+                  FROM final1  
                   --where IB is not null --and intro_price != 0
                   ')
 
 final9$FYearMo <- cast(final9$FYearMo, "string")
-
-# COMMAND ----------
-
-# Step 84B - creating ther POR_MPV column
-
-# newTable <- sqlQuery(ch,paste(
-#   "								
-#   select DISTINCT product_ref.platform_lab_name AS printer_platform_name
-#   , product_ref.product_chrome_code as CM
-#   , product_ref.product_business_code AS EP
-#   , product_ref.product_usage_por_pages AS PLAN_OF_RECORD
-#   from
-#   ref_enrich.product_ref
-#   
-#   "
-#   ,sep = "", collapse = NULL),na.strings = "")
-# newTable <- sqldf('
-#                   select distinct printer_platform_name as printer_platform_name
-#                   , product_brand
-#                   , platform_division_code
-#                   , product_usage_por_pages as PLAN_OF_RECORD
-#                   from PoR
-#                   ')
-# 
-# final10 <- sqldf('select aa1.*
-#                   --, aa2.PLAN_OF_RECORD 
-#                  from final9 aa1
-#                  left join
-#                  newTable aa2 
-#                  on
-#                  aa1.product_brand = aa2.product_brand
-#                  and
-#                  aa1.platform_division_code = aa2.platform_division_code
-#                  and
-#                  aa1.Platform_Subset_Nm = aa2.printer_platform_name')
-# 
-# #final10$POR_MPV <- final10$PLAN_OF_RECORD *((1+(final10$Decay/12))^(final10$MoSI - 30))
-# 
-# head(final10)
-# To check the outcome with Van's table. The calculation is correct. 
-# However, the decay rate used in Van's table is different than what is being created in UPM code
-
-#final10[which(final10$printer_platform_name == "ARGON MANAGED" & final10$printer_region_code == "EU"),c("printer_platform_name", "printer_region_code","FYearMo",	"MoSI",	"Decay", "POR_MPV")]
-
-#close(ch)
 
 # COMMAND ----------
 
@@ -4237,52 +4144,6 @@ SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPM_Ink_C
   
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
-
-# COMMAND ----------
-
-# ---- Step 86 - exporting final10 Table into R database ----------------------------------#
-
-#s3saveRDS(x=final10,object="BrentT/UPM_Data.RDS", bucket="s3://insights-environment-sandbox/")
-# Cannot add "subdirectories" in S3, subdirectory name is part of the filename.  
-
-# COMMAND ----------
-
-# ---- Step 87 - create MUR ----------------------------------#
-
-#  start.time2 <- Sys.time()
-#   
-#  murdta <- subset(final9,FYearMo >= end1-99 & FYearMo <=end1)
-#  murdta[] <- lapply(murdta, function(x) if(is.factor(x)) factor(x) else x)
-# # murdta3$mpvout <- paste0("MPV_",murdta3$src)
-#  # murdta3$mpvval <- ifelse(murdta3$mpvout=="MPV_dMPS",murdta3$mpv_d,ifelse(murdta3$mpvout=="MPV_iMPS",murdta3$mpv_i,
-#  #                      ifelse(murdta3$mpvout=="MPV_cMPS",murdta3$mpv_c,ifelse(murdta3$mpvout=="MPV_fMPS",murdta3$mpv_f,NA))))
-#  # murdta3$nval <- ifelse(murdta3$mpvout=="MPV_dMPS",murdta3$n_d,ifelse(murdta3$mpvout=="MPV_iMPS",murdta3$n_i,
-#  #                      ifelse(murdta3$mpvout=="MPV_cMPS",murdta3$n_c,ifelse(murdta3$mpvout=="MPV_fMPS",murdta3$n_f,NA))))
-#  
-#  murdta$mpvval <- ifelse(murdta$MPV_Raw>0,murdta$MPV_Raw,NA)
-#  murdta$nval <- ifelse(murdta$MPV_N>0,murdta$MPV_N,NA)
-#  
-#  murdta1 <- sqldf('select a.Platform_Subset_Nm as "Platform Subset", a.Region, a.product_brand as "Product Brand", a.rtm as "Customer Engagement"
-#                    , ROUND(avg(a.MPV_UPM),2) as "Modeled CC"
-#                    , ROUND(avg(a.MPV_Raw),2) as "Measured CC"
-#                  --, avg(b.use) "MPV_Directional" 
-#                   ,sum(a.MPV_N) N
-#                   --, sum(b.printer_count_month_use) "N_Directional"
-#                   , ROUND(avg(a.IB),0) as "Mean IB"
-#                   from murdta a
-#                   --left join murdtaone b
-#                   --on a.Platform_Subset_Nm=b.platform_name and a.Region=b.sub_region and a.FYearMo=b.calendar_year_month
-#                   group by Platform_Subset_Nm, Region, product_brand, rtm
-#                   order by Platform_Subset_Nm, Region, product_brand, rtm
-#                   ')
-#  murdta1$Date <- Sys.Date()
-#  
-#  s3write_using(x=murdta1,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/MUR_Ink(",Sys.Date(),").csv"), na="", row.names=FALSE)
-# 
-#  head(murdta1)
-#  
-#  end.time2 <- Sys.time()
-#  time.taken.MUR <- end.time2 - start.time2;time.taken.MUR
 
 # COMMAND ----------
 

@@ -55,7 +55,7 @@ dbutils.widgets.text("bdtbl", "")
 
 # COMMAND ----------
 
-packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR", "spatstat")
+packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR")
 
 # COMMAND ----------
 
