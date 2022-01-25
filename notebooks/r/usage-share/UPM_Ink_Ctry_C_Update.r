@@ -4133,7 +4133,7 @@ final9 <- SparkR::sql('
                 , developed_emerging AS Region_DE
                 , market10 AS market10
                 , country_alpha2 AS Country_Cd
-                , NULL AS Country_Nm
+                , CAST(null AS STRING) AS Country_Nm
                 , yyyymm AS FYearMo
                 --, rFYearMo_Ad aS rFYearMo
                 --, FYearQtr
