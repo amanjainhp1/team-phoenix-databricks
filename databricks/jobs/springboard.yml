@@ -1,3 +1,14 @@
 ---
-jobs
-  - mdm_nightly_load
+Jobs:
+  - actuals-hw
+  - example-job
+  - hardware-ltf
+  - hardware-stf
+  - ink-share
+  - ink-usage-color
+  - ink-usage-total
+  - mdm-nightly-load
+  - rdma-full-load
+  - toner-share
+  - toner-usage-color
+  - toner-usage-total

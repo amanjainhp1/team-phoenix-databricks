@@ -4,8 +4,8 @@ val SFAI_URL: String = "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;"
 val SFAI_DRIVER: String = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
 
 // Redshift
-val REDSHIFT_URLS: Map[String, String] = Map("dev" -> "dataos-redshift-core-dev-01.hp8.us",
-                                            "itg" -> "dataos-redshift-core-itg-01.hp8.us",
+val REDSHIFT_URLS: Map[String, String] = Map("dev" -> "dataos-core-dev-team-phoenix.dev.hpdataos.com",
+                                            "itg" -> "dataos-core-dev-team-phoenix.stg.hpdataos.coms",
                                             "prd" -> "dataos-redshift-core-prd-01.hp8.us")
 val REDSHIFT_PORTS: Map[String, String] = Map("dev" -> "5439",
                                             "itg" -> "5439",

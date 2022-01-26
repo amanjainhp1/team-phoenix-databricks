@@ -1,27 +1,31 @@
 // Databricks notebook source
-// Retrieve username and password from AWS secrets manager
-import com.amazonaws.AmazonClientException
-import com.amazonaws.AmazonServiceException
-import com.amazonaws.client.builder.AwsClientBuilder
-import com.amazonaws.auth.profile.ProfileCredentialsProvider
-import com.amazonaws.AmazonWebServiceRequest
-import com.amazonaws.services.secretsmanager._
-import com.amazonaws.services.secretsmanager.model._
+import com.amazonaws.regions.Regions;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueResponse;
+import software.amazon.awssdk.services.secretsmanager.model.SecretsManagerException;
 
-def secretsGet (secretName: String, regionName: String): String = {
-  val endpointUrl: String = "https://secretsmanager.us-west-2.amazonaws.com"
+def getSecretValueCreds(secretName: String, secretRegion: String = "us-west-2"): Map[String, String] = {
   
-  val config: com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration = new AwsClientBuilder.EndpointConfiguration(endpointUrl, regionName)
-  val clientBuilder: com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder = AWSSecretsManagerClientBuilder.standard()
-  clientBuilder.setEndpointConfiguration(config)
+  val region: Region = Region.of(secretRegion);
+  val secretsClient: SecretsManagerClient = SecretsManagerClient.builder()
+          .region(region)
+          .build();
 
-  val client: com.amazonaws.services.secretsmanager.AWSSecretsManager = clientBuilder.build()
-  val getSecretValueRequest = new GetSecretValueRequest().withSecretId(secretName).withVersionStage("AWSCURRENT")
-  val getSecretValueResult = client.getSecretValue(getSecretValueRequest)
+  val valueRequest: GetSecretValueRequest = GetSecretValueRequest.builder()
+                  .secretId(secretName)
+                  .build();
+
+  val valueResponse: GetSecretValueResponse = secretsClient.getSecretValue(valueRequest);
+  val secret: String = valueResponse.secretString();
+  secretsClient.close();
   
-  return getSecretValueResult.getSecretString
+  val secretsMap: Map[String, String] = secret.substring(1, secret.length - 1)
+        .split(", ")
+        .map(_.split(": "))
+        .map { case Array(k, v) => (k.substring(1, k.length-1), v.substring(0, v.length))}
+        .toMap
+  
+  return secretsMap
 }
-
-// COMMAND ----------
-
-secretsGet("arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj", "us-west-2")

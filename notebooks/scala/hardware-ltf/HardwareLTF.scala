@@ -8,34 +8,49 @@ import org.apache.spark.sql.functions._
 
 // COMMAND ----------
 
-dbutils.widgets.text("REDSHIFT_USERNAME", "")
-dbutils.widgets.text("REDSHIFT_PASSWORD", "")
-dbutils.widgets.text("SFAI_USERNAME", "")
-dbutils.widgets.text("SFAI_PASSWORD", "")
-dbutils.widgets.dropdown("ENVIRONMENT", "dev", Seq("dev", "itg", "prd"))
-dbutils.widgets.text("AWS_IAM_ROLE", "")
+dbutils.widgets.text("redshift_secrets_name", "")
+dbutils.widgets.text("sqlserver_secrets_name", "")
+dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prod"))
+dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../common/Constants
+// MAGIC %run ../common/Constants.scala
 
 // COMMAND ----------
 
-// MAGIC %run ../common/DatabaseUtils
+// MAGIC %run ../common/DatabaseUtils.scala
+
+// COMMAND ----------
+
+// MAGIC %run ../../python/common/secrets_manager_utils.py
+
+// COMMAND ----------
+
+// MAGIC %python
+// MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
+// MAGIC 
+// MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
+// MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
+// MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
+// MAGIC 
+// MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
+// MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
+// MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
 
 // COMMAND ----------
 
 var configs: Map[String, String] = Map()
-configs += ("env" -> dbutils.widgets.get("ENVIRONMENT"),
-            "sfaiUsername" -> dbutils.widgets.get("SFAI_USERNAME"),
-            "sfaiPassword" -> dbutils.widgets.get("SFAI_PASSWORD"),
+configs += ("env" -> dbutils.widgets.get("stack"),
+            "sfaiUsername" -> spark.conf.get("sfai_username"),
+            "sfaiPassword" -> spark.conf.get("sfai_password"),
             "sfaiUrl" -> SFAI_URL,
             "sfaiDriver" -> SFAI_DRIVER,
-            "redshiftUsername" -> dbutils.widgets.get("REDSHIFT_USERNAME"),
-            "redshiftPassword" -> dbutils.widgets.get("REDSHIFT_PASSWORD"),
-            "redshiftAwsRole" -> dbutils.widgets.get("AWS_IAM_ROLE"),
-            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("ENVIRONMENT"))}:${REDSHIFT_PORTS(dbutils.widgets.get("ENVIRONMENT"))}/${dbutils.widgets.get("ENVIRONMENT")}?ssl_verify=None""",
-            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("ENVIRONMENT"))}redshift_temp/""")
+            "redshiftUsername" -> spark.conf.get("redshift_username"),
+            "redshiftPassword" -> spark.conf.get("redshift_password"),
+            "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
 
 // COMMAND ----------
 
@@ -226,7 +241,3 @@ writeDFToRedshift(configs, thirdTransformation, "prod.hardware_ltf", "append")
 // COMMAND ----------
 
 writeDFToS3(fReportUnits, S3_BASE_BUCKETS(configs("env")) + s"""/proto/${forecastNameRecordName}/${maxVersion}/f_report_units/""", "parquet", "overwrite")
-
-// COMMAND ----------
-
-
