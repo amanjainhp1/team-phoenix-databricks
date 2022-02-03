@@ -3730,7 +3730,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , 'Trad' as customer_engagement
                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
                 , '",today,"' as forecast_created_date
-                , Usage_Source as data_source
+                , 'n' as data_source
                 , '",vsn,"' as version
                 , 'Usage_n' as measure
                 , MPV_n as units
@@ -3752,7 +3752,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , 'Trad' as customer_engagement
                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
                 , '",today,"' as forecast_created_date
-                , Usage_Source as data_source
+                , 'n' as data_source
                 , '",vsn,"' as version
                 , 'Share_n' as measure
                 , Share_Raw_N_PS as units
