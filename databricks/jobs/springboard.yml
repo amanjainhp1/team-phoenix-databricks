@@ -1,6 +1,7 @@
 ---
 Jobs:
   - actuals-hw
+  - cluster-heartbeat
   - example-job
   - hardware-ltf
   - hardware-stf
