@@ -38,7 +38,7 @@ tableDF.createOrReplaceTempView("tableDF")
 
 val inputTableCols = tableDF.columns.map(x => x.toLowerCase)
 
-val schema = if(table == "version") "prod" else "mdm"
+val schema = if(List("decay", "instant_ink_enrollees_ltf", "version").contains(table)) "prod" else "mdm"
 
 val outputTableCols = spark.read
   .format("com.databricks.spark.redshift")

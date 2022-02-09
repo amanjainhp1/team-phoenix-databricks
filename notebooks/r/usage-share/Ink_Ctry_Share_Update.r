@@ -72,7 +72,7 @@ sessionInfo()
 
 writeout <- dbutils.widgets.get("writeout") #change to YES to write to MDM
 UPMDate <- dbutils.widgets.get("upm_date") #Sys.Date() #Change to date if not running on same date as UPM '2021-07-22' #
-UPMDateC <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if not running on same date as UPM '2021-07-22' #
+UPMDateColor <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if not running on same date as UPM '2021-07-22' #
 
 # COMMAND ----------
 
@@ -1819,8 +1819,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 
-UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(",UPMDate,").parquet"))
-UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry_Color(",UPMDate,").parquet"))
+UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(", UPMDate, ").parquet"))
+UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry_Color(", UPMDateColor ,").parquet"))
 
 #UPM$MPV_N <- as.numeric(as.character(UPM$MPV_N))
 #UPM$MPV_Raw <- as.numeric(as.character(UPM$MPV_Raw))
