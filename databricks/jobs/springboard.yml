@@ -6,6 +6,7 @@ Jobs:
   - ink-share
   - ink-usage-color
   - ink-usage-total
+  - ce-split
   - mdm-nightly-load
   - rdma-load
   - toner-share
