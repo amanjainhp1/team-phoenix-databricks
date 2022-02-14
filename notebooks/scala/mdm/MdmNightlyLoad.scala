@@ -48,7 +48,6 @@ var notebooks: Seq[NotebookData] = Seq()
 val tables: Seq[String] = Seq("calendar",
                               "decay",
                               "hardware_xref",
-                              "instant_ink_enrollees_ltf"
                               "iso_cc_rollup_xref",
                               "iso_country_code_xref",
                               "product_line_xref",
