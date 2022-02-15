@@ -3,6 +3,11 @@
 val SFAI_URL: String = "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;"
 val SFAI_DRIVER: String = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
 
+//S3
+val S3_BASE_BUCKETS: Map[String, String] = Map("dev" -> "s3a://dataos-core-dev-team-phoenix/",
+                                            "itg" -> "s3a://dataos-core-itg-team-phoenix/",
+                                            "prod" -> "s3a://dataos-core-prod-team-phoenix/")
+
 // Redshift
 val REDSHIFT_URLS: Map[String, String] = Map("dev" -> "dataos-core-dev-team-phoenix.dev.hpdataos.com",
                                             "itg" -> "dataos-core-team-phoenix.stg.hpdataos.com",
