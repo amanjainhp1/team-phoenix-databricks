@@ -285,7 +285,7 @@ LEFT JOIN hardware_xref c ON b.Platform_Subset=c.platform_subset
 LEFT JOIN iso_country_code_xref d on a.geo=d.country_alpha2
 WHERE 1=1
 	AND a.record LIKE ('WD3%')
-	AND a.load_date = "${wd3LoadDate}"
+	--AND a.load_date = "${wd3LoadDate}"
 	AND units > 0
 	AND c.technology IN ('INK','LASER','PWA')
 GROUP BY 
