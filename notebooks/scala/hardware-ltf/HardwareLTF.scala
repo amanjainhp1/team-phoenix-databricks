@@ -50,7 +50,8 @@ configs += ("env" -> dbutils.widgets.get("stack"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
+			"redshiftDevGroup" -> REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack")))
 
 // COMMAND ----------
 
@@ -65,7 +66,8 @@ WHERE record LIKE ('LTF-%')
 val fReportUnits = readSqlServerToDF(configs)
   .option("query", fReportUnitsQuery)
   .load()
-  .cache()
+
+writeDFToRedshift(configs, fReportUnits, "stage.f_report_units", "overwrite")
 
 fReportUnits.createOrReplaceTempView("f_report_units")
 
@@ -131,8 +133,6 @@ val version = readRedshiftToDF(configs)
   .option("query", versionQuery)
   .load()
 
-version.createOrReplaceTempView("version")
-
 // COMMAND ----------
 
 val maxVersion = version.select("version").distinct().collect().map(_.getString(0)).mkString("")
@@ -142,7 +142,7 @@ val maxLoadDate = version.select("load_date").distinct().collect().map(_.getTime
 
 // --first transformation:
 
-val firstTransformation = spark.sql(s"""
+val firstTransformationQuery = s"""
 SELECT  a.record
       , a.geo
       , a.geo_type
@@ -164,20 +164,23 @@ GROUP BY
 	, a.calendar_month
 	, load_date
 	, version
-""")
+"""
 
-firstTransformation.createOrReplaceTempView("first_transformation")
+val firstTransformation = spark.sql(firstTransformationQuery)
+
+firstTransformation.createOrReplaceTempView("firstTransformation")
 
 // COMMAND ----------
 
 // --second transformation:
+
 val rdma = readRedshiftToDF(configs)
-  .option("dbtable", "mdm.rdma")
-  .load()
+	.option("dbTable", "mdm.rdma")
+	.load()
 
 rdma.createOrReplaceTempView("rdma")
 
-val secondTransformation = spark.sql(s"""
+val secondTransformationQuery = s"""
 	SELECT
 		  '${record}' AS record
 		, '${forecastNameRecordName}' AS forecast_name
@@ -202,20 +205,21 @@ val secondTransformation = spark.sql(s"""
 		, a.base_prod_number
         , a.load_date
 		, a.version
-""")
+"""
 
-secondTransformation.createOrReplaceTempView("second_transformation")
+val secondTransformation = spark.sql(secondTransformationQuery)
+
+secondTransformation.createOrReplaceTempView("secondTransformation")
 
 // COMMAND ----------
 
 val hardwareXref = readRedshiftToDF(configs)
-  .option("dbtable", "mdm.hardware_xref")
-  .load()
-  .select("id", "platform_subset")
+	.option("dbtable", "mdm.hardware_xref")
+	.load()
 
 hardwareXref.createOrReplaceTempView("hardware_xref")
 
-val thirdTransformation = spark.sql(s"""
+val thirdTransformationQuery = s"""
 	SELECT
 		  a.record
 		, a.forecast_name
@@ -232,9 +236,15 @@ val thirdTransformation = spark.sql(s"""
 	FROM second_transformation a
 	LEFT JOIN hardware_xref b
       ON a.platform_subset = b.platform_subset
-""")
+"""
+
+val thirdTransformation = spark.sql(thirdTransformationQuery)
 
 // COMMAND ----------
+
+writeDFToRedshift(configs, firstTransformation, "stage.hardware_ltf_01", "overwrite")
+writeDFToRedshift(configs, secondTransformation, "stage.hardware_ltf_02", "overwrite")
+writeDFToRedshift(configs, thirdTransformation, "stage.hardware_ltf_03", "overwrite")
 
 writeDFToRedshift(configs, thirdTransformation, "prod.hardware_ltf", "append")
 

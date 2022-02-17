@@ -41,7 +41,8 @@ configs += ("env" -> dbutils.widgets.get("stack"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
+			"redshiftDevGroup" -> REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack")))
 
 // COMMAND ----------
 
@@ -602,7 +603,6 @@ WHERE c.Technology IN ('INK','LASER','PWA') AND c.PL_category = 'HW'
 
 // COMMAND ----------
 
-// DBTITLE 0,Untitled
 wd3AllocatedLtfLtfUnits.cache()
 writeDFToRedshift(configs, wd3AllocatedLtfLtfUnits, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
 

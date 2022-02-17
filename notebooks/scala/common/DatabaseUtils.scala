@@ -56,10 +56,12 @@ def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.
   .format("com.databricks.spark.redshift")
   .option("url", configs("redshiftUrl"))
   .option("tempdir", configs("redshiftTempBucket"))
+  .option("tempformat", "CSV GZIP")
   .option("aws_iam_role", configs("redshiftAwsRole"))
   .option("user", configs("redshiftUsername"))
   .option("password", configs("redshiftPassword"))
   .option("dbtable", destination)
+  .option("postactions", s"GRANT ALL ON TABLE ${destination} TO GROUP ${configs("redshiftDevGroup")}")
   .mode(mode)
   .save()
 }
