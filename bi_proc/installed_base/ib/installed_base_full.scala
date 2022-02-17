@@ -883,9 +883,9 @@ SELECT 'ib_trad' AS record
     , ib.printer_installs
     , ib.ib - COALESCE(sys.p2_cumulative, 0) AS ib
 FROM "stage"."ib_02_ce_splits" AS ib
-JOIN "prod"."hardware_xref" AS hw
+JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ib.platform_subset
-JOIN "prod"."iso_country_code_xref" AS cc
+JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = ib.country_alpha2
 LEFT JOIN ib_25_sys_delta AS sys
     ON sys.month_begin = ib.month_begin
@@ -912,7 +912,7 @@ SELECT 'ib_iink' AS record
     , 0 AS printer_installs
     , iink.ib
 FROM "stage"."ib_03_iink_complete" AS iink
-JOIN "prod"."hardware_xref" AS hw
+JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 WHERE 1=1
     AND iink.month_begin < '2022-11-01'  -- to update
@@ -935,7 +935,7 @@ SELECT 'ib_iink' AS record
     , 0 AS printer_installs
     , iink.cum_enrollees_month AS ib
 FROM ib_24_iink_ltf AS iink
-JOIN "prod"."hardware_xref" AS hw
+JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iink.country_alpha2
@@ -962,17 +962,9 @@ queryList += (("stage.ib_staging", ibStaging))
 
 // COMMAND ----------
 
-println(queryList(2))
-
-// COMMAND ----------
-
 // MAGIC %md
 // MAGIC ## Create Tables in Redshift
 
 // COMMAND ----------
 
 // MAGIC %run "../../library/output_to_redshift" $queryList=queryList
-
-// COMMAND ----------
-
-
