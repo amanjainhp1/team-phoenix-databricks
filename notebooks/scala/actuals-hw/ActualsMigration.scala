@@ -105,7 +105,7 @@ try {
     writeDFToS3(sourceTableDF, s"s3a://dataos-core-${dbutils.widgets.get("stack")}-team-phoenix/proto/${destinationTable}/${datestamp}/${timestamp}/", "csv")
 
   //   save data to "stage" and final/"prod" schema
-    writeDFToRedshift(configs, sourceTableDF, s"stage.${destinationTable}", "overwrite")
+    writeDFToRedshift(configs, sourceTableDF, s"stage.${destinationTable}", "overwrite", "CSV GZIP")
     writeDFToRedshift(configs, sourceTableDF, s"${destinationSchema}.${destinationTable}", "append")
   }
 } catch {
@@ -179,7 +179,7 @@ if (!initialDataLoad && destinationTableExists) {
       .option("query", s"""SELECT * FROM [Archer_Prod].dbo.stf_flash_country_speedlic_vw WHERE record = 'Planet-Actuals' AND date = '${archerActualsUnitsMaxDate}'""")
       .load()
     
-    writeDFToRedshift(configs, stfFlashCountrySpeedlicVw, "stage.stf_flash_country_speedlic_vw", "overwrite")
+    writeDFToRedshift(configs, stfFlashCountrySpeedlicVw, "stage.stf_flash_country_speedlic_vw", "overwrite", "CSV GZIP")
     
     val stagingActualsUnitsHwQuery = s"""
       SELECT
@@ -223,7 +223,7 @@ if (!initialDataLoad && destinationTableExists) {
     stageActualsDF = stageActualsDF.union(stagingActualsUnitsHw)
     
     //retrieve large format SFAI data
-    val edwRevenueUnitsBaseLandingQuery = """
+    val odwRevenueUnitsBaseLandingQuery = """
     SELECT
       cal_date,
       country_alpha2,
@@ -241,7 +241,7 @@ if (!initialDataLoad && destinationTableExists) {
       .option("query", odwRevenueUnitsBaseLandingQuery)
       .load()
     
-    writeDFToRedshift(configs, odwRevenueUnitsBaseLanding, "stage.odw_revenue_units_base_landing", "overwrite")
+    writeDFToRedshift(configs, odwRevenueUnitsBaseLanding, "stage.odw_revenue_units_base_landing", "overwrite", "CSV GZIP")
     
     //join EDW data to lookup tables in Redshift
     val stagingActualsLFQuery = s"""
@@ -263,10 +263,9 @@ if (!initialDataLoad && destinationTableExists) {
         AND hw.technology = 'LF'
       GROUP BY
       e.cal_date,
-      p.country_alpha2,
+      e.country_alpha2,
       e.base_product_number,
-      r.Platform_Subset,
-      e.load_date
+      r.Platform_Subset
     """
 
     var stagingActualsLF = readRedshiftToDF(configs)
@@ -299,7 +298,7 @@ if (!initialDataLoad && destinationTableExists) {
     if (stageActualsDF.count() > 0) {
 
       //write to redshift
-      writeDFToRedshift(configs, stageActualsDF, "stage.actuals_hw", "overwrite")
+      writeDFToRedshift(configs, stageActualsDF, "stage.actuals_hw", "overwrite", "CSV GZIP")
       
     }
   }

@@ -51,12 +51,12 @@ def readRedshiftToDF(configs: Map[String, String]): org.apache.spark.sql.DataFra
 
 // COMMAND ----------
 
-def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.sql.Dataset[Row], destination: String, mode: String): Unit = {
+def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.sql.Dataset[Row], destination: String, mode: String, tempformat: String = "AVRO"): Unit = {
   dataframe.write
   .format("com.databricks.spark.redshift")
   .option("url", configs("redshiftUrl"))
   .option("tempdir", configs("redshiftTempBucket"))
-  .option("tempformat", "CSV GZIP")
+  .option("tempformat", tempformat)
   .option("aws_iam_role", configs("redshiftAwsRole"))
   .option("user", configs("redshiftUsername"))
   .option("password", configs("redshiftPassword"))

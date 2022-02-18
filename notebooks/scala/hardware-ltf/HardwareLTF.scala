@@ -146,15 +146,12 @@ val firstTransformationQuery = s"""
 SELECT  a.record
       , a.geo
       , a.geo_type
-	  , NULL AS geo_input 
+	  , CAST(NULL AS int) AS geo_input 
       , a.base_prod_number
-	  , NULL AS sku
+	  , CAST(NULL AS int) AS sku
       , a.calendar_month
       , SUM(a.units) AS units
-      , CAST("${maxLoadDate}" as date) AS load_date
-      , "${maxVersion}" AS version
-	  , "${forecastNameRecordName}" as record_name --get this value from the helper table above.
-FROM f_report_units a --this table would be the first table that we land the data to, from Archer
+FROM stage.f_report_units a --this table would be the first table that we land the data to, from Archer
 WHERE 1=1
 GROUP BY
 	  a.record
@@ -162,13 +159,13 @@ GROUP BY
 	, a.geo_type
 	, a.base_prod_number
 	, a.calendar_month
-	, load_date
-	, version
 """
 
-val firstTransformation = spark.sql(firstTransformationQuery)
+val firstTransformation = readRedshiftToDF(configs)
+  .option("query", firstTransformationQuery)
+  .load()
 
-firstTransformation.createOrReplaceTempView("firstTransformation")
+firstTransformation.createOrReplaceTempView("first_transformation")
 
 // COMMAND ----------
 
@@ -192,24 +189,21 @@ val secondTransformationQuery = s"""
 		, a.base_prod_number AS base_product_number
 		, SUM(a.units) AS units
         , CAST("true" as boolean) AS official
-		, a.load_date
-		, a.version
+		, CAST("${maxLoadDate}" as date) AS load_date
+		, "${maxVersion}" AS version
 	FROM first_transformation a
 	INNER JOIN rdma b
       ON a.base_prod_number = b.base_prod_number
 	GROUP BY
-          a.record_name
-		, a.calendar_month
+		  a.calendar_month
 		, a.geo
 		, b.platform_subset
 		, a.base_prod_number
-        , a.load_date
-		, a.version
 """
 
 val secondTransformation = spark.sql(secondTransformationQuery)
 
-secondTransformation.createOrReplaceTempView("secondTransformation")
+secondTransformation.createOrReplaceTempView("second_transformation")
 
 // COMMAND ----------
 
@@ -242,8 +236,13 @@ val thirdTransformation = spark.sql(thirdTransformationQuery)
 
 // COMMAND ----------
 
+firstTransformation.cache()
 writeDFToRedshift(configs, firstTransformation, "stage.hardware_ltf_01", "overwrite")
+
+secondTransformation.cache()
 writeDFToRedshift(configs, secondTransformation, "stage.hardware_ltf_02", "overwrite")
+
+thirdTransformation.cache()
 writeDFToRedshift(configs, thirdTransformation, "stage.hardware_ltf_03", "overwrite")
 
 writeDFToRedshift(configs, thirdTransformation, "prod.hardware_ltf", "append")
