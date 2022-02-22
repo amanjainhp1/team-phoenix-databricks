@@ -1,12 +1,23 @@
 # Databricks notebook source
-import boto3
+dbutils.widgets.text("redshift_secrets_name", "")
+dbutils.widgets.text("sqlserver_secrets_name", "")
+dbutils.widgets.text("aws_iam_role", "")
+dbutils.widgets.text("stack", "")
+
+# COMMAND ----------
+
+import json
+with open('/dbfs/dataos-pipeline-springboard/dev/ce-split/green/configs/constants.json') as json_file:
+  data=json.load(json_file)
+
+# COMMAND ----------
+
+# MAGIC %run ../common/secrets_manager_utils
+
+# COMMAND ----------
+
 import pyspark.sql.functions as func
 from pyspark.sql.functions import *
-def secrets_get(secret_name, region_name):
-    endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = boto3.client(service_name='secretsmanager', region_name=region_name)
-    get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    return eval(get_secret_value_response['SecretString'])
  
 redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
 spark.conf.set("redshift_username", redshift_secrets["username"])
@@ -18,12 +29,12 @@ spark.conf.set("sfai_password", sqlserver_secrets["password"])
 
 # COMMAND ----------
 
-dev_rs_url="dataos-core-dev-team-phoenix.dev.hpdataos.com"
+dev_rs_url=data['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
 dev_rs_dbname=dbutils.widgets.get("stack")
 dev_rs_user_ref=spark.conf.get("redshift_username")
 dev_rs_pw_ref=spark.conf.get("redshift_password")
 dev_jdbc_url_ref = "jdbc:redshift://{}/{}?user={}&password={}&ssl=true&sslfactory=com.amazon.redshift.ssl.NonValidatingFactory".format(dev_rs_url, dev_rs_dbname, dev_rs_user_ref, dev_rs_pw_ref)
-s3_bucket = "s3a://dataos-core-dev-team-phoenix/redshift_temp"
+s3_bucket = "s3a://dataos-core-{}-team-phoenix/redshift_temp".format(dev_rs_dbname)
 dev_iam = dbutils.widgets.get("aws_iam_role")
 
 def getDataByTable(table): 
@@ -37,8 +48,8 @@ def getDataByTable(table):
 # COMMAND ----------
 
 instant_ink_enrollees_df = getDataByTable('prod.instant_ink_enrollees')
-country_code_xref_df = getDataByTable('prod.iso_country_code_xref')
-hardware_xref_df = getDataByTable('prod.hardware_xref')
+country_code_xref_df = getDataByTable('mdm.iso_country_code_xref')
+hardware_xref_df = getDataByTable('mdm.hardware_xref')
 norm_shipments_df = getDataByTable('prod.norm_shipments')
 calendar_df = getDataByTable('mdm.calendar')
 
@@ -320,6 +331,11 @@ final_ce=final_ce.select('record','platform_subset','region_5','country_alpha2',
 
 # COMMAND ----------
 
+url = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(data['REDSHIFT_URLS'][dbutils.widgets.get("stack")],dbutils.widgets.get("stack"))
+spark.conf.set('url', url)
+
+# COMMAND ----------
+
 # write data to redshift
 final_ce.write \
   .format("com.databricks.spark.redshift") \
@@ -330,40 +346,6 @@ final_ce.write \
   .option("tempformat", "CSV") \
   .option("user", dev_rs_user_ref) \
   .option("password", dev_rs_pw_ref) \
+  .option("postactions","GRANT ALL ON prod.ce_splits TO group dev_arch_eng") \
   .mode("append") \
   .save()
-
-# COMMAND ----------
-
-# MAGIC %scala
-# MAGIC import java.sql.Connection
-# MAGIC import java.sql.Statement
-# MAGIC import java.sql.DriverManager
-# MAGIC 
-# MAGIC def submitRemoteQuery(url: String, username: String, password: String, query: String) {
-# MAGIC   
-# MAGIC   var conn: Connection = null
-# MAGIC   conn = DriverManager.getConnection(url, username, password)
-# MAGIC   
-# MAGIC   if (conn != null) {
-# MAGIC       print(s"""Connected to ${url}\n""")
-# MAGIC   }
-# MAGIC 
-# MAGIC   val statement: Statement = conn.createStatement()
-# MAGIC   
-# MAGIC   statement.executeUpdate(query)
-# MAGIC   
-# MAGIC   conn.close()
-# MAGIC }
-
-# COMMAND ----------
-
-url = f"""jdbc:redshift://dataos-redshift-core-{dbutils.widgets.get("stack")}-01.hp8.us:5439/{dbutils.widgets.get("stack")}?ssl_verify=None"""
-spark.conf.set('username', dev_rs_user_ref)
-spark.conf.set('password', dev_rs_pw_ref)
-spark.conf.set('url', url)
-
-# COMMAND ----------
-
-# MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, "GRANT ALL ON prod.ce_splits TO group dev_arch_eng")
