@@ -15,15 +15,15 @@ dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../common/Constants.scala
+// MAGIC %run ../common/Constants
 
 // COMMAND ----------
 
-// MAGIC %run ../common/DatabaseUtils.scala
+// MAGIC %run ../common/DatabaseUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../../python/common/secrets_manager_utils.py
+// MAGIC %run ../../python/common/secrets_manager_utils
 
 // COMMAND ----------
 
