@@ -9,8 +9,8 @@ from pyspark.sql.types import DoubleType
 # COMMAND ----------
 
 import json
-with open('/dbfs/dataos-pipeline-springboard/dev/ce-split/green/configs/constants.json') as json_file:
-  data=json.load(json_file)
+with open(f"""{dbutils.widgets.get("job_dbfs_path")}configs/constants.json""") as json_file:
+  constants=json.load(json_file)
 
 # COMMAND ----------
 
@@ -154,7 +154,7 @@ redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us
 spark.conf.set("redshift_username", redshift_secrets["username"])
 spark.conf.set("redshift_password", redshift_secrets["password"])
 
-dev_rs_url=data['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
+dev_rs_url=constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
 dev_rs_dbname=dbutils.widgets.get("stack")
 dev_rs_user_ref=spark.conf.get("redshift_username")
 dev_rs_pw_ref=spark.conf.get("redshift_password")
@@ -163,7 +163,7 @@ dev_jdbc_url_ref = "jdbc:redshift://{}/{}?user={}&password={}&ssl=true&sslfactor
 # COMMAND ----------
 
 #write data to redhift
-url = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(data['REDSHIFT_URLS'][dbutils.widgets.get("stack")],dbutils.widgets.get("stack"))
+url = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")],dbutils.widgets.get("stack"))
 spark.conf.set('url', url)
 
 rdma_base_to_sales_df.write \
