@@ -1,5 +1,5 @@
 // Databricks notebook source
-// MAGIC %run ../../scala/common/DatabaseUtils.scala
+// MAGIC %run ../../scala/common/DatabaseUtils
 
 // COMMAND ----------
 
