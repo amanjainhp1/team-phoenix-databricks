@@ -8,24 +8,13 @@ from pyspark.sql.types import DoubleType
 
 # COMMAND ----------
 
-def secrets_get(secret_name):
-    endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = boto3.client(service_name='secretsmanager', region_name=region_name)
-    get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    return eval(get_secret_value_response['SecretString'])
+import json
+with open(f"""{dbutils.widgets.get("job_dbfs_path")}configs/constants.json""") as json_file:
+  constants=json.load(json_file)
 
 # COMMAND ----------
 
-region_name = "us-west-2"
-secret_name = dbutils.widgets.get("redshift_secrets_name")
-s3_bucket = f"""dataos-core-{dbutils.widgets.get("stack")}-team-phoenix"""
-url = f"""jdbc:redshift://dataos-redshift-core-{dbutils.widgets.get("stack")}-01.hp8.us:5439/{dbutils.widgets.get("stack")}?ssl_verify=None"""
-username = secrets_get(secret_name)['username']
-password = secrets_get(secret_name)['password']
-
-spark.conf.set('username', username)
-spark.conf.set('password', password)
-spark.conf.set('url', url)
+# MAGIC %run ../common/secrets_manager_utils
 
 # COMMAND ----------
 
@@ -161,22 +150,33 @@ rdma_sales_product_option_df = rdma_sales_product_option_df.withColumn("load_dat
 
 # COMMAND ----------
 
+redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
+spark.conf.set("redshift_username", redshift_secrets["username"])
+spark.conf.set("redshift_password", redshift_secrets["password"])
+
+dev_rs_url=constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
+dev_rs_dbname=dbutils.widgets.get("stack")
+dev_rs_user_ref=spark.conf.get("redshift_username")
+dev_rs_pw_ref=spark.conf.get("redshift_password")
+dev_jdbc_url_ref = "jdbc:redshift://{}/{}?user={}&password={}&ssl=true&sslfactory=com.amazon.redshift.ssl.NonValidatingFactory".format(dev_rs_url, dev_rs_dbname, dev_rs_user_ref, dev_rs_pw_ref)
+
+# COMMAND ----------
+
 #write data to redhift
+url = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")],dbutils.widgets.get("stack"))
+spark.conf.set('url', url)
+
 rdma_base_to_sales_df.write \
   .format("com.databricks.spark.redshift") \
   .option("url", url) \
   .option("dbtable", "prod.rdma_base_to_sales_product_map") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
-  .option("user", username) \
-  .option("password", password) \
+  .option("user", dev_rs_user_ref) \
+  .option("password", dev_rs_pw_ref) \
+  .option("postactions","GRANT ALL ON prod.rdma_base_to_sales_product_map TO group dev_arch_eng") \
   .mode("overwrite") \
   .save()
-
-# COMMAND ----------
-
-# MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, "GRANT ALL ON prod.rdma_base_to_sales_product_map TO group dev_arch_eng")          
 
 # COMMAND ----------
 
@@ -187,20 +187,16 @@ rdma_df.write \
   .option("dbtable", "stage.rdma_staging") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
-  .option("user", username) \
-  .option("password", password) \
+  .option("user", dev_rs_user_ref) \
+  .option("password", dev_rs_pw_ref) \
+  .option("postactions","GRANT ALL ON stage.rdma_staging TO group dev_arch_eng") \
   .mode("overwrite") \
   .save()
 
 # COMMAND ----------
 
 # MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, s"""CALL prod.p_rdma();""") 
-
-# COMMAND ----------
-
-# MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, "GRANT ALL ON stage.rdma_staging TO group dev_arch_eng")          
+# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("redshift_username")}, {spark.conf.get("redshift_password")}, s"""CALL prod.p_rdma();""") 
 
 # COMMAND ----------
 
@@ -211,15 +207,11 @@ rdma_sales_product_full_df.write \
   .option("dbtable", "prod.rdma_sales_product") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
-  .option("user", username) \
-  .option("password", password) \
+  .option("user", dev_rs_user_ref) \
+  .option("password", dev_rs_pw_ref) \
+  .option("postactions","GRANT ALL ON prod.rdma_sales_product TO group dev_arch_eng") \
   .mode("overwrite") \
   .save()
-
-# COMMAND ----------
-
-# MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, "GRANT ALL ON prod.rdma_sales_product TO group dev_arch_eng")   
 
 # COMMAND ----------
 
@@ -231,12 +223,8 @@ rdma_sales_product_option_df.write \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
   .option("tempformat", "CSV") \
-  .option("user", username) \
-  .option("password", password) \
+  .option("user", dev_rs_user_ref) \
+  .option("password", dev_rs_pw_ref) \
+  .option("postactions","GRANT ALL ON prod.rdma_sales_product_option TO group dev_arch_eng") \
   .mode("overwrite") \
   .save()
-
-# COMMAND ----------
-
-# MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("username")}, {spark.conf.get("password")}, "GRANT ALL ON prod.rdma_sales_product_option TO group dev_arch_eng")
