@@ -31,6 +31,8 @@ git push origin new-branch-name
 
 ## General Workflow
 
+<img src="https://media.github.azc.ext.hp.com/user/24293/files/5c98102d-c93f-4f0d-8fc6-c18f5f6a23ad" width=50% height=50%>
+
 In general, coders should work on notebooks in the Databricks web workspace in their repo. When ready to formally deploy, the general workflow is as follows:
 1. A PR should be opened to merge the relevant working branch to "dev".
 2. The "dev" branch is unprotected, so the committer can immediately merge the changes. Subsequently, a deployment will launch and redeploy all notebooks to the "dev" workspace.
@@ -54,3 +56,4 @@ Python Style Guide: https://www.python.org/dev/peps/pep-0008/
 Scala Style Guide: https://github.com/databricks/scala-style-guide  
 Redshift Endpoints: https://rndwiki.inc.hpicorp.net/confluence/pages/viewpage.action?spaceKey=PSO&title=Redshift+Endpoints  
 Databricks E2 repo: https://github.azc.ext.hp.com/hp-data-platform/databricks_e2
+Running jobs in Databricks: https://docs.databricks.com/jobs.html
