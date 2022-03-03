@@ -9,12 +9,17 @@ from pyspark.sql.types import DoubleType
 # COMMAND ----------
 
 import json
-with open(f"""{dbutils.widgets.get("job_dbfs_path")}configs/constants.json""") as json_file:
-  constants=json.load(json_file)
+
+with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
+  constants = json.load(json_file)
 
 # COMMAND ----------
 
 # MAGIC %run ../common/secrets_manager_utils
+
+# COMMAND ----------
+
+# MAGIC %run ../../scala/common/DatabaseUtils
 
 # COMMAND ----------
 
@@ -23,6 +28,7 @@ with open(f"""{dbutils.widgets.get("job_dbfs_path")}configs/constants.json""") a
 import glob
 import os
 import builtins
+
 rdma_base_to_sales_list_of_files = glob.glob('../../dbfs/mnt/rdma-load/rdma_base_to_sales*') # * means all if need specific format then *.csv
 rdma_base_to_sales_latest_file = builtins.max(rdma_base_to_sales_list_of_files, key=os.path.getctime)
 rdma_base_to_sales_latest_file = rdma_base_to_sales_latest_file.split("/")[len(rdma_base_to_sales_latest_file.split("/"))-1]
@@ -127,48 +133,24 @@ rdma_sales_product_option_df = rdma_sales_product_option_df.withColumn("load_dat
 
 # COMMAND ----------
 
-# MAGIC %scala
-# MAGIC import java.sql.Connection
-# MAGIC import java.sql.Statement
-# MAGIC import java.sql.DriverManager
-# MAGIC 
-# MAGIC def submitRemoteQuery(url: String, username: String, password: String, query: String) {
-# MAGIC   
-# MAGIC   var conn: Connection = null
-# MAGIC   conn = DriverManager.getConnection(url, username, password)
-# MAGIC   
-# MAGIC   if (conn != null) {
-# MAGIC       print(s"""Connected to ${url}\n""")
-# MAGIC   }
-# MAGIC 
-# MAGIC   val statement: Statement = conn.createStatement()
-# MAGIC   
-# MAGIC   statement.executeUpdate(query)
-# MAGIC   
-# MAGIC   conn.close()
-# MAGIC }
-
-# COMMAND ----------
-
 redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-spark.conf.set("redshift_username", redshift_secrets["username"])
-spark.conf.set("redshift_password", redshift_secrets["password"])
 
-dev_rs_url=constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
-dev_rs_dbname=dbutils.widgets.get("stack")
-dev_rs_user_ref=spark.conf.get("redshift_username")
-dev_rs_pw_ref=spark.conf.get("redshift_password")
-dev_jdbc_url_ref = "jdbc:redshift://{}/{}?user={}&password={}&ssl=true&sslfactory=com.amazon.redshift.ssl.NonValidatingFactory".format(dev_rs_url, dev_rs_dbname, dev_rs_user_ref, dev_rs_pw_ref)
+dev_rs_url = constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
+dev_rs_dbname = constants['REDSHIFT_DATABASE'][dbutils.widgets.get("stack")]
+dev_rs_user_ref = redshift_secrets["username"]
+dev_rs_pw_ref = redshift_secrets["password"]
+dev_jdbc_url_ref = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(dev_rs_url, dev_rs_dbname)
+
+spark.conf.set("redshift_username", dev_rs_user_ref)
+spark.conf.set("redshift_password", dev_rs_pw_ref)
+spark.conf.set('redshift_url', dev_jdbc_url_ref)
 
 # COMMAND ----------
 
-#write data to redhift
-url = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")],dbutils.widgets.get("stack"))
-spark.conf.set('url', url)
-
+#write data to redshift
 rdma_base_to_sales_df.write \
   .format("com.databricks.spark.redshift") \
-  .option("url", url) \
+  .option("url", dev_jdbc_url_ref) \
   .option("dbtable", "prod.rdma_base_to_sales_product_map") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
@@ -183,7 +165,7 @@ rdma_base_to_sales_df.write \
 # write data to redshift
 rdma_df.write \
   .format("com.databricks.spark.redshift") \
-  .option("url", url) \
+  .option("url", dev_jdbc_url_ref) \
   .option("dbtable", "stage.rdma_staging") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
@@ -196,14 +178,14 @@ rdma_df.write \
 # COMMAND ----------
 
 # MAGIC %scala  
-# MAGIC submitRemoteQuery({spark.conf.get("url")}, {spark.conf.get("redshift_username")}, {spark.conf.get("redshift_password")}, s"""CALL prod.p_rdma();""") 
+# MAGIC submitRemoteQuery({spark.conf.get("redshift_url")}, {spark.conf.get("redshift_username")}, {spark.conf.get("redshift_password")}, s"""CALL prod.p_rdma();""") 
 
 # COMMAND ----------
 
 # write data to redshift
 rdma_sales_product_full_df.write \
   .format("com.databricks.spark.redshift") \
-  .option("url", url) \
+  .option("url", dev_jdbc_url_ref) \
   .option("dbtable", "prod.rdma_sales_product") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
@@ -218,7 +200,7 @@ rdma_sales_product_full_df.write \
 # write data to redshift
 rdma_sales_product_option_df.write \
   .format("com.databricks.spark.redshift") \
-  .option("url", url) \
+  .option("url", dev_jdbc_url_ref) \
   .option("dbtable", "prod.rdma_sales_product_option") \
   .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
   .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
