@@ -4,7 +4,7 @@ resources:
       type: githubenterprise
       name: codeway/templates
       endpoint: ghe
-      branch: dataos_databricks_pipelines
+      ref: dataos_databricks_pipelines
     - repository: jobs
       type: githubenterprise
       name: supplies-bd/team-phoenix-databricks-jobs-config
