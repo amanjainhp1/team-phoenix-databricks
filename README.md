@@ -55,5 +55,5 @@ DataOS: Guide to the Cloud: https://pages.github.azc.ext.hp.com/hp-data-platform
 Python Style Guide: https://www.python.org/dev/peps/pep-0008/  
 Scala Style Guide: https://github.com/databricks/scala-style-guide  
 Redshift Endpoints: https://rndwiki.inc.hpicorp.net/confluence/pages/viewpage.action?spaceKey=PSO&title=Redshift+Endpoints  
-Databricks E2 repo: https://github.azc.ext.hp.com/hp-data-platform/databricks_e2
-Running jobs in Databricks: https://docs.databricks.com/jobs.html
+Databricks E2 repo: https://github.azc.ext.hp.com/hp-data-platform/databricks_e2  
+Running jobs in Databricks: https://docs.databricks.com/jobs.html  
