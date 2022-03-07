@@ -21,6 +21,8 @@ dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("upm_date", "")
 dbutils.widgets.text("upm_date_color", "")
 dbutils.widgets.text("writeout", "")
+dbutils.widgets.text("cutoff_dt", "")
+dbutils.widgets.text("outnm_dt", "")
 
 # COMMAND ----------
 
@@ -70,7 +72,7 @@ sessionInfo()
 
 writeout <- dbutils.widgets.get("writeout") #change to YES to write to MDM
 UPMDate <- dbutils.widgets.get("upm_date") #Sys.Date() #Change to date if not running on same date as UPM '2021-07-22' #
-UPMDateC <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if not running on same date as UPM '2021-07-22' #
+UPMDateColor <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if not running on same date as UPM '2021-07-22' #
 
 # COMMAND ----------
 
@@ -1817,8 +1819,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 
-UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(",UPMDate,").parquet"))
-UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry_Color(",UPMDate,").parquet"))
+UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(", UPMDate, ").parquet"))
+UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry_Color(", UPMDateColor ,").parquet"))
 
 #UPM$MPV_N <- as.numeric(as.character(UPM$MPV_N))
 #UPM$MPV_Raw <- as.numeric(as.character(UPM$MPV_Raw))
@@ -1849,6 +1851,13 @@ UPM2 <- SparkR::sql('
               , avg(a.Seasonality) as Seasonality
               --, avg(a.Cyclical) as Cyclical
               , avg(a.Decay) as Decay
+              , CASE 
+                  WHEN SUBSTR(a.FYearMo,5,6) IN ("11","12") THEN CONCAT((CAST(SUBSTR(a.FYearMo,1,4) AS INT) + 1),"Q1")
+                  WHEN SUBSTR(a.FYearMo,5,6) IN ("01") THEN CONCAT(SUBSTR(a.FYearMo,1,4),"Q1")
+                  WHEN SUBSTR(a.FYearMo,5,6) IN ("02","03","04") THEN CONCAT(SUBSTR(a.FYearMo,1,4),"Q2")
+                  WHEN SUBSTR(a.FYearMo,5,6) IN ("05","06","07") THEN CONCAT(SUBSTR(a.FYearMo,1,4),"Q3")
+                  WHEN SUBSTR(a.FYearMo,5,6) IN ("08","09","10") THEN CONCAT(SUBSTR(a.FYearMo,1,4),"Q4")
+                END AS FYQtr
               FROM UPM a 
               GROUP BY 
                 a.Platform_Subset_Nm
@@ -1859,7 +1868,6 @@ UPM2 <- SparkR::sql('
               , a.Country_Nm
               , a.FYearMo
               , a.rtm
-
               ')
 
 UPM2c <- SparkR::sql('
@@ -1929,7 +1937,7 @@ UPM3 <- SparkR::sql('
 #                  by=list(UPM$printer_platform_name,UPM$printer_region_code,UPM$FYearQtr),FUN=sum)
 
 #colnames(UPM2)<- c("printer_platform_name","printer_region_code","country","FYQ","UPM_MPVIB","MMPVIB","IB","MPV_sample")
-UPM2$FYQtr   <- gsub("\\.","Q",lubridate::quarter(as.Date(paste0(UPM2$FYearMo,'01'),format='%Y%m%d'),with_year=TRUE,fiscal_start=11))
+# UPM2$FYQtr   <- gsub("\\.","Q",lubridate::quarter(as.Date(paste0(UPM2$FYearMo,'01'),format='%Y%m%d'),with_year=TRUE,fiscal_start=11))
 UPM2$MPV_UPM <- (UPM2$MPV_UPMIB)
 UPM2$MPV_Raw <- (UPM2$MPV_RawIB)
 UPM2$MPV_TS  <- (UPM2$MPV_TSIB)
@@ -1994,12 +2002,12 @@ dashampv2 <- sqldf("
 
 createOrReplaceTempView(UPM2, "UPM2")
 createOrReplaceTempView(as.DataFrame(proxylist_final2), "proxylist_final2")
-createOrReplaceTempView(UPM2C, "UPM2C")
-createOrReplaceTempView(as.DataFrame(ib_table), "ib_table")
+createOrReplaceTempView(UPM2c, "UPM2c")
+createOrReplaceTempView(as.DataFrame(ibtable), "ibtable")
 createOrReplaceTempView(as.DataFrame(page_share_ctr), "page_share_ctr")
 createOrReplaceTempView(as.DataFrame(dashampv2), "dashampv2")
 createOrReplaceTempView(UPM3, "UPM3")
-createOrReplaceTempView(hw_info, "hw_info")
+createOrReplaceTempView(as.DataFrame(hw_info), "hw_info")
 
 
 final_list2 <- SparkR::sql("
@@ -2097,23 +2105,23 @@ final_list2$Share_Model_PS <- ifelse(final_list2$Share_Model_PS > 1,1,ifelse(fin
 
 createOrReplaceTempView(final_list2, "final_list2")
 
-final_list2 <- SparkR::sql("
+final_list2 <- SparkR::sql('
                       select a.*
                       , case
-                        when upper(rtm)='I-INK' then 'I-INK'
+                        when upper(rtm)="I-INK" then "I-INK"
                         when a.Platform_Subset_Nm=a.Proxy_PS then
-                          case when a.BD_Share_Flag_PS is 0 then 'Modeled'
-                          when a.Share_Raw_PS is NULL or 0 then 'Modeled'
-                          when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then 'Modeled'
-                          else 'Have Data'
+                          case when a.BD_Share_Flag_PS = 0 then "Modeled"
+                          when a.Share_Raw_PS IN (NULL, 0) then "Modeled"
+                          when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then "Modeled"
+                          else "Have Data"
                           end
-                        else 'Modeled by Proxy'
+                        else "Modeled by Proxy"
                         end as Share_Source_PS
                       , case
-                        when upper(rtm)='I-INK' then 1
+                        when upper(rtm)="I-INK" then 1
                         when a.Platform_Subset_Nm=a.Proxy_PS then
-                          case when a.BD_Share_Flag_PS is 0 then a.Share_Model_PS
-                          when a.Share_Raw_PS is NULL or 0 then a.Share_Model_PS
+                          case when a.BD_Share_Flag_PS = 0 then a.Share_Model_PS
+                          when a.Share_Raw_PS IN (NULL, 0) then a.Share_Model_PS
                           when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then a.Share_Model_PS
                           else a.Share_Raw_PS
                           end
@@ -2121,10 +2129,10 @@ final_list2 <- SparkR::sql("
                           --else null
                         end as Page_Share_sig
                         , case
-                          when upper(rtm)='I-INK' then 1
+                          when upper(rtm)="I-INK" then 1
                           when a.Platform_Subset_Nm=a.Proxy_PS then
-                            case when a.BD_Share_Flag_PS is 0 then a.Share_Model_PSlin
-                            when a.Share_Raw_PS is NULL or 0 then a.Share_Model_PSlin
+                            case when a.BD_Share_Flag_PS = 0 then a.Share_Model_PSlin
+                            when a.Share_Raw_PS IN (NULL, 0) then a.Share_Model_PSlin
                             when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then a.Share_Model_PSlin
                             else a.Share_Raw_PS
                             end
@@ -2132,39 +2140,38 @@ final_list2 <- SparkR::sql("
                           --else null
                         end as Page_Share_lin
                       , case
-                        when a.BD_Usage_Flag is NULL then 'UPM'
-                        when a.BD_Share_Flag_PS is 0 then 'UPM'
-                        when a.MPV_Dash is NULL then 'UPM'
-                        when a.N_Dash < 20 then 'UPM'
-                          else 'Dashboard'
+                        when a.BD_Usage_Flag is NULL then "UPM"
+                        when a.BD_Share_Flag_PS = 0 then "UPM"
+                        when a.MPV_Dash is NULL then "UPM"
+                        when a.N_Dash < 20 then "UPM"
+                          else "Dashboard"
                           end as Usage_Source
                       , case
                         when a.BD_Usage_Flag is NULL then a.MPV_TD
-                        when a.BD_Share_Flag_PS is 0 then a.MPV_TD
+                        when a.BD_Share_Flag_PS = 0 then a.MPV_TD
                         when a.MPV_Dash is NULL then a.MPV_TD
                         when a.N_Dash < 20 then a.MPV_TD
                           else a.MPV_Dash
                           end as Usage
                       , case
-                        when a.BD_Usage_Flag is NULL then 'UPM'
-                        when a.BD_Share_Flag_PS is 0 then 'UPM'
-                        when a.MPVC_Dash is NULL then 'UPM'
-                        when a.N_Dash < 20 then 'UPM'
-                          else 'Dashboard'
+                        when a.BD_Usage_Flag is NULL then "UPM"
+                        when a.BD_Share_Flag_PS = 0 then "UPM"
+                        when a.MPVC_Dash is NULL then "UPM"
+                        when a.N_Dash < 20 then "UPM"
+                          else "Dashboard"
                           end as Usage_Sourcec
                       , case
                         when a.BD_Usage_Flag is NULL then a.MPV_TDc
-                        when a.BD_Share_Flag_PS is 0 then a.MPV_TDc
+                        when a.BD_Share_Flag_PS = 0 then a.MPV_TDc
                         when a.MPVC_Dash is NULL then a.MPV_TDc
                         when a.N_Dash < 20 then a.MPV_TDc
                           else a.MPVC_Dash
                           end as Usage_c
                      from final_list2 a
-                     
-                     ")
+                     ')
 
-final_list2$Usage_k <- ifelse(is.na(final_list2$Usage_c),final_list2$Usage,final_list2$Usage-final_list2$Usage_c)
-final_list2$Usage_c <- ifelse(is.na(final_list2$Usage_c),0,final_list2$Usage_c)
+final_list2$Usage_k <- ifelse(isNull(final_list2$Usage_c), final_list2$Usage, final_list2$Usage-final_list2$Usage_c)
+final_list2$Usage_c <- ifelse(isNull(final_list2$Usage_c), 0, final_list2$Usage_c)
 
 createOrReplaceTempView(final_list2, "final_list2")
 
@@ -2173,14 +2180,14 @@ createOrReplaceTempView(final_list2, "final_list2")
 # final_list2$Pages_Device_Dash <- final_list2$MPV_Dash*final_list2$IB
 # final_list2$Pages_Device_Use <- final_list2$Usage*final_list2$IB
 # final_list2$Pages_Share_Model_PS <- final_list2$MPV_TS*final_list2$IB*final_list2$Share_Model_PS
-# final_list2$Pages_Share_Raw_PS <- final_list2$MPV_Raw*final_list2$IB*as.numeric(final_list2$Share_Raw_PS)
-# final_list2$Pages_Share_Dash_PS <- final_list2$MPV_Dash*final_list2$IB*as.numeric(final_list2$Share_Raw_PS)
-# final_list2$Pages_PS <- final_list2$Pages_Device_Use*as.numeric(final_list2$Page_Share)
+# final_list2$Pages_Share_Raw_PS <- final_list2$MPV_Raw*final_list2$IB*cast(final_list2$Share_Raw_PS, "double"))
+# final_list2$Pages_Share_Dash_PS <- final_list2$MPV_Dash*final_list2$IB*cast(final_list2$Share_Raw_PS, "double"))
+# final_list2$Pages_PS <- final_list2$Pages_Device_Use*cast(final_list2$Page_Share, "double"))
 
 
-final_list4 <- subset(final_list2,IB>0)
-final_list4 <- subset(final_list4,!is.na(MPV_UPM))
-final_list4 <- subset(final_list4,!is.na(Page_Share_sig))
+final_list4 <- filter(final_list2, final_list2$IB>0)
+final_list4 <- filter(final_list4, !isNull(final_list4$MPV_UPM))
+final_list4 <- filter(final_list4, !isNull(final_list4$Page_Share_sig))
 
 createOrReplaceTempView(final_list4, "final_list4")
 
@@ -2238,10 +2245,10 @@ createOrReplaceTempView(final_list4, "final_list4")
 #                      ")
 
 final_list6 <- final_list4
-final_list6$BD_Usage_Flag <- ifelse(is.na(final_list6$BD_Usage_Flag),0,final_list6$BD_Usage_Flag)
-final_list6$BD_Share_Flag_PS <- ifelse(is.na(final_list6$BD_Share_Flag_PS),0,final_list6$BD_Share_Flag_PS)
+final_list6$BD_Usage_Flag <- ifelse(isNull(final_list6$BD_Usage_Flag), 0, final_list6$BD_Usage_Flag)
+final_list6$BD_Share_Flag_PS <- ifelse(isNull(final_list6$BD_Share_Flag_PS), 0, final_list6$BD_Share_Flag_PS)
 #change FIntroDt from YYYYMM to YYYYQQ
-final_list6$FIntroDt <- gsub(" ","",as.character(as.yearqtr(as.Date(paste0(final_list6$FIntroDt,"01"),"%Y%m%d")+3/4)))
+# final_list6$FIntroDt <- gsub(" ", "", cast(as.yearqtr(as.Date(paste0(final_list6$FIntroDt,"01"),"%Y%m%d")+3/4), "string"))
 
 #rm(table_month)
 
@@ -2275,13 +2282,13 @@ final_list7 <- mutate(final_list6
 
 #adjval^(preddata$timediff-maxtimediff2)*preddata$fit2+(1-(adjval^(preddata$timediff-maxtimediff2)))*preddata$fit1)
 final_list7$hd_mchange_ps <- ifelse(final_list7$Share_Source_PS=="Modeled"|final_list7$Share_Source_PS=="Modeled by Proxy",ifelse(final_list7$lagShare_Source_PS=="Have Data",final_list7$Page_Share_sig-final_list7$lagShare_PS, NA ),NA)
-final_list7$hd_mchange_ps_i <- ifelse(!is.na(final_list7$hd_mchange_ps),final_list7$index1,NA)
+final_list7$hd_mchange_ps_i <- ifelse(!isNull(final_list7$hd_mchange_ps),final_list7$index1,NA)
 #final_list7$hd_mchange_cu <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse(final_list7$lagShare_Source_CU=="Have Data",final_list7$Crg_Unit_Share-final_list7$lagShare_CU, NA ),NA)
 #final_list7$hd_mchange_cu_i <- ifelse(!is.na(final_list7$hd_mchange_cu),final_list7$index1,NA)
 final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
 final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="Dashboard",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
-final_list7$hd_mchange_use_i <- ifelse(!is.na(final_list7$hd_mchange_use),final_list7$index1,NA)
+final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
 
 createOrReplaceTempView(final_list7, "final_list7")
 
@@ -2369,34 +2376,50 @@ final_list7 <- SparkR::sql("
 
 #test1s <- subset(final_list7,Platform_Subset_Nm=="WEBER BASE I-INK" & Region=="NA")
 
-final_list7$adjust_ps <- ifelse(final_list7$adjust_ps == -Inf | is.na(final_list7$adjust_ps), 0, final_list7$adjust_ps)
+final_list7$adjust_ps <- ifelse(final_list7$adjust_ps == -Inf | isNull(final_list7$adjust_ps), 0, final_list7$adjust_ps)
 #final_list7$adjust_cu <- ifelse(final_list7$adjust_cu == -Inf, 0, final_list7$adjust_cu)
-final_list7$adjust_used <- ifelse(is.na(final_list7$adjust_used),0,final_list7$adjust_used)
-final_list7$adjust_use <- ifelse(is.na(final_list7$adjust_use),0,final_list7$adjust_use)
-final_list7$adjust_usec <- ifelse(is.na(final_list7$adjust_usec),0,final_list7$adjust_usec)
+final_list7$adjust_used <- ifelse(isNull(final_list7$adjust_used),0,final_list7$adjust_used)
+final_list7$adjust_use <- ifelse(isNull(final_list7$adjust_use),0,final_list7$adjust_use)
+final_list7$adjust_usec <- ifelse(isNull(final_list7$adjust_usec),0,final_list7$adjust_usec)
 
-final_list7$adjust_ps_i <- ifelse(is.na(final_list7$adjust_ps_i),1000000,final_list7$adjust_ps_i)
+final_list7$adjust_ps_i <- ifelse(isNull(final_list7$adjust_ps_i),1000000,final_list7$adjust_ps_i)
 # preddata$fit4 <- ifelse(!is.na(preddata$hp_share),preddata$hp_share, ifelse(preddata$timediff<maxtimediff2,preddata$fit1,
   #                         adjval^(preddata$timediff-maxtimediff2)*preddata$fit2+(1-(adjval^(preddata$timediff-maxtimediff2)))*preddata$fit1))
 adjval <- 0.99
-final_list7$Page_Share_Adj <- ifelse(final_list7$Share_Source_PS=="Modeled"|final_list7$Share_Source_PS=="Modeled by Proxy",ifelse(final_list7$adjust_ps_i <= final_list7$index1, adjval^(final_list7$index1-final_list7$adjust_ps_i+1)*final_list7$Page_Share_lin +(1-(adjval^(final_list7$index1-final_list7$adjust_ps_i+1)))*final_list7$Page_Share_sig ,final_list7$Page_Share_sig),final_list7$Share_Raw_PS)
+final_list7$Page_Share_Adj <- ifelse(final_list7$Share_Source_PS=="Modeled"|final_list7$Share_Source_PS=="Modeled by Proxy",
+                                     ifelse(final_list7$adjust_ps_i <= final_list7$index1,
+                                            lit(adjval)^(final_list7$index1-final_list7$adjust_ps_i+1)*final_list7$Page_Share_lin +(lit(1)-(lit(adjval)^(final_list7$index1-final_list7$adjust_ps_i+1)))*final_list7$Page_Share_sig ,final_list7$Page_Share_sig),
+                                     final_list7$Share_Raw_PS)
 
 final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final_list7$Page_Share_Adj<0.001,0.001,final_list7$Page_Share_Adj))
 
 #final_list7$CU_Share_Adj <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse((final_list7$adjust_cu>0) & final_list7$adjust_cu_i<= final_list7$index1,pmax(final_list7$Crg_Unit_Share -2*(final_list7$adjust_cu),0.05),ifelse((final_list7$adjust_cu< -0.05) & final_list7$adjust_cu_i<= final_list7$index1,pmax(final_list7$Crg_Unit_Share -1/2*(final_list7$adjust_cu),0.05),final_list7$Crg_Unit_Share)),final_list7$Crg_Unit_Share)
 #final_list7$CU_Share_Adj <- ifelse(final_list7$CU_Share_Adj>1,1,ifelse(final_list7$CU_Share_Adj)<0,0,final_list7$CU_Share_Adj)
 
-final_list7$adjust_used <- ifelse(final_list7$adjust_used==0,1,final_list7$adjust_used)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
+final_list7$adjust_used <- ifelse(final_list7$adjust_used==0, 1, final_list7$adjust_used)
+# final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",
+                                ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,
+                                       ifelse((final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used)) > 0.05,
+                                              (final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used)),
+                                               0.05),
+                                       final_list7$Usage),
+                                final_list7$Usage)
 
-final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage_c -(final_list7$adjust_usec+final_list7$adjust_used),0.005),final_list7$Usage_c),final_list7$Usage_c)
+# final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage_c -(final_list7$adjust_usec+final_list7$adjust_used),0.005),final_list7$Usage_c),final_list7$Usage_c)
+final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",
+                                 ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,
+                                        ifelse((final_list7$Usage_c -(final_list7$adjust_usec+final_list7$adjust_used)) > 0.005,
+                                               (final_list7$Usage_c -(final_list7$adjust_usec+final_list7$adjust_used)),
+                                             0.005),
+                                        final_list7$Usage_c),final_list7$Usage_c)
 final_list7$Usagek_Adj <- final_list7$Usage_Adj-final_list7$Usagec_Adj
 
-final_list7$Page_Share <- as.numeric(final_list7$Page_Share_Adj)
-#final_list7$Crg_Unit_Share <- as.numeric(final_list7$CU_Share_Adj)
-final_list7$Usage <- as.numeric(final_list7$Usage_Adj)
-final_list7$Usage_c <- as.numeric(final_list7$Usagec_Adj)
-final_list7$Usage_k <- as.numeric(final_list7$Usagek_Adj)
+final_list7$Page_Share <- cast(final_list7$Page_Share_Adj, "double")
+#final_list7$Crg_Unit_Share <- cast(final_list7$CU_Share_Adj, "double")
+final_list7$Usage <- cast(final_list7$Usage_Adj, "double")
+final_list7$Usage_c <- cast(final_list7$Usagec_Adj, "double")
+final_list7$Usage_k <- cast(final_list7$Usagek_Adj, "double")
 
 final_list7$Usage_c <- ifelse(final_list7$Usage_c>final_list7$Usage,final_list7$Usage*.985,final_list7$Usage_c)
 final_list7$Usage_k <- ifelse(final_list7$Usage_k<0,final_list7$Usage-final_list7$Usage_c,final_list7$Usage_k)
@@ -2421,14 +2444,15 @@ final_list7$Color_Pct <- final_list7$Usage_c/final_list7$Usage
 
 
 #Change all I-Ink to have share of 1, even when we have telemetry
-final_list7$Page_Share <- ifelse(toupper(final_list7$rtm) == 'I-INK', 1, final_list7$Page_Share)  
-final_list7$Share_Source_PS <- ifelse(toupper(final_list7$rtm) == 'I-INK', "Modeled", final_list7$Share_Source_PS)  
+final_list7$Page_Share <- ifelse(upper(final_list7$rtm) == 'I-INK', 1, final_list7$Page_Share)  
+final_list7$Share_Source_PS <- ifelse(upper(final_list7$rtm) == 'I-INK', "Modeled", final_list7$Share_Source_PS)  
 
 
 #Need to get TIJ_2.XG3 KRONOS?  or just Kronos platform subset?
-final_list7$Page_Share <- ifelse(grepl('KRONOS', final_list7$platform_division_code), 1, final_list7$Page_Share)  #Change all Kronos platforms to have share of 1
-final_list7$Share_Source_PS <- ifelse(grepl('KRONOS', final_list7$platform_division_code), "Modeled", final_list7$Share_Source_PS)  #Change all Kronos to have share of 1
-
+# final_list7$Page_Share <- ifelse(grepl('KRONOS', final_list7$platform_division_code), 1, final_list7$Page_Share)  #Change all Kronos platforms to have share of 1
+# final_list7$Share_Source_PS <- ifelse(grepl('KRONOS', final_list7$platform_division_code), "Modeled", final_list7$Share_Source_PS)  #Change all Kronos to have share of 1
+final_list7 <- withColumn(final_list7, "Page_Share", ifelse(like(final_list7$platform_division_code, "%KRONOS%"), 1, final_list7$Page_Share))
+final_list7 <- withColumn(final_list7, "Share_Source_PS", ifelse(like(final_list7$platform_division_code, "%KRONOS%"), "Modeled", final_list7$Share_Source_PS))
 
 #write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","DUPSM Explorer Adj (",Sys.Date(),").csv", sep=''), x=final_list7,row.names=FALSE, na="")
 #s3write_using(x=final_list9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/ink_100pct_test",Sys.Date(),".csv"), row.names=FALSE, na="")
@@ -2439,7 +2463,7 @@ createOrReplaceTempView(final_list7, "final_list7")
 
 # Change to match MDM format
 
-final_list8 <- filter(final_list7, !isNull(Page_Share))  #missing intro date
+final_list8 <- filter(final_list7, !isNull(final_list7$Page_Share))  #missing intro date
 final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
