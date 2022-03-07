@@ -25,11 +25,11 @@ with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/con
 
 # COMMAND ----------
 
-redshift_secret_name = dbutils.widgets.get("redshift_secret_name")
+redshift_secrets_name = dbutils.widgets.get("redshift_secrets_name")
 redshift_secrets_region_name = dbutils.widgets.get("redshift_secrets_region_name")
 
-redshift_username = secrets_get(redshift_secret_name, redshift_secrets_region_name)["username"]
-redshift_password = secrets_get(redshift_secret_name, redshift_secrets_region_name)["password"]
+redshift_username = secrets_get(redshift_secrets_name, redshift_secrets_region_name)["username"]
+redshift_password = secrets_get(redshift_secrets_name, redshift_secrets_region_name)["password"]
 
 # COMMAND ----------
 
