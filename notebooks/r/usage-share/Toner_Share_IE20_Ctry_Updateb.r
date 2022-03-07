@@ -3320,7 +3320,7 @@ final_list2 <- SparkR::sql("
                           case
                           when a.BD_Usage_Flag is NULL then a.MPV_TD*a.color_pct
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TD*a.color_pct
-                          when (a.MPV_DashC is NULL or a.MPV_DashC < 0 or a.MPV_DashC >1) then a.MPV_TD*a.color_pct
+                          when (a.MPV_DashC is NULL or a.MPV_DashC < 0 or a.color_pct >1) then a.MPV_TD*a.color_pct
                           when a.usage_n < 75 then a.MPV_TD*a.color_pct
                             else a.MPV_DashC
                             end
@@ -3328,7 +3328,7 @@ final_list2 <- SparkR::sql("
                           case
                           when a.BD_Usage_Flag is NULL then a.MPV_TS*a.color_pct
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TS*a.color_pct
-                          when (a.MPV_DashC is NULL or a.MPV_DashC < 0 or a.MPV_DashC >1) then a.MPV_TS*a.color_pct
+                          when (a.MPV_DashC is NULL or a.MPV_DashC < 0 or a.color_pct >1) then a.MPV_TS*a.color_pct
                           when a.usage_n < 75 then a.MPV_TS*a.color_pct
                             else a.MPV_DashC
                             end
