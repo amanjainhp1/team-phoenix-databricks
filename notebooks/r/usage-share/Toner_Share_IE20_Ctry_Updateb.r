@@ -71,7 +71,7 @@ options(stringsAsFactors = FALSE)
 tempdir(check=TRUE)
 # writeout <- 'NO' #change to YES to write to MDM
 UPMDate <- dbutils.widgets.get("upm_date") #Sys.Date() #Change to date if not running on same date as UPM "2021-07-19" #  '2021-09-10' #
-UPMColorDate <- dbutils.widgets.get("upm_color_date") #Sys.Date() #Change to date if not running on same date as UPM "2021-07-19" # '2021-09-10' #
+UPMDateColor <- dbutils.widgets.get("upm_date_color") #Sys.Date() #Change to date if not running on same date as UPM "2021-07-19" # '2021-09-10' #
 
 #--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
 outnm_dt <- dbutils.widgets.get("outnm_dt")
@@ -2847,8 +2847,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 #Uncomment when ready to run
-UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
-UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPMColor_ctry(",UPMDate,").parquet"))
+UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(", UPMDate, ").parquet"))
+UPMC <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPMColor_ctry(", UPMDateColor, ").parquet"))
 # UPM <- s3read_using(FUN = read.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",UPMDate,").csv"),  header=TRUE, sep=",", na="")
 # UPMC <- s3read_using(FUN = read.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",UPMColorDate,").csv"),  header=TRUE, sep=",", na="")
 
@@ -3730,7 +3730,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , 'Trad' as customer_engagement
                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
                 , '",today,"' as forecast_created_date
-                , Usage_Source as data_source
+                , 'n' as data_source
                 , '",vsn,"' as version
                 , 'Usage_n' as measure
                 , MPV_n as units
@@ -3752,7 +3752,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , 'Trad' as customer_engagement
                 , 'Modelled off of: Toner 100%IB process' as forecast_process_note
                 , '",today,"' as forecast_created_date
-                , Usage_Source as data_source
+                , 'n' as data_source
                 , '",vsn,"' as version
                 , 'Share_n' as measure
                 , Share_Raw_N_PS as units
