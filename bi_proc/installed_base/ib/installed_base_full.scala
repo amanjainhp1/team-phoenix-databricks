@@ -14,8 +14,6 @@ var queryList = ListBuffer[(String, String)]()
 // COMMAND ----------
 
 var hwDecay: String = """
-
-
 with ib_01_filter_vars as (
 
 
@@ -68,6 +66,16 @@ WHERE 1=1
 
 UNION ALL
 
+SELECT 'hardware_ltf_lf_max_date' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('hw_ltf_lf')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_ltf_lf' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
 SELECT DISTINCT 'prod_norm_ships' AS record
     , version
 FROM "prod"."norm_shipments"
@@ -98,7 +106,7 @@ JOIN "mdm"."hardware_xref" AS hw
 JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = ns.country_alpha2
 WHERE 1=1
-    AND hw.technology IN ('LASER','INK','PWA')
+    AND hw.technology IN ('LASER','INK','PWA','LF')
 ),  ib_02a_ce_splits as (
 
 
@@ -274,7 +282,7 @@ JOIN ib_06_months AS m
     ON 1=1
 WHERE 1=1
     AND d.official = 1
-    AND d.record = 'hw_decay'
+    AND d.record IN ('hw_decay','hw_decay_lf')
 ),  ib_09_remaining_amt as (
 
 
@@ -435,6 +443,28 @@ JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ib.platform_subset
 WHERE 1=1
     AND hw.technology IN ('LASER')
+
+UNION ALL
+
+SELECT ib.month_begin
+    , ib.region_5
+    , ib.country_alpha2
+    , ib.hps_ops
+    , 'TRAD' AS split_name
+    , ib.platform_subset
+    , ib.printer_installs  AS printer_installs
+    , ib.ib  AS ib
+FROM ib_11_prelim_output AS ib
+JOIN "mdm"."hardware_xref" AS hw
+    ON hw.platform_subset = ib.platform_subset
+LEFT JOIN ib_02c_ce_splits_final AS ce
+    ON ce.platform_subset = ib.platform_subset
+    AND ce.country_alpha2 = ib.country_alpha2
+    AND ce.month_begin = ib.month_begin
+    AND ce.pre_post_flag = 'POST'
+    AND ce.value > 0
+WHERE 1=1
+    AND hw.technology IN ('LF')
 )SELECT month_begin
     , region_5
     , country_alpha2
@@ -457,8 +487,8 @@ with ib_14_iink_act_stf as (
 
 
 SELECT iiel.platform_subset
-    , cast('I-INK' as text) AS split_name
-    , cast('iink_enrollees' as text) AS type
+    , 'I-INK' AS split_name
+    , 'iink_enrollees' AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , iiel.year_fiscal
     , iiel.year_month AS month_begin
@@ -674,7 +704,7 @@ SELECT month_begin
     , ib
 FROM "stage"."ib_03_iink_complete"
 WHERE 1=1
-    AND month_begin > '2022-10-01'  -- update
+    AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE)
 ),  ib_01_filter_vars as (
 
 
@@ -723,6 +753,16 @@ FROM "prod"."hardware_ltf"
 WHERE 1=1
     AND record IN ('hw_fcst')
     AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_fcst' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT 'hardware_ltf_lf_max_date' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('hw_ltf_lf')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_ltf_lf' AND official = 1)
     AND official = 1
 
 UNION ALL
@@ -841,7 +881,7 @@ JOIN ib_23_iink_ltf_prep AS ltf
     ON ltf.geography = sp.geography
     AND ltf.month_begin = sp.month_begin
 WHERE 1=1
-    AND ltf.month_begin > '2022-10-01'  -- to update
+    AND CAST(ltf.month_begin AS DATE) > CAST('2022-10-01' AS DATE)
 ),  ib_25_sys_delta as (
 
 
@@ -853,7 +893,7 @@ FROM "stage"."ib_03_iink_complete" AS comb
 WHERE 1=1
     AND comb.p2_attach > 0
     AND NOT comb.p2_attach IS NULL
-    AND comb.month_begin <= '2022-10-01'
+    AND CAST(comb.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
 
 UNION ALL
 
@@ -893,7 +933,7 @@ LEFT JOIN ib_25_sys_delta AS sys
     AND sys.platform_subset = ib.platform_subset
 WHERE 1=1
     AND NOT ib.split_name = 'I-INK'
-    AND hw.technology IN ('LASER','INK','PWA')
+    AND hw.technology IN ('LASER','INK','PWA','LF')
 
 UNION ALL
 
@@ -915,7 +955,7 @@ FROM "stage"."ib_03_iink_complete" AS iink
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 WHERE 1=1
-    AND iink.month_begin < '2022-11-01'  -- to update
+    AND CAST(iink.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
     AND hw.technology IN ('LASER','INK','PWA')
 
 UNION ALL
