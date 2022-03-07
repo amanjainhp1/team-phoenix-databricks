@@ -19,3 +19,11 @@ val S3_BASE_BUCKETS: Map[String, String] = Map("dev" -> "s3a://dataos-core-dev-t
 // COMMAND ----------
 
 
+val REDSHIFT_DATABASE: Map[String, String] = Map("dev" -> "dev",
+                                                "itg" -> "stg",
+                                                "prod" -> "prod",
+                                                "reporting" -> "prod")
+
+val REDSHIFT_DEV_GROUP: Map[String, String] = Map("dev" -> "dev_arch_eng",
+                                                "itg" -> "dev_arch_eng",
+                                                "prod" -> "phoenix_dev")

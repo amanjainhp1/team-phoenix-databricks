@@ -12,19 +12,19 @@ dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/Constants.scala
+// MAGIC %run ../../scala/common/Constants
 
 // COMMAND ----------
 
-// MAGIC %run ../../python/common/secrets_manager_utils.py
+// MAGIC %run ../../python/common/secrets_manager_utils
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/DatetimeUtils.scala
+// MAGIC %run ../../scala/common/DatetimeUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/ParallelNotebooks.scala
+// MAGIC %run ../../scala/common/ParallelNotebooks
 
 // COMMAND ----------
 
@@ -51,7 +51,6 @@ val tables: Seq[String] = Seq("calendar",
                               "iso_country_code_xref",
                               "product_line_xref",
                               "profit_center_code_xref",
-                              "rdma",
                               "supplies_hw_mapping",
                               "supplies_xref",
                               "version",
@@ -74,7 +73,7 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
 
 for (table <- tables) {
   configs += ("table" -> table)
-  notebooks = NotebookData("MoveSfaiDataToRedshift.scala",
+  notebooks = NotebookData("MoveSfaiDataToRedshift",
                           0,
                           configs
                          ) +: notebooks

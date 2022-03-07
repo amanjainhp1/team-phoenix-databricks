@@ -15,7 +15,7 @@ variables:
 - name: jobs_file
   value: springboard.yml
 - name: stack
-  value: itg
+  value: prod
 
 trigger: 
   branches:
@@ -37,8 +37,8 @@ jobs:
     parameters:
       account: '828361281741'
       region: 'us-west-2'
-      roleARN: $(dataos_itg_internal_databricks_cd_role_arn)
-      externalId: $(dataos_itg_internal_databricks_cd_external_id)
+      roleARN: $(dataos_prod_internal_databricks_cd_role_arn)
+      externalId: $(dataos_prod_internal_databricks_cd_external_id)
       secrets:
         - secretName: codeway/databricks/deployment-team-phoenix
           secretProperty: token
@@ -50,7 +50,7 @@ jobs:
           secretProperty: username
           variable: NEXUS_USERNAME
       configs:
-        "DATABRICKS_HOST": "https://dataos-itg-internal.cloud.databricks.com"
+        "DATABRICKS_HOST": "https://dataos-prod-internal.cloud.databricks.com"
       conf_prefix: 'team-phoenix-databricks-jobs-config/jobs'
       scripts_prefix: 'templates'
       library_path_prefix: 'dbfs:/dataos-pipeline-springboard'
@@ -58,4 +58,4 @@ jobs:
       nexus_repo: "https://nexus-int.corp.hpicloud.net/repository"
       jobs_file: $(jobs_file)
       stack: $(stack)
-      jobs_file_prefix: 'team-phoenix-databricks/itg-databricks'
+      jobs_file_prefix: 'team-phoenix-databricks/prod-databricks'

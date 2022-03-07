@@ -23,15 +23,15 @@ dbutils.widgets.text("upm_date", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants.scala
+# MAGIC %run ../../scala/common/Constants
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils.scala
+# MAGIC %run ../../scala/common/DatabaseUtils
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/secrets_manager_utils.py
+# MAGIC %run ../../python/common/secrets_manager_utils
 
 # COMMAND ----------
 
