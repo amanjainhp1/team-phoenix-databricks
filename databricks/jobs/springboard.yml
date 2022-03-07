@@ -1,13 +1,16 @@
 ---
 Jobs:
   - actuals-hw
+  - ce-split
   - example-job
   - hardware-ltf
   - hardware-stf
   - ink-share
   - ink-usage-color
   - ink-usage-total
-  - ce-split
+  - lf-decay
+  - lf-ltf
+  - lf-ltf-splits
   - mdm-nightly-load
   - rdma-full-load
   - toner-share
