@@ -1,6 +1,6 @@
 # Databricks notebook source
 dbutils.widgets.text("redshift_secret_name", "")
-dbutils.widgets.dropdown("redshift_region_name", "us-west-2", ["us-west-2", "us-east-2"])
+dbutils.widgets.dropdown("redshift_secrets_region_name", "us-west-2", ["us-west-2", "us-east-2"])
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("stack", "")
 
@@ -26,10 +26,10 @@ with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/con
 # COMMAND ----------
 
 redshift_secret_name = dbutils.widgets.get("redshift_secret_name")
-redshift_region_name = dbutils.widgets.get("redshift_region_name")
+redshift_secrets_region_name = dbutils.widgets.get("redshift_secrets_region_name")
 
-redshift_username = secrets_get(redshift_secret_name, redshift_region_name)["username"]
-redshift_password = secrets_get(redshift_secret_name, redshift_region_name)["password"]
+redshift_username = secrets_get(redshift_secret_name, redshift_secrets_region_name)["username"]
+redshift_password = secrets_get(redshift_secret_name, redshift_secrets_region_name)["password"]
 
 # COMMAND ----------
 
