@@ -41,8 +41,7 @@ submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], config
 
 # COMMAND ----------
 
-df_lf_ltf_splits = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-dev-team-phoenix/product/norm_ships/fcst/ltf/Large Format/lf_ltp_splits.csv')
-
+df_lf_ltf_splits = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-{}-team-phoenix/product/norm_ships/fcst/ltf/Large Format/lf_ltp_splits.csv'.format(dbutils.widgets.get("stack"))
 
 # COMMAND ----------
 

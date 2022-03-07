@@ -41,8 +41,8 @@ submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], config
 
 # COMMAND ----------
 
-df_lf_ltf_design = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-dev-team-phoenix/product/norm_ships/fcst/ltf/Large Format/lf_ltp_design.csv')
-df_lf_ltf_pro = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-dev-team-phoenix/product/norm_ships/fcst/ltf/Large Format/lf_ltp_pro.csv')
+df_lf_ltf_design = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-{}-team-phoenix/product/norm_ships/fcst/ltf/Large Format/lf_ltp_design.csv'.format(dbutils.widgets.get("stack"))
+df_lf_ltf_pro = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-{}-team-phoenix/product/norm_ships/fcst/ltf/Large Format/lf_ltp_pro.csv'.format(dbutils.widgets.get("stack"))
 
 df_lf_ltf = df_lf_ltf_design.union(df_lf_ltf_pro)
 

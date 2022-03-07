@@ -39,7 +39,3 @@ def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
   .option("postactions", "GRANT ALL ON {} TO GROUP dev_arch_eng;{}".format(destination, postactions)) \
   .mode(mode) \
   .save()
-
-# COMMAND ----------
-
-
