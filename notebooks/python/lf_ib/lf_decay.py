@@ -6,6 +6,13 @@ dbutils.widgets.text("stack", "")
 
 # COMMAND ----------
 
+import json
+
+with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
+  constants = json.load(json_file)
+
+# COMMAND ----------
+
 # MAGIC %run ../common/secrets_manager_utils
 
 # COMMAND ----------
@@ -27,13 +34,13 @@ redshift_password = secrets_get(redshift_secret_name, redshift_region_name)["pas
 # COMMAND ----------
 
 configs = {}
-configs["redshift_url"] = "dataos-core-dev-team-phoenix.dev.hpdataos.com"
-configs["redshift_port"] = "5439"
+configs["redshift_url"] = constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
+configs["redshift_port"] = constants['REDSHIFT_PORTS'][dbutils.widgets.get("stack")]
 configs["redshift_dbname"] = dbutils.widgets.get("stack")
 configs["aws_iam_role"] =  dbutils.widgets.get("aws_iam_role")
 configs["redshift_username"] = redshift_username
 configs["redshift_password"] = redshift_password
-configs["redshift_temp_bucket"] = "s3://dataos-core-{}-team-phoenix/redshift_temp/".format(dbutils.widgets.get("stack"))
+configs["redshift_temp_bucket"] = "{}redshift_temp/".format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")])
 
 # COMMAND ----------
 
@@ -41,8 +48,8 @@ submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], config
 
 # COMMAND ----------
 
-df_decay_pro = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-{}-team-phoenix/product/mdm/decay/Large Format/lf_decay_pro.csv'.format(dbutils.widgets.get("stack"))
-df_decay_design = spark.read.format('csv').options(header='true', inferSchema='true').load('s3://dataos-core-{}-team-phoenix/product/mdm/decay/Large Format/lf_decay_design.csv'.format(dbutils.widgets.get("stack"))
+df_decay_pro = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/mdm/decay/Large Format/lf_decay_pro.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
+df_decay_design = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/mdm/decay/Large Format/lf_decay_design.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
 
 df_lf_decay = df_decay_design.union(df_decay_pro)
 
