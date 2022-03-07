@@ -29,16 +29,16 @@ import pandas as pd
 import warnings
 import sys
 
-# local libraries
-sys.path.append('../library')
-import library.plot_helper as ph
-
 # silence warnings
 warnings.filterwarnings('ignore')
 
 # COMMAND ----------
 
 # MAGIC %run "../library/get_redshift_secrets"
+
+# COMMAND ----------
+
+# MAGIC %run "../library/plot_helper"
 
 # COMMAND ----------
 
@@ -69,7 +69,7 @@ ns_sql = """
 SELECT 'dev.stage' AS variable
     , ns.cal_date
     , SUM(ns.units) AS units
-FROM dev.stage.norm_shipments AS ns
+FROM dev.stage.norm_ships AS ns
 LEFT JOIN dev.mdm.hardware_xref AS hw
     ON hw.platform_subset = ns.platform_subset
 WHERE 1=1
@@ -109,6 +109,7 @@ ns_spark_df.show()
 
 # COMMAND ----------
 
+ns_prep = ns_spark_df.toPandas()
 ns_prep['cal_date'] = pd.to_datetime(ns_prep['cal_date'])
 ns_df = ns_prep.set_index('cal_date')
 
@@ -129,7 +130,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ns_v2v_2021_07_01.png'
 
-ph.mpl_ts(df=ns_df, format_dict=plot_dict_a)
+mpl_ts(df=ns_df, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
@@ -147,7 +148,7 @@ with prod as
         , ib.customer_engagement
         , ib.version
         , SUM(ib.units) AS units
-    FROM "IE2_Prod"."dbo"."ib" AS ib
+    FROM "dev"."prod"."ib" AS ib
     WHERE ib.version IN ('2022.01.26.1')
         AND ib.measure = 'ib'
     GROUP BY ib.cal_date
@@ -162,9 +163,9 @@ stage as
         , ib.country_alpha2 AS country
         , ib.platform_subset
         , ib.split_name AS customer_engagement
-        , 'ib_staging' AS version
+        , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
-    FROM "IE2_Staging"."dbt"."ib_staging" AS ib
+    FROM "dev"."stage"."ib_staging" AS ib
     GROUP BY ib.month_begin
         , ib.country_alpha2
         , ib.platform_subset
@@ -174,10 +175,7 @@ select cal_date
     , prod.version as variable
     , sum(units) as ib
 from prod
---join IE2_Prod.dbo.hardware_xref as hw
---    on hw.platform_subset = prod.platform_subset
 where 1=1
-    --and hw.technology = 'LASER'
     and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
 group by cal_date
     , prod.version
@@ -188,10 +186,7 @@ select cal_date
     , stage.version as variable
     , sum(ib) as ib
 from stage
---join IE2_Prod.dbo.hardware_xref as hw
---    on hw.platform_subset = stage.platform_subset
 where 1=1
-    --and hw.technology = 'LASER'
     and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
 group by cal_date
     , stage.version
@@ -214,8 +209,9 @@ v2v_spark_df.show()
 
 # COMMAND ----------
 
-v2v_prep['cal_date'] = pd.to_datetime(df_prep['cal_date'])
-v2v_prep_go = df_prep.set_index('cal_date')
+v2v_prep = v2v_spark_df.toPandas()
+v2v_prep['cal_date'] = pd.to_datetime(v2v_prep['cal_date'])
+v2v_prep_go = v2v_prep.set_index('cal_date')
 
 # COMMAND ----------
 
@@ -229,7 +225,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 # setup format_dict
 plot_dict_a = plot_dict
 plot_dict_a['legend_list'] = [
-    '2022.01.19.1', 'ib_staging', 'stf-window',
+    '2022.01.19.1', 'ib_staging' # , 'stf-window',
 ]
 
 plot_dict_a['title_list'] = [
@@ -238,7 +234,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ib_v2v_2021_04_06.png'
 
-ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
+mpl_ts(df=v2v_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
@@ -247,16 +243,89 @@ ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
-with open(r'./_sql/ib/ib_v2v_laser.sql', 'r') as f:
-    stf_sql = f.read()
+v2v_laser = """
+with prod as
+(
+    SELECT ib.cal_date
+        , ib.country
+        , ib.platform_subset
+        , ib.customer_engagement
+        , ib.version
+        , SUM(ib.units) AS units
+    FROM "dev"."prod"."ib" AS ib
+    WHERE ib.version IN ('2022.01.26.1')
+        AND ib.measure = 'ib'
+    GROUP BY ib.cal_date
+        , ib.country
+        , ib.platform_subset
+        , ib.customer_engagement
+        , ib.version
+),
+stage as
+(
+    SELECT ib.month_begin AS cal_date
+        , ib.country_alpha2 AS country
+        , ib.platform_subset
+        , ib.split_name AS customer_engagement
+        , cast('ib_staging' as varchar) AS version
+        , SUM(ib.ib) AS ib
+    FROM "dev"."stage"."ib_staging" AS ib
+    GROUP BY ib.month_begin
+        , ib.country_alpha2
+        , ib.platform_subset
+        , ib.split_name
+)
+select cal_date
+    , prod.version as variable
+    , sum(units) as ib
+from prod
+join dev.mdm.hardware_xref as hw
+    on hw.platform_subset = prod.platform_subset
+where 1=1
+    and hw.technology = 'LASER'
+    and cal_date between '2017-03-01' and '2025-10-01'
+group by cal_date
+    , prod.version
 
-df_prep = pd.read_sql(stf_sql, conn)
-df_prep['cal_date'] = pd.to_datetime(df_prep['cal_date'])
-df_prep_go = df_prep.set_index('cal_date')
+union all
+
+select cal_date
+    , stage.version as variable
+    , sum(ib) as ib
+from stage
+join dev.mdm.hardware_xref as hw
+    on hw.platform_subset = stage.platform_subset
+where 1=1
+    and hw.technology = 'LASER'
+    and cal_date between '2017-03-01' and '2025-10-01'
+group by cal_date
+    , stage.version
+order by 1,2
+"""
 
 # COMMAND ----------
 
-df_prep_go.head(n=10)
+v2v_laser_spark_df = spark.read \
+.format("com.databricks.spark.redshift") \
+.option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+.option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
+.option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+.option("user", username) \
+.option("password", password) \
+.option("query", v2v_laser) \
+.load()
+        
+v2v_laser_spark_df.show()
+
+# COMMAND ----------
+
+v2v_laser_prep = v2v_laser_spark_df.toPandas()
+v2v_laser_prep['cal_date'] = pd.to_datetime(v2v_laser_prep['cal_date'])
+v2v_laser_prep_go = v2v_laser_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+v2v_laser_prep_go.head(n=10)
 
 # COMMAND ----------
 
@@ -266,7 +335,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 # setup format_dict
 plot_dict_a = plot_dict
 plot_dict_a['legend_list'] = [
-    '2022.01.19.1', 'ib_staging', 'stf-window',
+    '2022.01.19.1', 'ib_staging' # , 'stf-window',
 ]
 
 plot_dict_a['title_list'] = [
@@ -275,7 +344,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ib_laser_v2v_2021_07_01.png'
 
-ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
+mpl_ts(df=v2v_laser_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
@@ -284,16 +353,72 @@ ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
-with open(r'./_sql/ib/ib_v2v_ink.sql', 'r') as f:
-    stf_sql = f.read()
+v2v_ink = """
+with prod as
+(
+    SELECT ib.cal_date
+        , ib.version
+        , SUM(ib.units) AS units
+    FROM "dev"."prod"."ib" AS ib
+    join dev.mdm.hardware_xref as hw
+        on hw.platform_subset = ib.platform_subset
+    WHERE ib.version IN ('2022.01.26.1')
+        AND ib.measure = 'ib'
+        AND ib.cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+        and hw.technology = 'INK'
+    GROUP BY ib.cal_date
+        , ib.version
+),
+stage as
+(
+    SELECT ib.month_begin AS cal_date
+        , cast('ib_staging' as varchar) AS version
+        , SUM(ib.ib) AS ib
+    FROM "dev"."stage"."ib_staging" AS ib
+    join dev.mdm.hardware_xref as hw
+        on hw.platform_subset = ib.platform_subset
+    WHERE 1=1
+        AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
+        and hw.technology = 'INK'
+    GROUP BY ib.month_begin
+)
+select prod.cal_date
+    , prod.version as variable
+    , prod.units as ib
+from prod
 
-df_prep = pd.read_sql(stf_sql, conn)
-df_prep['cal_date'] = pd.to_datetime(df_prep['cal_date'])
-df_prep_go = df_prep.set_index('cal_date')
+union all
+
+select stage.cal_date
+    , stage.version as variable
+    , stage.ib
+from stage
+order by 1,2
+"""
 
 # COMMAND ----------
 
-df_prep_go.head(n=10)
+v2v_ink_spark_df = spark.read \
+.format("com.databricks.spark.redshift") \
+.option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+.option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
+.option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+.option("user", username) \
+.option("password", password) \
+.option("query", v2v_ink) \
+.load()
+        
+v2v_ink_spark_df.show()
+
+# COMMAND ----------
+
+v2v_ink_prep = v2v_ink_spark_df.toPandas()
+v2v_ink_prep['cal_date'] = pd.to_datetime(v2v_ink_prep['cal_date'])
+v2v_ink_prep_go = v2v_ink_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+v2v_ink_prep_go.head(n=10)
 
 # COMMAND ----------
 
@@ -311,7 +436,7 @@ plot_dict_ink = {
 # setup format_dict
 plot_dict_a = plot_dict_ink
 plot_dict_a['legend_list'] = [
-    '2022.01.19.1', 'ib_staging', 'stf-window',
+    '2022.01.19.1', 'ib_staging' # , 'stf-window',
 ]
 
 plot_dict_a['title_list'] = [
@@ -320,7 +445,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ib_ink_v2v_2021_08_31_v2.png'
 
-ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
+mpl_ts(df=v2v_ink_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
@@ -329,16 +454,92 @@ ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
-with open(r'./_sql/ib/ib_v2v_ink_split.sql', 'r') as f:
-    stf_sql = f.read()
+v2v_split = """
+with prod as
+         (
+             SELECT ib.cal_date
+                  , ib.country
+                  , ib.platform_subset
+                  , ib.customer_engagement
+                  , ib.version
+                  , SUM(ib.units) AS units
+             FROM "dev"."prod"."ib" AS ib
+             WHERE ib.version IN ('2022.01.26.1')
+               AND ib.measure = 'ib'
+               AND ib.cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+             GROUP BY ib.cal_date
+                    , ib.country
+                    , ib.platform_subset
+                    , ib.customer_engagement
+                    , ib.version
+         ),
+     stage as
+         (
+             SELECT ib.month_begin AS cal_date
+                  , ib.country_alpha2 AS country
+                  , ib.platform_subset
+                  , ib.split_name AS customer_engagement
+                  , cast('ib_staging' as varchar) AS version
+                  , SUM(ib.ib) AS ib
+             FROM "dev"."stage"."ib_staging" AS ib
+             WHERE 1=1
+               AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
+             GROUP BY ib.month_begin
+                    , ib.country_alpha2
+                    , ib.platform_subset
+                    , ib.split_name
+         )
+select cal_date
+     , prod.version + ' - ' + prod.customer_engagement as variable
+     , sum(units) as ib
+from prod
+join dev.mdm.hardware_xref as hw
+  on hw.platform_subset = prod.platform_subset
+where 1=1
+  and hw.technology = 'INK'
+group by cal_date
+       , prod.version
+       , prod.customer_engagement
 
-df_prep = pd.read_sql(stf_sql, conn)
-df_prep['cal_date'] = pd.to_datetime(df_prep['cal_date'])
-df_prep_go = df_prep.set_index('cal_date')
+union all
+
+select cal_date
+     , stage.version + ' - ' + stage.customer_engagement as variable
+     , sum(ib) as ib
+from stage
+join dev.mdm.hardware_xref as hw
+  on hw.platform_subset = stage.platform_subset
+where 1=1
+  and hw.technology = 'INK'
+group by cal_date
+       , stage.version
+       , stage.customer_engagement
+order by 1,2
+"""
 
 # COMMAND ----------
 
-df_prep_go.head(n=10)
+v2v_split_spark_df = spark.read \
+.format("com.databricks.spark.redshift") \
+.option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+.option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
+.option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+.option("user", username) \
+.option("password", password) \
+.option("query", v2v_ink) \
+.load()
+        
+v2v_ink_spark_df.show()
+
+# COMMAND ----------
+
+v2v_split_prep = v2v_split_spark_df.toPandas()
+v2v_split_prep['cal_date'] = pd.to_datetime(v2v_split_prep['cal_date'])
+v2v_split_prep_go = v2v_split_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+v2v_split_prep_go.head(n=10)
 
 # COMMAND ----------
 
@@ -348,7 +549,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 # setup format_dict
 plot_dict_a = plot_dict_ink
 plot_dict_a['legend_list'] = [
-    '2022.01.19.1 - I-INK', '2022.01.19.1 - TRAD', 'ib_staging - I-INK', 'ib_staging - TRAD', 'stf-window',
+    '2022.01.19.1 - I-INK', '2022.01.19.1 - TRAD' #, 'ib_staging - I-INK', 'ib_staging - TRAD', 'stf-window',
 ]
 
 plot_dict_a['title_list'] = [
@@ -357,7 +558,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ib_ink_v2v_2021_07_26.png'
 
-ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
+mpl_ts(df=v2v_split_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
@@ -366,16 +567,77 @@ ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
-with open(r'./_sql/ib/ib_v2v_iink.sql', 'r') as f:
-    stf_sql = f.read()
+v2v_iink = """
+with prod as
+(
+    SELECT ib.cal_date
+        , ib.version
+        , SUM(ib.units) AS units
+    FROM "dev"."prod"."ib" AS ib
+    WHERE ib.version IN ('2022.01.26.1')
+        AND ib.measure = 'ib'
+        AND ib.customer_engagement = 'I-INK'
+    GROUP BY ib.cal_date
+        , ib.version
+),
 
-df_prep = pd.read_sql(stf_sql, conn)
-df_prep['cal_date'] = pd.to_datetime(df_prep['cal_date'])
-df_prep_go = df_prep.set_index('cal_date')
+stage as
+(
+    SELECT ib.month_begin AS cal_date
+        , cast('ib_staging' as varchar) AS version
+        , SUM(ib.ib) AS ib
+    FROM "dev"."stage"."ib_staging" AS ib
+    WHERE 1=1
+        AND ib.split_name = 'I-INK'
+    GROUP BY ib.month_begin
+        , ib.split_name
+)
+
+select cal_date
+    , prod.version as variable
+    , sum(units) as ib
+from prod
+where 1=1
+    and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+group by cal_date
+    , prod.version
+
+union all
+
+select cal_date
+    , stage.version as variable
+    , sum(ib) as ib
+from stage
+where 1=1
+    and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+group by cal_date
+    , stage.version
+order by 1,2
+"""
 
 # COMMAND ----------
 
-df_prep_go.head(n=10)
+v2v_iink_spark_df = spark.read \
+.format("com.databricks.spark.redshift") \
+.option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+.option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
+.option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+.option("user", username) \
+.option("password", password) \
+.option("query", v2v_iink) \
+.load()
+        
+v2v_ink_spark_df.show()
+
+# COMMAND ----------
+
+v2v_iink_prep = v2v_iink_spark_df.toPandas()
+v2v_iink_prep['cal_date'] = pd.to_datetime(v2v_iink_prep['cal_date'])
+v2v_iink_prep_go = v2v_iink_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+v2v_iink_prep_go.head(n=10)
 
 # COMMAND ----------
 
@@ -385,7 +647,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 # setup format_dict
 plot_dict_a = plot_dict_ink
 plot_dict_a['legend_list'] = [
-    '2022.01.19.1', 'ib_staging', 'stf-window',
+    '2022.01.19.1', 'ib_staging' #, 'stf-window',
 ]
 
 plot_dict_a['title_list'] = [
@@ -394,7 +656,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ib_ink_v2v_2021_07_26.png'
 
-ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
+mpl_ts(df=v2v_iink_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
@@ -403,16 +665,75 @@ ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
-with open(r'./_sql/ib/ib_v2v_trad.sql', 'r') as f:
-    stf_sql = f.read()
+v2v_trad = """
+with prod as
+(
+    SELECT ib.cal_date
+        , ib.version
+        , SUM(ib.units) AS units
+    FROM "dev"."prod"."ib" AS ib
+    join dev.mdm.hardware_xref as hw
+      on hw.platform_subset = ib.platform_subset
+    WHERE ib.version IN ('2022.01.26.1')
+        AND ib.measure = 'ib'
+        AND ib.customer_engagement = 'TRAD'
+        AND ib.cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+        and hw.technology = 'INK'
+    GROUP BY ib.cal_date
+        , ib.version
+),
+stage as
+(
+    SELECT ib.month_begin AS cal_date
+        , cast('ib_staging' as varchar) AS version
+        , SUM(ib.ib) AS ib
+    FROM "dev"."stage"."ib_staging" AS ib
+    join dev.mdm.hardware_xref as hw
+      on hw.platform_subset = ib.platform_subset
+    WHERE 1=1
+        AND ib.split_name = 'TRAD'
+        AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
+        and hw.technology = 'INK'
+    GROUP BY ib.month_begin
+        , ib.split_name
+)
+select cal_date
+    , prod.version as variable
+    , prod.units as ib
+from prod
 
-df_prep = pd.read_sql(stf_sql, conn)
-df_prep['cal_date'] = pd.to_datetime(df_prep['cal_date'])
-df_prep_go = df_prep.set_index('cal_date')
+union all
+
+select cal_date
+    , stage.version as variable
+    , stage.ib as ib
+from stage
+order by 1,2
+"""
 
 # COMMAND ----------
 
-df_prep_go.head(n=10)
+v2v_trad_spark_df = spark.read \
+.format("com.databricks.spark.redshift") \
+.option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+.option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
+.option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+.option("user", username) \
+.option("password", password) \
+.option("query", v2v_trad) \
+.load()
+        
+v2v_trad_spark_df.show()
+
+# COMMAND ----------
+
+v2v_trad_prep = v2v_trad_spark_df.toPandas()
+v2v_trad_prep['cal_date'] = pd.to_datetime(v2v_trad_prep['cal_date'])
+v2v_trad_prep_go = v2v_trad_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+v2v_trad_prep_go.head(n=10)
 
 # COMMAND ----------
 
@@ -422,7 +743,7 @@ plt.rcParams['figure.figsize'] = (12, 8)
 # setup format_dict
 plot_dict_a = plot_dict_ink
 plot_dict_a['legend_list'] = [
-    '2022.01.25.1', 'ib_staging', 'stf-window',
+    '2022.01.25.1', 'ib_staging' #, 'stf-window',
 ]
 
 plot_dict_a['title_list'] = [
@@ -431,7 +752,7 @@ plot_dict_a['title_list'] = [
 
 # plot_dict_a['viz_path'] = r'./viz/ib_ink_v2v_2021_07_26.png'
 
-ph.mpl_ts(df=df_prep_go, format_dict=plot_dict_a)
+mpl_ts(df=v2v_trad_prep_go, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
