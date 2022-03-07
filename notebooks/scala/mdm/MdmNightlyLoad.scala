@@ -7,7 +7,7 @@ import scala.language.postfixOps
 
 dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prod"))
+dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prd"))
 dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
@@ -46,7 +46,6 @@ val currentTime = new CurrentTime
 var notebooks: Seq[NotebookData] = Seq()
 
 val tables: Seq[String] = Seq("calendar",
-                              "decay",
                               "hardware_xref",
                               "iso_cc_rollup_xref",
                               "iso_country_code_xref",
@@ -66,7 +65,7 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
             "redshiftUsername" -> spark.conf.get("redshift_username"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${REDSHIFT_DATABASE(dbutils.widgets.get("stack"))}?ssl_verify=None""",
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),

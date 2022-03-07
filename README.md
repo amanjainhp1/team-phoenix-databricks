@@ -41,7 +41,6 @@ itg: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373
 
 ## Informative Links
 DataOS: Guide to the Cloud: https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/    
-Python Style Guide: https://www.python.org/dev/peps/pep-0008/  
 Scala Style Guide: https://github.com/databricks/scala-style-guide  
 Redshift Endpoints: https://rndwiki.inc.hpicorp.net/confluence/pages/viewpage.action?spaceKey=PSO&title=Redshift+Endpoints  
 Databricks E2 repo: https://github.azc.ext.hp.com/hp-data-platform/databricks_e2
