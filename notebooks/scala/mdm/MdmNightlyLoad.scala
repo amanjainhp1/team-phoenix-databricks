@@ -7,24 +7,24 @@ import scala.language.postfixOps
 
 dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prd"))
+dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prod"))
 dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/Constants.scala
+// MAGIC %run ../../scala/common/Constants
 
 // COMMAND ----------
 
-// MAGIC %run ../../python/common/secrets_manager_utils.py
+// MAGIC %run ../../python/common/secrets_manager_utils
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/DatetimeUtils.scala
+// MAGIC %run ../../scala/common/DatetimeUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/ParallelNotebooks.scala
+// MAGIC %run ../../scala/common/ParallelNotebooks
 
 // COMMAND ----------
 
@@ -46,12 +46,12 @@ val currentTime = new CurrentTime
 var notebooks: Seq[NotebookData] = Seq()
 
 val tables: Seq[String] = Seq("calendar",
+                              "decay",
                               "hardware_xref",
                               "iso_cc_rollup_xref",
                               "iso_country_code_xref",
                               "product_line_xref",
                               "profit_center_code_xref",
-                              "rdma",
                               "supplies_hw_mapping",
                               "supplies_xref",
                               "version",
@@ -65,7 +65,7 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
             "redshiftUsername" -> spark.conf.get("redshift_username"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${REDSHIFT_DATABASE(dbutils.widgets.get("stack"))}?ssl_verify=None""",
             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),
@@ -74,7 +74,7 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
 
 for (table <- tables) {
   configs += ("table" -> table)
-  notebooks = NotebookData("MoveSfaiDataToRedshift.scala",
+  notebooks = NotebookData("MoveSfaiDataToRedshift",
                           0,
                           configs
                          ) +: notebooks

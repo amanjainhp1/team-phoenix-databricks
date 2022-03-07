@@ -1,5 +1,5 @@
 // Databricks notebook source
-// MAGIC %run ../../scala/common/DatabaseUtils.scala
+// MAGIC %run ../../scala/common/DatabaseUtils
 
 // COMMAND ----------
 
@@ -38,7 +38,7 @@ tableDF.createOrReplaceTempView("tableDF")
 
 val inputTableCols = tableDF.columns.map(x => x.toLowerCase)
 
-val schema = if(table == "version") "prod" else "mdm"
+val schema = if(List("decay", "version").contains(table)) "prod" else "mdm"
 
 val outputTableCols = spark.read
   .format("com.databricks.spark.redshift")
@@ -53,7 +53,7 @@ val outputTableCols = spark.read
 
 var query = "SELECT \n"
 
-for (col <- outputTableCols; if (!(List("cal_id", "geo_id", "iso_cc_id", "pl_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
+for (col <- outputTableCols; if (!(List("cal_id", "decay_id", "geo_id", "iso_cc_id", "pl_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
   if (col == "id" && table == "hardware_xref") {} else {
     if (inputTableCols.contains(col)) {
       query = query + col

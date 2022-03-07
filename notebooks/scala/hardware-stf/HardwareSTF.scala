@@ -6,15 +6,15 @@ dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../common/Constants.scala
+// MAGIC %run ../common/Constants
 
 // COMMAND ----------
 
-// MAGIC %run ../common/DatabaseUtils.scala
+// MAGIC %run ../common/DatabaseUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../../python/common/secrets_manager_utils.py
+// MAGIC %run ../../python/common/secrets_manager_utils
 
 // COMMAND ----------
 
@@ -41,7 +41,8 @@ configs += ("env" -> dbutils.widgets.get("stack"),
             "redshiftPassword" -> spark.conf.get("redshift_password"),
             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
+			"redshiftDevGroup" -> REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack")))
 
 // COMMAND ----------
 
@@ -285,7 +286,7 @@ LEFT JOIN hardware_xref c ON b.Platform_Subset=c.platform_subset
 LEFT JOIN iso_country_code_xref d on a.geo=d.country_alpha2
 WHERE 1=1
 	AND a.record LIKE ('WD3%')
-	AND a.load_date = "${wd3LoadDate}"
+	--AND a.load_date = "${wd3LoadDate}"
 	AND units > 0
 	AND c.technology IN ('INK','LASER','PWA')
 GROUP BY 
@@ -602,7 +603,6 @@ WHERE c.Technology IN ('INK','LASER','PWA') AND c.PL_category = 'HW'
 
 // COMMAND ----------
 
-// DBTITLE 0,Untitled
 wd3AllocatedLtfLtfUnits.cache()
 writeDFToRedshift(configs, wd3AllocatedLtfLtfUnits, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
 

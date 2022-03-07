@@ -1,24 +1,24 @@
 // Databricks notebook source
 dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prd"))
+dbutils.widgets.dropdown("stack", "dev", Seq("dev", "itg", "prod"))
 dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/Constants.scala
+// MAGIC %run ../../scala/common/Constants
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/DatabaseUtils.scala
+// MAGIC %run ../../scala/common/DatabaseUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../../scala/common/DatetimeUtils.scala
+// MAGIC %run ../../scala/common/DatetimeUtils
 
 // COMMAND ----------
 
-// MAGIC %run ../../python/common/secrets_manager_utils.py
+// MAGIC %run ../../python/common/secrets_manager_utils
 
 // COMMAND ----------
 
@@ -35,18 +35,18 @@ dbutils.widgets.text("aws_iam_role", "")
 
 // COMMAND ----------
 
-// MAGIC %scala
-// MAGIC var configs: Map[String, String] = Map()
-// MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-// MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
-// MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
-// MAGIC             "sfaiUrl" -> SFAI_URL,
-// MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-// MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
-// MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
-// MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-// MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-// MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
+var configs: Map[String, String] = Map()
+configs += ("env" -> dbutils.widgets.get("stack"),
+            "sfaiUsername" -> spark.conf.get("sfai_username"),
+            "sfaiPassword" -> spark.conf.get("sfai_password"),
+            "sfaiUrl" -> SFAI_URL,
+            "sfaiDriver" -> SFAI_DRIVER,
+            "redshiftUsername" -> spark.conf.get("redshift_username"),
+            "redshiftPassword" -> spark.conf.get("redshift_password"),
+            "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
+            "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
+            "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""",
+	    "redshiftDevGroup" -> REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack")))
 
 // COMMAND ----------
 
@@ -98,14 +98,14 @@ try {
     sourceTable = "actuals_hw"
 
     val sourceTableDF = readSqlServerToDF(configs)
-      .option("dbTable", s"""${sourceSchema}.${sourceTable}""")
+      .option("dbTable", s"""${sourceDatabase}.${sourceSchema}.${sourceTable}""")
       .load()
 
   //   save "landing" data to S3
     writeDFToS3(sourceTableDF, s"s3a://dataos-core-${dbutils.widgets.get("stack")}-team-phoenix/proto/${destinationTable}/${datestamp}/${timestamp}/", "csv")
 
   //   save data to "stage" and final/"prod" schema
-    writeDFToRedshift(configs, sourceTableDF, s"stage.${destinationTable}", "append")
+    writeDFToRedshift(configs, sourceTableDF, s"stage.${destinationTable}", "overwrite", "CSV GZIP")
     writeDFToRedshift(configs, sourceTableDF, s"${destinationSchema}.${destinationTable}", "append")
   }
 } catch {
@@ -129,9 +129,6 @@ if (!initialDataLoad && destinationTableExists) {
     FROM [Archer_Prod].dbo.stf_flash_country_speedlic_vw
     WHERE record = 'Planet-Actuals'
   """
-
-  val sourceDatabase = "Archer_Prod"
-  val sourceTable = "actuals_units"
 
   val archerActualsUnitsMaxDate = readSqlServerToDF(configs)
       .option("query", query)
@@ -161,6 +158,7 @@ if (!initialDataLoad && destinationTableExists) {
   if(archerActualsUnitsMaxDate > redshiftActualsUnitsMaxDate) appendToProdTable = true
   
   if(appendToProdTable) {
+    
     // create empty data frame 
     val actualsSchema = StructType(List(
       StructField("record", StringType, true),
@@ -176,7 +174,14 @@ if (!initialDataLoad && destinationTableExists) {
      ))
     var stageActualsDF = spark.createDataFrame(spark.sparkContext.emptyRDD[Row], actualsSchema)
 
-    query = s"""
+    //retrieve relevant data from source db
+    val stfFlashCountrySpeedlicVw = readSqlServerToDF(configs)
+      .option("query", s"""SELECT * FROM [Archer_Prod].dbo.stf_flash_country_speedlic_vw WHERE record = 'Planet-Actuals' AND date = '${archerActualsUnitsMaxDate}'""")
+      .load()
+    
+    writeDFToRedshift(configs, stfFlashCountrySpeedlicVw, "stage.stf_flash_country_speedlic_vw", "overwrite", "CSV GZIP")
+    
+    val stagingActualsUnitsHwQuery = s"""
       SELECT
       'actuals - hw' AS record,
       a.date AS cal_date,
@@ -188,19 +193,14 @@ if (!initialDataLoad && destinationTableExists) {
       1 AS official,
       a.version,
       'Archer' AS source
-      FROM [Archer_Prod].dbo.stf_flash_country_speedlic_vw AS a
-      LEFT JOIN [ie2_prod].dbo.rdma AS b
-        ON a.base_prod_number = b.Base_Prod_Number
-      WHERE a.record = 'Planet-Actuals'
-        AND a.date = '${archerActualsUnitsMaxDate}'
-    """ 
-
-    //retrieve relevant data from source db
-    val database = "Archer_Prod"
-    var stagingActualsUnitsHw = readSqlServerToDF(configs)
-      .option("query", query)
+      FROM stage.stf_flash_country_speedlic_vw a
+      LEFT JOIN mdm.rdma b
+      ON a.base_prod_number = b.base_prod_number
+    """
+    
+    var stagingActualsUnitsHw = readRedshiftToDF(configs)
+      .option("query", stagingActualsUnitsHwQuery)
       .load()
-    display(stagingActualsUnitsHw)
     
     //   save "landing" data to S3
     writeDFToS3(stagingActualsUnitsHw, s"s3a://dataos-core-${dbutils.widgets.get("stack")}-team-phoenix/proto/${destinationTable}/${datestamp}/${timestamp}/", "csv", "overwrite")
@@ -222,46 +222,63 @@ if (!initialDataLoad && destinationTableExists) {
     
     stageActualsDF = stageActualsDF.union(stagingActualsUnitsHw)
     
-    //retrieve large format
-    query = s"""
+    //retrieve large format SFAI data
+    val odwRevenueUnitsBaseLandingQuery = """
+    SELECT
+      cal_date,
+      country_alpha2,
+      base_product_number,
+      base_quantity
+    FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
+    WHERE cal_date = (
+      SELECT 
+        MAX(cal_date) 
+      FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
+    )
+      AND base_quantity <> 0
+    """
+    val odwRevenueUnitsBaseLanding = readSqlServerToDF(configs)
+      .option("query", odwRevenueUnitsBaseLandingQuery)
+      .load()
+    
+    writeDFToRedshift(configs, odwRevenueUnitsBaseLanding, "stage.odw_revenue_units_base_landing", "overwrite", "CSV GZIP")
+    
+    //join EDW data to lookup tables in Redshift
+    val stagingActualsLFQuery = s"""
       SELECT
       'actuals_lf' AS record,
-      c.Date AS cal_date,
-      p.country_alpha2,
-      e.ipg_product_base_product_number AS base_product_number,
+      e.cal_date,
+      e.country_alpha2,
+      e.base_product_number,
       r.Platform_Subset,
-      SUM(working_PandL_summary_base_quantity) AS base_quantity,
+      SUM(e.base_quantity) AS base_quantity,
       NULL AS load_date,
       1 AS official,
       NULL AS version,
       'EDW-LF' AS source
-      FROM [ie2_landing].dbo.edw_revenue_units_base_landing e
-      LEFT JOIN [ie2_prod].dbo.calendar c on c.Edw_fiscal_yr_mo = e.revenue_recognition_fiscal_year_month_code AND c.Day_of_Month = 1
-      LEFT JOIN [ie2_prod].dbo.rdma r on r.Base_Prod_Number = e.ipg_product_base_product_number
-      LEFT JOIN [ie2_prod].dbo.hardware_xref hw on hw.platform_subset = r.Platform_Subset
-      LEFT JOIN [ie2_prod].dbo.profit_center_code_xref p on p.profit_center_code = e.profit_center_code
+      FROM stage.odw_revenue_units_base_landing e
+      LEFT JOIN mdm.rdma r on r.Base_Prod_Number = e.base_product_number
+      LEFT JOIN mdm.hardware_xref hw on hw.platform_subset = r.Platform_Subset
       WHERE 1=1
         AND hw.technology = 'LF'
-        AND e.revenue_recognition_fiscal_year_month_code = (SELECT MAX(revenue_recognition_fiscal_year_month_code) FROM "IE2_Landing"."dbo"."edw_revenue_units_base_landing")
-        AND e.working_PandL_summary_base_quantity <> 0
       GROUP BY
-      c.Date,
-      p.country_alpha2,
-      e.ipg_product_base_product_number,
-      r.Platform_Subset,
-      e.load_date
+      e.cal_date,
+      e.country_alpha2,
+      e.base_product_number,
+      r.Platform_Subset
     """
-    
-    var stagingActualsLF = readSqlServerToDF(configs)
-      .option("query", query)
+
+    var stagingActualsLF = readRedshiftToDF(configs)
+      .option("query", stagingActualsLFQuery)
       .load()
-      .withColumn("load_date", col("load_date").cast(TimestampType))
+    
+    stagingActualsLF = stagingActualsLF.withColumn("load_date", col("load_date").cast(TimestampType))
     
     if (stagingActualsLF.count() > 0 ) {
       //   save "landing" data to S3
       writeDFToS3(stagingActualsLF, s"s3a://dataos-core-${dbutils.widgets.get("stack")}-team-phoenix/proto/actuals_lf/{datestamp}/${timestamp}/", "csv", "overwrite")
       
-      submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), "CALL prod.addversion_sproc('actuals_lf','EDW-LF');")
+      submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), "CALL prod.addversion_sproc('actuals_lf', 'EDW-LF');")
       
       //retrieve new version info
       val newVersionInfoActualsLF = readRedshiftToDF(configs)
@@ -281,9 +298,8 @@ if (!initialDataLoad && destinationTableExists) {
     if (stageActualsDF.count() > 0) {
 
       //write to redshift
-      writeDFToRedshift(configs, stageActualsDF, "stage.actuals_hw", "overwrite")
+      writeDFToRedshift(configs, stageActualsDF, "stage.actuals_hw", "overwrite", "CSV GZIP")
       
-      submitRemoteQuery(configs("redshiftUrl"), configs("redshiftUsername"), configs("redshiftPassword"), "GRANT ALL ON ALL TABLES IN schema stage TO group dev_arch_eng")
     }
   }
 }
@@ -308,14 +324,15 @@ if (!initialDataLoad && appendToProdTable && destinationTableExists) {
     a.platform_subset,
     base_quantity,
     a.load_date,
-    official,
+    a.official,
     a.version,
     source
   FROM stage.actuals_hw a
-  LEFT JOIN prod.hardware_xref b ON a.platform_subset = b.platform_subset
-  LEFT JOIN prod.product_line_xref c ON b.pl = c.pl
+  LEFT JOIN mdm.hardware_xref b ON a.platform_subset = b.platform_subset
+  LEFT JOIN mdm.product_line_xref c ON b.pl = c.pl
   WHERE c.PL_category = 'HW'
     AND c.Technology IN ('INK','LASER','PWA','LF')
+    AND a.base_quantity <> 0
   """
 
   val redshiftStageActualsHw = readRedshiftToDF(configs)
