@@ -43,7 +43,7 @@ In general, coders should work on notebooks in the Databricks web workspace in t
 ## Databricks URLs
 
 dataos-dev-internal: https://dataos-dev-internal.cloud.databricks.com/  
-dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/
+dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/    
 dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/    
 dataos-dev: https://dataos-dev.cloud.databricks.com/    
 dataos-prod: https://dataos-prod.cloud.databricks.com/    
