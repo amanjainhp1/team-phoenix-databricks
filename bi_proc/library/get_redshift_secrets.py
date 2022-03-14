@@ -6,7 +6,8 @@ from datetime import datetime
 
 # Set variables
 region_name = "us-west-2"
-secret_name = "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj"
+# TODO update to dbutil.widgets
+secret_name = "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ"
 
 def secrets_get(secret_name):
     endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
