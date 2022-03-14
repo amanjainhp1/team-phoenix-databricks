@@ -10,7 +10,7 @@ resources:
       endpoint: ghe
 
 variables:
-- group: databricks-cd
+- group: databricks-itg
 - group: Defaults
 - name: jobs_file
   value: springboard.yml
@@ -37,16 +37,16 @@ jobs:
     parameters:
       account: '435705730031'
       region: 'us-west-2'
-      roleARN: $(dataos_itg_internal_databricks_cd_role_arn)
-      externalId: $(dataos_itg_internal_databricks_cd_external_id)
+      roleARN: $(dataos_core_itg_internal_databricks_cd_role_arn)
+      externalId: $(dataos_core_itg_internal_databricks_cd_external_id)
       secrets:
-        - secretName: codeway/databricks/deployment-team-phoenix
+        - secretName: arn:aws:secretsmanager:us-west-2:828361281741:secret:codeway/databricks/deployment/phoenix-itg-internal-Mocxdh
           secretProperty: token
           variable: DATABRICKS_TOKEN
-        - secretName: codeway/deployment/nexus
+        - secretName: arn:aws:secretsmanager:us-west-2:828361281741:secret:codeway/deployment/nexus-2V3n6v
           secretProperty: password
           variable: NEXUS_PASSWORD
-        - secretName: codeway/deployment/nexus
+        - secretName: arn:aws:secretsmanager:us-west-2:828361281741:secret:codeway/deployment/nexus-2V3n6v
           secretProperty: username
           variable: NEXUS_USERNAME
       configs:
