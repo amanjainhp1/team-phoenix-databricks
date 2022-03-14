@@ -43,12 +43,16 @@ In general, coders should work on notebooks in the Databricks web workspace in t
 ## Databricks URLs
 
 dataos-dev-internal: https://dataos-dev-internal.cloud.databricks.com/  
-dataos-dev: https://dataos-dev.cloud.databricks.com   
+dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/    
+dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/    
+dataos-dev: https://dataos-dev.cloud.databricks.com/    
+dataos-prod: https://dataos-prod.cloud.databricks.com/    
 
 ## Azure DevOps Pipeline URLs
 
 dev: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=8937    
 itg: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373    
+prod: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=10475    
 
 ## Informative Links
 DataOS: Guide to the Cloud: https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/    

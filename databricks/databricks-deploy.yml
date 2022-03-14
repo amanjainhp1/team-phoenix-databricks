@@ -26,6 +26,7 @@ trigger:
     exclude:
       - databricks/internal/dev-springboard.yml
       - itg-databricks/internal/itg-springboard.yml
+      - prod-databricks/internal/prod-springboard.yml
       - README.md
 
 pr: none
