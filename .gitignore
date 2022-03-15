@@ -1,4 +1,4 @@
 # ignore blue, green files
 dev-springboard.yml
 itg-springboard.yml
-prd-springboard.yml
+prod-springboard.yml
