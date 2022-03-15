@@ -1,4 +1,4 @@
 # ignore blue, green files
-/databricks/internal/dev-springboard.yml
-/itg-databricks/internal/itg-springboard.yml
-/prod-databricks/internal/prd-springboard.yml
+dev-springboard.yml
+itg-springboard.yml
+prd-springboard.yml
