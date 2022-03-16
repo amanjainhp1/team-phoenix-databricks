@@ -1,0 +1,166 @@
+{
+  "fields": [
+    {
+      "description": "sup_xref_id",
+      "name": "sup_xref_id",
+      "type": "IDENTITY",
+      "nullable": false,
+      "encode": "raw",
+      "sort_key": true
+    },
+    {
+      "description": "record",
+      "name": "record",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "base_product_number",
+      "name": "base_product_number",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pl",
+      "name": "pl",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "cartridge_alias",
+      "name": "cartridge_alias",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "regionalization",
+      "name": "regionalization",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "toner_category",
+      "name": "toner_category",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "type",
+      "name": "type",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "single_multi",
+      "name": "single_multi",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "crg_chrome",
+      "name": "crg_chrome",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "k_color",
+      "name": "k_color",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "crg_intro_dt",
+      "name": "crg_intro_dt",
+      "type": "TIMESTAMP WITHOUT TIME ZONE",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "size",
+      "name": "size",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "technology",
+      "name": "technology",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "supplies_family",
+      "name": "supplies_family",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "supplies_group",
+      "name": "supplies_group",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "supplies_technology",
+      "name": "supplies_technology",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "equivalents_multiplier",
+      "name": "equivalents_multiplier",
+      "type": "INTEGER",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "official",
+      "name": "official",
+      "type": "BOOLEAN",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "last_modified_date",
+      "name": "last_modified_date",
+      "type": "TIMESTAMP WITHOUT TIME ZONE",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "load_date",
+      "name": "load_date",
+      "type": "TIMESTAMP WITHOUT TIME ZONE",
+      "nullable": true,
+      "encode": "az64"
+    }
+  ],
+  "permissions": [
+    {
+      "permission_type": "grant",
+      "permission_type_level": "all",
+      "permission_target_level": "group",
+      "permission_target": "dev_arch_eng"
+    },
+    {
+      "permission_type": "grant",
+      "permission_type_level": "all",
+      "permission_target_level": "user",
+      "permission_target": "auto_glue"
+    }
+  ]
+}

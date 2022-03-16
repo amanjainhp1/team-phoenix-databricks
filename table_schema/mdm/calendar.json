@@ -1,0 +1,224 @@
+{
+  "fields": [
+    {
+      "description": "cal_id",
+      "name": "cal_id",
+      "type": "IDENTITY",
+      "nullable": false,
+      "encode": "raw",
+      "sort_key": true
+    },
+    {
+      "description": "record",
+      "name": "record",
+      "type": "VARCHAR(20)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "date_key",
+      "name": "date_key",
+      "type": "VARCHAR(8)",
+      "nullable": false,
+      "encode": "lzo"
+    },
+    {
+      "description": "date",
+      "name": "date",
+      "type": "DATE",
+      "nullable": false,
+      "encode": "az64"
+    },
+    {
+      "description": "day_of_week",
+      "name": "day_of_week",
+      "type": "DOUBLE PRECISION",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "day_of_month",
+      "name": "day_of_month",
+      "type": "DOUBLE PRECISION",
+      "nullable": false,
+      "encode": "raw"
+    },
+    {
+      "description": "day_name",
+      "name": "predecessor",
+      "type": "VARCHAR(15)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "day_abbrv",
+      "name": "day_abbrv",
+      "type": "VARCHAR(3)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "weekday_flag",
+      "name": "weekday_flag",
+      "type": "VARCHAR(7)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "week_number",
+      "name": "week_number",
+      "type": "DOUBLE PRECISION",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "week_begin_date",
+      "name": "week_begin_date",
+      "type": "DATE",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "week_beging_date_key",
+      "name": "week_beging_date_key",
+      "type": "VARCHAR(8)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+
+    {
+      "description": "month",
+      "name": "month",
+      "type": "month_abbrv ",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "month_name",
+      "name": "month_name",
+      "type": "VARCHAR(15)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "month_abbrv",
+      "name": "month_abbrv",
+      "type": "VARCHAR(3)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "calendar_yr_qtr",
+      "name": "calendar_yr_qtr",
+      "type": "VARCHAR(6)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "calendar_qtr",
+      "name": "calendar_qtr",
+      "type": "DOUBLE PRECISION",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "calendar_yr",
+      "name": "calendar_yr",
+      "type": "VARCHAR(4)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "calendar_yr_mo",
+      "name": "calendar_yr_mo",
+      "type": "VARCHAR(6)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "fiscal_year_qtr",
+      "name": "fiscal_year_qtr",
+      "type": "VARCHAR(6)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "fiscal_year_half",
+      "name": "fiscal_year_half",
+      "type": "VARCHAR(6)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "fiscal_month",
+
+      "name": "fiscal_month",
+      "type": "DOUBLE PRECISION",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "fiscal_qtr",
+      "name": "fiscal_qtr",
+      "type": "DOUBLE PRECISION",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "fiscal_yr",
+      "name": "fiscal_yr",
+      "type": "VARCHAR(4)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "month_end_flag",
+      "name": "month_end_flag",
+      "type": "VARCHAR(20)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "same_day_1_yr_ago",
+      "name": "same_day_1_yr_ago",
+      "type": "DATE",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "edw_fiscal_yr_mo",
+      "name": "edw_fiscal_yr_mo",
+      "type": "VARHCAR(6)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "ms4_fiscal_posting_period",
+      "name": "ms4_fiscal_posting_period",
+      "type": "VARCHAR(6)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "ms4_fiscal_year_period",
+      "name": "ms4_fiscal_year_period",
+      "type": "VARCHAR(10)",
+      "nullable": true,
+      "encode": "lzo"
+    }
+  ],
+  "permissions": [
+    {
+      "permission_type": "grant",
+      "permission_type_level": "all",
+      "permission_target_level": "group",
+      "permission_target": "dev_arch_eng"
+    },
+    {
+      "permission_type": "grant",
+      "permission_type_level": "all",
+      "permission_target_level": "user",
+      "permission_target": "auto_glue"
+    }
+  ]
+}
