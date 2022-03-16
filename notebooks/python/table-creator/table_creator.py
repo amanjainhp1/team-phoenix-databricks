@@ -72,7 +72,7 @@ def set_fields(input_json_dict):
 # COMMAND ----------
 
 # define method that parses table dict and constructs permissions section of table create query
-def set_permissions(input_json_dict):
+def set_permissions(input_json_dict, schema, table):
     permissions = ""
 
     if "permissions" in input_json_dict:
@@ -83,9 +83,7 @@ def set_permissions(input_json_dict):
 
             permission_details.append(permission["permission_type_level"])
 
-            permission_details.append("on table mdm.hardware_xref")
-
-            permission_details.append("to")
+            permission_details.append("on table " + schema + "." + table + " to")
 
             if permission["permission_target_level"] != "user":
                 permission_details.append(permission["permission_target_level"])
@@ -110,11 +108,11 @@ for path, subdirs, files in os.walk(root):
 # for each json file, parse, construct table create statement, and submit to Redshift
 for input_json_file in input_json_files:
     
-    schema = input_json_file.split("/")[len(input_json_file.split("/"))-2]
-    table_name = input_json_file.split("/")[len(input_json_file.split("/"))-1].replace(".json", "")
+    input_schema = input_json_file.split("/")[len(input_json_file.split("/"))-2]
+    input_table_name = input_json_file.split("/")[len(input_json_file.split("/"))-1].replace(".json", "")
     
-    input_json_dict = json.load(input_json_file)
+    input_json_dict = json.load(open(input_json_file))
     
-    sql_query = "CREATE TABLE IF NOT EXISTS {}.{}\n(\n{}\n)\n\n{}\n\n{}".format(schema, table_name, set_fields(input_json_dict)[0], set_fields(input_json_dict)[1], set_permissions(input_json_dict))
+    sql_query = "CREATE TABLE IF NOT EXISTS {}.{}\n(\n{}\n)\n\n{}\n\n{}".format(input_schema, input_table_name, set_fields(input_json_dict)[0], set_fields(input_json_dict)[1], set_permissions(input_json_dict, input_schema, input_table_name))
     
     submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query)
