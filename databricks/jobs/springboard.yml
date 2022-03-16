@@ -8,6 +8,7 @@ Jobs:
   - ink-share
   - ink-usage-color
   - ink-usage-total
+  - installed-base
   - lf-decay
   - lf-ltf
   - lf-ltf-splits
