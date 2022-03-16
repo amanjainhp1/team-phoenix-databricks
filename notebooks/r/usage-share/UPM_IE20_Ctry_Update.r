@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# #Version 2021.01.19.1#
+# #Version 2021.03.14.1#
 # title: "UPM with IE2.0 IB Country Level"
 # output: html_notebook
 # ---
@@ -59,7 +59,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check.r
+# MAGIC %run ../common/package_check
 
 # COMMAND ----------
 
@@ -604,85 +604,130 @@ outcome0 <- as.data.frame(do.call("rbind", data))
 str(outcome0)
 rownames(outcome0) <- NULL
 
-sourceReplacement <- function(x, replace)
-{
-
-  if (replace == 0){outcome <- outcome0}
-  else 
-  { 
-
-    outcome0$toMatch <- do.call(paste, c(outcome0[c("CM", "Region_Cd", "FYearMo")], sep = "_")) 
-
-    mylist <- split(outcome0, outcome0$EP)
-    ENT <- mylist$ENT
-    PRO <- mylist$PRO
-
-
-    outcome01 <- sqldf('select aa1.*
-                       , aa2.CM as CM2
-                       , aa2.EP as EP2
-                       , aa2.Region_Cd as Region_Cd2
-                       , aa2.FYearMo as FYearMo2
-                       , aa2.SumMPVPN as SumMPVPN2
-                       , aa2.SumN as SumN2
-                       , aa2.MUT as MUT2
-                       , aa2.strata as strata2
-                       , aa2.J90Mo as J90Mo2
-                       , aa2.x as x2
-                       , aa2.y as y2
-                       , aa2.a0 as a02
-                       , aa2.b1 as b12
-                       , aa2.yhat as yhat2
-                       , aa2.Detrend as Detrend2
-                       , aa2.month as month2
-                       , aa2.seasonality as seasonality2
-                       , aa2.DTDS as DTDS2
-                       , aa2.mo_Smooth as mo_Smooth2
-                       , aa2.Eyhat as Eyhat2
-                       , aa2.EDetrend as EDetrend2
-                       , aa2.Eseasonality as Eseasonality2
-                       , aa2.Emo_Smooth as Emo_Smooth2
-                       , aa2.toMatch as toMatch2
-                       from ENT aa1 left join PRO aa2 on 
-                       aa1.toMatch = aa2.toMatch')
-
-    outcome02 <- sqldf('select 
-                       case when CM2 is not null then CM else CM2 end as CM
-                       , EP2 as EPMPV_Init
-                       , case when Region_Cd2 is not null then Region_Cd else Region_Cd2 end as Region_Cd
-                       , case when FYearMo2 is not null then FYearMo else FYearMo2 end as FYearMo
-                       , case when SumMPVPN2 is not null then SumMPVPN else SumMPVPN2 end as SumMPVPN
-                       , case when SumN2 is not null then SumN else SumN2 end as SumN
-                       , case when MUT2 is not null then MUT else MUT2 end as MUT
-                       , strata2 as strata
-                       , case when J90Mo2 is not null then J90Mo else J90Mo2 end as J90Mo
-                       , case when x2 is not null then x else x2 end as x
-                       , case when y2 is not null then y else y2 end as y
-                       , case when a02 is not null then a0 else a02 end as a0
-                       , case when b12 is not null then b1 else b12 end as b1
-                       , case when yhat2 is not null then yhat else yhat2 end as yhat
-                       , case when Detrend2 is not null then Detrend else Detrend2 end as Detrend
-                       , case when month2 is not null then month else month2 end as month
-                       , case when seasonality2 is not null then seasonality else seasonality2 end as seasonality
-                       , case when DTDS2 is not null then DTDS else DTDS2 end as DTDS
-                       , case when mo_Smooth2 is not null then mo_Smooth else mo_Smooth2 end as mo_Smooth
-                       , case when Eyhat2 is not null then Eyhat else Eyhat2 end as Eyhat
-                       , case when EDetrend2 is not null then EDetrend else EDetrend2 end as EDetrend
-                       , case when Eseasonality2 is not null then Eseasonality else Eseasonality2 end as Eseasonality
-                       , case when Emo_Smooth2 is not null then Emo_Smooth else Emo_Smooth2 end as Emo_Smooth
-                       , toMatch2 as toMatch
-                       from outcome01
-                       where EP2 is not null
-                       ')
-
-    outcome <- rbind(ENT, outcome02)
-    outcome$toMatch <- NULL
-  }
-  return(outcome)
-}
-
-outcome <- sourceReplacement(outcome0, replace)
-outcome$b1check <- outcome$b1                      #For checking limits
+stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
+  stratcs <- sqldf("SELECT distinct CM from outcome0")
+  stratmk <- sqldf("SELECT distinct market10, developed_emerging from outcome0")
+  stratmn <- sqldf("SELECT distinct month from outcome0")
+  stratjn <- sqldf("SELECT a.*, b.*, d.*, e.*
+                   from stratpl a , stratcs b ,stratmk d, stratmn e")
+  stratjn <- sqldf("SELECT a.*, b.region_5
+                   from stratjn a
+                   left join (select distinct region_5, market10 from country_info) b
+                   on a.market10=b.market10")
+  outcome0 <- sqldf("SELECT a.*, b.region_5
+                   from outcome0 a
+                   left join (select distinct region_5, market10 from country_info) b
+                   on a.market10=b.market10")
+ 
+  #Add region, get regional estimates...what else is missing for C4010 E0--India missing
+  outcome_o <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, market10, region_5, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome0
+                     group by platform_market_code, CM, developed_emerging, month, market10, region_5")
+  outcome_r <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, region_5, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by platform_market_code, CM, developed_emerging, month, region_5")
+  
+  outcome_a <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by platform_market_code, CM, developed_emerging, month")
+  
+  outcome_b <- sqldf("SELECT platform_market_code, market10, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by platform_market_code, market10, developed_emerging, month")
+  outcome_c <- sqldf("SELECT CM, market10, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by CM, market10, developed_emerging, month")
+  outcome_d <- sqldf("SELECT CM, market10, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by CM, market10, developed_emerging, month")
+  outcome_e <- sqldf("SELECT  platform_market_code, CM,  market10, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by  platform_market_code, CM,  market10, developed_emerging, month")
+  outcome_f <- sqldf("SELECT CM,  developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by CM, developed_emerging, month")
+  outcome_w <- sqldf("SELECT CM, month, avg(b1) as b1, avg(seasonality) as seasonality, avg(mo_Smooth) as mo_Smooth
+                     from outcome_o
+                     group by CM, month")
+                     
+  outcome <- sqldf(" SELECT distinct s.platform_market_code, s.CM, s.market10, s.developed_emerging, s.month
+                  , CASE WHEN o.b1 is not null then o.b1
+                         WHEN r.b1 is not null then r.b1
+                         WHEN a.b1 is not null then a.b1
+                         WHEN b.b1 is not null then b.b1
+                         WHEN c.b1 is not null then c.b1
+                         WHEN d.b1 is not null then d.b1
+                         WHEN e.b1 is not null then e.b1
+                         WHEN f.b1 is not null then f.b1
+                         WHEN w.b1 is not null then w.b1
+                         ELSE NULL
+                    END AS b1
+                  , CASE WHEN o.seasonality is not null then o.seasonality
+                         WHEN r.seasonality is not null then r.seasonality
+                         WHEN a.seasonality is not null then a.seasonality
+                         WHEN b.seasonality is not null then b.seasonality
+                         WHEN c.seasonality is not null then c.seasonality
+                         WHEN d.seasonality is not null then d.seasonality
+                         WHEN e.seasonality is not null then e.seasonality
+                         WHEN f.seasonality is not null then f.seasonality
+                         WHEN w.seasonality is not null then w.seasonality
+                         ELSE NULL
+                         END as seasonality
+                 , CASE WHEN o.mo_Smooth is not null then o.mo_Smooth
+                         WHEN r.mo_Smooth is not null then r.mo_Smooth
+                         WHEN a.mo_Smooth is not null then a.mo_Smooth
+                         WHEN b.mo_Smooth is not null then b.mo_Smooth
+                         WHEN c.mo_Smooth is not null then c.mo_Smooth
+                         WHEN d.mo_Smooth is not null then d.mo_Smooth
+                         WHEN e.mo_Smooth is not null then e.mo_Smooth
+                         WHEN f.mo_Smooth is not null then f.mo_Smooth
+                         ELSE NULL
+                       END as mo_Smooth
+                  , CASE WHEN o.b1 is not null then 'self'
+                         WHEN r.b1 is not null then 'reg5'
+                         WHEN a.b1 is not null then 'nomkt'
+                         WHEN b.b1 is not null then 'nocs'
+                         WHEN c.b1 is not null then 'nopl'
+                         WHEN d.b1 is not null then 'nomc'
+                         WHEN e.b1 is not null then 'nopfc'
+                         WHEN f.b1 is not null then 'noplmkt'
+                         WHEN w.b1 is not null then 'node'
+                         ELSE NULL
+                    END AS src
+                
+                  from stratjn s
+                  
+                  left join outcome_o o
+                  on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
+                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month 
+                  left join outcome_r r
+                  on s.platform_market_code=r.platform_market_code and s.CM=r.CM  
+                    and s.developed_emerging=r.developed_emerging and s.month=r.month and s.region_5=r.region_5 
+                  left join outcome_a a
+                  on s.platform_market_code=a.platform_market_code and s.CM=a.CM 
+                    and s.developed_emerging=a.developed_emerging and s.month=a.month 
+                  left join outcome_b b
+                  on s.platform_market_code=b.platform_market_code 
+                    and s.market10=b.market10 and s.developed_emerging=b.developed_emerging and s.month=b.month 
+                  left join outcome_c c
+                  on s.CM=c.CM 
+                    and s.market10=c.market10 and s.developed_emerging=c.developed_emerging and s.month=c.month 
+                  left join outcome_d d
+                  on s.CM=d.CM  
+                    and s.market10=d.market10 and s.developed_emerging=d.developed_emerging and s.month=d.month 
+                  left join outcome_e e
+                  on s.platform_market_code=e.platform_market_code and s.CM=e.CM 
+                    and s.market10=e.market10 and s.developed_emerging=e.developed_emerging and s.month=e.month 
+                  left join outcome_f f
+                  on s.CM=f.CM 
+                    and s.developed_emerging=f.developed_emerging and s.month=f.month 
+                  left join outcome_w w
+                  on s.CM=w.CM 
+                    and s.month=w.month
+                   ")
+  outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
+         
+  outcome$b1check <- outcome$b1                      #For checking limits
   outcome$b1 <- ifelse(outcome$b1 > -0.01, -.01,outcome$b1)
   outcome$b1 <- ifelse(outcome$b1 < -0.10, -0.10,outcome$b1)
   outcome$b1c <- ifelse(outcome$b1c > -0.01, -.01,outcome$b1c)
@@ -871,15 +916,21 @@ sourceR <- sqldf("
                  select ib.platform_subset as printer_platform_name, ib.region_5 as printer_region_code, ib.developed_emerging, ib.market10, ib.country_alpha2,
                  COALESCE(u2.prcN,0) as prcN, COALESCE(u2.mktN,0) as mktN, COALESCE(u2.demN,0) as demN,COALESCE(u2.ctyN,0) as ctyN
                  , case 
-                 when ctyN >= 200 then 'country'
-                 when demN >=200 then 'dev/em'
-                 when mktN >=200 then 'market10'
-                 when prcN >=200 then 'region5'
+                 when u2.ctyN >= 200 then 'country'
+                 when u2.demN >=200 then 'dev/em'
+                 when u2.mktN >=200 then 'market10'
+                 when u2.prcN >=200 then 'region5'
                  else 'None'
                  end as Source_vlook
+                 ,oc.src
                  from iblist ib
                  left join u2
                  on ib.platform_subset=u2.printer_platform_name and ib.region_5=u2.printer_region_code and ib.market10=u2.market10 and ib.country_alpha2=u2.country_alpha2
+                 left join hw_info hw
+                 on ib.platform_subset=hw.platform_subset
+                 left join outcome oc
+                 on substr(upper(hw.mono_color),1,1)=oc.CM and oc.market10=ib.market10 and substr(upper(ib.developed_emerging),1,1)=oc.developed_emerging
+                 and hw_platform_market_code=oc.platform_market_code
                  order by printer_platform_name, printer_region_code
                  ")
 
@@ -893,7 +944,7 @@ str(sourceR)
 # for each of the Plat_Nm and Region_Cd combinations.
 
 usage2 <- sqldf('select aa1.*
-                , aa2.Source_vlook 
+                , aa2.Source_vlook, aa2.src 
                 from usage aa1 left join sourceR aa2 on 
                 aa1.printer_platform_name = aa2.printer_platform_name
                 and
@@ -2644,6 +2695,23 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               END
                              ELSE Source_vlook
                         END as RouteDE
+                       ,CASE 
+                             WHEN a.Source_vlook = 'None' then 
+                              CASE
+                              WHEN a.src = 'reg5' THEN 'region5'
+                              WHEN a.market10 = 'North America' then f.North_AmericaRoute
+                              WHEN a.market10 = 'Latin America' then f.Latin_AmericaRoute
+                              WHEN a.market10 = 'UK&I' then f.UKIRoute
+                              WHEN a.market10 = 'Northern Europe' then f.Northern_EuropeRoute
+                              WHEN a.market10 = 'Southern Europe' then f.Southern_EuropeRoute
+                              WHEN a.market10 = 'Central Europe' then f.Central_EuropeRoute
+                              WHEN a.market10 = 'ISE' then f.ISERoute
+                              WHEN a.market10 = 'Greater Asia' then f.Greater_AsiaRoute
+                              WHEN a.market10 = 'Greater China' then f.Greater_ChinaRoute
+                              WHEN a.market10 = 'India SL & BL' then f.IndiaRoute
+                              END
+                             ELSE Source_vlook
+                        END as Route2
                        FROM sourceR a
                        LEFT JOIN usageSummary2 b
                         ON a.printer_platform_name=b.printer_platform_name and a.country_alpha2=b.country_alpha2
@@ -3759,10 +3827,34 @@ normdataFinal0 <- sqldf("
                           WHEN src.mde='NE' AND por.Northern_Europe3 IS NOT NULL THEN Northern_Europe3
                           WHEN src.mde='SE' AND por.Southern_Europe3 IS NOT NULL THEN Southern_Europe3
                           WHEN src.mde='UK' AND por.UKI3 IS NOT NULL THEN por.UKI3
+                          WHEN por.product_usage_por_pages IS NOT NULL THEN por.product_usage_por_pages
+                          WHEN por.rawMPV is not NULL THEN por.rawMPV
                           --WHEN src.Route IS NULL THEN ?
                           ELSE null
 
                       END AS iMPV
+                      ,CASE WHEN src.Route='country' THEN 'modelled: Self' 
+                            WHEN src.Route='dev/em' THEN 'modelled: Dev/EM'
+                            WHEN src.Route='market10' THEN 'modelled: Market10'
+                            WHEN src.Route='region5' THEN 'modelled: Region5'
+                            WHEN src.Route='Self' THEN 'modelled: Self'
+                            WHEN src.Route2='region5' THEN 'modelled: Region5'
+                            WHEN src.mde='LA' AND por.Latin_America3 IS NOT NULL THEN 'proxied: LA ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='CEE' AND por.Central_Europe_E3 IS NOT NULL THEN 'proxied: CED ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='CED' AND por.Central_Europe_D3 IS NOT NULL THEN 'proxied: CEE ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='GAD' AND por.Greater_Asia_D3 IS NOT NULL THEN'proxied: GAD ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='GAE' AND por.Greater_Asia_E3 IS NOT NULL THEN 'proxied: GAE ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='GCD' AND por.Greater_China_D3 IS NOT NULL THEN 'proxied: GCD ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='GCE' AND por.Greater_China_E3 IS NOT NULL THEN 'proxied: GCE ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='IN' AND por.India3 IS NOT NULL THEN 'proxied: ISB ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='IS' AND por.ISE3 IS NOT NULL THEN 'proxied: ISE ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='NA' AND por.North_America3 IS NOT NULL THEN 'proxied: NA ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='NE' AND por.Northern_Europe3 IS NOT NULL THEN 'proxied: NE ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='SE' AND por.Southern_Europe3 IS NOT NULL THEN 'proxied: SE ;'||por.CM||por.platform_market_code
+                            WHEN src.mde='UK' AND por.UKI3 IS NOT NULL THEN 'proxied: UK ;'||por.CM||por.platform_market_code
+                            WHEN por.product_usage_por_pages IS NOT NULL THEN 'HW POR'
+                            WHEN por.rawMPV is not NULL THEN 'ML'
+                          END as label
                     , dt.introdate as introdate0
 
                    FROM sourceRiMPV src
@@ -4030,6 +4122,7 @@ final9 <- SparkR::sql('
                 , MUT
                 , Trend
                 , Route as IMPV_Route
+                , label
                 from final4  
                 where IB is not null --and intro_price != 0
                 ')
