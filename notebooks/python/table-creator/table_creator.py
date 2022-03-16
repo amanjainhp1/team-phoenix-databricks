@@ -1,14 +1,15 @@
 # Databricks notebook source
 # import python libraries
 import json
+import os
 
 # COMMAND ----------
 
-# MAGIC %run ../common/secrets_manager_utils
+# MAGIC %run ./common/secrets_manager_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ./common/database_utils
 
 # COMMAND ----------
 
@@ -34,7 +35,6 @@ configs["redshift_password"] = redshift_secrets["password"]
 configs["redshift_url"] = constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
 configs["redshift_port"] = constants['REDSHIFT_PORTS'][dbutils.widgets.get("stack")]
 configs["redshift_dbname"] = dbutils.widgets.get("stack")
-configs["aws_iam_role"] =  dbutils.widgets.get("aws_iam_role")
 
 # COMMAND ----------
 
