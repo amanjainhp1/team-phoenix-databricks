@@ -1,21 +1,16 @@
-// Databricks notebook source
-// MAGIC %md
-// MAGIC # Normalized Shipments
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # Normalized Shipments
 
-// COMMAND ----------
+# COMMAND ----------
 
-// Imports
-import scala.collection.mutable.ListBuffer
+# Global Variables
+queryList = []
+# ib_tech_filter = "('actuals - hw', 'actuals_lf')"
 
-// COMMAND ----------
+# COMMAND ----------
 
-// Global Variables
-var queryList = ListBuffer[(String, String)]()
-var ib_tech_filter = "('actuals - hw', 'actuals_lf')"
-
-// COMMAND ----------
-
-var normShips: String = """
+normShips = """
 
 
 with nrm_02_hw_acts as (
@@ -30,8 +25,7 @@ SELECT ref.region_5
 FROM "prod"."actuals_hw" AS act
 JOIN "mdm"."iso_country_code_xref" AS ref
     ON act.country_alpha2 = ref.country_alpha2
-WHERE act.record IN """ + ib_tech_filter +
-"""
+WHERE act.record IN ('actuals - hw', 'actuals_lf')
       AND act.official = 1
 GROUP BY ref.region_5
     , act.record
@@ -265,18 +259,18 @@ WHERE 1=1
     AND hw.technology IN ('LASER','INK','PWA','LF')
     AND NOT hw.pl IN ('GW', 'LX')
 """
-// println(normShips)
+
 queryList += (("stage.norm_ships", normShips))
 
-// COMMAND ----------
+# COMMAND ----------
 
-// MAGIC %md
-// MAGIC ## Create Redshift Tables
+# MAGIC %md
+# MAGIC ## Create Redshift Tables
 
-// COMMAND ----------
+# COMMAND ----------
 
-// MAGIC %run "../../library/output_to_redshift" $queryList=queryList
+# MAGIC %run "../../library/output_to_redshift" $queryList=queryList
 
-// COMMAND ----------
+# COMMAND ----------
 
 

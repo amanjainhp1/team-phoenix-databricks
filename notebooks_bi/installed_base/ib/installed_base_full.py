@@ -1,19 +1,15 @@
-// Databricks notebook source
-// MAGIC %md
-// MAGIC # Installed Base - Full Run
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # Installed Base - Full Run
 
-// COMMAND ----------
+# COMMAND ----------
 
-import scala.collection.mutable.ListBuffer
+# Global Variables
+queryList = []
 
-// COMMAND ----------
+# COMMAND ----------
 
-// Global Variables
-var queryList = ListBuffer[(String, String)]()
-
-// COMMAND ----------
-
-var hwDecay: String = """
+hwDecay = """
 with ib_01_filter_vars as (
 
 
@@ -211,11 +207,11 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , ucep.platform_subset
 """
 
-queryList += (("stage.ib_01_hw_decay", hwDecay))
+queryList += {"stage.ib_01_hw_decay", hwDecay}
 
-// COMMAND ----------
+# COMMAND ----------
 
-var ceSplits: String = """
+ceSplits = """
 
 
 with ib_07_years as (
@@ -476,11 +472,11 @@ WHERE 1=1
 FROM ib_12_ce_splits_post
 """
 
-queryList += (("stage.ib_02_ce_splits", ceSplits))
+queryList += {"stage.ib_02_ce_splits", ceSplits}
 
-// COMMAND ----------
+# COMMAND ----------
 
-var iinkComplete: String = """
+iinkComplete = """
 
 
 with ib_14_iink_act_stf as (
@@ -684,11 +680,11 @@ GROUP BY month_begin
     , platform_subset
 """
 
-queryList += (("stage.ib_03_iink_complete", iinkComplete))
+queryList += {"stage.ib_03_iink_complete", iinkComplete}
 
-// COMMAND ----------
+# COMMAND ----------
 
-var ibStaging: String = """
+ibStaging = """
 
 
 with ib_22_iink_ltf_to_split as (
@@ -998,13 +994,13 @@ WHERE 1=1
     AND pre.record IN ('ib_trad', 'ib_iink')
 """
 
-queryList += (("stage.ib_staging", ibStaging))
+queryList += {"stage.ib_staging", ibStaging}
 
-// COMMAND ----------
+# COMMAND ----------
 
-// MAGIC %md
-// MAGIC ## Create Tables in Redshift
+# MAGIC %md
+# MAGIC ## Create Tables in Redshift
 
-// COMMAND ----------
+# COMMAND ----------
 
-// MAGIC %run "../../library/output_to_redshift" $queryList=queryList
+# MAGIC %run "../../library/output_to_redshift" $queryList=queryList
