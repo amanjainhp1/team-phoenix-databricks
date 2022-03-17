@@ -89,7 +89,7 @@
     {
       "description": "month",
       "name": "month",
-      "type": "month_abbrv ",
+      "type": "DOUBLE PRECISION",
       "nullable": true,
       "encode": "raw"
     },
@@ -151,7 +151,6 @@
     },
     {
       "description": "fiscal_month",
-
       "name": "fiscal_month",
       "type": "DOUBLE PRECISION",
       "nullable": true,
