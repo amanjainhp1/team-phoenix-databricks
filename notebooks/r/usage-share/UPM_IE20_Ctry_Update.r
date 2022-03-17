@@ -916,21 +916,15 @@ sourceR <- sqldf("
                  select ib.platform_subset as printer_platform_name, ib.region_5 as printer_region_code, ib.developed_emerging, ib.market10, ib.country_alpha2,
                  COALESCE(u2.prcN,0) as prcN, COALESCE(u2.mktN,0) as mktN, COALESCE(u2.demN,0) as demN,COALESCE(u2.ctyN,0) as ctyN
                  , case 
-                 when u2.ctyN >= 200 then 'country'
-                 when u2.demN >=200 then 'dev/em'
-                 when u2.mktN >=200 then 'market10'
-                 when u2.prcN >=200 then 'region5'
+                 when ctyN >= 200 then 'country'
+                 when demN >=200 then 'dev/em'
+                 when mktN >=200 then 'market10'
+                 when prcN >=200 then 'region5'
                  else 'None'
                  end as Source_vlook
-                 ,oc.src
                  from iblist ib
                  left join u2
                  on ib.platform_subset=u2.printer_platform_name and ib.region_5=u2.printer_region_code and ib.market10=u2.market10 and ib.country_alpha2=u2.country_alpha2
-                 left join hw_info hw
-                 on ib.platform_subset=hw.platform_subset
-                 left join outcome oc
-                 on substr(upper(hw.mono_color),1,1)=oc.CM and oc.market10=ib.market10 and substr(upper(ib.developed_emerging),1,1)=oc.developed_emerging
-                 and hw_platform_market_code=oc.platform_market_code
                  order by printer_platform_name, printer_region_code
                  ")
 
