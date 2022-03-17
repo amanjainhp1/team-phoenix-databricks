@@ -30,8 +30,8 @@
       "encode": "az64"
     },
     {
-      "description": "country_begin_date",
-      "name": "country_begin_date",
+      "description": "country_end_date",
+      "name": "country_end_date",
       "type": "DATE",
       "nullable": true,
       "encode": "az64"
