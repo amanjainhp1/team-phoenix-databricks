@@ -5,7 +5,7 @@
 # COMMAND ----------
 
 # Global Variables
-queryList = []
+query_list = []
 
 # COMMAND ----------
 
@@ -207,7 +207,7 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , ucep.platform_subset
 """
 
-queryList += {"stage.ib_01_hw_decay", hwDecay}
+query_list.append(["stage.ib_01_hw_decay", hwDecay])
 
 # COMMAND ----------
 
@@ -472,7 +472,7 @@ WHERE 1=1
 FROM ib_12_ce_splits_post
 """
 
-queryList += {"stage.ib_02_ce_splits", ceSplits}
+query_list.append(["stage.ib_02_ce_splits", ceSplits])
 
 # COMMAND ----------
 
@@ -680,7 +680,7 @@ GROUP BY month_begin
     , platform_subset
 """
 
-queryList += {"stage.ib_03_iink_complete", iinkComplete}
+query_list.append(["stage.ib_03_iink_complete", iinkComplete])
 
 # COMMAND ----------
 
@@ -994,7 +994,7 @@ WHERE 1=1
     AND pre.record IN ('ib_trad', 'ib_iink')
 """
 
-queryList += {"stage.ib_staging", ibStaging}
+query_list.append(["stage.ib_staging", ibStaging])
 
 # COMMAND ----------
 
@@ -1003,4 +1003,8 @@ queryList += {"stage.ib_staging", ibStaging}
 
 # COMMAND ----------
 
-# MAGIC %run "../../library/output_to_redshift" $queryList=queryList
+# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+
