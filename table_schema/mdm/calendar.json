@@ -188,7 +188,7 @@
     {
       "description": "edw_fiscal_yr_mo",
       "name": "edw_fiscal_yr_mo",
-      "type": "VARHCAR(6)",
+      "type": "VARCHAR(6)",
       "nullable": true,
       "encode": "lzo"
     },
