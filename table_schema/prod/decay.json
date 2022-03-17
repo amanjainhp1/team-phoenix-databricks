@@ -37,7 +37,7 @@
       "encode": "lzo"
     },
     {
-      "description": ".year",
+      "description": "year",
       "name": "year",
       "type": "VARCHAR(10)",
       "nullable": false,
@@ -51,15 +51,15 @@
       "encode": "lzo"
     },
     {
-      "description": "avg_printer_life ",
-      "name": "avg_printer_life ",
+      "description": "avg_printer_life",
+      "name": "avg_printer_life",
       "type": "DOUBLE PRECISION",
       "nullable": true,
       "encode": "raw"
     },
     {
-      "description": "value ",
-      "name": "value ",
+      "description": "value",
+      "name": "value",
       "type": "DOUBLE PRECISION",
       "nullable": true,
       "encode": "raw"

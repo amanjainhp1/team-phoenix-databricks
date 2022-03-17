@@ -84,6 +84,13 @@
       "type": "TIMESTAMP WITHOUT TIME ZONE",
       "nullable": true,
       "encode": "az64"
+    },
+    {
+      "description": "version",
+      "name": "version",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
     }
   ],
   "permissions": [

@@ -44,8 +44,8 @@
       "encode": "lzo"
     },
     {
-      "description": "customer_engagement",
-      "name": "customer_engagement",
+      "description": "platform_subset",
+      "name": "platform_subset",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
