@@ -45,7 +45,7 @@
     },
     {
       "description": "day_name",
-      "name": "predecessor",
+      "name": "day_name",
       "type": "VARCHAR(15)",
       "nullable": true,
       "encode": "lzo"
