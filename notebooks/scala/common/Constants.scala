@@ -10,7 +10,7 @@ val S3_BASE_BUCKETS: Map[String, String] = Map("dev" -> "s3a://dataos-core-dev-t
 
 // Redshift
 val REDSHIFT_URLS: Map[String, String] = Map("dev" -> "dataos-core-dev-team-phoenix.dev.hpdataos.com",
-                                            "itg" -> "dataos-core-team-phoenix.stg.hpdataos.com",
+                                            "itg" -> "dataos-core-team-phoenix-itg.hpdataos.com",
                                             "prod" -> "dataos-core-team-phoenix.hpdataos.com",
                                             "reporting" -> "dataos-core-team-phoenix-reporting.hpdataos.com")
 
@@ -20,7 +20,7 @@ val REDSHIFT_PORTS: Map[String, String] = Map("dev" -> "5439",
                                               "reporting" -> "5439")
 
 val REDSHIFT_DATABASE: Map[String, String] = Map("dev" -> "dev",
-                                                "itg" -> "stg",
+                                                "itg" -> "itg",
                                                 "prod" -> "prod",
                                                 "reporting" -> "prod")
 
