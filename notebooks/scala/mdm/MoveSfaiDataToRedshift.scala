@@ -17,6 +17,7 @@ val datestamp = dbutils.widgets.get("datestamp")
 val timestamp = dbutils.widgets.get("timestamp")
 val redshiftTimestamp = dbutils.widgets.get("redshiftTimestamp")
 val stack = dbutils.widgets.get("stack")
+val redshiftDevGroup = dbutils.widgets.get("redshiftDevGroup")
 
 // COMMAND ----------
 
@@ -61,7 +62,7 @@ for (col <- outputTableCols; if (!(List("cal_id", "decay_id", "geo_id", "iso_cc_
       if (col == "official") query = query + "1 AS official"
       if (col == "last_modified_date") query = query + "load_date AS last_modified_date"
       if (col == "profit_center_code" && table == "product_line_xref") query = query + "profit_center AS profit_center_code"
-      if (col == "load_date") query = query + s"""\"${redshiftTimestamp}\" AS load_date"""
+      if (col == "load_date") query = query + s"""CAST(\"${redshiftTimestamp}\" AS TIMESTAMP) AS load_date"""
     }
     
     if (outputTableCols.dropRight(1).contains(col)) query = query + ","
@@ -92,10 +93,11 @@ finalTableDF.write
   .option("user", redshiftUsername)
   .option("password", redshiftPassword)
   .option("tempformat", "CSV GZIP")
+  .option("extracopyoptions", "TIMEFORMAT 'auto'")
   .mode("append")
   .save()
 
-submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"GRANT ALL ON ${schema}.${table} TO group dev_arch_eng")
+submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"GRANT ALL ON ${schema}.${table} TO group ${redshiftDevGroup}")
 
 // COMMAND ----------
 

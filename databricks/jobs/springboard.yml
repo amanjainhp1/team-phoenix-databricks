@@ -14,6 +14,7 @@ Jobs:
   - lf-ltf-splits
   - mdm-nightly-load
   - rdma-full-load
+  - table-creator
   - toner-share
   - toner-usage-color
   - toner-usage-total
