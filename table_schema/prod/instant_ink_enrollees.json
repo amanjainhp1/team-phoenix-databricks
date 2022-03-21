@@ -111,21 +111,21 @@
         "name": "printer_sell_out_units",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "lzo"
+        "encode": "raw"
       },
       {
         "description": "printer_sell_out_units_participating",
         "name": "printer_sell_out_units_participating",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "lzo"
+        "encode": "raw"
       },
       {
         "description": "enroll_card_units",
         "name": "enroll_card_units",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "lzo"
+        "encode": "raw"
       },
       {
         "description": "all_enrollments_customer",
