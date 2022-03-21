@@ -20,7 +20,7 @@
         "name": "cal_date",
         "type": "DATE",
         "nullable": true,
-        "encode": "lzo"
+        "encode": "az64"
       },
       {
         "description": "country_alpha2",
@@ -55,7 +55,7 @@
         "name": "units",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "lzo"
+        "encode": "raw"
       },
       {
         "description": "official",
@@ -69,14 +69,14 @@
         "name": "load_date",
         "type": "TIMESTAMP WITH TIME ZONE",
         "nullable": true,
-        "encode": "raw"
+        "encode": "az64"
       },
       {
         "description": "version",
         "name": "version",
         "type": "VARCHAR(64)",
         "nullable": true,
-        "encode": "raw"
+        "encode": "lzo"
       }
     ],
     "permissions": [

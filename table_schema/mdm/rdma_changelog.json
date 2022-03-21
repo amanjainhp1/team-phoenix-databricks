@@ -12,7 +12,7 @@
         "description": "base_prod_number",
         "name": "base_prod_number",
         "type": "VARCHAR(32)",
-        "nullable": false,
+        "nullable": true,
         "encode": "lzo"
       },
       {
@@ -242,7 +242,7 @@
       {
         "description": "ink_available_ccs_quantity",
         "name": "ink_available_ccs_quantity",
-        "type": "DOUBLE PRECISION",
+        "type": "NUMERIC (16,4)",
         "nullable": true,
         "encode": "az64"
       },
@@ -265,7 +265,7 @@
         "name": "base_prod_afr_goal_percent",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "az64"
+        "encode": "raw"
       },
       {
         "description": "refurb_product_flag",
@@ -279,14 +279,14 @@
         "name": "base_prod_acpt_goal_range_pc",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "az64"
+        "encode": "raw"
       },
       {
         "description": "base_prod_tfr_goal",
         "name": "base_prod_tfr_goal_percent",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "az64"
+        "encode": "raw"
       },
       {
         "description": "engine_type",
@@ -384,7 +384,7 @@
         "name": "item_changed",
         "type": "VARCHAR(128)",
         "nullable": true,
-        "encode": "raw"
+        "encode": "lzo"
       },
       {
         "description": "load_date",

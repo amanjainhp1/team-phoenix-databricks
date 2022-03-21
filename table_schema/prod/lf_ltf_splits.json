@@ -20,7 +20,7 @@
         "name": "split_rate",
         "type": "DOUBLE PRECISION",
         "nullable": true,
-        "encode": "lzo"
+        "encode": "raw"
       },
       {
         "description": "ie_platform_subset",

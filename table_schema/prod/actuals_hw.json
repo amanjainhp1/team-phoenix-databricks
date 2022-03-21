@@ -19,34 +19,34 @@
         "description": "cal_date",
         "name": "cal_date",
         "type": "DATE",
-        "nullable": true,
-        "encode": "lzo"
+        "nullable": false,
+        "encode": "az64"
       },
       {
         "description": "country_alpha2",
         "name": "country_alpha2",
         "type": "VARCHAR(32)",
-        "nullable": true,
+        "nullable": false,
         "encode": "lzo"
       },
       {
         "description": "base_product_number",
         "name": "base_product_number",
         "type": "VARCHAR(64)",
-        "nullable": true,
+        "nullable": false,
         "encode": "lzo"
       },
       {
         "description": "platform_subset",
         "name": "platform_subset",
         "type": "VARCHAR(128)",
-        "nullable": true,
+        "nullable": false,
         "encode": "lzo"
       },
       {
         "description": "source",
         "name": "source",
-        "type": "VARCHAR(8)",
+        "type": "VARCHAR(64)",
         "nullable": true,
         "encode": "lzo"
       },
@@ -54,8 +54,8 @@
         "description": "base_quantity",
         "name": "base_quantity",
         "type": "DOUBLE PRECISION",
-        "nullable": true,
-        "encode": "lzo"
+        "nullable": false,
+        "encode": "raw"
       },
       {
         "description": "official",
@@ -69,14 +69,14 @@
         "name": "load_date",
         "type": "TIMESTAMP WITH TIME ZONE",
         "nullable": true,
-        "encode": "raw"
+        "encode": "az64"
       },
       {
         "description": "version",
         "name": "version",
         "type": "VARCHAR(64)",
         "nullable": true,
-        "encode": "raw"
+        "encode": "lzo"
       }
     ],
     "permissions": [
