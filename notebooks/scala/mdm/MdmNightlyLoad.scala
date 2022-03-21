@@ -70,7 +70,7 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),
             "timestamp" -> currentTime.getTimestamp().toString,
-            "redshiftTimestamp" -> currentTime.getRedshiftTimestamp.toString,
+            "redshiftTimestamp" -> currentTime.getRedshiftTimestampWithTimezone.toString,
             "redshiftDevGroup" -> s"""${REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack"))}""")
 
 for (table <- tables) {

@@ -7,6 +7,7 @@ import java.text.SimpleDateFormat
 class CurrentTime {
   val sdf = new SimpleDateFormat("yyyyMMdd")
   val rdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSS");
+  val rdfz = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss:SSS Z");
   val currentTime = System.currentTimeMillis
 
   def getTimestamp() = currentTime/1000
@@ -14,4 +15,6 @@ class CurrentTime {
   def getDatestamp() = sdf.format(new Date(currentTime))
   
   def getRedshiftTimestamp() = rdf.format(new Date(currentTime))
+
+  def getRedshiftTimestampWithTimezone() = rdfz.format(new Date(currentTime))
 }

@@ -62,7 +62,7 @@ for (col <- outputTableCols; if (!(List("cal_id", "decay_id", "geo_id", "iso_cc_
       if (col == "official") query = query + "1 AS official"
       if (col == "last_modified_date") query = query + "load_date AS last_modified_date"
       if (col == "profit_center_code" && table == "product_line_xref") query = query + "profit_center AS profit_center_code"
-      if (col == "load_date") query = query + s"""\"${redshiftTimestamp}\" AS load_date"""
+      if (col == "load_date") query = query + s"""CAST(\"${redshiftTimestamp}\" AS TIMESTAMP) AS load_date"""
     }
     
     if (outputTableCols.dropRight(1).contains(col)) query = query + ","
