@@ -17,7 +17,7 @@ val datestamp = dbutils.widgets.get("datestamp")
 val timestamp = dbutils.widgets.get("timestamp")
 val redshiftTimestamp = dbutils.widgets.get("redshiftTimestamp")
 val stack = dbutils.widgets.get("stack")
-val redshiftDevGroup = dbutils.widgets.get("redshiftDevGroup)
+val redshiftDevGroup = dbutils.widgets.get("redshiftDevGroup")
 
 // COMMAND ----------
 
