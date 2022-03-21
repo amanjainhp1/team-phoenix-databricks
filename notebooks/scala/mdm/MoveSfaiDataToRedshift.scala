@@ -17,6 +17,7 @@ val datestamp = dbutils.widgets.get("datestamp")
 val timestamp = dbutils.widgets.get("timestamp")
 val redshiftTimestamp = dbutils.widgets.get("redshiftTimestamp")
 val stack = dbutils.widgets.get("stack")
+val redshiftDevGroup = dbutils.widgets.get("redshiftDevGroup")
 
 // COMMAND ----------
 
@@ -92,10 +93,11 @@ finalTableDF.write
   .option("user", redshiftUsername)
   .option("password", redshiftPassword)
   .option("tempformat", "CSV GZIP")
+  .option("extracopyoptions", "TIMEFORMAT 'auto'")
   .mode("append")
   .save()
 
-submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"GRANT ALL ON ${schema}.${table} TO group dev_arch_eng")
+submitRemoteQuery(redshiftUrl, redshiftUsername, redshiftPassword, s"GRANT ALL ON ${schema}.${table} TO group ${redshiftDevGroup}")
 
 // COMMAND ----------
 
