@@ -71,7 +71,7 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
             "datestamp" -> currentTime.getDatestamp(),
             "timestamp" -> currentTime.getTimestamp().toString,
             "redshiftTimestamp" -> currentTime.getRedshiftTimestamp.toString,
-            "redshitDevGroup" -> s"${REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack")}")
+            "redshiftDevGroup" -> s"${REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack")}")
 
 for (table <- tables) {
   configs += ("table" -> table)
