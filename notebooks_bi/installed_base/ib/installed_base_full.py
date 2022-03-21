@@ -483,8 +483,8 @@ with ib_14_iink_act_stf as (
 
 
 SELECT iiel.platform_subset
-    , 'I-INK' AS split_name
-    , 'iink_enrollees' AS type
+    , cast('I-INK' as char) AS split_name
+    , cast('iink_enrollees' as char) AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , iiel.year_fiscal
     , iiel.year_month AS month_begin

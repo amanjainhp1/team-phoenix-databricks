@@ -5,7 +5,7 @@
 # COMMAND ----------
 
 # Global Variables
-queryList = []
+query_list = []
 # ib_tech_filter = "('actuals - hw', 'actuals_lf')"
 
 # COMMAND ----------
@@ -260,7 +260,7 @@ WHERE 1=1
     AND NOT hw.pl IN ('GW', 'LX')
 """
 
-queryList += (("stage.norm_ships", normShips))
+query_list.append(["stage.norm_ships", normShips])
 
 # COMMAND ----------
 
@@ -269,7 +269,7 @@ queryList += (("stage.norm_ships", normShips))
 
 # COMMAND ----------
 
-# MAGIC %run "../../library/output_to_redshift" $queryList=queryList
+# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
 
 # COMMAND ----------
 

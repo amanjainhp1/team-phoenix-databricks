@@ -7,10 +7,20 @@
 # imports
 import json
 import sys
+import boto3
+import psycopg2 
 import pyspark.sql.functions as func
 from pyspark.sql.functions import *
-from java.lang import Class
-from java.sql  import DriverManager, SQLException
+
+# COMMAND ----------
+
+# globals
+secrets_url = dbutils.widgets.text("arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj", "")
+spark_url = dbutils.widgets.text("jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None", "")
+redshift_url = dbutils.widgets.text("dataos-core-dev-team-phoenix.dev.hpdataos.com", "")
+spark_temp_dir = dbutils.widgets.text("s3a://dataos-core-dev-team-phoenix/redshift_temp/", "")
+aws_iam = dbutils.widgets.text("arn:aws:iam::740156627385:role/team-phoenix-role", "")
+spark_format = dbutils.widgets.text("com.databricks.spark.redshift", "")
 
 # COMMAND ----------
 
@@ -20,11 +30,11 @@ from java.sql  import DriverManager, SQLException
 
 # Global Variables
 # redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-redshift_secrets = secrets_get("arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj", "us-west-2")
-# spark.conf.set("username", redshift_secrets["username"])
-# spark.conf.set("password", redshift_secrets["password"])
-username = redshift_secrets["username"]
-password = redshift_secrets["password"]
+redshift_secrets = secrets_get(secrets_url, "us-west-2")
+spark.conf.set("username", redshift_secrets["username"])
+spark.conf.set("password", redshift_secrets["password"])
+username = spark.conf.get("username")
+password = spark.conf.get("password")
 
 # COMMAND ----------
 
@@ -42,10 +52,10 @@ password = redshift_secrets["password"]
 class RedshiftOut:
   def get_data(self, username, password, table_name, query):
      dataDF = spark.read \
-        .format("com.databricks.spark.redshift") \
-        .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
-        .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
-        .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+        .format(dbutils.widgets.get(spark_format)) \
+        .option("url", dbutils.widgets.get(spark_url)) \
+        .option("tempdir", dbutils.widgets.get(spark_temp_dir)) \
+        .option("aws_iam_role", dbutils.widgets.get(aws_iam)) \
         .option("user", username) \
         .option("password", password) \
         .option("query", query) \
@@ -56,37 +66,31 @@ class RedshiftOut:
   
   def save_table(self, dataDF):
       dataDF.write \
-      .format("com.databricks.spark.redshift") \
-      .option("url", "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None") \
+      .format(dbutils.widgets.get(spark_format)) \
+      .option("url", dbutils.widgets.get(spark_url)) \
       .option("dbtable", table_name) \
-      .option("tempdir", "s3a://dataos-core-dev-team-phoenix/redshift_temp/") \
-      .option("aws_iam_role", "arn:aws:iam::740156627385:role/team-phoenix-role") \
+      .option("tempdir", dbutils.widgets.get(spark_temp_dir)) \
+      .option("aws_iam_role", dbutils.widgets.get(aws_iam)) \
       .option("user", username) \
       .option("password", password) \
       .mode("overwrite") \
       .save()
-   
+      
   
-  # Function from Matt Koson for granting permission to dev group
-  def submit_remote_query(self, url, username, password, query):
-
-    conn = 'null'
-    conn = DriverManager.getConnection(url, username, password)
-
-    if (conn != 'null'):
-      print(f'Connected to {url}\n')
-
-    statement = conn.createStatement()
-
-    statement.executeUpdate(query)
-
-    conn.close()
+  # from Matt Koson, Data Engineer
+  def submit_remote_query(self, dbname, port, user, password, host, sql_query):  
+      conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+          .format(dbname, port, user, password, host)
+      
+      con = psycopg2.connect(conn_string)
+      cur = con.cursor()
+      cur.execute(sql_query)
+      con.commit()
+      cur.close()
   
 
 
 # COMMAND ----------
-
-redshift_url = "jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None"
 
 for obj in query_list:
   table_name = obj[0]
@@ -94,4 +98,4 @@ for obj in query_list:
   read_obj = RedshiftOut()
   data_df = read_obj.get_data(username, password, table_name, query)
   read_obj.save_table(data_df)
-  read_obj.submit_remote_query(redshift_url, username, password, f'GRANT ALL ON {table_name} TO group dev_arch_eng')
+  read_obj.submit_remote_query("dev", "5439", username, password, redshift_url, f'GRANT ALL ON {table_name} TO group dev_arch_eng')
