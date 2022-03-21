@@ -1,0 +1,411 @@
+{
+    "fields": [
+      {
+        "description": "rdma_id",
+        "name": "rdma_id",
+        "type": "IDENTITY",
+        "nullable": false,
+        "encode": "raw",
+        "sort_key": true
+      },
+      {
+        "description": "base_prod_number",
+        "name": "base_prod_number",
+        "type": "VARCHAR(32)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "pl",
+        "name": "pl",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "base_prod_name",
+        "name": "base_prod_name",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "base_prod_desc",
+        "name": "base_prod_desc",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_lab_name",
+        "name": "product_lab_name",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "prev_base_prod_number",
+        "name": "prev_base_prod_number",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_class",
+        "name": "product_class",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform",
+        "name": "platform",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_platform_desc",
+        "name": "product_platform_desc",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_platform_status_cd",
+        "name": "product_platform_status_cd",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_platform_group",
+        "name": "product_platform_group",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_family",
+        "name": "product_family",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_family_desc",
+        "name": "product_family_desc",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_family_status_cd",
+        "name": "product_family_status_cd",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "fmc",
+        "name": "fmc",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset",
+        "name": "platform_subset",
+        "type": "VARCHAR(32)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset_id",
+        "name": "platform_subset_id",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset_desc",
+        "name": "platform_subset_desc",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset_status_cd",
+        "name": "platform_subset_status_cd",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_technology_name",
+        "name": "product_technology_name",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_technology_id",
+        "name": "product_technology_id",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "media_size",
+        "name": "media_size",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_status",
+        "name": "product_status",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_status_date",
+        "name": "product_status_date",
+        "type": "TIMESTAMP WITH TIME ZONE",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "product_type",
+        "name": "product_type",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "sheets_per_pack_quantity",
+        "name": "sheets_per_pack_quantity",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "raw"
+      },
+      {
+        "description": "after_market_flag",
+        "name": "after_market_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "cobranded_product_flag",
+        "name": "cobranded_product_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "forecast_assumption_flag",
+        "name": "forecast_assumption_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "base_product_known_flag",
+        "name": "base_product_known_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "oem_flag",
+        "name": "oem_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "selectability_code",
+        "name": "selectability_code",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "supply_color",
+        "name": "supply_color",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "ink_available_ccs_quantity",
+        "name": "ink_available_ccs_quantity",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "sps_type",
+        "name": "sps_type",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "warranty_reporting_flag",
+        "name": "warranty_reporting_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "base_prod_afr_goal_percent",
+        "name": "base_prod_afr_goal_percent",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "refurb_product_flag",
+        "name": "refurb_product_flag",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "base_prod_acpt_goal_range_pc",
+        "name": "base_prod_acpt_goal_range_pc",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "base_prod_tfr_goal",
+        "name": "base_prod_tfr_goal_percent",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "engine_type",
+        "name": "engine_type",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "engine_type_id",
+        "name": "engine_type_id",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "market_category_name",
+        "name": "market_category_name",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "finl_market_category",
+        "name": "finl_market_category",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "category",
+        "name": "category",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "tone",
+        "name": "tone",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset_group_name",
+        "name": "platform_subset_group_name",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "id",
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "attribute_extension1",
+        "name": "attribute_extension1",
+        "type": "VARCHAR(32)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "leveraged_product_platform_name",
+        "name": "leveraged_product_platform_name",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset_group_status_cd",
+        "name": "platform_subset_group_status_cd",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset_group_desc",
+        "name": "platform_subset_group_desc",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "product_segment_name",
+        "name": "product_segment_name",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "item_changed",
+        "name": "item_changed",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "raw"
+      },
+      {
+        "description": "load_date",
+        "name": "load_date",
+        "type": "TIMESTAMP WITH TIME ZONE",
+        "nullable": true,
+        "encode": "az64"
+      }
+    ],
+    "permissions": [
+      {
+        "permission_type": "grant",
+        "permission_type_level": "all",
+        "permission_target_level": "group",
+        "permission_target": "dev_arch_eng"
+      },
+      {
+        "permission_type": "grant",
+        "permission_type_level": "all",
+        "permission_target_level": "user",
+        "permission_target": "auto_glue"
+      }
+    ]
+  }

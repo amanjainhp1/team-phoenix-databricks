@@ -1,0 +1,229 @@
+{
+    "fields": [
+      {
+        "description": "iink_enrollees_id",
+        "name": "iink_enrollees_id",
+        "type": "IDENTITY",
+        "nullable": false,
+        "encode": "raw",
+        "sort_key": true
+      },
+      {
+        "description": "record",
+        "name": "record",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "country",
+        "name": "country",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset",
+        "name": "platform_subset",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "sub_brand",
+        "name": "sub_brand",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "year_month",
+        "name": "year_month",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "year_fiscal",
+        "name": "year_fiscal",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "yrqtr_fiscal",
+        "name": "yrqtr_fiscal",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "data_source",
+        "name": "data_source",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "yr_mo_max_for_actuals",
+        "name": "yr_mo_max_for_actuals",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "cartridge_tech_n_name",
+        "name": "cartridge_tech_n_name",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "ctg_type",
+        "name": "ctg_type",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "ink_platform",
+        "name": "ink_platform",
+        "type": "VARCHAR(128)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "region",
+        "name": "region",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "printer_sell_out_units",
+        "name": "printer_sell_out_units",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "printer_sell_out_units_participating",
+        "name": "printer_sell_out_units_participating",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "enroll_card_units",
+        "name": "enroll_card_units",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "all_enrollments_customer",
+        "name": "all_enrollments_customer",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "all_enrollments_replacement",
+        "name": "all_enrollments_replacement",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "p1_kit_enrollments",
+        "name": "p1_kit_enrollments",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "p1_kitless_enrollments",
+        "name": "p1_kitless_enrollments",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "p2_kitless_enrollments",
+        "name": "p2_kitless_enrollments",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "cancellations_customer",
+        "name": "cancellations_customer",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "cancellations_replacement",
+        "name": "cancellations_replacement",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "cum_enrollees_month",
+        "name": "cum_enrollees_month",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "cum_enrollees_quarter",
+        "name": "cum_enrollees_quarter",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "total_gross_new_enrollments",
+        "name": "total_gross_new_enrollments",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "official",
+        "name": "official",
+        "type": "BOOLEAN",
+        "nullable": true,
+        "encode": "raw"
+      },
+      {
+        "description": "load_date",
+        "name": "load_date",
+        "type": "TIMESTAMP WITH TIME ZONE",
+        "nullable": true,
+        "encode": "raw"
+      },
+      {
+        "description": "version",
+        "name": "version",
+        "type": "VARCHAR(64)",
+        "nullable": true,
+        "encode": "raw"
+      }
+    ],
+    "permissions": [
+      {
+        "permission_type": "grant",
+        "permission_type_level": "all",
+        "permission_target_level": "group",
+        "permission_target": "dev_arch_eng"
+      },
+      {
+        "permission_type": "grant",
+        "permission_type_level": "all",
+        "permission_target_level": "user",
+        "permission_target": "auto_glue"
+      }
+    ]
+  }
