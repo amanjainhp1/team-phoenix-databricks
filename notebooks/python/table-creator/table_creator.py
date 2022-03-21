@@ -115,4 +115,8 @@ for input_json_file in input_json_files:
     
     sql_query = "CREATE TABLE IF NOT EXISTS {}.{}\n(\n{}\n)\n\n{}\n\n{}".format(input_schema, input_table_name, set_fields(input_json_dict)[0], set_fields(input_json_dict)[1], set_permissions(input_json_dict, input_schema, input_table_name))
     
-    submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query)
+    drop_table_query = ""
+    if dbutils.widgets.get("drop_tables").lower() == "true":
+        drop_table_query = "DROP TABLE IF EXISTS {}.{};".format(input_schema, input_table_name)
+    
+    submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], drop_table_query + sql_query)
