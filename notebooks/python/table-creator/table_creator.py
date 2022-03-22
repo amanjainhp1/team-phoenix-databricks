@@ -88,7 +88,7 @@ def set_permissions(input_json_dict, schema, table):
             if permission["permission_target_level"] != "user":
                 permission_details.append(permission["permission_target_level"])
 
-            if permission["permission_target"] == "dev_arch_eng" & dbutils.widgets.get("stack") == 'prod':
+            if permission["permission_target"] == "dev_arch_eng" and dbutils.widgets.get("stack") == 'prod':
                 permission_details.append("phoenix_dev")
             else:
                 permission_details.append(permission["permission_target"])
