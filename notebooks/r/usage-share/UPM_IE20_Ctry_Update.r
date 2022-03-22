@@ -920,6 +920,7 @@ sourceR <- sqldf("
                  when u2.demN >=200 then 'dev/em'
                  when u2.mktN >=200 then 'market10'
                  when u2.prcN >=200 then 'region5'
+                 when ctyN >= 200 then 'country'
                  else 'None'
                  end as Source_vlook
                  ,oc.src
@@ -930,7 +931,7 @@ sourceR <- sqldf("
                  on ib.platform_subset=hw.platform_subset
                  left join outcome oc
                  on substr(upper(hw.mono_color),1,1)=oc.CM and oc.market10=ib.market10 and substr(upper(ib.developed_emerging),1,1)=oc.developed_emerging
-                 and hw_platform_market_code=oc.platform_market_code
+                 and hw.platform_market_code=oc.platform_market_code
                  order by printer_platform_name, printer_region_code
                  ")
 

@@ -26,8 +26,8 @@ git add databricks/jobs/springboard.yml
 git commit -m "add new_notebook.py"
 git push origin new-branch-name
 ```
-4. Additionally, job configs will need to be added to the [team-phoenix-databricks-jobs-config repo](https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks-jobs-config/). These job configs define the Databricks jobs including cluster node types, workspace configuration, runtime parameters, etc. In general, a new directory, base.yml, itg.yml, and prod.yml will need to be created for each new job. For more details on writing these yml files, [DataOS has provided a guide](https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/#_databricks_e2).
-5. When ready for review, file a Pull Request (PR) with new branch merging to master in both repos, and work with a Team Phoenix developer to approve the PRs Ideally the jobs-config PR will be approved and merged first as the Azure DevOps pipeline is configured to automatically deploy jobs when the master branch is updated in the team-phoenix-databricks repo.
+4. Additionally, job configuration files will need to be added to the [team-phoenix-databricks-jobs-config repo](https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks-jobs-config/). These files define the Databricks jobs including cluster node types and quantities, workspace configuration, runtime parameters, structure of the workspace, etc. In general, a new directory, base.yml, itg.yml, and prod.yml will need to be created for each new job. For more details on writing these yml files, [DataOS has provided a guide](https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/#_databricks_e2) and many working examples currently exist in the repo.
+6. When ready for review, file a Pull Request (PR) with new branch merging to master in both repos, and work with a Team Phoenix developer to approve the PRs Ideally the jobs-config PR will be approved and merged first as the Azure DevOps pipeline is configured to automatically deploy jobs when the master branch is updated in the team-phoenix-databricks repo.
 
 ## General Workflow
 
@@ -43,10 +43,12 @@ In general, coders should work on notebooks in the Databricks web workspace in t
 ## Databricks URLs
 
 dataos-dev-internal: https://dataos-dev-internal.cloud.databricks.com/  
-dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/    
-dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/    
+dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/<sup>1</sup>  
+dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/<sup>1</sup>     
 dataos-dev: https://dataos-dev.cloud.databricks.com/    
 dataos-prod: https://dataos-prod.cloud.databricks.com/    
+
+<sup>1</sup> SSO is currently unavailable -- enter hp.com email and click reset password to set new password
 
 ## Azure DevOps Pipeline URLs
 

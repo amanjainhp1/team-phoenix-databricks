@@ -37,6 +37,7 @@ def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
   .option("user", configs["redshift_username"]) \
   .option("password", configs["redshift_password"]) \
   .option("postactions", "GRANT ALL ON {} TO GROUP dev_arch_eng;{}".format(destination, postactions)) \
+  .option("extracopyoptions", "TIMEFORMAT 'auto'") \
   .mode(mode) \
   .save()
 

@@ -62,6 +62,7 @@ def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.
   .option("password", configs("redshiftPassword"))
   .option("dbtable", destination)
   .option("postactions", s"GRANT ALL ON TABLE ${destination} TO GROUP ${configs("redshiftDevGroup")}")
+  .option("extracopyoptions", "TIMEFORMAT 'auto'")
   .mode(mode)
   .save()
 }
