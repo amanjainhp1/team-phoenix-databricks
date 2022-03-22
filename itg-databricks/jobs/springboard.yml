@@ -1,5 +1,7 @@
 ---
 Jobs:
   - actuals-hw
+  - hardware-ltf
+  - hardware-stf
   - mdm-nightly-load
   - table-creator
