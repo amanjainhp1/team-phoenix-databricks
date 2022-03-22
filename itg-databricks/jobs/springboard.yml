@@ -1,4 +1,5 @@
 ---
 Jobs:
+  - actuals-hw
   - mdm-nightly-load
   - table-creator
