@@ -5,3 +5,4 @@ Jobs:
   - hardware-stf
   - mdm-nightly-load
   - table-creator
+  - wd3-load
