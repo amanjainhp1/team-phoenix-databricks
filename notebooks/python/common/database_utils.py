@@ -37,5 +37,24 @@ def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
   .option("user", configs["redshift_username"]) \
   .option("password", configs["redshift_password"]) \
   .option("postactions", "GRANT ALL ON {} TO GROUP dev_arch_eng;{}".format(destination, postactions)) \
+  .option("extracopyoptions", "TIMEFORMAT 'auto'") \
   .mode(mode) \
   .save()
+
+# COMMAND ----------
+
+def read_sql_server_to_df(configs):
+  df = spark.read \
+  .format("jdbc") \
+  .option("url",  configs["sfai_url"]) \
+  .option("user", configs["sfai_username"]) \
+  .option("password",  configs["sfai_password"])
+  return df
+
+# COMMAND ----------
+
+def write_df_to_s3(df, destination, format, mode):
+  df.write \
+  .format(format) \
+  .mode(mode) \
+  .save(destination)
