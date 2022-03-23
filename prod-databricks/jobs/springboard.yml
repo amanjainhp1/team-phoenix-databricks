@@ -1,4 +1,4 @@
 ---
 Jobs:
   - mdm-nightly-load
-  - table-creator
+  - redshift-resource-creator
