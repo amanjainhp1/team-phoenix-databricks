@@ -143,7 +143,7 @@ input_files = get_file_list("/stored_procedures/", ".sql")
 
 for input_file in input_files:
     
-    sql_query = open(input_file)
+    sql_query = open(input_file).read()
     
     permissions_query = """
     -- Permissions
