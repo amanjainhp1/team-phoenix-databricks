@@ -3994,7 +3994,7 @@ d4 <- SparkR::sql('select aa1.*, CASE WHEN aa2.mo_Smooth is null then 0 ELSE aa2
             on
             aa1.strata1 = aa2.strata
             and 
-            aa1.yyyymm = aa2. FYearMo
+            aa1.month = aa2.month
             order by 
             year, month')
 
@@ -4021,7 +4021,7 @@ createOrReplaceTempView(as.DataFrame(outcome), "outcome")
 final4 <- SparkR::sql('select distinct aa1.*
                 , aa2.mpva
                 , aa2.na
-                , aa3.MUT
+                --, aa3.MUT
                 from final1 aa1
                 left outer join 
                 usage aa2
@@ -4031,7 +4031,7 @@ final4 <- SparkR::sql('select distinct aa1.*
                 left outer join 
                 outcome aa3
                 on aa1.market10 = aa3.market10 and aa1.developed_emerging=aa3.developed_emerging and
-                aa1.yyyymm = aa3.FYearMo and aa1.platform_market_code = aa3.platform_market_code and aa1.CM = aa3.CM
+                aa1.yyyymm = aa2.FYearMo and aa1.platform_market_code = aa3.platform_market_code and aa1.CM = aa3.CM
                 ')
 
 createOrReplaceTempView(final4, "final4")
@@ -4120,7 +4120,7 @@ final9 <- SparkR::sql('
                 , b1check
                 , Seasonality
                 , Cyclical
-                , MUT
+                --, MUT
                 , Trend
                 , Route as IMPV_Route
                 , label
