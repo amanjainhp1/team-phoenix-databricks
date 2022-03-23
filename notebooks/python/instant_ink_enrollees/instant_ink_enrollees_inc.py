@@ -97,12 +97,7 @@ from prod.instant_ink_enrollees WHERE official = 1 AND data_source = 'Act')
 
 final_iink_enrollees = read_redshift_to_df(configs) \
   .option("query",iink_enrollees_query) \
-  .load() 
-
-#final_iink_enrollees.createOrReplaceTempView('iink_enrollees_table')
-
-
-
+  .load()
 
 # COMMAND ----------
 
@@ -151,7 +146,6 @@ SELECT
 FROM stage.instant_ink_enrollees_staging iel;
 
 """
-
 
 # COMMAND ----------
 
