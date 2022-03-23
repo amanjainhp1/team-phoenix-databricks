@@ -82,8 +82,3 @@ end;
 
 $$
 ;
-
--- Permissions
-
-GRANT ALL ON PROCEDURE prod.addversion_sproc(varchar, varchar) TO auto_glue;
-GRANT ALL ON PROCEDURE prod.addversion_sproc(varchar, varchar) TO group dev_arch_eng;
