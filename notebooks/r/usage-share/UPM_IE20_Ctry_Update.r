@@ -3981,7 +3981,7 @@ d3 <- SparkR::sql('select aa1.*, aa2.b1, aa2.b1check, CASE WHEN aa2.seasonality 
             on
             aa1.strata1 = aa2.strata
             and 
-            aa1.month = aa2. month
+            aa1.month = aa2.month
             order by 
             year, month')
 
