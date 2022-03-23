@@ -149,6 +149,6 @@ for input_file in input_files:
     -- Permissions
     GRANT ALL ON PROCEDURE prod.addversion_sproc(varchar, varchar) TO {};
     GRANT ALL ON PROCEDURE prod.addversion_sproc(varchar, varchar) TO group {};
-    """.format(configs["redshift_username"], constants['REDSHIFT_DEV_GROUP'])
+    """.format(configs["redshift_username"], constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")])
     
     submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query + "\n" + permissions_query)
