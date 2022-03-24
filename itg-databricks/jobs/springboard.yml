@@ -7,6 +7,7 @@ Jobs:
   - ink-usage-color
   - ink-usage-total
   - mdm-nightly-load
+  - rdma-full-load
   - redshift-resource-creator
   - toner-share
   - toner-usage-color

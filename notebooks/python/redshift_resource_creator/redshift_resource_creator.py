@@ -65,7 +65,10 @@ def set_fields(input_json_dict):
             if field["sort_key"] == True:
                 sort_keys_list.append(field["name"])
                 
-    sort_keys = "sortkey (" + str.join(",", sort_keys_list) + ");"
+    sort_keys = ""
+    if len(sort_keys_list) > 0:
+        sort_keys = "sortkey (" + str.join(",", sort_keys_list) + ")"
+    sort_keys = sort_keys + ";"
     
     return(fields, sort_keys)
 
