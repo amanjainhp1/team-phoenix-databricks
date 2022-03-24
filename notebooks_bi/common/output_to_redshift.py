@@ -28,7 +28,7 @@ spark_format = dbutils.widgets.text("com.databricks.spark.redshift", "")
 
 # COMMAND ----------
 
-# Global Variables
+# Secrets Variables
 # redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
 redshift_secrets = secrets_get(secrets_url, "us-west-2")
 spark.conf.set("username", redshift_secrets["username"])
