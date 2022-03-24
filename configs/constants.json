@@ -8,7 +8,7 @@
     },
     "REDSHIFT_URLS" : {
         "dev" : "dataos-core-dev-team-phoenix.dev.hpdataos.com",
-        "itg" : "dataos-core-team-phoenix.stg.hpdataos.com",
+        "itg" : "dataos-core-team-phoenix-itg.hpdataos.com",
         "prod" : "dataos-core-team-phoenix.hpdataos.com",
         "reporting" : "dataos-core-team-phoenix-reporting.hpdataos.com"
     },
@@ -20,8 +20,13 @@
     },
     "REDSHIFT_DATABASE" : {
         "dev" : "dev",
-        "itg" : "stg",
+        "itg" : "itg",
         "prod" : "prod",
         "reporting" : "prod"
+    },
+    "REDSHIFT_DEV_GROUP" : {
+        "dev" : "dev_arch_eng",
+        "itg" : "dev_arch_eng",
+        "prod" : "phoenix_dev"
     }
 }

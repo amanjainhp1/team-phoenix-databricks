@@ -1,0 +1,117 @@
+{
+    "fields": [
+      {
+        "description": "ce_splits_id",
+        "name": "ce_splits_id",
+        "type": "IDENTITY",
+        "nullable": false,
+        "encode": "raw",
+        "sort_key": true
+      },
+      {
+        "description": "record",
+        "name": "record",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "platform_subset",
+        "name": "platform_subset",
+        "type": "VARCHAR(128)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "region_5",
+        "name": "region_5",
+        "type": "VARCHAR(32)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "country_alpha2",
+        "name": "country_alpha2",
+        "type": "VARCHAR(8)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "em_dm",
+        "name": "em_dm",
+        "type": "VARCHAR(8)",
+        "nullable": true,
+        "encode": "lzo"
+      },
+      {
+        "description": "business_model",
+        "name": "business_model",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "encode": "lzo"
+      },
+      {
+        "description": "month_begin",
+        "name": "month_begin",
+        "type": "DATE",
+        "nullable": false,
+        "encode": "az64"
+      },
+      {
+        "description": "split_name",
+        "name": "split_name",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "encode": "raw"
+      },
+      {
+        "description": "pre_post_flag",
+        "name": "pre_post_flag",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "encode": "raw"
+      },
+      {
+        "description": "value",
+        "name": "value",
+        "type": "DOUBLE PRECISION",
+        "nullable": true,
+        "encode": "raw"
+      },
+      {
+        "description": "official",
+        "name": "official",
+        "type": "BOOLEAN",
+        "nullable": true,
+        "encode": "raw"
+      },
+      {
+        "description": "load_date",
+        "name": "load_date",
+        "type": "TIMESTAMP WITH TIME ZONE",
+        "nullable": true,
+        "encode": "az64"
+      },
+      {
+        "description": "version",
+        "name": "version",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "encode": "raw"
+      }
+    ],
+    "permissions": [
+      {
+        "permission_type": "grant",
+        "permission_type_level": "all",
+        "permission_target_level": "group",
+        "permission_target": "dev_arch_eng"
+      },
+      {
+        "permission_type": "grant",
+        "permission_type_level": "all",
+        "permission_target_level": "user",
+        "permission_target": "auto_glue"
+      }
+    ]
+  }

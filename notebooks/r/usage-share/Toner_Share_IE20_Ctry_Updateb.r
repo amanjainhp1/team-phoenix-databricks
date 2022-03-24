@@ -61,7 +61,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check.r
+# MAGIC %run ../common/package_check
 
 # COMMAND ----------
 
@@ -280,7 +280,7 @@ product_ib2a <- dbGetQuery(cprod,paste("
 
 hwval <- dbGetQuery(cprod,"
                   SELECT distinct platform_subset
-                    , predecessor
+                    , predecessor_proxy as predecessor
                     , pl as product_line_code
                     , CASE WHEN vc_category in ('DEPT','Dept') THEN 'DPT'
                           WHEN vc_category in ('PLE-H','PLE-L','ULE') THEN 'DSK'

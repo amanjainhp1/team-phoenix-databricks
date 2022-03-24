@@ -51,7 +51,7 @@ def readRedshiftToDF(configs: Map[String, String]): org.apache.spark.sql.DataFra
 
 // COMMAND ----------
 
-def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.sql.Dataset[Row], destination: String, mode: String, tempformat: String = "AVRO"): Unit = {
+def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.sql.Dataset[Row], destination: String, mode: String, tempformat: String = "AVRO", postactions: String = "", preactions: String = ""): Unit = {
   dataframe.write
   .format("com.databricks.spark.redshift")
   .option("url", configs("redshiftUrl"))
@@ -61,7 +61,9 @@ def writeDFToRedshift(configs: Map[String, String], dataframe: org.apache.spark.
   .option("user", configs("redshiftUsername"))
   .option("password", configs("redshiftPassword"))
   .option("dbtable", destination)
-  .option("postactions", s"GRANT ALL ON TABLE ${destination} TO GROUP ${configs("redshiftDevGroup")}")
+  .option("preactions", preactions)
+  .option("postactions", s"""GRANT ALL ON TABLE ${destination} TO GROUP ${configs("redshiftDevGroup")};""" + postactions)
+  .option("extracopyoptions", "TIMEFORMAT 'auto'")
   .mode(mode)
   .save()
 }
@@ -74,7 +76,3 @@ def writeDFToS3(dataframe: org.apache.spark.sql.Dataset[Row], destination: Strin
   .mode(mode)
   .save(destination)
 }
-
-// COMMAND ----------
-
-

@@ -8,11 +8,14 @@ Jobs:
   - ink-share
   - ink-usage-color
   - ink-usage-total
+  - installed-base
   - lf-decay
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
   - rdma-full-load
+  - redshift-resource-creator
   - toner-share
   - toner-usage-color
   - toner-usage-total
+  - wd3-load

@@ -1,0 +1,145 @@
+{
+  "fields": [
+    {
+      "description": "profit_center_id",
+      "name": "profit_center_id",
+      "type": "IDENTITY",
+      "nullable": false,
+      "encode": "raw",
+      "sort_key": true
+    },
+    {
+      "description": "record",
+      "name": "record",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "profit_center_code",
+      "name": "profit_center_code",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "profit_center_name",
+      "name": "profit_center_name",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_0",
+      "name": "pc_level_0",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_1",
+      "name": "pc_level_1",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_2",
+      "name": "pc_level_2",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_3",
+      "name": "pc_level_3",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_4",
+      "name": "pc_level_4",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_5",
+      "name": "pc_level_5",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pc_level_6",
+      "name": "pc_level_6",
+      "type": "VARCHAR(250)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "country_alpha2",
+      "name": "country_alpha2",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "region_3",
+      "name": "region_3",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "region_5",
+      "name": "region_5",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "update_date",
+      "name": "update_date",
+      "type": "DATE",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "official",
+      "name": "official",
+      "type": "BOOLEAN",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "load_date",
+      "name": "load_date",
+      "type": "TIMESTAMP WITH TIME ZONE",
+      "nullable": true,
+      "encode": "az64"
+    },
+    {
+      "description": "version",
+      "name": "version",
+      "type": "VARCHAR(100)",
+      "nullable": true,
+      "encode": "lzo"
+    }
+  ],
+  "permissions": [
+    {
+      "permission_type": "grant",
+      "permission_type_level": "all",
+      "permission_target_level": "group",
+      "permission_target": "dev_arch_eng"
+    },
+    {
+      "permission_type": "grant",
+      "permission_type_level": "all",
+      "permission_target_level": "user",
+      "permission_target": "auto_glue"
+    }
+  ]
+}

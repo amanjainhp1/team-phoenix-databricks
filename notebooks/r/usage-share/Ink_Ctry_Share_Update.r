@@ -63,7 +63,7 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 # COMMAND ----------
 
-# MAGIC %run ../common/package_check.r
+# MAGIC %run ../common/package_check
 
 # COMMAND ----------
 
@@ -465,7 +465,7 @@ hw_info <- dbGetQuery(sfai,
                     , SUBSTRING(mono_color,1,1) as cm, UPPER(brand) as product_brand
                     , mono_ppm as print_mono_speed_pages, color_ppm as print_color_speed_pages
                     , intro_price, intro_date, vc_category as market_group
-                    , predecessor
+                    , predecessor_proxy as predecessor
                     , hw_product_family as supplies_family
                     from IE2_Prod.dbo.hardware_xref
                     "
