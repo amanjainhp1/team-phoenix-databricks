@@ -107,7 +107,9 @@ archer_flash_records = archer_flash_records \
   .withColumn("record", lit("FLASH")) \
   .withColumn("load_date", lit(max_load_date)) \
   .withColumn("version", lit(max_version)) \
-  .select("record", "source_name", "geo", "geo_type", "base_prod_number", "date", "units", "load_date", "version")
+  .withColumnRenamed('geo','country_alpha2') \
+  .withColumnRenamed('date', 'cal_date') \
+  .select("record", "source_name", "country_alpha2", "base_prod_number", "cal_date", "units", "load_date", "version")
 
 # COMMAND ----------
 
