@@ -23,5 +23,10 @@
         "itg" : "itg",
         "prod" : "prod",
         "reporting" : "prod"
+    },
+    "REDSHIFT_DEV_GROUP" : {
+        "dev" : "dev_arch_eng",
+        "itg" : "dev_arch_eng",
+        "prod" : "phoenix_dev"
     }
 }
