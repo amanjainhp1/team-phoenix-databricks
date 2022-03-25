@@ -12,6 +12,9 @@ This repository contains all Team Phoenix Databricks notebooks used in jobs that
 |cumulus_prod04_dashboard|Redshift (data share)|:white_check_mark:|:x:|:x:|
 |dataos-`<env>`-team-phoenix|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
 |dataos-`<env>`-team-phoenix-fin|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|enrich-data-lake-restricted-prod/gpsy|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|hp-bigdata-prod-enrichment/ie2_deliverables/rdma/rdma_base_to_sales|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|insights-environment-sandbox|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
 
 ## New Job Checklist
 
