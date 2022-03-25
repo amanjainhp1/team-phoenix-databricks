@@ -55,11 +55,11 @@ archer_flash_record = read_sql_server_to_df(configs) \
 archer_flash_record_str = archer_flash_record.head()[0].replace(" ", "")
 
 redshift_flash_record = read_redshift_to_df(configs) \
-  .option("query", "SELECT distinct source_name AS record FROM prod.flash") \
+  .option("query", "SELECT distinct source_name AS record FROM prod.flash_wd3") \
   .load()
 
 if archer_flash_record.exceptAll(redshift_flash_record).count() == 0:
-  dbutils.notebook.exit(archer_flash_record_str + " is already contained in Redshift prod.flash table")
+  dbutils.notebook.exit(archer_flash_record_str + " is already contained in Redshift prod.flash_wd3 table")
 
 # COMMAND ----------
 
@@ -121,4 +121,8 @@ s3_flash_output_bucket = constants["S3_BASE_BUCKET"][dbutils.widgets.get("stack"
 write_df_to_s3(archer_flash_records, s3_flash_output_bucket, "parquet", "overwrite")
 
 # append to prod.flash
-write_df_to_redshift(configs, archer_flash_records, "prod.flash", "append")
+write_df_to_redshift(configs, archer_flash_records, "prod.flash_wd3", "append")
+
+# COMMAND ----------
+
+
