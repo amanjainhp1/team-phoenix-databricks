@@ -100,8 +100,8 @@
       "encode": "lzo"
     },
     {
-      "description": "product_family_desc_status_cd",
-      "name": "product_family_desc_status_cd",
+      "description": "product_family_status_cd",
+      "name": "product_family_status_cd",
       "type": "VARCHAR(128)",
       "nullable": true,
       "encode": "lzo"
