@@ -645,7 +645,7 @@ final9 <- SparkR::sql('
                 , upm.Decay
                 , upm.Seasonality
                 , upm.Cyclical
-                , upm.MUT
+                --, upm.MUT
                 , upm.Trend
                 , upm.IMPV_Route
                 from UPM upm
@@ -706,7 +706,3 @@ time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
 
 notebook_end_time <- Sys.time()
 notebook_total_time <- notebook_end_time - notebook_start_time;notebook_total_time
-
-# COMMAND ----------
-
-

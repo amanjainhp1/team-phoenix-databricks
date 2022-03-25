@@ -154,7 +154,194 @@ write_df_to_redshift(configs, rdma_base_to_sales_df, "prod.rdma_base_to_sales_pr
 # COMMAND ----------
 
 # write data to redshift
-write_df_to_redshift(configs, rdma_df, "stage.rdma_staging", "overwrite", "CALL prod.p_rdma();")
+
+rdma_sproc = """
+--------------------------------------CAPTURE NEW BASE_PROD_NUMBERS-----------------------------------------------
+	
+insert into mdm.rdma_changelog (base_prod_number 
+	,pl 
+	,base_prod_name 
+	,base_prod_desc
+	,product_lab_name
+	,prev_base_prod_number
+	,product_class 
+	,platform 
+	,product_platform_desc 
+	,product_platform_status_cd 
+	,product_platform_group 
+	,product_family 
+	,product_family_desc 
+	,product_family_status_cd 
+	,fmc 
+	,platform_subset 
+	,platform_subset_id
+	,platform_subset_desc 
+	,platform_subset_status_cd 
+	,product_technology_name 
+	,product_technology_id 
+	,media_size 
+	,product_status
+	,product_status_date 
+	,product_type 
+	,sheets_per_pack_quantity 
+	,after_market_flag 
+	,cobranded_product_flag 
+	,forecast_assumption_flag
+	,base_product_known_flag 
+	,oem_flag 
+	,selectability_code 
+	,supply_color 
+	,ink_available_ccs_quantity 
+	,sps_type 
+	,warranty_reporting_flag 
+	,base_prod_afr_goal_percent 
+	,refurb_product_flag 
+	,base_prod_acpt_goal_range_pc 
+	,base_prod_tfr_goal_percent 
+	,engine_type 
+	,engine_type_id 
+	,market_category_name 
+	,finl_market_category 
+	,category 
+	,tone 
+	,platform_subset_group_name 
+	,id
+	,attribute_extension1 
+	,leveraged_product_platform_name 
+	,platform_subset_group_status_cd 
+	,platform_subset_group_desc 
+	,product_segment_name
+	,item_changed
+	,load_date)
+select stg.*,'New BPN'  item_changed, getdate() load_date
+from stage.rdma_staging stg left join mdm.rdma p
+	on stg.base_prod_number=p.base_prod_number where p.base_prod_number is null;
+
+---------------------------------------CAPTURE CHANGED PLATFORM_SUBSETS--------------------------------------------
+
+insert into mdm.rdma_changelog (base_prod_number 
+	,pl 
+	,base_prod_name 
+	,base_prod_desc
+	,product_lab_name
+	,prev_base_prod_number
+	,product_class 
+	,platform 
+	,product_platform_desc 
+	,product_platform_status_cd 
+	,product_platform_group 
+	,product_family 
+	,product_family_desc 
+	,product_family_status_cd 
+	,fmc 
+	,platform_subset 
+	,platform_subset_id
+	,platform_subset_desc 
+	,platform_subset_status_cd 
+	,product_technology_name 
+	,product_technology_id 
+	,media_size 
+	,product_status
+	,product_status_date 
+	,product_type 
+	,sheets_per_pack_quantity 
+	,after_market_flag 
+	,cobranded_product_flag 
+	,forecast_assumption_flag
+	,base_product_known_flag 
+	,oem_flag 
+	,selectability_code 
+	,supply_color 
+	,ink_available_ccs_quantity 
+	,sps_type 
+	,warranty_reporting_flag 
+	,base_prod_afr_goal_percent 
+	,refurb_product_flag 
+	,base_prod_acpt_goal_range_pc 
+	,base_prod_tfr_goal_percent 
+	,engine_type 
+	,engine_type_id 
+	,market_category_name 
+	,finl_market_category 
+	,category 
+	,tone 
+	,platform_subset_group_name 
+	,id
+	,attribute_extension1 
+	,leveraged_product_platform_name 
+	,platform_subset_group_status_cd 
+	,platform_subset_group_desc 
+	,product_segment_name
+	,item_changed
+	,load_date)
+select stg.*,'Changed platform_subset'  item_changed, getdate() load_date
+from stage.rdma_staging stg join mdm.rdma p
+	on stg.base_prod_number=p.base_prod_number where stg.platform_subset <> p.platform_subset;
+
+---------------------------------------CLEAR MDM TABLE-------------------------------------------------------------
+
+delete from mdm.rdma;
+
+----------------------------------------COPY DATA FROM STAGE TO PROD-------------------------------------------------
+
+insert into mdm.rdma 
+ 		   (base_prod_number
+           ,pl
+           ,base_prod_name
+           ,base_prod_desc
+           ,product_lab_name
+           ,prev_base_prod_number
+           ,product_class
+           ,platform
+           ,product_platform_desc
+           ,product_platform_status_cd
+           ,product_platform_group
+           ,product_family
+           ,product_family_desc
+           ,product_family_status_cd
+           ,fmc
+           ,platform_subset
+           ,platform_subset_id
+           ,platform_subset_desc
+           ,platform_subset_status_cd
+           ,product_technology_name
+           ,product_technology_id
+           ,media_size
+           ,product_status
+           ,product_status_date
+           ,product_type
+           ,sheets_per_pack_quantity
+           ,after_market_flag
+           ,cobranded_product_flag
+           ,forecast_assumption_flag
+           ,base_product_known_flag
+           ,oem_flag
+           ,selectability_code
+           ,supply_color
+           ,ink_available_ccs_quantity
+           ,sps_type
+           ,warranty_reporting_flag
+           ,base_prod_afr_goal_percent
+           ,refurb_product_flag
+           ,base_prod_acpt_goal_range_pc
+           ,base_prod_tfr_goal_percent
+           ,engine_type
+           ,engine_type_id
+           ,market_category_name
+           ,finl_market_category
+           ,category
+           ,tone
+           ,platform_subset_group_name
+           ,id
+           ,attribute_extension1
+           ,leveraged_product_platform_name
+           ,platform_subset_group_status_cd
+           ,platform_subset_group_desc
+           ,product_segment_name)
+     select * from stage.rdma_staging;
+"""
+
+write_df_to_redshift(configs, rdma_df, "stage.rdma_staging", "overwrite", rdma_sproc)
 
 # COMMAND ----------
 
