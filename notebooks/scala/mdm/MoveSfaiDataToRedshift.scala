@@ -66,11 +66,11 @@ val finalTableDF = spark.sql(query + "FROM tableDF")
 // COMMAND ----------
 
 // write data to S3
-writeDFToS3(finalTableDF, s"s3a://dataos-core-${stack}-team-phoenix/landing/${configs("table")}/${configs("datestamp")}/${configs("timestamp")}/", "csv", "overwrite")
+writeDFToS3(finalTableDF, s"""s3a://dataos-core-${configs("stack")}-team-phoenix/landing/${configs("table")}/${configs("datestamp")}/${configs("timestamp")}/""", "csv", "overwrite")
 
 // truncate existing redshift data and
 // write data to redshift
-writeDFToRedshift(configs, finalTableDF, s"${configs("stack")}.${configs("table")}", "append", "CSV GZIP", "", s"TRUNCATE ${schema}.${configs("table")}")
+writeDFToRedshift(configs, finalTableDF, s"""${configs("stack")}.${configs("table")}", "append", "CSV GZIP", "", s"TRUNCATE ${schema}.${configs("table")}""")
 
 // COMMAND ----------
 
