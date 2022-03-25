@@ -70,7 +70,7 @@ writeDFToS3(finalTableDF, s"""s3a://dataos-core-${configs("stack")}-team-phoenix
 
 // truncate existing redshift data and
 // write data to redshift
-writeDFToRedshift(configs, finalTableDF, s"""${configs("stack")}.${configs("table")}", "append", "CSV GZIP", "", s"TRUNCATE ${schema}.${configs("table")}""")
+writeDFToRedshift(configs, finalTableDF, s"""${configs("stack")}.${configs("table")}""", "append", "CSV GZIP", "", s"""TRUNCATE ${schema}.${configs("table")}""")
 
 // COMMAND ----------
 
