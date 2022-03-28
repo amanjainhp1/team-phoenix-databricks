@@ -108,8 +108,9 @@ archer_wd3_records = archer_wd3_records \
   .withColumn("load_date", lit(max_load_date)) \
   .withColumn("version", lit(max_version)) \
   .withColumnRenamed('geo','country_alpha2') \
+  .withColumnRenamed('base_prod_number','base_product_number') \
   .withColumnRenamed('date', 'cal_date') \
-  .select("record", "source_name", "country_alpha2", "base_prod_number", "cal_date", "units", "load_date", "version")
+  .select("record", "source_name", "country_alpha2", "base_product_number", "cal_date", "units", "load_date", "version")
 
 # COMMAND ----------
 
