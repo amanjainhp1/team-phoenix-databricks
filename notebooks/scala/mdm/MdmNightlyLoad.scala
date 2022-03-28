@@ -54,7 +54,6 @@ val tables: Seq[String] = Seq("calendar",
                               "profit_center_code_xref",
                               "supplies_hw_mapping",
                               "supplies_xref",
-                              "version",
                               "yield")
 
 var configs: Map[String, String] = Map()
