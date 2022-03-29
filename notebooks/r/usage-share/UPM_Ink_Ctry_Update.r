@@ -4161,7 +4161,11 @@ final9$FYearMo <- cast(final9$FYearMo, "string")
 
 start.time2 <- Sys.time()
 
-SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(", Sys.Date(), ").parquet"), mode="overwrite")
+output_file_name <- paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(", todaysDate, ").parquet")
+
+SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
+
+print(output_file_name)
   
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
