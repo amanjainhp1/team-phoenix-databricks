@@ -7,9 +7,9 @@ This repository contains all Team Phoenix Databricks notebooks used in jobs that
 |Name|Technology|Dev Status|ITG Status |Prod Status|
 |---|---|---|---|---|
 |app_bm_instant_ink_bi|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|cumulus_prod02_ref_enrich|Redshift (data share)|:white_check_mark:|:x:|:x:|
-|cumulus_prod02_biz_trans|Redshift (data share)|:white_check_mark:|:x:|:x:|
-|cumulus_prod04_dashboard|Redshift (data share)|:white_check_mark:|:x:|:x:|
+|cumulus_prod02_ref_enrich|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|cumulus_prod02_biz_trans|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|cumulus_prod04_dashboard|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
 |dataos-`<env>`-team-phoenix|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
 |dataos-`<env>`-team-phoenix-fin|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
 |enrich-data-lake-restricted-prod/gpsy|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
