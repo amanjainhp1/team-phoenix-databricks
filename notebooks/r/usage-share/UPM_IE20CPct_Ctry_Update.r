@@ -689,8 +689,12 @@ start.time2 <- Sys.time()
 
 # s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
 # s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").parquet"))
-SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPMColor_ctry(",Sys.Date(),").parquet"), mode="overwrite")
 
+output_file_name <- paste0("s3://", aws_bucket_name, "UPMColor_ctry(", todaysDate, ").parquet")
+
+SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
+
+print(output_file_name)
 
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
