@@ -1,3 +1,7 @@
 ---
 Jobs:
   - mdm-nightly-load
+  - redshift-resource-creator
+
+DeleteJobs:
+  - table-creator

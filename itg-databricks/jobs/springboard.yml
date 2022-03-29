@@ -1,4 +1,18 @@
 ---
 Jobs:
+  - actuals-hw
+  - hardware-ltf
+  - hardware-stf
+  - ink-share
+  - ink-usage-color
+  - ink-usage-total
   - mdm-nightly-load
+  - rdma-full-load
+  - redshift-resource-creator
+  - toner-share
+  - toner-usage-color
+  - toner-usage-total
+  - wd3-load
+
+DeleteJobs:
   - table-creator

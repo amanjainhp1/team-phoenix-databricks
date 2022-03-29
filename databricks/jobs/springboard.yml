@@ -14,7 +14,11 @@ Jobs:
   - lf-ltf-splits
   - mdm-nightly-load
   - rdma-full-load
-  - table-creator
+  - redshift-resource-creator
   - toner-share
   - toner-usage-color
   - toner-usage-total
+  - wd3-load
+
+DeleteJobs:
+  - table-creator

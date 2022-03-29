@@ -1,14 +1,6 @@
 {
   "fields": [
     {
-      "description": "yield_id",
-      "name": "yield_id",
-      "type": "IDENTITY",
-      "nullable": false,
-      "encode": "raw",
-      "sort_key": true
-    },
-    {
       "description": "record",
       "name": "record",
       "type": "VARCHAR(256)",
@@ -16,67 +8,39 @@
       "encode": "lzo"
     },
     {
-      "description": "geography_grain",
-      "name": "geography_grain",
+      "description": "source_name",
+      "name": "source_name",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "geography",
-      "name": "geography",
+      "description": "country_alpha2",
+      "name": "country_alpha2",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
       "description": "base_product_number",
-      "name": "base_product_number",
+      "name": "base_prod_number",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "value",
-      "name": "value",
-      "type": "DOUBLE PRECISION",
-      "nullable": true,
-      "encode": "raw"
-    },
-    {
-      "description": "effective_date",
-      "name": "effective_date",
+      "description": "cal_date",
+      "name": "cal_date",
       "type": "DATE",
       "nullable": true,
       "encode": "az64"
     },
     {
-      "description": "active_at",
-      "name": "active_at",
-      "type": "TIMESTAMP WITH TIME ZONE",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "inactive_at",
-      "name": "inactive_at",
-      "type": "TIMESTAMP WITH TIME ZONE",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "official",
-      "name": "official",
-      "type": "BOOLEAN",
+      "description": "units",
+      "name": "units",
+      "type": "DOUBLE PRECISION",
       "nullable": true,
       "encode": "raw"
-    },
-    {
-      "description": "last_modified_date",
-      "name": "last_modified_date",
-      "type": "TIMESTAMP WITH TIME ZONE",
-      "nullable": true,
-      "encode": "az64"
     },
     {
       "description": "load_date",

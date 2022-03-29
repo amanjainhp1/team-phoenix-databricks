@@ -54,7 +54,6 @@ val tables: Seq[String] = Seq("calendar",
                               "profit_center_code_xref",
                               "supplies_hw_mapping",
                               "supplies_xref",
-                              "version",
                               "yield")
 
 var configs: Map[String, String] = Map()
@@ -70,7 +69,8 @@ configs += ("stack" -> dbutils.widgets.get("stack"),
             "sfaiDatabase" -> "IE2_Prod",
             "datestamp" -> currentTime.getDatestamp(),
             "timestamp" -> currentTime.getTimestamp().toString,
-            "redshiftTimestamp" -> currentTime.getRedshiftTimestamp.toString)
+            "redshiftTimestamp" -> currentTime.getRedshiftTimestampWithTimezone.toString,
+            "redshiftDevGroup" -> s"""${REDSHIFT_DEV_GROUP(dbutils.widgets.get("stack"))}""")
 
 for (table <- tables) {
   configs += ("table" -> table)
