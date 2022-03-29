@@ -36,6 +36,10 @@ dbutils.widgets.text("job_dbfs_path", "")
 
 # COMMAND ----------
 
+# MAGIC %run "../common/plot_helper"
+
+# COMMAND ----------
+
 import os
 os.listdir("../../notebooks/") # returns list
 
@@ -92,10 +96,100 @@ configs["sfai_url"] = constants["SFAI_URL"]
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## SFAI review
+
+# COMMAND ----------
+
+# import libraries
+import matplotlib.pyplot as plt
+import pandas as pd
+import warnings
+import sys
+
+# silence warnings
+warnings.filterwarnings('ignore')
+
+# COMMAND ----------
+
 ns_sfai_records = read_sql_server_to_df(configs) \
-  .option("query", "SELECT * FROM ie2_staging.dbt.norm_ships") \
+  .option("query", "select * from ie2_staging.dbt.norm_ships") \
   .load()
 
 # COMMAND ----------
 
-display(ns_sfai_records)
+ns_sfai_records.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC testing pyspark df
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## aggregating pyspark df
+
+# COMMAND ----------
+
+drop_list = ['region_5', 'record', 'country_alpha2', 'platform_subset', 'version']
+ns_agg_prep = ns_sfai_records.toPandas()
+ns_agg_1 = ns_agg_prep.drop(drop_list, axis=1)
+ns_agg_2 = ns_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
+ns_agg_2['variable'] = 'dbt.norm_ships'
+
+# COMMAND ----------
+
+display(ns_agg_2)
+
+# COMMAND ----------
+
+ns_agg_3 = ns_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
+
+# COMMAND ----------
+
+display(ns_agg_3)
+
+# COMMAND ----------
+
+# only needed to be defined once for this notebook
+# review library.plot_helper for detail
+
+plot_dict = {
+    'ticker': True,
+    'axvspan_list': [
+        '2021-12-01', '2022-10-01', 'STF-FCST'
+    ],
+}
+
+# COMMAND ----------
+
+ns_prep = ns_agg_3
+ns_prep['cal_date'] = pd.to_datetime(ns_prep['cal_date'])
+ns_df = ns_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+# resize figsize for each graph
+plt.rcParams['figure.figsize'] = (15, 10)
+
+# setup format_dict
+plot_dict_a = plot_dict
+plot_dict_a['legend_list'] = [
+    'dbt.norm_ships', 'stf-window'
+]
+
+plot_dict_a['title_list'] = [
+    'SFAI - norm_shipments', 'cal_date', 'shipments'
+]
+
+# plot_dict_a['viz_path'] = r'./viz/ns_v2v_2021_07_01.png'
+
+mpl_ts(df=ns_df, format_dict=plot_dict_a)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC TODO:
+# MAGIC   + dbt tests applied to spark df
+# MAGIC   + spark.df to pandas.df --> concat with sfai --> plot
