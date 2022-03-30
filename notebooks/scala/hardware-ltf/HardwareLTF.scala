@@ -193,7 +193,7 @@ val secondTransformationQuery = s"""
 		, "${maxVersion}" AS version
 	FROM first_transformation a
 	INNER JOIN rdma b
-      ON a.base_prod_number = b.base_prod_number
+      ON UPPER(a.base_prod_number) = UPPER(b.base_prod_number)
 	GROUP BY
 		  a.calendar_month
 		, a.geo
@@ -229,7 +229,7 @@ val thirdTransformationQuery = s"""
 		, a.version
 	FROM second_transformation a
 	LEFT JOIN hardware_xref b
-      ON a.platform_subset = b.platform_subset
+      ON UPPER(a.platform_subset) = UPPER(b.platform_subset)
 """
 
 val thirdTransformation = spark.sql(thirdTransformationQuery)
