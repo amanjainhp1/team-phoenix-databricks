@@ -44,8 +44,8 @@ dbutils.widgets.text("job_dbfs_path", "")
 
 # COMMAND ----------
 
-import os
-os.listdir("../../notebooks/") # returns list
+# import os
+# os.listdir("../../notebooks/") # returns list
 
 # COMMAND ----------
 
@@ -233,7 +233,10 @@ mpl_ts(df=ns_df, format_dict=plot_dict_a)
 # COMMAND ----------
 
 ns_rs_records = read_redshift_to_df(configs) \
-  .option("query", "select * from itg.stage.norm_ships") \
+  .option("query", "select ns.* from itg.stage.norm_ships as ns \
+          join itg.mdm.hardware_xref as hw \
+          on hw.platform_subset = ns.platform_subset \
+          where hw.technology in ('INK', 'LASER', 'PWA')") \
   .load()
 
 # COMMAND ----------
@@ -246,9 +249,61 @@ ns_rs_records.select('record').distinct().collect()
 
 # COMMAND ----------
 
-ns_rs_filter = ns_rs_records.filter("record not in ('ACTUALS_LF', 'HW_LTF_LF')")
-ns_rs_filter.show()
+ns_rs_records.count()
+# run 1 :: 2227912 (3/29/2022)
+# run 2 :: 2227912 (3/30/2022)
+# run 3 :: 2219185 (3/30/2022)
 
 # COMMAND ----------
 
-ns_rs_filter.count()
+ns_rs_agg_prep = ns_rs_records.toPandas()
+
+# drop unwanted columns
+drop_list = ['region_5', 'record', 'country_alpha2', 'platform_subset', 'version']
+ns_rs_agg_1 = ns_rs_agg_prep.drop(drop_list, axis=1)
+
+# aggregate time series
+ns_rs_agg_2 = ns_rs_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
+ns_rs_agg_2['variable'] = 'itg.stage.norm_ships'
+
+# COMMAND ----------
+
+# re-order dataframe columns
+ns_rs_agg_3 = ns_rs_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
+
+# COMMAND ----------
+
+ns_rs_prep = ns_rs_agg_3
+ns_rs_prep['cal_date'] = pd.to_datetime(ns_rs_prep['cal_date'])
+ns_rs_df = ns_rs_prep.set_index('cal_date')
+
+# COMMAND ----------
+
+ns_rs_df.display()
+
+# COMMAND ----------
+
+final_df = ns_rs_df.append(ns_df, ignore_index=False)
+
+# COMMAND ----------
+
+# resize figsize for each graph
+plt.rcParams['figure.figsize'] = (15, 10)
+
+# setup format_dict
+plot_dict_a = plot_dict
+plot_dict_a['legend_list'] = [
+    'dbt.norm_ships', 'rs.norm_ships', 'stf-window'
+]
+
+plot_dict_a['title_list'] = [
+    'SFAI/RS - norm_shipments', 'cal_date', 'shipments'
+]
+
+# plot_dict_a['viz_path'] = r'./viz/ns_v2v_2021_07_01.png'
+
+mpl_ts(df=final_df, format_dict=plot_dict_a)
+
+# COMMAND ----------
+
+
