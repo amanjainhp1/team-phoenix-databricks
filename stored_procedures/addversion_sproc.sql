@@ -1,10 +1,12 @@
 CREATE OR REPLACE PROCEDURE prod.addversion_sproc(v1_record varchar, v2_source_name varchar)
 	LANGUAGE plpgsql
 AS $$
-	
+
 declare
 record_count integer;
 max_version text;
+current_date timestamp;
+current_date_string text;
 
 begin
 
@@ -13,14 +15,15 @@ begin
 * different datasets
 */
 
+select getdate() into current_date;
+
+select replace(trunc(getdate()), '-', '.') into current_date_string;
+
 select COUNT(1) into record_count
 from prod.version
 where 1=1
 	and record = v1_record
-	and version = (convert(char(4), date_part(y,getdate()))
-			+ '.' + to_char(date_part(month,getdate()), 'fm00')
-			+ '.' + to_char(date_part(d,getdate()), 'fm00')
-			+ '.1');
+	and version like (current_date_string + '.%');
 
 select max(version) into max_version
 from prod.version
@@ -31,47 +34,34 @@ IF record_count > 0 then
 		set official = 0
 		where 1=1
 			and record = v1_record
-			and record <> 'ib';
+			and record <> 'IB';
 
 		INSERT INTO prod.version
 		(record, version, source_name, official, load_date)
 		VALUES
 		(
 		v1_record
-		,convert(char(4), date_part(y,getdate()))
-			+ '.' + to_char(date_part(month,getdate()), 'fm00')
-			+ '.' + to_char(date_part(d,getdate()), 'fm00')
-			+ '.' + cast(cast(right(max_version,1) as int)+1 as text)
+		,current_date_string + '.' + cast(cast(right(max_version,1) as int)+1 as text)
 		,v2_source_name
 		,case v1_record
-				when 'ib' then 0
+				when 'IB' then 0
 				else 1
 			end
-		,getdate()
+		,current_date
 		);
 else
-		update prod.version
-		set official = case v1_record
-							when 'ib' then false
-							else official
-						end
-		where record = v1_record;
-
 		INSERT INTO prod.version
 		(record, version, source_name, official, load_date)
 		VALUES
 		(
 		v1_record
-		,convert(char(4), date_part(y,getdate()))
-			+ '.' + to_char(date_part(month,getdate()), 'fm00')
-			+ '.' + to_char(date_part(d,getdate()), 'fm00')
-			+ '.1'
+		,current_date_string + '.1'
 		,v2_source_name
 		,case v1_record
-						when 'ib' then 0
+						when 'IB' then 0
 						else 1
 					end
-		,getdate()
+		,current_date
 		);
 end if;
 end;
