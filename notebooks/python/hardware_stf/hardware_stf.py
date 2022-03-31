@@ -31,6 +31,7 @@ sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "
 # COMMAND ----------
 
 configs = {}
+
 configs["redshift_username"] = redshift_secrets["username"]
 configs["redshift_password"] = redshift_secrets["password"]
 configs["redshift_url"] = constants["REDSHIFT_URLS"][dbutils.widgets.get("stack")]
@@ -38,6 +39,8 @@ configs["redshift_port"] = constants["REDSHIFT_PORTS"][dbutils.widgets.get("stac
 configs["redshift_dbname"] = constants["REDSHIFT_DATABASE"][dbutils.widgets.get("stack")]
 configs["aws_iam_role"] = dbutils.widgets.get("aws_iam_role")
 configs["redshift_temp_bucket"] =  "{}redshift_temp/".format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")])
+configs["redshift_dev_group"] = constants["REDSHIFT_DEV_GROUP"][dbutils.widgets.get("stack")]
+
 configs["sfai_username"] = sqlserver_secrets["username"]
 configs["sfai_password"] = sqlserver_secrets["password"]
 configs["sfai_url"] = constants["SFAI_URL"]

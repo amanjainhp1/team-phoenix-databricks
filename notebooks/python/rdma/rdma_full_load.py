@@ -145,6 +145,7 @@ configs["redshift_url"] = constants['REDSHIFT_URLS'][dbutils.widgets.get("stack"
 configs["redshift_port"] = constants['REDSHIFT_PORTS'][dbutils.widgets.get("stack")]
 configs["redshift_dbname"] = dbutils.widgets.get("stack")
 configs["aws_iam_role"] =  dbutils.widgets.get("aws_iam_role")
+configs["redshift_dev_group"] = constants["REDSHIFT_DEV_GROUP"][dbutils.widgets.get("stack")]
 
 # COMMAND ----------
 

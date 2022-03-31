@@ -42,6 +42,7 @@ configs["aws_iam_role"] =  dbutils.widgets.get("aws_iam_role")
 configs["redshift_username"] = redshift_username
 configs["redshift_password"] = redshift_password
 configs["redshift_temp_bucket"] = "{}redshift_temp/".format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")])
+configs["redshift_dev_group"] = constants["REDSHIFT_DEV_GROUP"][dbutils.widgets.get("stack")]
 
 # COMMAND ----------
 
