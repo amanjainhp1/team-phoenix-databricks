@@ -1,7 +1,10 @@
 # Databricks notebook source
-import json
 import boto3
-import psycopg2 
+import json
+from pyspark.sql import functions as f
+import psycopg2
+
+# COMMAND ----------
 
 def submit_remote_query(dbname, port, user, password, host, sql_query):  
   conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
@@ -27,6 +30,9 @@ def read_redshift_to_df(configs):
 # COMMAND ----------
 
 def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
+  for column in df.dtypes:
+    if column[1] == 'string':
+        df = df.withColumn(column[0], f.upper(f.col(column[0])))
   try:
     df.write \
     .format("com.databricks.spark.redshift") \
@@ -37,7 +43,7 @@ def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
     .option("aws_iam_role", configs["aws_iam_role"]) \
     .option("user", configs["redshift_username"]) \
     .option("password", configs["redshift_password"]) \
-    .option("postactions", "GRANT ALL ON {} TO GROUP dev_arch_eng;{}".format(destination, postactions)) \
+    .option("postactions", "GRANT ALL ON {} TO GROUP {};{}".format(destination, configs["redshift_dev_group"], postactions)) \
     .option("extracopyoptions", "TIMEFORMAT 'auto'") \
     .mode(mode) \
     .save()
