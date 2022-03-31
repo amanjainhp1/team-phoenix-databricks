@@ -5,7 +5,7 @@ AS $$
 declare
 record_count integer;
 max_version text;
-current_date text;
+current_date timestamp;
 current_date_string text;
 
 begin
@@ -15,12 +15,9 @@ begin
 * different datasets
 */
 
-select to_char(getdate()) into current_date;
+select getdate() into current_date;
 
-select convert(char(4), date_part(y, current_date))
-			+ '.' + to_char(date_part(month, current_date), 'fm00')
-			+ '.' + to_char(date_part(d, current_date), 'fm00')
-            into current_date_string;
+select replace(trunc(getdate()), '-', '.') into current_date_string;
 
 select COUNT(1) into record_count
 from prod.version
@@ -50,7 +47,7 @@ IF record_count > 0 then
 				when 'IB' then 0
 				else 1
 			end
-		,getdate()
+		,current_date
 		);
 else
 		INSERT INTO prod.version
@@ -64,7 +61,7 @@ else
 						when 'IB' then 0
 						else 1
 					end
-		,getdate()
+		,current_date
 		);
 end if;
 end;
