@@ -5,6 +5,8 @@ AS $$
 declare
 record_count integer;
 max_version text;
+current_date text;
+current_date_string text;
 
 begin
 
@@ -13,14 +15,18 @@ begin
 * different datasets
 */
 
+select to_char(getdate()) into current_date;
+
+select convert(char(4), date_part(y, current_date))
+			+ '.' + to_char(date_part(month, current_date), 'fm00')
+			+ '.' + to_char(date_part(d, current_date), 'fm00')
+            into current_date_string;
+
 select COUNT(1) into record_count
 from prod.version
 where 1=1
 	and record = v1_record
-	and version like (convert(char(4), date_part(y,getdate()))
-			+ '.' + to_char(date_part(month,getdate()), 'fm00')
-			+ '.' + to_char(date_part(d,getdate()), 'fm00')
-			+ '.%');
+	and version like (current_date_string + '.%');
 
 select max(version) into max_version
 from prod.version
@@ -38,10 +44,7 @@ IF record_count > 0 then
 		VALUES
 		(
 		v1_record
-		,convert(char(4), date_part(y,getdate()))
-			+ '.' + to_char(date_part(month,getdate()), 'fm00')
-			+ '.' + to_char(date_part(d,getdate()), 'fm00')
-			+ '.' + cast(cast(right(max_version,1) as int)+1 as text)
+		,current_date_string + '.' + cast(cast(right(max_version,1) as int)+1 as text)
 		,v2_source_name
 		,case v1_record
 				when 'IB' then 0
@@ -55,10 +58,7 @@ else
 		VALUES
 		(
 		v1_record
-		,convert(char(4), date_part(y,getdate()))
-			+ '.' + to_char(date_part(month,getdate()), 'fm00')
-			+ '.' + to_char(date_part(d,getdate()), 'fm00')
-			+ '.1'
+		,current_date_string + '.1'
 		,v2_source_name
 		,case v1_record
 						when 'IB' then 0
