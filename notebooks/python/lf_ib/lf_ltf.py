@@ -44,7 +44,13 @@ configs["redshift_temp_bucket"] = "{}redshift_temp/".format(constants['S3_BASE_B
 
 # COMMAND ----------
 
-submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], "TRUNCATE stage.lf_ltf_temp")
+# if table exists, truncate, else print exception message
+try:
+    row_count = read_redshift_to_df(configs).option("dbtable", "stage.lf_ltf_temp").load().count()
+    if row_count > 0:
+        submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], "TRUNCATE stage.lf_ltf_temp")
+except Exception as error:
+  print ("An exception has occured:", error)
 
 # COMMAND ----------
 

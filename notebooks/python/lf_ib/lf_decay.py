@@ -1,8 +1,9 @@
 # Databricks notebook source
-dbutils.widgets.text("redshift_secret_name", "")
+dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.dropdown("redshift_secrets_region_name", "us-west-2", ["us-west-2", "us-east-2"])
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("stack", "")
+dbutils.widgets.text("job_dbfs_path", "")
 
 # COMMAND ----------
 
@@ -44,7 +45,13 @@ configs["redshift_temp_bucket"] = "{}redshift_temp/".format(constants['S3_BASE_B
 
 # COMMAND ----------
 
-submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], "TRUNCATE stage.lf_decay_temp")
+# if table exists, truncate, else print exception message
+try:
+    row_count = read_redshift_to_df(configs).option("dbtable", "stage.lf_decay_temp").load().count()
+    if row_count > 0:
+        submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], "TRUNCATE stage.lf_decay_temp")
+except Exception as error:
+  print ("An exception has occured:", error)
 
 # COMMAND ----------
 
