@@ -53,6 +53,7 @@ for (col <- outputTableCols; if (!(List("cal_id", "ce_splits_id", "decay_id", "g
       if (col == "last_modified_date") query = query + "load_date AS last_modified_date"
       if (col == "profit_center_code" && configs("table") == "product_line_xref") query = query + "profit_center AS profit_center_code"
       if (col == "load_date") query = query + s"""CAST(\"${configs("redshiftTimestamp")}\" AS TIMESTAMP) AS load_date"""
+      if (col == "record" && configs("table") == "instant_ink_enrollees_ltf")  query = query + "'iink_enrollees_ltf' AS record"
     }
     
     if (outputTableCols.dropRight(1).contains(col)) query = query + ","
