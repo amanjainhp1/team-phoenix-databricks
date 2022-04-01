@@ -220,6 +220,10 @@ mpl_ts(df=ns_df, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
+display(ns_df)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC TODO:
 # MAGIC   + dbt tests applied to spark df
