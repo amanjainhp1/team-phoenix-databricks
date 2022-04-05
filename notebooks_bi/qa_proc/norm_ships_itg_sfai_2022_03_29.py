@@ -40,42 +40,11 @@ dbutils.widgets.text("job_dbfs_path", "")
 
 # COMMAND ----------
 
-# MAGIC %run "../common/plot_helper"
+# MAGIC %run ../common/plot_helper
 
 # COMMAND ----------
 
-# import os
-# os.listdir("../../notebooks/") # returns list
-
-# COMMAND ----------
-
-constants = {
-    "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;",
-    "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
-    "S3_BASE_BUCKET" : {
-        "dev" : "s3a://dataos-core-dev-team-phoenix/",
-        "itg" : "s3a://dataos-core-itg-team-phoenix/",
-        "prod" : "s3a://dataos-core-prod-team-phoenix/"
-    },
-    "REDSHIFT_URLS" : {
-        "dev" : "dataos-core-dev-team-phoenix.dev.hpdataos.com",
-        "itg" : "dataos-core-team-phoenix-itg.hpdataos.com",
-        "prod" : "dataos-core-team-phoenix.hpdataos.com",
-        "reporting" : "dataos-core-team-phoenix-reporting.hpdataos.com"
-    },
-    "REDSHIFT_PORTS" : {
-        "dev" : "5439",
-        "itg" : "5439",
-        "prod" : "5439",
-        "reporting" : "5439"
-    },
-    "REDSHIFT_DATABASE" : {
-        "dev" : "dev",
-        "itg" : "itg",
-        "prod" : "prod",
-        "reporting" : "prod"
-    }
-}
+# MAGIC %run ./constants_test
 
 # COMMAND ----------
 
@@ -272,6 +241,10 @@ ns_rs_agg_2['variable'] = 'itg.stage.norm_ships'
 
 # COMMAND ----------
 
+display(ns_rs_agg_2)
+
+# COMMAND ----------
+
 # re-order dataframe columns
 ns_rs_agg_3 = ns_rs_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
 
@@ -310,4 +283,46 @@ mpl_ts(df=final_df, format_dict=plot_dict_a)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## Plotly - RS data only
 
+# COMMAND ----------
+
+import plotly.express as px
+import plotly.graph_objects as go
+
+# https://plotly.com/python-api-reference/generated/plotly.express.line
+ 
+fig = px.line(ns_rs_agg_2, 
+              x='cal_date', 
+              y='units', 
+              line_group='variable',
+              title='RS - Norm Ships')
+
+fig.update_xaxes(
+    rangeslider_visible=True,
+    rangeselector=dict(
+        buttons=list([
+            dict(count=1, label="1m", step="month", stepmode="backward"),
+            dict(count=6, label="6m", step="month", stepmode="backward"),
+            dict(count=1, label="YTD", step="year", stepmode="todate"),
+            dict(count=1, label="1y", step="year", stepmode="backward"),
+            dict(step="all")
+        ])
+    )
+)
+
+fig.update_layout(
+    autosize=False,
+    width=1400,
+    height=500,
+    margin=dict(
+        l=50,
+        r=50,
+        b=100,
+        t=100,
+        pad=4
+    ),
+)
+
+fig.show()
