@@ -125,7 +125,7 @@ oldNewDemarcation <- end1
 
 # MAGIC %scala
 # MAGIC val zeroQuery = """
-# MAGIC           --Share and Usage Splits (Trad)
+# MAGIC --Share and Usage Splits (Trad)
 # MAGIC SELECT 
 # MAGIC 	printer_platform_name
 # MAGIC 	, printer_region_code
@@ -145,8 +145,9 @@ oldNewDemarcation <- end1
 # MAGIC 	, total_pages_ib_wtd_avg
 # MAGIC		, pct_color	 
 # MAGIC 	, reporting_printers
-# MAGIC         , connected_ib
+# MAGIC     , connected_ib
 # MAGIC	FROM cumulus_prod02_biz_trans.biz_trans.v_print_share_usage_forecasting
+# MAGIC """
 # MAGIC 
 # MAGIC val zero = readRedshiftToDF(configs)
 # MAGIC   .option("query", zeroQuery)
