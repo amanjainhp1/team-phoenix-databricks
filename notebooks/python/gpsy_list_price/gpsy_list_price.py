@@ -171,5 +171,19 @@ write_df_to_s3(redshift_gpsy_prod_list_price_records, s3_flash_output_bucket, "p
 
 # COMMAND ----------
 
-# write PROD dataset to SFAI
+# write PROD dataset to SFAI - 2xlarge 2node - 58.37 seconds vs 19 mins on a large 2 node
 
+write_df_to_sqlserver(configs, redshift_gpsy_prod_list_price_records, "IE2_Landing.dbo.list_price_gpsy_landing_temp", "overwrite")
+
+# COMMAND ----------
+
+import pymssql
+
+def submit_remote_sqlserver_query(configs, db, query):
+    conn = pymssql.connect(server="sfai.corp.hpicloud.net", user=configs["sfai_username"], password=configs["sfai_password"], database=db)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    conn.commit()
+    conn.close()
+    
+submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC ie2_prod.dbo.p_load_list_price_gpsy;")

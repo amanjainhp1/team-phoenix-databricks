@@ -63,6 +63,23 @@ def read_sql_server_to_df(configs):
 
 # COMMAND ----------
 
+def write_df_to_sqlserver(configs, df, destination, mode):
+  try:
+    df.write \
+    .format("jdbc") \
+    .option("driver","com.microsoft.sqlserver.jdbc.SQLServerDriver") \
+    .option("url",  configs["sfai_url"]) \
+    .option("user", configs["sfai_username"]) \
+    .option("password",  configs["sfai_password"]) \
+    .option("dbtable", destination) \
+    .mode(mode) \
+    .save()
+  except Exception as error:
+      print ("An exception has occured:", error)
+      print ("Exception Type:", type(error))
+
+# COMMAND ----------
+
 def write_df_to_s3(df, destination, format, mode):
   df.write \
   .format(format) \
