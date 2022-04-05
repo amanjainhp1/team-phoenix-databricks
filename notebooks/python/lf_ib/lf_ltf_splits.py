@@ -3,6 +3,7 @@ dbutils.widgets.text("redshift_secret_name", "")
 dbutils.widgets.dropdown("redshift_secrets_region_name", "us-west-2", ["us-west-2", "us-east-2"])
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("stack", "")
+dbutils.widgets.text("job_dbfs_path", "")
 
 # COMMAND ----------
 
@@ -25,7 +26,7 @@ with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/con
 
 # COMMAND ----------
 
-redshift_secrets_name = dbutils.widgets.get("redshift_secrets_name")
+redshift_secrets_name = dbutils.widgets.get("redshift_secret_name")
 redshift_secrets_region_name = dbutils.widgets.get("redshift_secrets_region_name")
 
 redshift_username = secrets_get(redshift_secrets_name, redshift_secrets_region_name)["username"]
@@ -55,7 +56,7 @@ except Exception as error:
 
 # COMMAND ----------
 
-df_lf_ltf_splits = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/norm_ships/fcst/ltf/Large Format/lf_ltp_splits.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
+df_lf_ltf_splits = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/norm_ships/fcst/ltf/large_format/lf_ltp_splits.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
 
 # COMMAND ----------
 

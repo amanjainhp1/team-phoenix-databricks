@@ -46,6 +46,13 @@ configs["redshift_dev_group"] = constants["REDSHIFT_DEV_GROUP"][dbutils.widgets.
 
 # COMMAND ----------
 
+df_decay_pro = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/mdm/decay/large_format/lf_decay_pro.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
+df_decay_design = spark.read.format('csv').options(header='true',inferSchema='true').load('{}product/mdm/decay/large_format/lf_decay_design.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
+
+df_lf_decay = df_decay_design.union(df_decay_pro)
+
+# COMMAND ----------
+
 # if table exists, truncate, else print exception message
 try:
     row_count = read_redshift_to_df(configs).option("dbtable", "stage.lf_decay_temp").load().count()
@@ -56,27 +63,18 @@ except Exception as error:
 
 # COMMAND ----------
 
-df_decay_pro = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/mdm/decay/Large Format/lf_decay_pro.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
-df_decay_design = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/mdm/decay/Large Format/lf_decay_design.csv'.format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")]))
-
-df_lf_decay = df_decay_design.union(df_decay_pro)
-
-# COMMAND ----------
-
 add_version_sproc = """
-call prod.addversion_sproc('hw_decay_lf', 'forecaster_input');  
+call prod.addversion_sproc('HW_DECAY_LF', 'FORECASTER INPUT');  
 """
 
 lf_decay_sproc = """
-	
-call prod.addversion_sproc('hw_decay_lf', 'forcaster input');
 
 	----------------------------------
- SELECT 'hw_decay_lf' record,platform_subset platform_subset,region, pens,'TRAD' split_name,"Year",val value
+ SELECT 'HW_DECAY_LF' record,platform_subset platform_subset,region,'TRAD' split_name,"Year",val value
  into #decay_unpvt
  FROM 
  (
-SELECT record, region, platform_subset, pens, year_1, year_2, year_3, year_4, year_5, year_6, year_7, year_8, year_9, year_10, year_11, year_12, year_13, year_14, year_15
+SELECT  region,platform_subset, year_1, year_2, year_3, year_4, year_5, year_6, year_7, year_8, year_9, year_10, year_11, year_12, year_13, year_14, year_15
 FROM stage.lf_decay_temp
   ) A
   UNPIVOT
@@ -88,7 +86,7 @@ FROM stage.lf_decay_temp
   
   UPDATE prod.decay 
   set official  = 0
-  where record  = 'hw_decay_lf';
+  where record  = 'HW_DECAY_LF';
   
   
  ------------------------INSERT TO PROD---------------------------------
@@ -101,8 +99,8 @@ FROM stage.lf_decay_temp
 -----------------udpate version and load date---------------------------
   
 update  prod.ib
-set load_date = (select max(load_date) from prod.version where record = 'hw_decay_lf'),
-version = (select max(version) from prod.version where record = 'hw_decay_lf')
+set load_date = (select max(load_date) from prod.version where record = 'HW_DECAY_LF'),
+version = (select max(version) from prod.version where record = 'HW_DECAY_LF')
 where version is null;
 
 """
