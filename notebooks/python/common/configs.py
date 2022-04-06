@@ -23,8 +23,8 @@ constants = {
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "SFAI_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:prod/sqlserver/team-phoenix/auto_databricks-TuXNHG",
-        "itg": "",
-        "prod": ""
+        "itg": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/sqlserver/team-phoenix/auto_databricks-hChWVK",
+        "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/sqlserver/team-phoenix/auto_databricks-hChWVK"
     },
     "S3_BASE_BUCKET": {
         "dev": "s3a://dataos-core-dev-team-phoenix/",
@@ -56,13 +56,13 @@ constants = {
     },
     "REDSHIFT_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj",
-        "itg": "",
-        "prod": ""
+        "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ",
+        "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/redshift/phoenix/auto_glue-aDckNc"
     },
     "REDSHIFT_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
-        "itg": "",
-        "prod": ""
+        "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
+        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
     }
 }
 
