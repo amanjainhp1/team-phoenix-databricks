@@ -22,7 +22,7 @@ dbutils.widgets.text("job_dbfs_path", "")
 import json
 
 with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
-  constants = json.load(json_file)
+    constants = json.load(json_file)
 
 # COMMAND ----------
 
@@ -51,111 +51,73 @@ configs["sfai_url"] = constants["SFAI_URL"]
 
 # COMMAND ----------
 
-# %sh
-# aws s3 ls s3://enrich-data-lake-restricted-prod/gpsy/
-
-# COMMAND ----------
-
 # load new AMS files
-ams_s3 = spark.read \
-.format("com.databricks.spark.csv") \
-.option("header","True") \
-.option("sep", ",") \
-.load(f"s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_ams*.bz2")
-
-# ams_s3.display()
+ams_s3 = spark.read.csv(path="s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_ams*.bz2", header=True)
 
 # COMMAND ----------
 
 # load new APJ files
-apj_s3 = spark.read \
-.format("com.databricks.spark.csv") \
-.option("header","True") \
-.option("sep", ",") \
-.load(f"s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_apj*.bz2")
+apj_s3 = spark.read.csv(path="s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_apj*.bz2", header=True)
 
 # COMMAND ----------
 
 # load new EU files
-eu_s3 = spark.read \
-.format("com.databricks.spark.csv") \
-.option("header","True") \
-.option("sep", ",") \
-.load(f"s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_eu*.bz2")
+eu_s3 = spark.read.csv(path="s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_eu*.bz2", header=True)
 
 # COMMAND ----------
 
-#from pyspark.sql import functions as F
-from pyspark.sql.functions import trim, col
+from pyspark.sql.functions import trim, col, lit
 
 # COMMAND ----------
 
 # write to stage.gpsy_list_price_stage
 ams_s3 = ams_s3.select([trim(col(c)).alias(c.strip().lower().replace(" ", "_")) for c in ams_s3.columns])
-write_df_to_redshift(configs, ams_s3, "stage.gpsy_list_price_stage", "overwrite")
-
-# COMMAND ----------
-
 apj_s3 = apj_s3.select([trim(col(c)).alias(c.strip().lower().replace(" ", "_")) for c in apj_s3.columns])
-write_df_to_redshift(configs, apj_s3, "stage.gpsy_list_price_stage", "append")
-
-# COMMAND ----------
-
 eu_s3 = eu_s3.select([trim(col(c)).alias(c.strip().lower().replace(" ", "_")) for c in eu_s3.columns])
-write_df_to_redshift(configs, eu_s3, "stage.gpsy_list_price_stage", "append")
+
+write_df_to_redshift(configs, ams_s3.union(apj_s3).union(eu_s3), "stage.gpsy_list_price_stage", "overwrite")
 
 # COMMAND ----------
 
 #  --add record to version table for 'LIST_PRICE'
 
-sql_query = f"""CALL prod.addversion_sproc('LIST_PRICE', 'GPSY');"""
+max_info = call_redshift_addversion_sproc(configs, 'LIST_PRICE', 'GPSY')
 
-submit_remote_query(dbutils.widgets.get("stack"), configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query)
-
-
-# COMMAND ----------
-
-version_query = f"""
-SELECT
-      record
-	, MAX(version) AS version
-	, MAX(load_date) as load_date
-FROM prod.version
-WHERE record = 'LIST_PRICE'
-GROUP BY record
-"""
-
-version = read_redshift_to_df(configs) \
-  .option("query", version_query) \
-  .load()
-
-max_version = version.select("version").distinct().head()[0]
-max_load_date = version.select("load_date").distinct().head()[0]
-
-
+max_version = max_info[0]
+max_load_date = str(max_info[1])
 
 # COMMAND ----------
 
 redshift_gpsy_list_price_records = read_redshift_to_df(configs) \
-  .option("query", "select * from stage.gpsy_list_price_stage") \
-  .load()
+    .option("dbtable", "stage.gpsy_list_price_stage") \
+    .load()
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col,lit
+stage_gpsy_query = """
+SELECT
+    product_number
+    , country_code
+    , currency_code
+    , price_term_code
+    , CAST(price_start_effective_date AS date) AS price_start_effective_date
+    , qbl_sequence_number
+    , list_price
+    , product_line
+FROM stage.gpsy_list_price_stage
+"""
 
 redshift_gpsy_prod_list_price_records = read_redshift_to_df(configs) \
-  .option("query", "select product_number, country_code, currency_code, price_term_code, cast(price_start_effective_date as date) as price_start_effective_date, qbl_sequence_number, list_price, product_line from stage.gpsy_list_price_stage") \
-  .load()
+    .option("query", stage_gpsy_query) \
+    .load()
 
 redshift_gpsy_prod_list_price_records = redshift_gpsy_prod_list_price_records \
-  .withColumn("qbl_sequence_number", col("qbl_sequence_number").cast("integer")) \
-  .withColumn("list_price", col("list_price").cast("double")) \
-  .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
-  .withColumn("version", lit(max_version)) \
+    .withColumn("qbl_sequence_number", col("qbl_sequence_number").cast("integer")) \
+    .withColumn("list_price", col("list_price").cast("double")) \
+    .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
+    .withColumn("version", lit(max_version))
 
-write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "overwrite")
-# redshift_gpsy_prod_list_price_records.show()
+write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "append")
 
 # COMMAND ----------
 
@@ -167,13 +129,11 @@ s3_flash_output_bucket = constants["S3_BASE_BUCKET"][dbutils.widgets.get("stack"
 
 write_df_to_s3(redshift_gpsy_prod_list_price_records, s3_flash_output_bucket, "parquet", "overwrite")
 
-
-
 # COMMAND ----------
 
 # write PROD dataset to SFAI - 2xlarge 2node - 58.37 seconds vs 19 mins on a large 2 node
 
-write_df_to_sqlserver(configs, redshift_gpsy_prod_list_price_records, "IE2_Landing.dbo.list_price_gpsy_landing_temp", "overwrite")
+write_df_to_sqlserver(configs, redshift_gpsy_prod_list_price_records, "ie2_landing.dbo.list_price_gpsy_landing_temp", "overwrite")
 
 # COMMAND ----------
 
