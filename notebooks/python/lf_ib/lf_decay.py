@@ -10,7 +10,7 @@ dbutils.widgets.text("job_dbfs_path", "")
 import json
 
 with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
-  constants = json.load(json_file)
+    constants = json.load(json_file)
 
 # COMMAND ----------
 
@@ -59,7 +59,7 @@ try:
     if row_count > 0:
         submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], "TRUNCATE stage.lf_decay_temp")
 except Exception as error:
-  print ("An exception has occured:", error)
+    print ("An exception has occured:", error)
 
 # COMMAND ----------
 
@@ -83,21 +83,21 @@ FROM stage.lf_decay_temp
   ) AS Unpvt;
 
 ---------------------SET PREVIOUS VERSION TO 0 ------------------------------
-  
+
   UPDATE prod.decay 
   set official  = 0
   where record  = 'HW_DECAY_LF';
-  
-  
+
+
  ------------------------INSERT TO PROD---------------------------------
-  
+
   insert into prod.decay(record,platform_subset,geography_grain,geography,"year",split_name,value,official)
   select record ,platform_subset,'region_3' geogoraphy_grain,  case when region  = 'Asia Pacific' then 'AP' when region  = 'Europe' then 'EU' 
   	when region  = 'Japan' then 'JP' when region  = 'Latin America' then 'LA' when region  = 'North America' then 'NA' end as geography 
   ,"year",split_name ,value,1 official 
   from #decay_unpvt;
 -----------------udpate version and load date---------------------------
-  
+
 update  prod.ib
 set load_date = (select max(load_date) from prod.version where record = 'HW_DECAY_LF'),
 version = (select max(version) from prod.version where record = 'HW_DECAY_LF')

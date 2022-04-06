@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("redshift_secret_name", "")
+dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.dropdown("redshift_secrets_region_name", "us-west-2", ["us-west-2", "us-east-2"])
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("stack", "")
@@ -10,7 +10,7 @@ dbutils.widgets.text("job_dbfs_path", "")
 import json
 
 with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
-  constants = json.load(json_file)
+    constants = json.load(json_file)
 
 # COMMAND ----------
 
@@ -26,7 +26,7 @@ with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/con
 
 # COMMAND ----------
 
-redshift_secrets_name = dbutils.widgets.get("redshift_secret_name")
+redshift_secrets_name = dbutils.widgets.get("redshift_secrets_name")
 redshift_secrets_region_name = dbutils.widgets.get("redshift_secrets_region_name")
 
 redshift_username = secrets_get(redshift_secrets_name, redshift_secrets_region_name)["username"]
@@ -52,7 +52,7 @@ try:
     if row_count > 0:
         submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], "TRUNCATE stage.lf_ltf_temp")
 except Exception as error:
-  print ("An exception has occured:", error)
+    print ("An exception has occured:", error)
 
 # COMMAND ----------
 
@@ -110,7 +110,6 @@ FROM prod.actuals_hw ac
 LEFT JOIN mdm.iso_country_code_xref c on c.country_alpha2 = ac.country_alpha2
 WHERE ac.cal_date BETWEEN '2019-11-01' AND '2020-10-31' and ac.record  = 'ACTUALS_LF' and ac.official  = 1
 GROUP BY platform_subset,c.region_3;
-   
 
 ----------------QTY PER COUNTRY------------------------------  
 
