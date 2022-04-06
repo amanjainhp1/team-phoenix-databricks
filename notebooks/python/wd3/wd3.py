@@ -36,7 +36,7 @@ write_df_to_redshift(configs, archer_wd3_records, "stage.wd3_stage", "overwrite"
 
 sql_query = f"""CALL prod.addversion_sproc('WD3', '{archer_wd3_record_str}');"""
 
-submit_remote_query(dbutils.widgets.get("stack"), configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query)
+submit_remote_query(stack, configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query)
 
 # COMMAND ----------
 
@@ -76,7 +76,7 @@ archer_wd3_records = archer_wd3_records \
 # write to parquet file in s3
 
 # s3a://dataos-core-dev-team-phoenix/product/wd3/WD3-2022-03/
-s3_wd3_output_bucket = constants["S3_BASE_BUCKET"][dbutils.widgets.get("stack")] + "product/wd3/" + archer_wd3_record_str
+s3_wd3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/wd3/" + archer_wd3_record_str
 
 write_df_to_s3(archer_wd3_records, s3_wd3_output_bucket, "parquet", "overwrite")
 
