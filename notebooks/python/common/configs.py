@@ -12,8 +12,8 @@ stack = ""
 custom_tags = json.loads(spark.conf.get("spark.databricks.clusterUsageTags.clusterAllTags"))
 
 for tag in custom_tags:
-  if tag["key"] == "Custom3":
-    stack = tag["value"].lower()
+    if tag["key"] == "Custom3":
+        stack = tag["value"].lower()
 
 # COMMAND ----------
 
@@ -72,6 +72,7 @@ configs = {}
 
 # redshift
 redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2")
+
 configs["redshift_username"] = redshift_secret["username"]
 configs["redshift_password"] = redshift_secret["password"]
 configs["redshift_url"] = constants["REDSHIFT_URL"][stack]
@@ -83,6 +84,7 @@ configs["aws_iam_role"] = constants["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
 sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2")
+
 configs["sfai_username"] = sqlserver_secret["username"]
 configs["sfai_password"] = sqlserver_secret["password"]
 configs["sfai_url"] = constants["SFAI_URL"]
