@@ -78,7 +78,7 @@ configs["redshift_url"] = constants["REDSHIFT_URL"][stack]
 configs["redshift_port"] = constants["REDSHIFT_PORT"][stack]
 configs["redshift_dev_group"] = constants["REDSHIFT_DEV_GROUP"][stack]
 configs["redshift_dbname"] = constants["REDSHIFT_DATABASE"][stack]
-configs["redshift_temp_bucket"] = constants["S3_BASE_BUCKET"][stack] + "/redshift_temp/"
+configs["redshift_temp_bucket"] = constants["S3_BASE_BUCKET"][stack] + "redshift_temp/"
 configs["aws_iam_role"] = constants["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
