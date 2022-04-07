@@ -23,49 +23,15 @@
 
 # COMMAND ----------
 
-# Databricks notebook source
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("stack", "")
-dbutils.widgets.text("job_dbfs_path", "")
-
-# COMMAND ----------
-
-# MAGIC %run ../../notebooks/python/common/secrets_manager_utils
-
-# COMMAND ----------
-
 # MAGIC %run ../../notebooks/python/common/database_utils
 
 # COMMAND ----------
 
+# MAGIC %run ../../notebooks/python/common/configs
+
+# COMMAND ----------
+
 # MAGIC %run ../common/plot_helper
-
-# COMMAND ----------
-
-# MAGIC %run ./constants_test
-
-# COMMAND ----------
-
-# retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
-redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-
-# COMMAND ----------
-
-# configs dict setup
-configs = {}
-configs["redshift_username"] = redshift_secrets["username"]
-configs["redshift_password"] = redshift_secrets["password"]
-configs["redshift_url"] = constants["REDSHIFT_URLS"][dbutils.widgets.get("stack")]
-configs["redshift_port"] = constants["REDSHIFT_PORTS"][dbutils.widgets.get("stack")]
-configs["redshift_dbname"] = constants["REDSHIFT_DATABASE"][dbutils.widgets.get("stack")]
-configs["aws_iam_role"] = dbutils.widgets.get("aws_iam_role")
-configs["redshift_temp_bucket"] =  "{}redshift_temp/".format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")])
-configs["sfai_username"] = sqlserver_secrets["username"]
-configs["sfai_password"] = sqlserver_secrets["password"]
-configs["sfai_url"] = constants["SFAI_URL"]
 
 # COMMAND ----------
 
