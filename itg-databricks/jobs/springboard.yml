@@ -2,6 +2,7 @@
 Jobs:
   - actuals-hw
   - ce-split
+  - flash-load
   - hardware-ltf
   - hardware-stf
   - ink-share

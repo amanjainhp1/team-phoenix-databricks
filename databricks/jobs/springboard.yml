@@ -3,6 +3,7 @@ Jobs:
   - actuals-hw
   - ce-split
   - example-job
+  - flash-load
   - hardware-ltf
   - hardware-stf
   - ink-share

@@ -5,6 +5,9 @@ Jobs:
   - ink-share
   - ink-usage-color
   - ink-usage-total
+  - lf-decay
+  - lf-ltf
+  - lf-ltf-splits
   - mdm-nightly-load
   - rdma-full-load
   - redshift-resource-creator
