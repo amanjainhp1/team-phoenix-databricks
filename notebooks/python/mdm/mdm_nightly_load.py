@@ -80,7 +80,3 @@ for result in thread:
 
 if len(failed_jobs) > 0:
     dbutils.notebook.exit("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
-
-# COMMAND ----------
-
-
