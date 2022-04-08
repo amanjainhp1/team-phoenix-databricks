@@ -25,7 +25,7 @@ SELECT
     ,load_date
     ,version
   FROM archive.dbo.ib_archive
-  WHERE version = '2021.12.14.1'
+  WHERE version = '2022.03.29.1'
   
 """
 
