@@ -93,7 +93,7 @@ def write_df_to_s3(df, destination, format, mode):
 
 def call_redshift_addversion_sproc(configs: list, record: str, source_name: str) -> Union[str, datetime]:
     
-    call_addversion_sproc_query = "CALL prod.addversion_sproc('{}', '{}');"
+    call_addversion_sproc_query = "CALL prod.addversion_sproc('{}', '{}');".format(record, source_name)
     
     retrieve_version_query = """
     SELECT 
