@@ -9,7 +9,9 @@ query_list = []
 
 # COMMAND ----------
 
-hwDecay = """
+hw_decay = """
+
+
 with ib_01_filter_vars as (
 
 
@@ -45,34 +47,34 @@ WHERE 1=1
 
 UNION ALL
 
-SELECT 'iink_ib_LTF' AS record
+SELECT 'IINK_IB_LTF' AS record
     , MAX(version) AS version
 FROM "prod"."instant_ink_enrollees_ltf"
 WHERE 1=1
 
 UNION ALL
 
-SELECT 'hardware_ltf_max_date' AS record
+SELECT 'HARDWARE_LTF_MAX_DATE' AS record
     , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
 FROM "prod"."hardware_ltf"
 WHERE 1=1
-    AND record IN ('hw_fcst')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_fcst' AND official = 1)
+    AND record IN ('HW_FCST')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
     AND official = 1
 
 UNION ALL
 
-SELECT 'hardware_ltf_lf_max_date' AS record
+SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
     , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
 FROM "prod"."hardware_ltf"
 WHERE 1=1
-    AND record IN ('hw_ltf_lf')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_ltf_lf' AND official = 1)
+    AND record IN ('HW_LTF_LF')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
     AND official = 1
 
 UNION ALL
 
-SELECT DISTINCT 'prod_norm_ships' AS record
+SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
     , version
 FROM "prod"."norm_shipments"
 WHERE 1=1
@@ -80,7 +82,7 @@ WHERE 1=1
 
 UNION ALL
 
-SELECT 'build_norm_ships' AS record
+SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
 ),  ib_03_norm_shipments_agg as (
 
@@ -95,8 +97,8 @@ SELECT ns.region_5
     , ns.units
 FROM "stage"."norm_ships" AS ns
 JOIN ib_01_filter_vars AS fv
-    ON fv.record = 'build_norm_ships'
-    AND fv.version = CASE WHEN 'build_norm_ships' = 'prod_norm_ships' THEN ns.version ElSE '1.1' END
+    ON fv.record = 'BUILD_NORM_SHIPS'
+    AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ns.platform_subset
 JOIN "mdm"."iso_country_code_xref" AS cc
@@ -118,7 +120,7 @@ SELECT ce.record
 FROM "prod"."ce_splits" AS ce
 WHERE 1=1
     AND ce.official = 1
-    AND ce.record IN ('ce_splits_i-ink', 'ce_splits_i-ink LF')
+    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF')
 ),  ib_02b_ce_splits_filter as (
 
 
@@ -171,7 +173,7 @@ SELECT ns.region_5
     , ns.country_alpha2
     , ns.platform_subset
     , ns.month_begin
-    , COALESCE(ce.split_name, 'Trad') AS split_name
+    , COALESCE(ce.split_name, 'TRAD') AS split_name
     , COALESCE(ce.value, 1.0) AS split_value
     , ns.units * COALESCE(ce.value, 1.0) AS units
 FROM ib_03_norm_shipments_agg AS ns
@@ -207,11 +209,11 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , ucep.platform_subset
 """
 
-query_list.append(["stage.ib_01_hw_decay", hwDecay])
+query_list.append(["stage.ib_01_hw_decay", hw_decay])
 
 # COMMAND ----------
 
-ceSplits = """
+ce_splits = """
 
 
 with ib_07_years as (
@@ -278,7 +280,7 @@ JOIN ib_06_months AS m
     ON 1=1
 WHERE 1=1
     AND d.official = 1
-    AND d.record IN ('hw_decay','hw_decay_lf')
+    AND d.record IN ('HW_DECAY','HW_DECAY_LF')
 ),  ib_09_remaining_amt as (
 
 
@@ -353,7 +355,7 @@ SELECT ce.record
 FROM "prod"."ce_splits" AS ce
 WHERE 1=1
     AND ce.official = 1
-    AND ce.record IN ('ce_splits_i-ink', 'ce_splits_i-ink LF')
+    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF')
 ),  ib_02b_ce_splits_filter as (
 
 
@@ -472,19 +474,19 @@ WHERE 1=1
 FROM ib_12_ce_splits_post
 """
 
-query_list.append(["stage.ib_02_ce_splits", ceSplits])
+query_list.append(["stage.ib_02_ce_splits", ce_splits])
 
 # COMMAND ----------
 
-iinkComplete = """
+iink_complete = """
 
 
 with ib_14_iink_act_stf as (
 
 
 SELECT iiel.platform_subset
-    , cast('I-INK' as char) AS split_name
-    , cast('iink_enrollees' as char) AS type
+    , cast('I-INK' as char(50)) AS split_name
+    , cast('IINK_ENROLLEES' as char(50)) AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , iiel.year_fiscal
     , iiel.year_month AS month_begin
@@ -563,7 +565,7 @@ GROUP BY iink.platform_subset
 
 
 SELECT cal.[Date] AS month_begin
-    , 'market10' AS geography_grain
+    , cast('market10' as char(50)) AS geography_grain
     , stf.market10 AS geography
     , stf.country_alpha2
     , stf.platform_subset
@@ -588,7 +590,7 @@ WHERE 1=1
 
 
 SELECT stf.month_begin
-    , 'market10' AS geography_grain
+    , cast('market10' as char(50)) AS geography_grain
     , stf.market10 AS geography
     , stf.country_alpha2
     , stf.platform_subset
@@ -612,7 +614,7 @@ FROM ib_17_iink_stf_trend AS stf
 
 
 SELECT sys.month_begin
-    , 'market10' AS geography_grain
+    , cast('market10' as char(50)) AS geography_grain
     , iso.market10 AS geography
     , sys.country_alpha2
     , sys.hps_ops
@@ -620,7 +622,7 @@ SELECT sys.month_begin
     , sys.platform_subset
     , sys.printer_installs
     , sys.ib
-    , 'iink_sys' AS type
+    , cast('IINK_SYS' as char(50)) AS type
 FROM "stage"."ib_02_ce_splits" AS sys
 JOIN "mdm"."iso_country_code_xref" AS iso
     ON iso.country_alpha2 = sys.country_alpha2
@@ -661,7 +663,7 @@ SELECT iink.month_begin
     , SUM(iink.p2_kitless_enroll_mod) OVER (PARTITION BY iink.platform_subset, iink.country_alpha2
                                             ORDER BY iink.month_begin ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS p2_kitless_enroll_mod_cum
     , iink.cum_enrollees_month AS ib
-    , 'iink_team_ib' AS type
+    , 'IINK_TEAM_IB' AS type
 FROM ib_18_iink_combined AS iink
 )SELECT month_begin
     , geography_grain
@@ -680,11 +682,11 @@ GROUP BY month_begin
     , platform_subset
 """
 
-query_list.append(["stage.ib_03_iink_complete", iinkComplete])
+query_list.append(["stage.ib_03_iink_complete", iink_complete])
 
 # COMMAND ----------
 
-ibStaging = """
+ib_staging = """
 
 
 with ib_22_iink_ltf_to_split as (
@@ -736,34 +738,34 @@ WHERE 1=1
 
 UNION ALL
 
-SELECT 'iink_ib_LTF' AS record
+SELECT 'IINK_IB_LTF' AS record
     , MAX(version) AS version
 FROM "prod"."instant_ink_enrollees_ltf"
 WHERE 1=1
 
 UNION ALL
 
-SELECT 'hardware_ltf_max_date' AS record
+SELECT 'HARDWARE_LTF_MAX_DATE' AS record
     , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
 FROM "prod"."hardware_ltf"
 WHERE 1=1
-    AND record IN ('hw_fcst')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_fcst' AND official = 1)
+    AND record IN ('HW_FCST')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
     AND official = 1
 
 UNION ALL
 
-SELECT 'hardware_ltf_lf_max_date' AS record
+SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
     , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
 FROM "prod"."hardware_ltf"
 WHERE 1=1
-    AND record IN ('hw_ltf_lf')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'hw_ltf_lf' AND official = 1)
+    AND record IN ('HW_LTF_LF')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
     AND official = 1
 
 UNION ALL
 
-SELECT DISTINCT 'prod_norm_ships' AS record
+SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
     , version
 FROM "prod"."norm_shipments"
 WHERE 1=1
@@ -771,7 +773,7 @@ WHERE 1=1
 
 UNION ALL
 
-SELECT 'build_norm_ships' AS record
+SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
 ),  ib_staging_inputs as (
 
@@ -782,7 +784,7 @@ SELECT 'ib_staging_temp' AS tbl_name
     , GETDATE() AS execute_time
 FROM ib_01_filter_vars
 WHERE 1=1
-    AND record NOT IN ('prod_norm_ships', 'build_norm_ships')
+    AND record NOT IN ('PROD_NORM_SHIPS', 'BUILD_NORM_SHIPS')
 
 UNION ALL
 
@@ -793,13 +795,13 @@ SELECT 'ib_staging_temp' AS tbl_name
     , GETDATE() AS execute_time
 FROM ib_01_filter_vars
 WHERE 1=1
-    AND record IN ('build_norm_ships')
+    AND record IN ('BUILD_NORM_SHIPS')
 ),  ib_14_iink_act_stf as (
 
 
 SELECT iiel.platform_subset
-    , 'I-INK' AS split_name
-    , 'iink_enrollees' AS type
+    , cast('I-INK' as char(50)) AS split_name
+    , cast('IINK_ENROLLEES' as char(50)) AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , iiel.year_fiscal
     , iiel.year_month AS month_begin
@@ -837,12 +839,12 @@ SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.0
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
     , MAX(CASE WHEN ltf.metric = 'P2 enrollees' THEN ltf.value END) AS p2_enrollees
-    , MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END) AS p2_cumulative
+    , MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END)) AS p2_cumulative
     , MAX(CASE WHEN ltf.metric = 'Cumulative' THEN ltf.value END) AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
 JOIN ib_staging_inputs AS fv
     ON fv.version = ltf.version
-    AND fv.record = 'iink_ib_LTF'
+    AND fv.record = 'IINK_IB_LTF'
 JOIN "mdm"."calendar" AS c
         on c.Date = ltf.cal_date
 WHERE 1=1
@@ -905,7 +907,7 @@ WHERE 1=1
 
 
 -- TRAD
-SELECT 'ib_trad' AS record
+SELECT 'IB_TRAD' AS record
     , NULL AS version
     , NULL as load_date
     , ib.month_begin
@@ -934,7 +936,7 @@ WHERE 1=1
 UNION ALL
 
 -- I-INK; acts, stf
-SELECT 'ib_iink' AS record
+SELECT 'IB_IINK' AS record
     , NULL AS version
     , NULL as load_date
     , iink.month_begin
@@ -952,12 +954,12 @@ JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 WHERE 1=1
     AND CAST(iink.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
-    AND hw.technology IN ('LASER','INK','PWA')
+    AND hw.technology IN ('LASER','INK','PWA','LF')
 
 UNION ALL
 
 -- I-INK; ltf
-SELECT 'ib_iink' AS record
+SELECT 'IB_IINK' AS record
     , NULL AS version
     , NULL as load_date
     , iink.month_begin
@@ -976,8 +978,8 @@ JOIN "mdm"."hardware_xref" AS hw
 JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iink.country_alpha2
 WHERE 1=1
-    AND hw.technology IN ('LASER','INK','PWA')
-)SELECT 'ib' AS record
+    AND hw.technology IN ('LASER','INK','PWA','LF')
+)SELECT 'IB' AS record
     , 1 AS version  -- used for scenarios
     , pre.load_date
     , pre.month_begin
@@ -991,10 +993,10 @@ WHERE 1=1
     , CASE WHEN pre.ib <= 0.0 THEN 1e-3 ELSE pre.ib END AS ib
 FROM ib_staging_temp_pre AS pre
 WHERE 1=1
-    AND pre.record IN ('ib_trad', 'ib_iink')
+    AND pre.record IN ('IB_TRAD', 'IB_IINK')
 """
 
-query_list.append(["stage.ib_staging", ibStaging])
+query_list.append(["stage.ib_staging", ib_staging])
 
 # COMMAND ----------
 

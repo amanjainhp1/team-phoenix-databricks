@@ -14,13 +14,18 @@ from pyspark.sql.functions import *
 
 # COMMAND ----------
 
+# MAGIC %run ../../notebooks/python/common/configs
+
+# COMMAND ----------
+
 # globals
-dbutils.widgets.text("secrets_url", "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ")
-dbutils.widgets.text("spark_url", "jdbc:redshift://dataos-core-team-phoenix-itg.hpdataos.com:5439/itg?ssl_verify=None")
-dbutils.widgets.text("redshift_url", "dataos-core-team-phoenix-itg.hpdataos.com")
-dbutils.widgets.text("spark_temp_dir", "s3a://dataos-core-itg-team-phoenix/")
-dbutils.widgets.text("aws_iam", "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix")
-dbutils.widgets.text("spark_format", "com.databricks.spark.redshift")
+spark_format = "com.databricks.spark.redshift"
+secrets_url = constants["REDSHIFT_SECRET_NAME"][stack]
+redshift_url = configs["redshift_url"]
+spark_temp_dir = configs["redshift_temp_bucket"]
+aws_iam = configs["aws_iam_role"]
+redshift_port = configs["redshift_port"]
+redshift_dbname = configs["redshift_dbname"]
 
 # COMMAND ----------
 
@@ -29,8 +34,7 @@ dbutils.widgets.text("spark_format", "com.databricks.spark.redshift")
 # COMMAND ----------
 
 # Secrets Variables
-# redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-redshift_secrets = secrets_get(dbutils.widgets.get("secrets_url"), "us-west-2")
+redshift_secrets = secrets_get(secrets_url, "us-west-2")
 spark.conf.set("username", redshift_secrets["username"])
 spark.conf.set("password", redshift_secrets["password"])
 username = spark.conf.get("username")
@@ -51,13 +55,11 @@ password = spark.conf.get("password")
 
 class RedshiftOut:
     def get_data(self, username, password, table_name, query):
-        print(username)
-        print(password)
         dataDF = spark.read \
-            .format(dbutils.widgets.get("spark_format")) \
-            .option("url", dbutils.widgets.get("spark_url")) \
-            .option("tempdir", dbutils.widgets.get("spark_temp_dir")) \
-            .option("aws_iam_role", dbutils.widgets.get("aws_iam")) \
+            .format(spark_format) \
+            .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(redshift_url, redshift_port, redshift_dbname)) \
+            .option("tempdir", spark_temp_dir) \
+            .option("aws_iam_role", aws_iam) \
             .option("user", username) \
             .option("password", password) \
             .option("query", query) \
@@ -68,11 +70,11 @@ class RedshiftOut:
   
     def save_table(self, dataDF):
         dataDF.write \
-            .format(dbutils.widgets.get("spark_format")) \
-            .option("url", dbutils.widgets.get("spark_url")) \
+            .format(spark_format) \
+            .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(redshift_url, redshift_port, redshift_dbname)) \
             .option("dbtable", table_name) \
-            .option("tempdir", dbutils.widgets.get("spark_temp_dir")) \
-            .option("aws_iam_role", dbutils.widgets.get("aws_iam")) \
+            .option("tempdir", spark_temp_dir) \
+            .option("aws_iam_role", aws_iam) \
             .option("user", username) \
             .option("password", password) \
             .mode("overwrite") \
@@ -97,12 +99,24 @@ class RedshiftOut:
 for obj in query_list:
     table_name = obj[0]
     query = obj[1]
-    read_obj = RedshiftOut()
-    data_df = read_obj.get_data(username, password, table_name, query)
-    read_obj.save_table(data_df)
-    read_obj.submit_remote_query("itg", "5439", username, password, dbutils.widgets.get("redshift_url"), f'GRANT ALL ON {table_name} TO group dev_arch_eng')
+    query_name = table_name.split('.')[1]
+    try:
+        read_obj = RedshiftOut()
+        data_df = read_obj.get_data(username, password, table_name, query)
+        print("Query " + query_name + " retrieved.")
+    except Exception(e):
+        print("Error, query " + query_name + " not retrieved.")
+        print(e)
     
-# TODO add exception with query name/table name
+    try:
+        read_obj.save_table(data_df)
+        read_obj.submit_remote_query(redshift_dbname, redshift_port, username, password, redshift_url, f'GRANT ALL ON {table_name} TO group dev_arch_eng')
+        print("Table " + table_name + " created.\n")
+    except Exception(e):
+        print("Error, table " + table_name + " not created.\n")
+        print(e)
+    
+
 
 # COMMAND ----------
 
