@@ -107,7 +107,7 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
 
 # COMMAND ----------
 
-UPMDate <- Sys.Date() #Change to date if not running on same date as UPM "2019-12-19" #
+UPMDate <- dbutils.widgets.get("upm_date") #Change to date if not running on same date as UPM "2019-12-19" #
 
 sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
 
@@ -645,7 +645,7 @@ final9 <- SparkR::sql('
                 , upm.Decay
                 , upm.Seasonality
                 , upm.Cyclical
-                , upm.MUT
+                --, upm.MUT
                 , upm.Trend
                 , upm.IMPV_Route
                 from UPM upm
@@ -689,8 +689,12 @@ start.time2 <- Sys.time()
 
 # s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
 # s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").parquet"))
-SparkR::write.parquet(x=final9, path=paste0("s3://", aws_bucket_name, "UPMColor_ctry(",Sys.Date(),").parquet"), mode="overwrite")
 
+output_file_name <- paste0("s3://", aws_bucket_name, "UPMColor_ctry(", todaysDate, ").parquet")
+
+SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
+
+print(output_file_name)
 
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
@@ -706,7 +710,3 @@ time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
 
 notebook_end_time <- Sys.time()
 notebook_total_time <- notebook_end_time - notebook_start_time;notebook_total_time
-
-# COMMAND ----------
-
-

@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# Version 2021.11.29.1
+# Version 2022.04.05.1
 # title: "100% IB Ink Share DE with IE 2.0 IB"
 # output:
 #   html_notebook: default
@@ -119,279 +119,28 @@ sfai <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.
 # MAGIC val cutoffDate = dbutils.widgets.get("cutoff_dt")
 # MAGIC 
 # MAGIC val tableMonthQuery = s"""
-# MAGIC            --Share and Usage Splits (Trad)
-# MAGIC WITH sub_a AS (
-# MAGIC 	SELECT printer_id
-# MAGIC 	-- Ref
-# MAGIC 		, CASE
-# MAGIC 			WHEN CHARINDEX(' ',use.platform_subset_reporting_name)=0 THEN use.platform_subset_reporting_name
-# MAGIC 			ELSE LEFT(use.platform_subset_reporting_name,CHARINDEX(' ',use.platform_subset_reporting_name)-1)
-# MAGIC 			END AS printer_short_name
-# MAGIC 		, use.platform_subset_reporting_name AS printer_platform_name
-# MAGIC 		, ref.rdma_platform_subset_name
-# MAGIC 		, use.hp_strategic_region_code AS printer_region_code
-# MAGIC 		, use.derived_country_name
-# MAGIC 		, use.hp_country_common_name
-# MAGIC 		, SUBSTRING(use.fiscal_year_quarter,1,4) AS year
-# MAGIC 		, SUBSTRING(use.fiscal_year_quarter,5,6) AS quarter
-# MAGIC 		, use.date_month_dim_ky
-# MAGIC 		, CASE WHEN use.printer_instant_ink_state = 'ENROLLED' THEN 'I-INK'
-# MAGIC 		       WHEN use.printer_instant_ink_state = 'SUBSCRIBED' THEN 'I-INK'
-# MAGIC 		       ELSE 'TRAD'
-# MAGIC 		       END
-# MAGIC 		       AS printer_managed
-# MAGIC 		, use.product_price_range
-# MAGIC 		, use.product_technology_type
-# MAGIC 		, use.product_technology_split
-# MAGIC 		, ref.platform_name
-# MAGIC 		, TRIM(regexp_replace(ref.product_model_name,'[0-9]+')) AS product_model_name
-# MAGIC 		, ref.product_line_code
-# MAGIC 		, ref.product_function_code
-# MAGIC 		, ref.product_business_model
-# MAGIC 	-- Black CCs
-# MAGIC 		, COALESCE(use.k_total_cc,0) AS k_total
-# MAGIC 		, COALESCE(use.k_no_host_cc,0) AS k_no_host
-# MAGIC 		, COALESCE(use.k_host_cc,0) AS k_host		
-# MAGIC 		, COALESCE(use.k_hp_cc,0) AS k_hp
-# MAGIC 		, COALESCE(use.k_refill_cc,0) AS k_refill
-# MAGIC 		, COALESCE(use.k_altered_cc,0) AS k_reman
-# MAGIC 		, COALESCE(use.k_emulated_cc,0) AS k_clone
-# MAGIC 		, k_refill+k_reman+k_clone AS k_nohp
-# MAGIC 	-- Cyan CCs
-# MAGIC 		, COALESCE(use.c_total_cc,0) AS c_total
-# MAGIC 		, COALESCE(use.c_no_host_cc,0) AS c_no_host
-# MAGIC 		, COALESCE(use.c_host_cc,0) AS c_host
-# MAGIC 		, COALESCE(use.c_hp_cc,0) AS c_hp
-# MAGIC 		, COALESCE(use.c_refill_cc,0) AS c_refill
-# MAGIC 		, COALESCE(use.c_altered_cc,0) AS c_reman
-# MAGIC 		, COALESCE(use.c_emulated_cc,0) AS c_clone		
-# MAGIC 		, c_refill+c_reman+c_clone AS c_nohp
-# MAGIC 	-- Magenta CCs		
-# MAGIC 		, COALESCE(use.m_total_cc,0) AS m_total
-# MAGIC 		, COALESCE(use.m_no_host_cc,0) AS m_no_host
-# MAGIC 		, COALESCE(use.m_host_cc,0) AS m_host
-# MAGIC 		, COALESCE(use.m_hp_cc,0) AS m_hp
-# MAGIC 		, COALESCE(use.m_refill_cc,0) AS m_refill
-# MAGIC 		, COALESCE(use.m_altered_cc,0) AS m_reman
-# MAGIC 		, COALESCE(use.m_emulated_cc,0) AS m_clone
-# MAGIC 		, m_refill+m_reman+m_clone AS m_nohp
-# MAGIC 	-- Yellow CCs
-# MAGIC 		, COALESCE(use.y_total_cc,0) AS y_total
-# MAGIC 		, COALESCE(use.y_no_host_cc,0) AS y_no_host
-# MAGIC 		, COALESCE(use.y_host_cc,0) AS y_host
-# MAGIC 		, COALESCE(use.y_hp_cc,0) AS y_hp
-# MAGIC 		, COALESCE(use.y_refill_cc,0) AS y_refill
-# MAGIC 		, COALESCE(use.y_altered_cc,0) AS y_reman
-# MAGIC 		, COALESCE(use.y_emulated_cc,0) AS y_clone
-# MAGIC 		, y_refill+y_reman+y_clone AS y_nohp
-# MAGIC 	-- Photo Black CCs
-# MAGIC 		, COALESCE(use.lk_total_cc,0) AS lk_total
-# MAGIC 		, COALESCE(use.lk_no_host_cc,0) AS lk_no_host
-# MAGIC 		, COALESCE(use.lk_host_cc,0) AS lk_host
-# MAGIC 		, COALESCE(use.lk_hp_cc,0) AS lk_hp
-# MAGIC 		, COALESCE(use.lk_refill_cc,0) AS lk_refill
-# MAGIC 		, COALESCE(use.lk_altered_cc,0) AS lk_reman
-# MAGIC 		, COALESCE(use.lk_emulated_cc,0) AS lk_clone
-# MAGIC 		, lk_refill+lk_reman+lk_clone AS lk_nohp		
-# MAGIC 	-- Color CCs
-# MAGIC 		, c_total+m_total+y_total+lk_total AS col_total
-# MAGIC 		, c_no_host+m_no_host+y_no_host+lk_no_host AS col_no_host
-# MAGIC 		, c_host+m_host+y_host+lk_host AS col_host
-# MAGIC 		, c_hp+m_hp+y_hp+lk_hp AS col_hp
-# MAGIC 		, c_refill+m_refill+y_refill+lk_refill AS col_refill
-# MAGIC 		, c_reman+m_reman+y_reman+lk_reman AS col_reman
-# MAGIC 		, c_clone+m_clone+y_clone+lk_clone AS col_clone
-# MAGIC 		, c_nohp+m_nohp+y_nohp+lk_nohp AS col_nohp		
-# MAGIC 	-- Total CCs
-# MAGIC 		, k_total+col_total AS tot_cc
-# MAGIC 		, COALESCE(use.total_cc,0) AS total_cc_check
-# MAGIC 	-- Total No Host CCs
-# MAGIC 		, k_no_host+col_no_host AS tot_no_host_cc
-# MAGIC 		, COALESCE(use.total_no_host_cc,0) AS total_no_host_cc_check		
-# MAGIC 	-- HP CCs
-# MAGIC 		, k_hp+c_hp+m_hp+y_hp+lk_hp AS tot_hp
-# MAGIC 		, COALESCE(use.hp_cc,0) AS hp_cc_check		
-# MAGIC 	-- HP Inserted CCs
-# MAGIC 		, COALESCE(use.fw_hp_ink_inserted_cc,0) AS inserted_hp_cc		
-# MAGIC 	-- Total Pages
-# MAGIC 		, COALESCE(use.pages_total,0) AS total_pages		
-# MAGIC 	-- Other
-# MAGIC 		, use.days
-# MAGIC 		, use.ib_weight*use.ratio_month1_filter AS ib_weight_m1_adj	
-# MAGIC 		, use.ib_weight
-# MAGIC 	FROM cumulus_prod02_biz_trans.biz_trans.idst_print_share_usage use
-# MAGIC 	LEFT OUTER JOIN cumulus_prod02_ref_enrich.ref_enrich.product_ref ref
-# MAGIC 		ON (use.product_number=ref.product_number)
-# MAGIC 	WHERE 1=1
-# MAGIC 		AND month_order > 1
-# MAGIC     AND printer_months >= 100 AND ib_weight*ratio_month1_filter <= 1000
-# MAGIC     AND loyalty_subclass IN ('Host','HP Loyal','Disloyal','Defector','Non-HP Only','Suspect')
-# MAGIC     AND use.product_technology_split NOT IN ('TIJ_2.XG1','TIJ_2.XG2 BCP','TIJ_2.XG2 MATURE','TIJ_2.XG3 GEO OJ','TIJ_2.XG3 GEO OJ MMOTR','TIJ_2.XG3 GEO STD','TIJ_2.XG3 GEO STD MMOTR','TIJ_4.0 GEKKO','TIJ_4.0 MPENNY','TIJ_4.0 OASIS GHID')
-# MAGIC     AND use.product_number NOT IN ('Y0G49B','Z3M46B') -- Cancelled SKU's intended for EU (CO does not want them in our data)
-# MAGIC 		AND use.share_printer_filter = 'New'
-# MAGIC 		  --Remove if on Restricted Country List (Cuba, Iran, Sudan, Syria, North Korea) or no Market Ten mapping (Antarctica, Netherlands Antilles) 
-# MAGIC     AND use.hp_country_common_name NOT IN ('CUBA','IRAN, ISLAMIC REPUBLIC OF','SUDAN','SYRIAN ARAB REPUBLIC','ANTARCTICA','NETHERLANDS ANTILLES')
-# MAGIC     --AND use.ciss_printer=0  ---CISS included 
-# MAGIC 
-# MAGIC      )
-# MAGIC , sub_b AS (
-# MAGIC 	SELECT
-# MAGIC 	-- Ref
-# MAGIC 		--printer_short_name
-# MAGIC 		printer_platform_name
-# MAGIC 		, rdma_platform_subset_name
-# MAGIC 		, printer_region_code
-# MAGIC 		, derived_country_name
-# MAGIC 		, hp_country_common_name
-# MAGIC 		, year
-# MAGIC 		, quarter
-# MAGIC 		, date_month_dim_ky
-# MAGIC 		, printer_managed
-# MAGIC 		--, product_price_range
-# MAGIC 		--, product_technology_type
-# MAGIC 		--, product_technology_split
-# MAGIC 		--, platform_name
-# MAGIC 		--, product_model_name
-# MAGIC 		--, product_line_code
-# MAGIC 		--, product_function_code
-# MAGIC 		--, product_business_model
-# MAGIC 	-- Black CCs
-# MAGIC 		, ROUND(SUM(k_total*ib_weight_m1_adj),2) AS k_total_cc_sum	
-# MAGIC 		, ROUND(SUM(k_no_host*ib_weight_m1_adj),2) AS k_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(k_host*ib_weight_m1_adj),2) AS k_host_cc_sum
-# MAGIC 		, ROUND(SUM(k_hp*ib_weight_m1_adj),2) AS k_hp_cc_sum
-# MAGIC 		, ROUND(SUM(k_refill*ib_weight_m1_adj),2) AS k_refill_cc_sum
-# MAGIC 		, ROUND(SUM(k_reman*ib_weight_m1_adj),2) AS k_reman_cc_sum
-# MAGIC 		, ROUND(SUM(k_clone*ib_weight_m1_adj),2) AS k_clone_cc_sum	
-# MAGIC 		, ROUND(SUM(k_nohp*ib_weight_m1_adj),2) AS k_nohp_cc_sum		
-# MAGIC 	-- Cyan CCs
-# MAGIC 		, ROUND(SUM(c_total*ib_weight_m1_adj),2) AS c_total_cc_sum	
-# MAGIC 		, ROUND(SUM(c_no_host*ib_weight_m1_adj),2) AS c_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(c_host*ib_weight_m1_adj),2) AS c_host_cc_sum
-# MAGIC 		, ROUND(SUM(c_hp*ib_weight_m1_adj),2) AS c_hp_cc_sum
-# MAGIC 		, ROUND(SUM(c_refill*ib_weight_m1_adj),2) AS c_refill_cc_sum
-# MAGIC 		, ROUND(SUM(c_reman*ib_weight_m1_adj),2) AS c_reman_cc_sum
-# MAGIC 		, ROUND(SUM(c_clone*ib_weight_m1_adj),2) AS c_clone_cc_sum
-# MAGIC 		, ROUND(SUM(c_nohp*ib_weight_m1_adj),2) AS c_nohp_cc_sum	
-# MAGIC 	-- Magenta CCs		
-# MAGIC 		, ROUND(SUM(m_total*ib_weight_m1_adj),2) AS m_total_cc_sum		
-# MAGIC 		, ROUND(SUM(m_no_host*ib_weight_m1_adj),2) AS m_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(m_host*ib_weight_m1_adj),2) AS m_host_cc_sum
-# MAGIC 		, ROUND(SUM(m_hp*ib_weight_m1_adj),2) AS m_hp_cc_sum
-# MAGIC 		, ROUND(SUM(m_refill*ib_weight_m1_adj),2) AS m_refill_cc_sum
-# MAGIC 		, ROUND(SUM(m_reman*ib_weight_m1_adj),2) AS m_reman_cc_sum
-# MAGIC 		, ROUND(SUM(m_clone*ib_weight_m1_adj),2) AS m_clone_cc_sum
-# MAGIC 		, ROUND(SUM(m_nohp*ib_weight_m1_adj),2) AS m_nohp_cc_sum
-# MAGIC 	-- Yellow CCs
-# MAGIC 		, ROUND(SUM(y_total*ib_weight_m1_adj),2) AS y_total_cc_sum
-# MAGIC 		, ROUND(SUM(y_no_host*ib_weight_m1_adj),2) AS y_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(y_host*ib_weight_m1_adj),2) AS y_host_cc_sum
-# MAGIC 		, ROUND(SUM(y_hp*ib_weight_m1_adj),2) AS y_hp_cc_sum
-# MAGIC 		, ROUND(SUM(y_refill*ib_weight_m1_adj),2) AS y_refill_cc_sum
-# MAGIC 		, ROUND(SUM(y_reman*ib_weight_m1_adj),2) AS y_reman_cc_sum
-# MAGIC 		, ROUND(SUM(y_clone*ib_weight_m1_adj),2) AS y_clone_cc_sum
-# MAGIC 		, ROUND(SUM(y_nohp*ib_weight_m1_adj),2) AS y_nohp_cc_sum		
-# MAGIC 	-- Photo Black CCs
-# MAGIC 		, ROUND(SUM(lk_total*ib_weight_m1_adj),2) AS lk_total_cc_sum
-# MAGIC 		, ROUND(SUM(lk_no_host*ib_weight_m1_adj),2) AS lk_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(lk_host*ib_weight_m1_adj),2) AS lk_host_cc_sum
-# MAGIC 		, ROUND(SUM(lk_hp*ib_weight_m1_adj),2) AS lk_hp_cc_sum
-# MAGIC 		, ROUND(SUM(lk_refill*ib_weight_m1_adj),2) AS lk_refill_cc_sum
-# MAGIC 		, ROUND(SUM(lk_reman*ib_weight_m1_adj),2) AS lk_reman_cc_sum
-# MAGIC 		, ROUND(SUM(lk_clone*ib_weight_m1_adj),2) AS lk_clone_cc_sum
-# MAGIC 		, ROUND(SUM(lk_nohp*ib_weight_m1_adj),2) AS lk_nohp_cc_sum		
-# MAGIC 	-- Color CCs
-# MAGIC 		, ROUND(SUM(col_total*ib_weight_m1_adj),2) AS col_total_cc_sum	
-# MAGIC 		, ROUND(SUM(col_no_host*ib_weight_m1_adj),2) AS col_no_host_cc_sum	
-# MAGIC 		, ROUND(SUM(col_host*ib_weight_m1_adj),2) AS col_host_cc_sum	
-# MAGIC 		, ROUND(SUM(col_hp*ib_weight_m1_adj),2) AS col_hp_cc_sum	
-# MAGIC 		, ROUND(SUM(col_refill*ib_weight_m1_adj),2) AS col_refill_cc_sum	
-# MAGIC 		, ROUND(SUM(col_reman*ib_weight_m1_adj),2) AS col_reman_cc_sum	
-# MAGIC 		, ROUND(SUM(col_clone*ib_weight_m1_adj),2) AS col_clone_cc_sum	
-# MAGIC 		, ROUND(SUM(col_nohp*ib_weight_m1_adj),2) AS col_nohp_cc_sum		
-# MAGIC 	-- Total CCs
-# MAGIC 		, ROUND(SUM(tot_cc*ib_weight_m1_adj),2) AS tot_cc_sum
-# MAGIC 		, ROUND(SUM(total_cc_check*ib_weight_m1_adj),2) AS total_cc_check_sum
-# MAGIC 	-- Total No Host CCs
-# MAGIC 		, ROUND(SUM(tot_no_host_cc*ib_weight_m1_adj),2) AS tot_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(total_no_host_cc_check*ib_weight_m1_adj),2) AS total_no_host_cc_check_sum		
-# MAGIC 	-- HP CCs
-# MAGIC 		, ROUND(SUM(tot_hp*ib_weight_m1_adj),2) AS tot_hp_cc_sum
-# MAGIC 		, ROUND(SUM(hp_cc_check*ib_weight_m1_adj),2) AS hp_cc_check_sum	
-# MAGIC 	-- HP Inserted CCs
-# MAGIC 		, ROUND(SUM(inserted_hp_cc*ib_weight_m1_adj),2) AS inserted_hp_cc_sum		
-# MAGIC 	-- Total Pages
-# MAGIC 		, ROUND(SUM(total_pages*ib_weight_m1_adj),2) AS total_pages_sum		
-# MAGIC 	-- Other
-# MAGIC 		, SUM(days*ib_weight_m1_adj) AS days_ib_ext_sum
-# MAGIC 		, COUNT(DISTINCT printer_id) AS printer_count
-# MAGIC 		, sum(ib_weight) as ib_weight
-# MAGIC 	FROM sub_a  
-# MAGIC 	WHERE 1=1
-# MAGIC 		--AND printer_managed = 'TRADITIONAL'
-# MAGIC 	GROUP BY
-# MAGIC 		--printer_short_name
-# MAGIC 		printer_platform_name
-# MAGIC 		, rdma_platform_subset_name
-# MAGIC 		, printer_region_code
-# MAGIC 		, derived_country_name
-# MAGIC 		, hp_country_common_name
-# MAGIC 		, year
-# MAGIC 		, quarter
-# MAGIC 		, date_month_dim_ky
-# MAGIC 		, printer_managed
-# MAGIC 		--, product_price_range
-# MAGIC 		--, product_technology_type
-# MAGIC 		--, product_technology_split
-# MAGIC 		--, platform_name
-# MAGIC 		--, product_model_name
-# MAGIC 		--, product_line_code
-# MAGIC 		--, product_function_code
-# MAGIC 		--, product_business_model
-# MAGIC )
+# MAGIC --Share and Usage Splits (Trad)
 # MAGIC SELECT 
-# MAGIC -- Ref
-# MAGIC 	--printer_short_name
 # MAGIC 	printer_platform_name
-# MAGIC 	, rdma_platform_subset_name
 # MAGIC 	, printer_region_code
-# MAGIC 	, derived_country_name as country_alpha2
+# MAGIC 	, country_alpha2
 # MAGIC 	, hp_country_common_name
 # MAGIC 	, year
 # MAGIC 	, quarter
 # MAGIC 	, date_month_dim_ky
 # MAGIC 	, printer_managed
-# MAGIC 	--, product_price_range
-# MAGIC 	--, product_technology_type
-# MAGIC 	--, product_technology_split
-# MAGIC 	--, platform_name
-# MAGIC 	--, product_model_name
-# MAGIC 	--, product_line_code
-# MAGIC 	--, product_function_code
-# MAGIC 	--, product_business_model
-# MAGIC 	, tot_hp_cc_sum/nullif(tot_no_host_cc_sum,0) AS hp_share
-# MAGIC 	, tot_hp_cc_sum as ps_num
-# MAGIC   , tot_no_host_cc_sum as ps_den
-# MAGIC 	, k_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS black_cc_ib_wtd_avg
-# MAGIC 	, col_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS color_cc_ib_wtd_avg
-# MAGIC 	, c_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS cyan_cc_ib_wtd_avg
-# MAGIC 	, m_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS magenta_cc_ib_wtd_avg
-# MAGIC 	, y_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS yellow_cc_ib_wtd_avg
-# MAGIC 	, tot_cc_sum/nullif((days_ib_ext_sum/30.4),0) as tot_cc_ib_wtd_avg
-# MAGIC 	, total_pages_sum/nullif((days_ib_ext_sum/30.4),0) AS total_pages_ib_wtd_avg
-# MAGIC 	, col_total_cc_sum/nullif(col_total_cc_sum+k_total_cc_sum,0) AS pct_color
-# MAGIC 	, printer_count AS reporting_printers
-# MAGIC 	, ib_weight
-# MAGIC FROM sub_b
-# MAGIC WHERE 1=1
-# MAGIC 	--AND printer_platform_name = 'CESAR'
-# MAGIC 	--AND printer_region_code = 'EU'
-# MAGIC 	--AND date_month_dim_ky = '201905'
-# MAGIC 	AND date_month_dim_ky < ${cutoffDate}
-# MAGIC 	--AND printer_managed != 'ENROLLED' #decision to include enrolled as i-ink
-# MAGIC ORDER BY date_month_dim_ky
-# MAGIC 	, printer_region_code
-# MAGIC 	, printer_platform_name
+# MAGIC 	, hp_share
+# MAGIC 	, black_cc_ib_wtd_avg
+# MAGIC 	, color_cc_ib_wtd_avg
+# MAGIC 	, cyan_cc_ib_wtd_avg
+# MAGIC 	, magenta_cc_ib_wtd_avg
+# MAGIC 	, yellow_cc_ib_wtd_avg
+# MAGIC 	, tot_cc_ib_wtd_avg
+# MAGIC 	, total_pages_ib_wtd_avg
+# MAGIC		, pct_color	 
+# MAGIC 	, reporting_printers
+# MAGIC     , connected_ib
+# MAGIC	FROM cumulus_prod02_biz_trans.biz_trans.v_print_share_usage_forecasting
 # MAGIC """
 # MAGIC 
 # MAGIC val tableMonth = readRedshiftToDF(configs)

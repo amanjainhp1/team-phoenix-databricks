@@ -35,7 +35,7 @@ tableDF.createOrReplaceTempView("tableDF")
 
 val inputTableCols = tableDF.columns.map(x => x.toLowerCase)
 
-val schema = if(List("decay", "hardware_ltf", "version").contains(configs("table"))) "prod" else "mdm"
+val schema = if(List("ce_splits", "decay", "hardware_ltf", "instant_ink_enrollees", "instant_ink_enrollees_ltf", "version").contains(configs("table"))) "prod" else "mdm"
 
 val outputTableCols = readRedshiftToDF(configs)
   .option("dbtable", s"""${schema}.${configs("table")}""")
@@ -44,7 +44,7 @@ val outputTableCols = readRedshiftToDF(configs)
 
 var query = "SELECT \n"
 
-for (col <- outputTableCols; if (!(List("cal_id", "decay_id", "geo_id", "hw_ltf_id", "iso_cc_id", "pl_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
+for (col <- outputTableCols; if (!(List("cal_id", "ce_splits_id", "decay_id", "geo_id", "hw_ltf_id", "iink_enrollees_id", "iink_ltf_id", "iso_cc_id", "pl_id", "printer_lag_id", "profit_center_id", "rdma_id", "sup_hw_id", "sup_xref_id", "yield_id").contains(col)))) {
   if (col == "id" && configs("table") == "hardware_xref") {} else {
     if (inputTableCols.contains(col)) {
       query = query + col
@@ -53,6 +53,7 @@ for (col <- outputTableCols; if (!(List("cal_id", "decay_id", "geo_id", "hw_ltf_
       if (col == "last_modified_date") query = query + "load_date AS last_modified_date"
       if (col == "profit_center_code" && configs("table") == "product_line_xref") query = query + "profit_center AS profit_center_code"
       if (col == "load_date") query = query + s"""CAST(\"${configs("redshiftTimestamp")}\" AS TIMESTAMP) AS load_date"""
+      if (col == "record" && configs("table") == "instant_ink_enrollees_ltf")  query = query + "'iink_enrollees_ltf' AS record"
     }
     
     if (outputTableCols.dropRight(1).contains(col)) query = query + ","
@@ -66,11 +67,11 @@ val finalTableDF = spark.sql(query + "FROM tableDF")
 // COMMAND ----------
 
 // write data to S3
-writeDFToS3(finalTableDF, s"s3a://dataos-core-${stack}-team-phoenix/landing/${configs("table")}/${configs("datestamp")}/${configs("timestamp")}/", "csv", "overwrite")
+writeDFToS3(finalTableDF, s"""s3a://dataos-core-${configs("stack")}-team-phoenix/landing/${configs("table")}/${configs("datestamp")}/${configs("timestamp")}/""", "csv", "overwrite")
 
 // truncate existing redshift data and
 // write data to redshift
-writeDFToRedshift(configs, finalTableDF, s"${configs("stack")}.${configs("table")}", "append", "CSV GZIP", "", s"TRUNCATE ${schema}.${configs("table")}")
+writeDFToRedshift(configs, finalTableDF, s"""${schema}.${configs("table")}""", "append", "CSV GZIP", "", s"""TRUNCATE ${schema}.${configs("table")}""")
 
 // COMMAND ----------
 

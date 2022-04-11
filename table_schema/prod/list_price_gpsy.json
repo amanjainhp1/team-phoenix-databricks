@@ -1,53 +1,60 @@
 {
   "fields": [
     {
-      "description": "record",
-      "name": "record",
+      "description": "product_number",
+      "name": "product_number",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "source_name",
-      "name": "source_name",
+      "description": "country_code",
+      "name": "country_code",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "geo",
-      "name": "geo",
+      "description": "currency_code",
+      "name": "currency_code",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "geo_type",
-      "name": "geo_type",
+      "description": "price_term_code",
+      "name": "price_term_code",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "base_prod_number",
-      "name": "base_prod_number",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "date",
-      "name": "date",
+      "description": "price_start_effective_date",
+      "name": "price_start_effective_date",
       "type": "DATE",
       "nullable": true,
       "encode": "az64"
     },
     {
-      "description": "units",
-      "name": "units",
-      "type": "DOUBLE PRECISION",
+      "description": "qbl_sequence_number",
+      "name": "qbl_sequence_number",
+      "type": "INT4",
       "nullable": true,
       "encode": "raw"
+    },
+    {
+      "description": "list_price",
+      "name": "list_price",
+      "type": "FLOAT8",
+      "nullable": true,
+      "encode": "raw"
+    },
+    {
+      "description": "product_line",
+      "name": "product_line",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
     },
     {
       "description": "load_date",

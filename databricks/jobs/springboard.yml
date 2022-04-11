@@ -3,6 +3,7 @@ Jobs:
   - actuals-hw
   - ce-split
   - example-job
+  - flash-load
   - hardware-ltf
   - hardware-stf
   - ink-share
@@ -19,3 +20,6 @@ Jobs:
   - toner-usage-color
   - toner-usage-total
   - wd3-load
+
+DeleteJobs:
+  - table-creator

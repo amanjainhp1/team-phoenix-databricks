@@ -46,15 +46,18 @@ val currentTime = new CurrentTime
 var notebooks: Seq[NotebookData] = Seq()
 
 val tables: Seq[String] = Seq("calendar",
+                              "ce_splits",
                               "decay",
                               "hardware_xref",
+                              "instant_ink_enrollees",
+                              "instant_ink_enrollees_ltf",
                               "iso_cc_rollup_xref",
                               "iso_country_code_xref",
+                              "printer_lag",
                               "product_line_xref",
                               "profit_center_code_xref",
                               "supplies_hw_mapping",
                               "supplies_xref",
-                              "version",
                               "yield")
 
 var configs: Map[String, String] = Map()

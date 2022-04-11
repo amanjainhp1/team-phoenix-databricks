@@ -1,7 +1,12 @@
 # Databricks notebook source
 import json
-with open(f"""{dbutils.widgets.get("job_dbfs_path")}configs/constants.json""") as json_file:
-  constants=json.load(json_file)
+
+with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
+  constants = json.load(json_file)
+
+# COMMAND ----------
+
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
@@ -9,42 +14,46 @@ with open(f"""{dbutils.widgets.get("job_dbfs_path")}configs/constants.json""") a
 
 # COMMAND ----------
 
-import pyspark.sql.functions as func
-from pyspark.sql.functions import *
- 
 redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-spark.conf.set("redshift_username", redshift_secrets["username"])
-spark.conf.set("redshift_password", redshift_secrets["password"])
+redshift_username = redshift_secrets["username"]
+redshift_password = redshift_secrets["password"]
 
 sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-spark.conf.set("sfai_username", sqlserver_secrets["username"])
-spark.conf.set("sfai_password", sqlserver_secrets["password"])
+sqlserver_username = sqlserver_secrets["username"]
+sqlserver_password = sqlserver_secrets["password"]
 
 # COMMAND ----------
 
-dev_rs_url=constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
-dev_rs_dbname=dbutils.widgets.get("stack")
-dev_rs_user_ref=spark.conf.get("redshift_username")
-dev_rs_pw_ref=spark.conf.get("redshift_password")
-dev_jdbc_url_ref = "jdbc:redshift://{}/{}?user={}&password={}&ssl=true&sslfactory=com.amazon.redshift.ssl.NonValidatingFactory".format(dev_rs_url, dev_rs_dbname, dev_rs_user_ref, dev_rs_pw_ref)
-s3_bucket = "s3a://dataos-core-{}-team-phoenix/redshift_temp".format(dev_rs_dbname)
-dev_iam = dbutils.widgets.get("aws_iam_role")
+configs = {}
 
-def getDataByTable(table): 
-  return  (spark.read.format("com.databricks.spark.redshift") \
-          .option("forward_spark_s3_credentials","true")\
-          .option("url", dev_jdbc_url_ref)\
-          .option("dbtable",table)\
-          .option("tempdir",s3_bucket)\
-          .load())
+configs["redshift_username"] = redshift_secrets["username"]
+configs["redshift_password"] = redshift_secrets["password"]
+configs["redshift_url"] = constants["REDSHIFT_URLS"][dbutils.widgets.get("stack")]
+configs["redshift_port"] = constants["REDSHIFT_PORTS"][dbutils.widgets.get("stack")]
+configs["redshift_dbname"] = constants["REDSHIFT_DATABASE"][dbutils.widgets.get("stack")]
+configs["aws_iam_role"] = dbutils.widgets.get("aws_iam_role")
+configs["redshift_temp_bucket"] =  "{}redshift_temp/".format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")])
+configs["redshift_dev_group"] = constants["REDSHIFT_DEV_GROUP"][dbutils.widgets.get("stack")]
+
+configs["sfai_username"] = sqlserver_secrets["username"]
+configs["sfai_password"] = sqlserver_secrets["password"]
+configs["sfai_url"] = constants["SFAI_URL"]
 
 # COMMAND ----------
 
-instant_ink_enrollees_df = getDataByTable('prod.instant_ink_enrollees')
-country_code_xref_df = getDataByTable('mdm.iso_country_code_xref')
-hardware_xref_df = getDataByTable('mdm.hardware_xref')
-norm_shipments_df = getDataByTable('prod.norm_shipments')
-calendar_df = getDataByTable('mdm.calendar')
+def get_data_by_table(table):
+    df = read_redshift_to_df(configs) \
+        .option("dbtable", table) \
+        .load()
+    return df
+
+# COMMAND ----------
+
+instant_ink_enrollees_df = get_data_by_table('prod.instant_ink_enrollees')
+country_code_xref_df = get_data_by_table('mdm.iso_country_code_xref')
+hardware_xref_df = get_data_by_table('mdm.hardware_xref')
+norm_shipments_df = get_data_by_table('prod.norm_shipments')
+calendar_df = get_data_by_table('mdm.calendar')
 
 instant_ink_enrollees_df.createOrReplaceTempView('instant_ink_enrollees_df_view')
 country_code_xref_df.createOrReplaceTempView('country_code_xref_df_view')
@@ -150,9 +159,9 @@ ce_greater_one_df.createOrReplaceTempView('ce_greater_one_df_view')
 
 # COMMAND ----------
 
-ce_greater_one_df=(ce_greater_one_df
-                                  .withColumnRenamed('platform_subset','platform_subsett')
-                                  .withColumnRenamed('country','countryy')
+ce_greater_one_df=(ce_greater_one_df \
+                                  .withColumnRenamed('platform_subset','platform_subsett') \
+                                  .withColumnRenamed('country','countryy') \
                                   .withColumnRenamed('year_month','year_monthh'))
 
 # COMMAND ----------
@@ -230,7 +239,6 @@ tot.createOrReplaceTempView('tot_view')
 
 # COMMAND ----------
 
-from pyspark.sql.functions import *
 query3 = '''
   Select tot.platform_subset, tot.predecessor, tot.region_5, tot.country_alpha2, tot.min_date as npi_start_date, tot.units, ce.split_name, ce.min_date as pred_start_date,  months_between(ce.min_date,tot.min_date) as month_offset
   from tot_view tot
@@ -324,21 +332,5 @@ final_ce=final_ce.select('record','platform_subset','region_5','country_alpha2',
 
 # COMMAND ----------
 
-url = """jdbc:redshift://{}:5439/{}?ssl_verify=None""".format(constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")],dbutils.widgets.get("stack"))
-spark.conf.set('url', url)
-
-# COMMAND ----------
-
 # write data to redshift
-final_ce.write \
-  .format("com.databricks.spark.redshift") \
-  .option("url", url) \
-  .option("dbtable", "prod.ce_splits") \
-  .option("tempdir", f"""s3a://dataos-core-{dbutils.widgets.get("stack")}-team-phoenix/redshift_temp/""") \
-  .option("aws_iam_role", dbutils.widgets.get("aws_iam_role")) \
-  .option("tempformat", "CSV") \
-  .option("user", dev_rs_user_ref) \
-  .option("password", dev_rs_pw_ref) \
-  .option("postactions","GRANT ALL ON prod.ce_splits TO group dev_arch_eng") \
-  .mode("append") \
-  .save()
+write_df_to_redshift(configs, final_ce, "prod.ce_splits", "append")
