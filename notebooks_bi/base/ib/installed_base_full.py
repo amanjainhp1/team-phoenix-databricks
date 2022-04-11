@@ -9,7 +9,7 @@ query_list = []
 
 # COMMAND ----------
 
-hw_decay = """
+ce_splits_pre = """
 
 
 with ib_01_filter_vars as (
@@ -164,10 +164,7 @@ JOIN ib_02b_ce_splits_filter AS f
 WHERE 1=1
     AND ce.pre_post_flag = 'PRE'
     AND f.load_select = 1
-),  ib_04_units_ce_splits_pre as (
-
-
-SELECT ns.region_5
+)SELECT ns.region_5
     , ns.market10
     , ns.hps_ops
     , ns.country_alpha2
@@ -184,7 +181,16 @@ LEFT JOIN ib_02c_ce_splits_final AS ce
     AND ce.pre_post_flag = 'PRE'  -- filter to only PRE splits
     AND ce.value > 0  -- filter out rows where value = 0 (this is just adding rows and not information)
 WHERE 1=1
-)SELECT CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month, ucep.month_begin) AS INTEGER) + pl.month_lag - 1) / 12 AS year
+"""
+
+query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre])
+
+# COMMAND ----------
+
+hw_decay = """
+
+
+SELECT CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month, ucep.month_begin) AS INTEGER) + pl.month_lag - 1) / 12 AS year
     , ((CAST(DATEPART(month, ucep.month_begin) AS INTEGER) - 1 + pl.month_lag) % 12) + 1 AS month
     , ucep.region_5
     , ucep.market10
@@ -193,7 +199,7 @@ WHERE 1=1
     , ucep.split_name
     , ucep.platform_subset
     , SUM(ucep.units * pl.value) AS printer_installs
-FROM ib_04_units_ce_splits_pre AS ucep
+FROM "stage"."ib_04_units_ce_splits_pre" AS ucep
 JOIN "mdm"."printer_lag" AS pl  -- implicit cross join (or cartesian product)
     ON ucep.region_5 = pl.region_5
     AND ucep.hps_ops = pl.hps_ops
