@@ -14,7 +14,7 @@ import json
 notebooks = []
 
 try:
-    tables = json.load(dbutils.widgets.get("tables"))
+    tables = json.loads(dbutils.widgets.get("tables"))
 except:
     tables = json.loads("""
         {
