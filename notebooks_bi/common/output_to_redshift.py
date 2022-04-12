@@ -26,6 +26,7 @@ spark_temp_dir = configs["redshift_temp_bucket"]
 aws_iam = configs["aws_iam_role"]
 redshift_port = configs["redshift_port"]
 redshift_dbname = configs["redshift_dbname"]
+redshift_dev_group = configs["redshift_dev_group"]
 
 # COMMAND ----------
 
@@ -110,7 +111,7 @@ for obj in query_list:
     
     try:
         read_obj.save_table(data_df)
-        read_obj.submit_remote_query(redshift_dbname, redshift_port, username, password, redshift_url, f'GRANT ALL ON {table_name} TO group dev_arch_eng')
+        read_obj.submit_remote_query(redshift_dbname, redshift_port, username, password, redshift_url, f'GRANT ALL ON {table_name} TO group {redshift_dev_group}')
         print("Table " + table_name + " created.\n")
     except Exception(e):
         print("Error, table " + table_name + " not created.\n")
