@@ -11,13 +11,14 @@ archer_wd3_record = read_sql_server_to_df(configs) \
     .option("query", "SELECT TOP 1 REPLACE(record, ' ', '') AS record FROM archer_prod.dbo.stf_wd3_country_speedlic_vw WHERE record LIKE 'WD3%'") \
     .load()
 
-archer_wd3_record_str = archer_wd3_record.head()[0].replace(" ", "")
+archer_wd3_record_str = archer_wd3_record.head()[0].replace(" ", "").upper()
 
 redshift_wd3_record = read_redshift_to_df(configs) \
-    .option("query", "SELECT distinct source_name AS record FROM prod.flash_wd3") \
-    .load()
+    .option("query", f"""SELECT distinct source_name AS record FROM prod.flash_wd3 WHERE source_name LIKE ('{archer_wd3_record_str}')""") \
+    .load() \
+    .count()
 
-if archer_wd3_record.exceptAll(redshift_wd3_record).count() == 0:
+if redshift_wd3_record > 0:
     dbutils.notebook.exit(archer_wd3_record_str + " is already contained in Redshift prod.flash_wd3 table")
 
 # COMMAND ----------
@@ -37,7 +38,7 @@ write_df_to_redshift(configs, archer_wd3_records, "stage.wd3_stage", "overwrite"
 max_version_info = call_redshift_addversion_sproc(configs, 'WD3', archer_wd3_record_str)
 
 max_version = max_version_info[0]
-max_load_date = str(max_version_info[1])
+max_load_date = max_version_info[1]
 
 # COMMAND ----------
 

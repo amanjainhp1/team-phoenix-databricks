@@ -1,5 +1,7 @@
 ---
 Jobs:
+  - actuals-hw
+  - flash-load
   - hardware-ltf
   - hardware-stf
   - ink-share
