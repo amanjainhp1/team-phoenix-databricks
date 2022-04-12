@@ -11,13 +11,14 @@ archer_flash_record = read_sql_server_to_df(configs) \
     .option("query", "SELECT TOP 1 REPLACE(record, ' ', '') AS record FROM archer_prod.dbo.stf_flash_country_speedlic_vw WHERE record LIKE 'Flash%'") \
     .load()
 
-archer_flash_record_str = archer_flash_record.head()[0].replace(" ", "")
+archer_flash_record_str = archer_flash_record.head()[0].replace(" ", "").upper()
 
 redshift_flash_record = read_redshift_to_df(configs) \
-    .option("query", "SELECT DISTINCT source_name AS record FROM prod.flash_wd3") \
-    .load()
+    .option("query", f"""SELECT DISTINCT source_name AS record FROM prod.flash_wd3 WHERE source_name LIKE ('{archer_flash_record_str}')""") \
+    .load() \
+    .count()
 
-if archer_flash_record.exceptAll(redshift_flash_record).count() == 0:
+if redshift_flash_record > 0:
     dbutils.notebook.exit(archer_flash_record_str + " is already contained in Redshift prod.flash_wd3 table")
 
 # COMMAND ----------

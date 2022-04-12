@@ -11,13 +11,14 @@ archer_wd3_record = read_sql_server_to_df(configs) \
     .option("query", "SELECT TOP 1 REPLACE(record, ' ', '') AS record FROM archer_prod.dbo.stf_wd3_country_speedlic_vw WHERE record LIKE 'WD3%'") \
     .load()
 
-archer_wd3_record_str = archer_wd3_record.head()[0].replace(" ", "")
+archer_wd3_record_str = archer_wd3_record.head()[0].replace(" ", "").upper()
 
 redshift_wd3_record = read_redshift_to_df(configs) \
-    .option("query", "SELECT distinct source_name AS record FROM prod.flash_wd3") \
-    .load()
+    .option("query", f"""SELECT distinct source_name AS record FROM prod.flash_wd3 WHERE source_name LIKE ('{archer_wd3_record_str}')""") \
+    .load() \
+    .count()
 
-if archer_wd3_record.exceptAll(redshift_wd3_record).count() == 0:
+if redshift_wd3_record > 0:
     dbutils.notebook.exit(archer_wd3_record_str + " is already contained in Redshift prod.flash_wd3 table")
 
 # COMMAND ----------
