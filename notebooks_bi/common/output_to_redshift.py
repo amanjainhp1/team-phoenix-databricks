@@ -57,7 +57,7 @@ class RedshiftOut:
         return(dataDF)
   
   
-    def save_table(self, dataDF):
+    def save_table(self, dataDF, write_mode):
         dataDF.write \
             .format(spark_format) \
             .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(redshift_url, redshift_port, redshift_dbname)) \
@@ -66,7 +66,7 @@ class RedshiftOut:
             .option("aws_iam_role", aws_iam) \
             .option("user", username) \
             .option("password", password) \
-            .mode("overwrite") \
+            .mode(write_mode) \
             .save()
 
   
@@ -88,6 +88,7 @@ class RedshiftOut:
 for obj in query_list:
     table_name = obj[0]
     query = obj[1]
+    write_mode = obj[2]
     query_name = table_name.split('.')[1]
     try:
         read_obj = RedshiftOut()
@@ -98,7 +99,7 @@ for obj in query_list:
         print(e)
     
     try:
-        read_obj.save_table(data_df)
+        read_obj.save_table(data_df, write_mode)
         read_obj.submit_remote_query(redshift_dbname, redshift_port, username, password, redshift_url, f'GRANT ALL ON {table_name} TO group {redshift_dev_group}')
         print("Table " + table_name + " created.\n")
     except Exception(e):

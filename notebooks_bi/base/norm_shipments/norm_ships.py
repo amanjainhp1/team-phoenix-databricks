@@ -260,7 +260,7 @@ WHERE 1=1
     AND NOT hw.pl IN ('GW', 'LX')
 """
 
-query_list.append(["stage.norm_ships", normShips])
+query_list.append(["stage.norm_ships", normShips, "overwrite"])
 
 # COMMAND ----------
 
