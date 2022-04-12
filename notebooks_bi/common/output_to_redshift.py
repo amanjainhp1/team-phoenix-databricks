@@ -55,8 +55,8 @@ class RedshiftOut:
             .load()
         
         return(dataDF)
-  
-  
+
+
     def save_table(self, dataDF, write_mode):
         dataDF.write \
             .format(spark_format) \
@@ -69,19 +69,16 @@ class RedshiftOut:
             .mode(write_mode) \
             .save()
 
-  
-  # from Matt Koson, Data Engineer
+    # from Matt Koson, Data Engineer
     def submit_remote_query(self, dbname, port, user, password, host, sql_query):  
         conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
-          .format(dbname, port, user, password, host)
+            .format(dbname, port, user, password, host)
 
         con = psycopg2.connect(conn_string)
         cur = con.cursor()
         cur.execute(sql_query)
         con.commit()
         cur.close()
-
-
 
 # COMMAND ----------
 
@@ -105,9 +102,3 @@ for obj in query_list:
     except Exception(e):
         print("Error, table " + table_name + " not created.\n")
         print(e)
-    
-
-
-# COMMAND ----------
-
-

@@ -5,11 +5,17 @@
 # COMMAND ----------
 
 # Global Variables
+try:
+    version = dbutils.widgets.get("version")
+except Exception(e):
+    print("ERROR: version parameter is not set\n")
+    print(e)
+
 query_list = []
 
 # COMMAND ----------
 
-norm_ships = """
+norm_ships = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -22,7 +28,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT ns.record
     , ns.cal_date
     , ns.region_5
@@ -40,7 +46,7 @@ query_list.append(["prod.norm_shipments", norm_ships, "overwrite"])
 
 # COMMAND ----------
 
-ib_source = """
+ib_source = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -53,7 +59,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT ib.record
     , vars.version
     , vars.load_date
@@ -209,7 +215,7 @@ query_list.append(["prod.ib_datamart_source", ib_datamart_source, "overwrite"])
 
 # COMMAND ----------
 
-norm_ships_split_lag = """
+norm_ships_split_lag = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -222,7 +228,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT ib.record
     , vars.version
     , vars.load_date
@@ -245,7 +251,7 @@ query_list.append(["prod.norm_ships_split_lag", norm_ships_split_lag, "append"])
 
 # COMMAND ----------
 
-norm_shipments_ce = """
+norm_shipments_ce = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -258,7 +264,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT 'norm_ships_ce' AS record
     , vars.version
     , vars.load_date

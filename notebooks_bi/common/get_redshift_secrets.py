@@ -13,7 +13,7 @@ def secrets_get(secret_name):
     client = boto3.client(service_name='secretsmanager', region_name=region_name)
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     return eval(get_secret_value_response['SecretString'])
-  
+
 username = secrets_get(secret_name)['username']
 password = secrets_get(secret_name)['password']
 
