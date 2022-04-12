@@ -5,11 +5,17 @@
 # COMMAND ----------
 
 # Global Variables
+try:
+    version = dbutils.widgets.get("version")
+except Exception(e):
+    print("ERROR: version parameter is not set\n")
+    print(e)
+
 query_list = []
 
 # COMMAND ----------
 
-norm_ships = """
+norm_ships = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -17,13 +23,12 @@ with ib_promo_01_filter_vars as (
 
 SELECT record
     , version
-    , sub_version
     , source_name
     , load_date
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT ns.record
     , ns.cal_date
     , ns.region_5
@@ -37,11 +42,11 @@ CROSS JOIN ib_promo_01_filter_vars AS vars
 WHERE vars.record = 'norm_shipments'
 """
 
-query_list.append(["prod.norm_shipments", norm_ships])
+query_list.append(["prod.norm_shipments", norm_ships, "overwrite"])
 
 # COMMAND ----------
 
-ib_source = """
+ib_source = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -49,13 +54,12 @@ with ib_promo_01_filter_vars as (
 
 SELECT record
     , version
-    , sub_version
     , source_name
     , load_date
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT ib.record
     , vars.version
     , vars.load_date
@@ -72,7 +76,7 @@ WHERE 1=1
     AND ib.record = 'ib'
 """
 
-query_list.append(["prod.ib_source", ib_source])
+query_list.append(["prod.ib_source", ib_source, "overwrite"])
 
 # COMMAND ----------
 
@@ -89,10 +93,10 @@ SELECT record
     , measure
     , units
     , 0 AS official
-FROM "prod"."ib_source"
+FROM "stage"."ib_source"
 """
 
-query_list.append(["prod.ib", ib])
+query_list.append(["prod.ib", ib, "overwrite"])
 
 # COMMAND ----------
 
@@ -106,7 +110,7 @@ SELECT DISTINCT rdma.platform_subset
     , rdma.PL
     , plx.technology
     , pls.PL_level_1
-FROM "mdm"."rdma" AS rdma WITH (NOLOCK)
+FROM "mdm"."rdma" AS rdma
 INNER JOIN "mdm"."product_line_xref" AS plx
     ON plx.pl = rdma.PL
 LEFT JOIN "mdm"."product_line_scenarios_xref" AS pls
@@ -121,7 +125,7 @@ SELECT DISTINCT rdma.platform_subset
     , rdma.PL
     , rdma.Product_Family
     , plx.pl_level_1
-FROM "mdm"."rdma" AS rdma WITH (NOLOCK)
+FROM "mdm"."rdma" AS rdma
 LEFT JOIN ib_promo_05_rdma_pl AS plx
     ON plx.PL = rdma.PL
 where 1=1
@@ -133,7 +137,7 @@ SELECT DISTINCT rdma.platform_subset
     , rdma.PL
     , rdma.Product_Family
     , plx.pl_level_1
-FROM "mdm"."rdma" AS rdma WITH (NOLOCK)
+FROM "mdm"."rdma" AS rdma
 LEFT JOIN ib_promo_05_rdma_pl AS plx
     ON plx.PL = rdma.PL
 where 1=1
@@ -207,11 +211,11 @@ GROUP BY ib.cal_date
     , ib.load_date
 """
 
-query_list.append(["prod.ib_datamart_source", ib_datamart_source])
+query_list.append(["prod.ib_datamart_source", ib_datamart_source, "overwrite"])
 
 # COMMAND ----------
 
-norm_ships_split_lag = """
+norm_ships_split_lag = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -219,13 +223,12 @@ with ib_promo_01_filter_vars as (
 
 SELECT record
     , version
-    , sub_version
     , source_name
     , load_date
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT ib.record
     , vars.version
     , vars.load_date
@@ -244,11 +247,11 @@ WHERE 1=1
     AND NOT ib.printer_installs IS NULL
 """
 
-query_list.append(["prod.norm_ships_split_lag", norm_ships_split_lag])
+query_list.append(["prod.norm_ships_split_lag", norm_ships_split_lag, "append"])
 
 # COMMAND ----------
 
-norm_shipments_ce = """
+norm_shipments_ce = f"""
 
 
 with ib_promo_01_filter_vars as (
@@ -256,13 +259,12 @@ with ib_promo_01_filter_vars as (
 
 SELECT record
     , version
-    , sub_version
     , source_name
     , load_date
     , official
 FROM "prod"."version"
 WHERE record in ('ib', 'norm_shipments')
-    AND version = '2022.03.29.1'
+    AND version = {version}
 )SELECT 'norm_ships_ce' AS record
     , vars.version
     , vars.load_date
@@ -279,7 +281,7 @@ WHERE 1=1
     AND vars.record = 'norm_shipments'
 """
 
-query_list.append(["prod.norm_shipments_ce", norm_shipments_ce])
+query_list.append(["prod.norm_shipments_ce", norm_shipments_ce, "append"])
 
 #TODO: Add a mode parameter to query_list
 
