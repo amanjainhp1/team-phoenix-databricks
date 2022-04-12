@@ -37,7 +37,7 @@ write_df_to_redshift(configs, archer_wd3_records, "stage.wd3_stage", "overwrite"
 max_version_info = call_redshift_addversion_sproc(configs, 'WD3', archer_wd3_record_str)
 
 max_version = max_version_info[0]
-max_load_date = str(max_version_info[1])
+max_load_date = max_version_info[1]
 
 # COMMAND ----------
 
