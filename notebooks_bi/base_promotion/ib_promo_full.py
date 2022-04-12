@@ -169,7 +169,7 @@ WHERE 1=1
     , ib.version
     , CAST(ib.load_date AS DATE) AS load_date
     , CAST(ib.cal_date AS VARCHAR(25)) + '-' + ib.platform_subset + '-' + ib.country + '-' + ib.customer_engagement AS composite_key
-FROM "stage"."ib_dbt_source" AS ib
+FROM "stage"."ib_source" AS ib
 LEFT JOIN ib_promo_06_rdma AS rdmapl
     ON rdmapl.platform_subset = ib.platform_subset
 LEFT JOIN "prod"."iso_country_code_xref" AS iso
