@@ -183,7 +183,7 @@ LEFT JOIN ib_02c_ce_splits_final AS ce
 WHERE 1=1
 """
 
-query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre])
+query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"])
 
 # COMMAND ----------
 
@@ -215,7 +215,7 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , ucep.platform_subset
 """
 
-query_list.append(["stage.ib_01_hw_decay", hw_decay])
+query_list.append(["stage.ib_01_hw_decay", hw_decay, "overwrite"])
 
 # COMMAND ----------
 
@@ -480,7 +480,7 @@ WHERE 1=1
 FROM ib_12_ce_splits_post
 """
 
-query_list.append(["stage.ib_02_ce_splits", ce_splits])
+query_list.append(["stage.ib_02_ce_splits", ce_splits, "overwrite"])
 
 # COMMAND ----------
 
@@ -688,7 +688,7 @@ GROUP BY month_begin
     , platform_subset
 """
 
-query_list.append(["stage.ib_03_iink_complete", iink_complete])
+query_list.append(["stage.ib_03_iink_complete", iink_complete, "overwrite"])
 
 # COMMAND ----------
 
@@ -1002,7 +1002,7 @@ WHERE 1=1
     AND pre.record IN ('IB_TRAD', 'IB_IINK')
 """
 
-query_list.append(["stage.ib_staging", ib_staging])
+query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 
 # COMMAND ----------
 
