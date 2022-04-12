@@ -20,26 +20,14 @@ from pyspark.sql.functions import *
 
 # globals
 spark_format = "com.databricks.spark.redshift"
-secrets_url = constants["REDSHIFT_SECRET_NAME"][stack]
 redshift_url = configs["redshift_url"]
 spark_temp_dir = configs["redshift_temp_bucket"]
 aws_iam = configs["aws_iam_role"]
 redshift_port = configs["redshift_port"]
 redshift_dbname = configs["redshift_dbname"]
 redshift_dev_group = configs["redshift_dev_group"]
-
-# COMMAND ----------
-
-# MAGIC %run ../../notebooks/python/common/secrets_manager_utils
-
-# COMMAND ----------
-
-# Secrets Variables
-redshift_secrets = secrets_get(secrets_url, "us-west-2")
-spark.conf.set("username", redshift_secrets["username"])
-spark.conf.set("password", redshift_secrets["password"])
-username = spark.conf.get("username")
-password = spark.conf.get("password")
+username = configs["redshift_username"] 
+password = configs["redshift_password"]
 
 # COMMAND ----------
 
