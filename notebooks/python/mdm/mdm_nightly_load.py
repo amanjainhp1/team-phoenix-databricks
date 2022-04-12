@@ -3,6 +3,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import as_completed
 from time import sleep
+import json
 
 # COMMAND ----------
 
@@ -13,45 +14,163 @@ from time import sleep
 notebooks = []
 
 try:
-    tables = dbutils.widgets.get("tables")
+    tables = json.loads(dbutils.widgets.get("tables"))
 except:
-    tables = [
-        [["sqlserver", "IE2_Prod", "dbo", "calendar"], ["redshift", stack, "mdm", "calendar"]],
-        [["sqlserver", "IE2_Prod", "dbo", "ce_splits"], ["redshift", stack, "prod", "ce_splits"]],
-        [["sqlserver", "IE2_Prod", "dbo", "decay"], ["redshift", stack, "prod", "decay"]],
-        [["sqlserver", "IE2_Prod", "dbo", "hardware_xref"], ["redshift", stack, "mdm", "hardware_xref"]],
-        [["sqlserver", "IE2_Prod", "dbo", "instant_ink_enrollees"], ["redshift", stack, "prod", "instant_ink_enrollees"]],
-        [["sqlserver", "IE2_Prod", "dbo", "instant_ink_enrollees_ltf"], ["redshift", stack, "prod", "instant_ink_enrollees_ltf"]],
-        [["sqlserver", "IE2_Prod", "dbo", "iso_cc_rollup_xref"], ["redshift", stack, "mdm", "iso_cc_rollup_xref"]],
-        [["sqlserver", "IE2_Prod", "dbo", "iso_country_code_xref"], ["redshift", stack, "mdm", "iso_country_code_xref"]],
-        [["sqlserver", "IE2_Prod", "dbo", "printer_lag"], ["redshift", stack, "mdm", "printer_lag"]],
-        [["sqlserver", "IE2_Prod", "dbo", "product_line_xref"], ["redshift", stack, "mdm", "product_line_xref"]],
-        [["sqlserver", "IE2_Prod", "dbo", "profit_center_code_xref"], ["redshift", stack, "mdm", "profit_center_code_xref"]],
-        [["sqlserver", "IE2_Prod", "dbo", "supplies_hw_mapping"], ["redshift", stack, "mdm", "supplies_hw_mapping"]],
-        [["sqlserver", "IE2_Prod", "dbo", "supplies_xref"], ["redshift", stack, "mdm", "supplies_xref"]],
-        [["sqlserver", "IE2_Prod", "dbo", "yield"], ["redshift", stack, "mdm", "yield"]]
-    ]
+    tables = json.loads("""
+        {
+            "calendar": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "calendar",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "mdm",
+                "destination_table": "calendar"
+            },
+            "ce_splits": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "ce_splits",
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "prod", 
+                "destination_table": "ce_splits"
+            },
+            "decay": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo", 
+                "source_table": "decay",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod", 
+                "destination_table": "decay"
+            },
+            "hardware_xref": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "hardware_xref", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "hardware_xref"
+            },
+            "instant_ink_enrollees": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "instant_ink_enrollees", 
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod", 
+                "destination_table": "instant_ink_enrollees"
+            },
+            "instant_ink_enrollees_ltf": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "instant_ink_enrollees_ltf", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "prod", 
+                "destination_table": "instant_ink_enrollees_ltf"
+            },
+            "iso_cc_rollup_xref": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo", 
+                "source_table": "iso_cc_rollup_xref", 
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "mdm", 
+                "destination_table": "iso_cc_rollup_xref"
+            },
+            "iso_country_code_xref": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo", 
+                "source_table": "iso_country_code_xref", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "iso_country_code_xref"
+            },
+            "printer_lag": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "printer_lag", 
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "mdm",
+                "destination_table": "printer_lag"
+            },
+            "product_line_xref": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "product_line_xref",
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "mdm", 
+                "destination_table": "product_line_xref"
+            },
+            "profit_center_code_xref": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo", 
+                "source_table": "profit_center_code_xref", 
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "mdm",
+                "destination_table": "profit_center_code_xref"
+            },
+            "supplies_hw_mapping": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "supplies_hw_mapping",
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "mdm",
+                "destination_table": "supplies_hw_mapping"
+            },
+            "supplies_xref": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "supplies_xref",
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "mdm",
+                "destination_table": "supplies_xref"
+            },
+            "yield": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "yield",
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "mdm",
+                "destination_table": "yield"
+            }
+        }
+    """)
     
 date = datetime.today()
 
 datestamp = date.strftime("%Y%m%d")
-timestmap= str(int(date.timestamp()))
+timestamp= str(int(date.timestamp()))
 
 for table in tables:
-    widgets = {}
-    
+    widgets = tables[table]
+
     widgets["datestamp"] = datestamp
     widgets["timestamp"] = timestamp
-    
-    widgets["source_system"] = table[0][0]
-    widgets["source_database"] = table[0][1]
-    widgets["source_schema"] = table[0][2]
-    widgets["source_table"] = table[0][3]
-    
-    widgets["destination_system"] = table[1][0]
-    widgets["destination_database"] = table[1][1]
-    widgets["destination_schema"] = table[1][2]
-    widgets["destination_table"] = table[1][3]
     
     notebooks = notebooks + [["move_sfai_data_to_redshift", 0, widgets]]
 
