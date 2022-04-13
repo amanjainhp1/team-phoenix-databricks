@@ -9,6 +9,105 @@ query_list = []
 
 # COMMAND ----------
 
+ib_staging_inputs = """
+
+
+with ib_01_filter_vars as (
+
+
+SELECT record
+	, MAX(version) AS version
+FROM "prod"."ce_splits"
+WHERE 1=1
+    AND official = 1
+GROUP BY record
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "prod"."decay"
+WHERE 1=1
+    AND official = 1
+    -- AND record <> 'lfd_decay'
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "mdm"."printer_lag"
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "prod"."instant_ink_enrollees"
+WHERE 1=1
+    AND official = 1
+
+UNION ALL
+
+SELECT 'IINK_IB_LTF' AS record
+    , MAX(version) AS version
+FROM "prod"."instant_ink_enrollees_ltf"
+WHERE 1=1
+
+UNION ALL
+
+SELECT 'HARDWARE_LTF_MAX_DATE' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('HW_FCST')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('HW_LTF_LF')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
+    , version
+FROM "prod"."norm_shipments"
+WHERE 1=1
+    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+
+UNION ALL
+
+SELECT 'BUILD_NORM_SHIPS' AS record
+    , '1.1' AS version
+)SELECT 'ib_staging_temp' AS tbl_name
+    , record
+    , version AS version
+    , GETDATE() AS execute_time
+FROM ib_01_filter_vars
+WHERE 1=1
+    AND record NOT IN ('PROD_NORM_SHIPS', 'BUILD_NORM_SHIPS')
+
+UNION ALL
+
+-- just report the single norm ships input - either stage or prod
+SELECT 'ib_staging_temp' AS tbl_name
+    , record
+    , version AS version
+    , GETDATE() AS execute_time
+FROM ib_01_filter_vars
+WHERE 1=1
+    AND record IN ('BUILD_NORM_SHIPS')
+"""
+
+query_list.append(["stage.ib_staging_inputs", ib_staging_inputs, "overwrite"])
+
+# COMMAND ----------
+
 ce_splits_pre = """
 
 
@@ -709,99 +808,6 @@ SELECT month_begin
 FROM "stage"."ib_03_iink_complete"
 WHERE 1=1
     AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE)
-),  ib_01_filter_vars as (
-
-
-SELECT record
-	, MAX(version) AS version
-FROM "prod"."ce_splits"
-WHERE 1=1
-    AND official = 1
-GROUP BY record
-
-UNION ALL
-
-SELECT DISTINCT record
-    , version
-FROM "prod"."decay"
-WHERE 1=1
-    AND official = 1
-    -- AND record <> 'lfd_decay'
-
-UNION ALL
-
-SELECT DISTINCT record
-    , version
-FROM "mdm"."printer_lag"
-
-UNION ALL
-
-SELECT DISTINCT record
-    , version
-FROM "prod"."instant_ink_enrollees"
-WHERE 1=1
-    AND official = 1
-
-UNION ALL
-
-SELECT 'IINK_IB_LTF' AS record
-    , MAX(version) AS version
-FROM "prod"."instant_ink_enrollees_ltf"
-WHERE 1=1
-
-UNION ALL
-
-SELECT 'HARDWARE_LTF_MAX_DATE' AS record
-    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
-FROM "prod"."hardware_ltf"
-WHERE 1=1
-    AND record IN ('HW_FCST')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
-    AND official = 1
-
-UNION ALL
-
-SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
-    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
-FROM "prod"."hardware_ltf"
-WHERE 1=1
-    AND record IN ('HW_LTF_LF')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
-    AND official = 1
-
-UNION ALL
-
-SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments"
-WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
-
-UNION ALL
-
-SELECT 'BUILD_NORM_SHIPS' AS record
-    , '1.1' AS version
-),  ib_staging_inputs as (
-
-
-SELECT 'ib_staging_temp' AS tbl_name
-    , record
-    , version AS version
-    , GETDATE() AS execute_time
-FROM ib_01_filter_vars
-WHERE 1=1
-    AND record NOT IN ('PROD_NORM_SHIPS', 'BUILD_NORM_SHIPS')
-
-UNION ALL
-
--- just report the single norm ships input - either stage or prod
-SELECT 'ib_staging_temp' AS tbl_name
-    , record
-    , version AS version
-    , GETDATE() AS execute_time
-FROM ib_01_filter_vars
-WHERE 1=1
-    AND record IN ('BUILD_NORM_SHIPS')
 ),  ib_14_iink_act_stf as (
 
 
@@ -848,7 +854,7 @@ SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.0
     , MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END)) AS p2_cumulative
     , MAX(CASE WHEN ltf.metric = 'Cumulative' THEN ltf.value END) AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
-JOIN ib_staging_inputs AS fv
+JOIN "stage"."ib_staging_inputs" AS fv
     ON fv.version = ltf.version
     AND fv.record = 'IINK_IB_LTF'
 JOIN "mdm"."calendar" AS c
