@@ -20,7 +20,7 @@ SELECT record
     , forecast_name
     , MAX(version) AS max_version
 FROM prod.hardware_ltf
-WHERE record IN ('hw_fcst')
+WHERE record IN ('HW_FCST')
     AND official = 1
 GROUP BY record, forecast_name
 
@@ -30,7 +30,7 @@ SELECT record
     , forecast_name
     , MAX(version) AS max_version
 FROM prod.hardware_ltf
-WHERE record IN ('hw_stf_fcst')
+WHERE record IN ('HW_STF_FCST')
     AND official = 1
 GROUP BY record, forecast_name
 
@@ -40,7 +40,7 @@ SELECT record
     , NULL as forecast_name
     , MAX(version) AS max_version
 FROM prod.actuals_hw
-WHERE record = 'actuals - hw'
+WHERE record = 'ACTUALS - HW'
     AND official = 1
 GROUP BY record
 
@@ -50,7 +50,7 @@ SELECT record
     , NULL as forecast_name
     , MAX(version) AS max_version
 FROM prod.actuals_hw
-WHERE record = 'actuals_lf'
+WHERE record = 'ACTUALS_LF'
     AND official = 1
 GROUP BY record
 
@@ -60,11 +60,11 @@ SELECT record
     , forecast_name
     , MAX(version) AS max_version
 FROM prod.hardware_ltf
-WHERE record IN ('hw_ltf_lf')
+WHERE record IN ('HW_LTF_LF')
     AND official = 1
 GROUP BY record, forecast_name
-)SELECT 'norm_shipments_staging' AS tbl_name
-    , CASE WHEN record IN  ('hw_stf_fcst','hw_lf_fcst') THEN forecast_name ELSE record END AS record
+)SELECT 'NORM_SHIPMENTS_STAGING' AS tbl_name
+    , CASE WHEN record IN  ('HW_STF_FCST','HW_LF_FCST') THEN forecast_name ELSE record END AS record
     , max_version AS version
     , GETDATE() AS execute_time
 FROM nrm_01_filter_vars
@@ -75,8 +75,6 @@ query_list.append(["stage.norm_ships_inputs", norm_ships_inputs, "overwrite"])
 # COMMAND ----------
 
 norm_ships = """
-
-
 with nrm_02_hw_acts as (
 
 
@@ -89,7 +87,7 @@ SELECT ref.region_5
 FROM "prod"."actuals_hw" AS act
 JOIN "mdm"."iso_country_code_xref" AS ref
     ON act.country_alpha2 = ref.country_alpha2
-WHERE act.record IN ('actuals - hw','actuals_lf')
+WHERE act.record IN ('ACTUALS - HW','ACTUALS_LF')
       AND act.official = 1
 GROUP BY ref.region_5
     , act.record
@@ -103,7 +101,7 @@ SELECT record
     , forecast_name
     , MAX(version) AS max_version
 FROM "prod"."hardware_ltf"
-WHERE record IN ('hw_fcst')
+WHERE record IN ('HW_FCST')
     AND official = 1
 GROUP BY record, forecast_name
 
@@ -113,7 +111,7 @@ SELECT record
     , forecast_name
     , MAX(version) AS max_version
 FROM "prod"."hardware_ltf"
-WHERE record IN ('hw_stf_fcst')
+WHERE record IN ('HW_STF_FCST')
     AND official = 1
 GROUP BY record, forecast_name
 
@@ -123,7 +121,7 @@ SELECT record
     , NULL as forecast_name
     , MAX(version) AS max_version
 FROM "prod"."actuals_hw"
-WHERE record = 'actuals - hw'
+WHERE record = 'ACTUALS - HW'
     AND official = 1
 GROUP BY record
 
@@ -133,7 +131,7 @@ SELECT record
     , NULL as forecast_name
     , MAX(version) AS max_version
 FROM "prod"."actuals_hw"
-WHERE record = 'actuals_lf'
+WHERE record = 'ACTUALS_LF'
     AND official = 1
 GROUP BY record
 
@@ -143,7 +141,7 @@ SELECT record
     , forecast_name
     , MAX(version) AS max_version
 FROM "prod"."hardware_ltf"
-WHERE record IN ('hw_ltf_lf')
+WHERE record IN ('HW_LTF_LF')
     AND official = 1
 GROUP BY record, forecast_name
 ),  nrm_03_hw_stf_forecast as (
@@ -156,7 +154,7 @@ SELECT ref.region_5
     , ltf.platform_subset
     , SUM(ltf.units) AS units
 FROM "prod"."hardware_ltf" AS ltf
-JOIN (SELECT DISTINCT record, max_version FROM nrm_01_filter_vars WHERE record = 'hw_stf_fcst') AS vars
+JOIN (SELECT DISTINCT record, max_version FROM nrm_01_filter_vars WHERE record = 'HW_STF_FCST') AS vars
     ON vars.max_version = ltf.version
     AND vars.record = ltf.record
 JOIN "mdm"."iso_country_code_xref" AS ref
@@ -176,7 +174,7 @@ SELECT ref.region_5
     , ltf.platform_subset
     , SUM(ltf.units) AS units
 FROM "prod"."hardware_ltf" AS ltf
-JOIN (SELECT DISTINCT record, max_version FROM nrm_01_filter_vars WHERE record = 'hw_fcst') AS vars
+JOIN (SELECT DISTINCT record, max_version FROM nrm_01_filter_vars WHERE record = 'HW_FCST') AS vars
     ON vars.max_version = ltf.version
     AND vars.record = ltf.record
 JOIN "mdm"."iso_country_code_xref" AS ref
@@ -196,7 +194,7 @@ SELECT ref.region_5
     , ltf.platform_subset
     , SUM(ltf.units) AS units
 FROM "prod"."hardware_ltf" AS ltf
-JOIN (SELECT DISTINCT record, max_version FROM nrm_01_filter_vars WHERE record = 'hw_ltf_lf') AS vars
+JOIN (SELECT DISTINCT record, max_version FROM nrm_01_filter_vars WHERE record = 'HW_LTF_LF') AS vars
     ON vars.max_version = ltf.version
     AND vars.record = ltf.record
 JOIN "mdm"."iso_country_code_xref" AS ref
@@ -246,7 +244,7 @@ SELECT sh.region_5
     , sh.platform_subset
     , sh.units
 FROM nrm_05_combined_ships AS sh
-WHERE sh.record IN ('actuals_lf','actuals - hw')
+WHERE sh.record IN ('ACTUALS_LF','ACTUALS - HW')
 ),  nrm_06_printer_month_filters as (
 
 
@@ -258,12 +256,12 @@ GROUP BY record
 ),  nrm_07_printer_dates as (
 
 
-SELECT MAX(CASE WHEN record = 'actuals - hw' THEN min_cal_date ELSE NULL END) AS act_min_cal_date
-    , MAX(CASE WHEN record = 'actuals - hw' THEN max_cal_date ELSE NULL END) AS act_max_cal_date
-    , MAX(CASE WHEN record = 'hw_stf_fcst' THEN min_cal_date ELSE NULL END) AS stf_min_cal_date
-    , MAX(CASE WHEN record = 'hw_stf_fcst' THEN max_cal_date ELSE NULL END) AS stf_max_cal_date
-    , MAX(CASE WHEN record = 'hw_fcst' THEN min_cal_date ELSE NULL END) AS ltf_min_cal_date
-    , MAX(CASE WHEN record = 'hw_fcst' THEN max_cal_date ELSE NULL END) AS ltf_max_cal_date
+SELECT MAX(CASE WHEN record = 'ACTUALS - HW' THEN min_cal_date ELSE NULL END) AS act_min_cal_date
+    , MAX(CASE WHEN record = 'ACTUALS - HW' THEN max_cal_date ELSE NULL END) AS act_max_cal_date
+    , MAX(CASE WHEN record = 'HW_STF_FCST' THEN min_cal_date ELSE NULL END) AS stf_min_cal_date
+    , MAX(CASE WHEN record = 'HW_STF_FCST' THEN max_cal_date ELSE NULL END) AS stf_max_cal_date
+    , MAX(CASE WHEN record = 'HW_FCST' THEN min_cal_date ELSE NULL END) AS ltf_min_cal_date
+    , MAX(CASE WHEN record = 'HW_FCST' THEN max_cal_date ELSE NULL END) AS ltf_max_cal_date
 FROM nrm_06_printer_month_filters
 ),  nrm_09_combined_ships_fcst as (
 
@@ -277,7 +275,7 @@ SELECT stf.region_5
 FROM nrm_05_combined_ships AS stf
 CROSS JOIN nrm_07_printer_dates AS pd
 WHERE 1=1
-    AND stf.record = 'hw_stf_fcst'
+    AND stf.record = 'HW_STF_FCST'
     AND stf.cal_date > pd.act_max_cal_date
 
 UNION ALL
@@ -291,7 +289,7 @@ SELECT ltf.region_5
 FROM nrm_05_combined_ships AS ltf
 CROSS JOIN nrm_07_printer_dates AS pd
 WHERE 1=1
-    AND ltf.record IN ('hw_ltf_lf','hw_fcst')
+    AND ltf.record IN ('HW_LTF_LF','HW_FCST')
     AND ltf.cal_date > pd.stf_max_cal_date
 )SELECT acts.region_5
     , acts.record
@@ -324,7 +322,7 @@ WHERE 1=1
     AND NOT hw.pl IN ('GW', 'LX')
 """
 
-query_list.append(["stage.norm_ships", normShips, "overwrite"])
+query_list.append(["stage.norm_ships", norm_ships, "overwrite"])
 
 # COMMAND ----------
 
