@@ -30,8 +30,8 @@ destination_table_exists = False
 datestamp = date.today().strftime("%Y%m%d")
 
 try:
-     query = f"""SELECT COUNT(*) FROM {destination_schema}.{destination_table}"""
-  
+    query = f"""SELECT COUNT(*) FROM {destination_schema}.{destination_table}"""
+
     destination_table_row_count = read_redshift_to_df(configs) \
         .option("query", query) \
         .load() \
@@ -175,17 +175,17 @@ if initial_data_load == False and destination_table_exists:
         #retrieve large format SFAI data
         odw_revenue_units_base_landing_query = """
         SELECT
-          cal_date,
-          country_alpha2,
-          base_product_number,
-          base_quantity
+        cal_date,
+        country_alpha2,
+        base_product_number,
+        base_quantity
         FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
         WHERE cal_date = (
-          SELECT 
+            SELECT 
             MAX(cal_date) 
-          FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
+            FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
         )
-          AND base_quantity <> 0
+        AND base_quantity <> 0
         """
         
         odw_revenue_units_base_landing = read_sql_server_to_df(configs) \
@@ -196,32 +196,32 @@ if initial_data_load == False and destination_table_exists:
 
         #join EDW data to lookup tables in Redshift
         staging_actuals_lf_query = f"""
-          SELECT
-          'ACTUALS_LF' AS record,
-          e.cal_date,
-          e.country_alpha2,
-          e.base_product_number,
-          r.Platform_Subset,
-          SUM(e.base_quantity) AS base_quantity,
-          NULL AS load_date,
-          1 AS official,
-          NULL AS version,
-          'ODW-LF' AS source
-          FROM stage.odw_revenue_units_base_landing e
-          LEFT JOIN mdm.rdma r on r.Base_Prod_Number = e.base_product_number
-          LEFT JOIN mdm.hardware_xref hw on hw.platform_subset = r.Platform_Subset
-          WHERE 1=1
-            AND hw.technology = 'LF'
-          GROUP BY
-          e.cal_date,
-          e.country_alpha2,
-          e.base_product_number,
-          r.Platform_Subset
+            SELECT
+            'ACTUALS_LF' AS record,
+            e.cal_date,
+            e.country_alpha2,
+            e.base_product_number,
+            r.Platform_Subset,
+            SUM(e.base_quantity) AS base_quantity,
+            NULL AS load_date,
+            1 AS official,
+            NULL AS version,
+            'ODW-LF' AS source
+            FROM stage.odw_revenue_units_base_landing e
+            LEFT JOIN mdm.rdma r on r.Base_Prod_Number = e.base_product_number
+            LEFT JOIN mdm.hardware_xref hw on hw.platform_subset = r.Platform_Subset
+            WHERE 1=1
+                AND hw.technology = 'LF'
+            GROUP BY
+            e.cal_date,
+            e.country_alpha2,
+            e.base_product_number,
+            r.Platform_Subset
         """
 
         staging_actuals_lf = read_redshift_to_df(configs) \
-          .option("query", staging_actuals_lf_query) \
-          .load()
+            .option("query", staging_actuals_lf_query) \
+            .load()
 
         staging_actuals_lf = staging_actuals_lf.withColumn("load_date", col("load_date").cast("timestamp"))
     
@@ -257,22 +257,22 @@ if initial_data_load == False and append_to_prod_table and destination_table_exi
 
     query = f"""
     SELECT
-      record,
-      cal_date,
-      country_alpha2,
-      base_product_number,
-      a.platform_subset,
-      source,
-      base_quantity,
-      a.official,
-      a.load_date,
-      a.version
+        record,
+        cal_date,
+        country_alpha2,
+        base_product_number,
+        a.platform_subset,
+        source,
+        base_quantity,
+        a.official,
+        a.load_date,
+        a.version
     FROM stage.actuals_hw a
     LEFT JOIN mdm.hardware_xref b ON a.platform_subset = b.platform_subset
     LEFT JOIN mdm.product_line_xref c ON b.pl = c.pl
     WHERE c.PL_category = 'HW'
-      AND c.Technology IN ('INK','LASER','PWA','LF')
-      AND a.base_quantity <> 0
+        AND c.Technology IN ('INK','LASER','PWA','LF')
+        AND a.base_quantity <> 0
     """
 
     redshift_stage_actuals_hw = read_redshift_to_df(configs) \
@@ -281,7 +281,3 @@ if initial_data_load == False and append_to_prod_table and destination_table_exi
 
     if append_to_prod_table:
         write_df_to_redshift(configs, redshift_stage_actuals_hw, f"""{destination_schema}.{destination_table}""", "append")
-
-# COMMAND ----------
-
-
