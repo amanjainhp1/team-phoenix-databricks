@@ -12,11 +12,6 @@ from datetime import date
 
 # COMMAND ----------
 
-try:
-    version = dbutils.widgets.get("version")
-except:
-    pass
-
 query_list = []
 
 redshift_dbname = configs["redshift_dbname"]
