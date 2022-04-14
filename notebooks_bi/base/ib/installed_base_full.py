@@ -380,7 +380,7 @@ SELECT d.geography_grain
     , d.value / 12 AS decayed_amt
 FROM "prod"."decay" AS d
 JOIN ib_07_years AS y
-    ON 'year_' + CAST(y.year_num AS VARCHAR) = d.year
+    ON 'YEAR_' + CAST(y.year_num AS VARCHAR) = d.year
 JOIN ib_06_months AS m
     ON 1=1
 WHERE 1=1
@@ -670,7 +670,7 @@ GROUP BY iink.platform_subset
 
 
 SELECT cal.[Date] AS month_begin
-    , cast('market10' as char(50)) AS geography_grain
+    , cast('MARKET10' as char(50)) AS geography_grain
     , stf.market10 AS geography
     , stf.country_alpha2
     , stf.platform_subset
@@ -695,7 +695,7 @@ WHERE 1=1
 
 
 SELECT stf.month_begin
-    , cast('market10' as char(50)) AS geography_grain
+    , cast('MARKET10' as char(50)) AS geography_grain
     , stf.market10 AS geography
     , stf.country_alpha2
     , stf.platform_subset
@@ -719,7 +719,7 @@ FROM ib_17_iink_stf_trend AS stf
 
 
 SELECT sys.month_begin
-    , cast('market10' as char(50)) AS geography_grain
+    , cast('MARKET10' as char(50)) AS geography_grain
     , iso.market10 AS geography
     , sys.country_alpha2
     , sys.hps_ops
