@@ -215,10 +215,6 @@ query_list.append(["prod.ib_datamart_source", ib_datamart_source, "overwrite"])
 
 # COMMAND ----------
 
-query_list = []
-
-# COMMAND ----------
-
 norm_ships_split_lag = f"""
 
 
