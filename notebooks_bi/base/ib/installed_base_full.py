@@ -844,15 +844,15 @@ GROUP BY iiel.platform_subset
 
 SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
             WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
-            WHEN ltf.region_5 IN ('Central Europe','Greater Asia','Greater China','India','ISE',
-                                  'Latin America','North America','Northern Europe','Southern Europe','UK&I') THEN 'market10'
+            WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
+                                  'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
             ELSE 'ERROR' END AS geography_grain
     , ltf.region_5 AS geography
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
-    , MAX(CASE WHEN ltf.metric = 'P2 enrollees' THEN ltf.value END) AS p2_enrollees
-    , MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END)) AS p2_cumulative
-    , MAX(CASE WHEN ltf.metric = 'Cumulative' THEN ltf.value END) AS cumulative
+    , MAX(CASE WHEN ltf.metric = 'P2 ENROLLEES' THEN ltf.value END) AS p2_enrollees
+    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END)) AS p2_cumulative
+    , MAX(CASE WHEN ltf.metric = 'CUMULATIVE' THEN ltf.value END) AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
 JOIN "stage"."ib_staging_inputs" AS fv
     ON fv.version = ltf.version
@@ -867,8 +867,8 @@ WHERE 1=1
     AND ltf.cal_date > ( SELECT CAST(MAX(month_begin) AS DATE) FROM ib_14_iink_act_stf )
 GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
               WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
-              WHEN ltf.region_5 IN ('Central Europe','Greater Asia','Greater China','India','ISE',
-                                    'Latin America','North America','Northern Europe','Southern Europe','UK&I') THEN 'market10'
+              WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
+                                    'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
               ELSE 'ERROR' END
     , ltf.region_5
     , c.Fiscal_Year_Qtr

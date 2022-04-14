@@ -27,7 +27,7 @@ SELECT record
     , load_date
     , official
 FROM "prod"."version"
-WHERE record in ('ib', 'norm_shipments')
+WHERE record in ('IB', 'NORM_SHIPMENTS')
     AND version = {version}
 )SELECT ns.record
     , ns.cal_date
@@ -39,7 +39,7 @@ WHERE record in ('ib', 'norm_shipments')
     , vars.load_date
 FROM "stage"."norm_ships" AS ns
 CROSS JOIN ib_promo_01_filter_vars AS vars
-WHERE vars.record = 'norm_shipments'
+WHERE vars.record = 'NORM_SHIPMENTS'
 """
 
 query_list.append(["prod.norm_shipments", norm_ships, "overwrite"])
@@ -58,7 +58,7 @@ SELECT record
     , load_date
     , official
 FROM "prod"."version"
-WHERE record in ('ib', 'norm_shipments')
+WHERE record in ('IB', 'NORM_SHIPMENTS')
     AND version = {version}
 )SELECT ib.record
     , vars.version
@@ -73,7 +73,7 @@ FROM "stage"."ib_staging" AS ib
 JOIN ib_promo_01_filter_vars AS vars
     ON vars.record = ib.record
 WHERE 1=1
-    AND ib.record = 'ib'
+    AND ib.record = 'IB'
 """
 
 query_list.append(["prod.ib_source", ib_source, "overwrite"])
@@ -116,7 +116,7 @@ INNER JOIN "mdm"."product_line_xref" AS plx
 LEFT JOIN "mdm"."product_line_scenarios_xref" AS pls
     ON pls.PL = rdma.PL
 WHERE 1=1
-    AND pls.pl_scenario = 'IB-dashboard'
+    AND pls.pl_scenario = 'IB-DASHBOARD'
 ),  ib_promo_06_rdma as (
 
 
@@ -151,7 +151,7 @@ where 1=1
 SELECT MAX(cal_date) AS max_date
 FROM "prod"."hardware_ltf"
 WHERE 1=1
-    AND record = 'hw_fcst'
+    AND record = 'HW_FCST'
     AND official = 1
 )SELECT 'IB' AS record
     , ib.cal_date
@@ -168,7 +168,7 @@ WHERE 1=1
     , hw.technology AS technology
     , hw.hw_product_family AS tech_split
     , hw.brand
-    , SUM(CASE WHEN ib.measure = 'ib' THEN ib.units END) AS IB
+    , SUM(CASE WHEN ib.measure = 'IB' THEN ib.units END) AS IB
     , NULL AS printer_installs
     , ib.version
     , CAST(ib.load_date AS DATE) AS load_date
@@ -184,11 +184,11 @@ LEFT JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ib.platform_subset
 LEFT JOIN "mdm"."product_line_scenarios_xref" AS pls
     ON pls.pl = COALESCE(rdmapl.PL, hw.pl)
-    AND pls.pl_scenario = 'IB-dashboard'
+    AND pls.pl_scenario = 'IB-DASHBOARD'
 LEFT JOIN ib_promo_07_hw_fcst AS max_f
     ON 1=1
 WHERE 1=1
-    AND cc.country_scenario = 'Market10'
+    AND cc.country_scenario = 'MARKET10'
     AND ib.cal_date <= max_f.max_date
     AND hw.technology IN ('LASER','INK','PWA')
 GROUP BY ib.cal_date
@@ -227,7 +227,7 @@ SELECT record
     , load_date
     , official
 FROM "prod"."version"
-WHERE record in ('ib', 'norm_shipments')
+WHERE record in ('IB', 'NORM_SHIPMENTS')
     AND version = {version}
 )SELECT ib.record
     , vars.version
@@ -242,7 +242,7 @@ FROM "stage"."ib_staging" AS ib
 JOIN ib_promo_01_filter_vars AS vars
     ON vars.record = ib.record
 WHERE 1=1
-    AND ib.record = 'ib'
+    AND ib.record = 'IB'
     AND ib.printer_installs <> 0
     AND NOT ib.printer_installs IS NULL
 """
@@ -263,7 +263,7 @@ SELECT record
     , load_date
     , official
 FROM "prod"."version"
-WHERE record in ('ib', 'norm_shipments')
+WHERE record in ('IB', 'NORM_SHIPMENTS')
     AND version = {version}
 )SELECT 'norm_ships_ce' AS record
     , vars.version
@@ -278,7 +278,7 @@ WHERE record in ('ib', 'norm_shipments')
 FROM "stage"."ib_04_units_ce_splits_pre" AS ns
 CROSS JOIN ib_promo_01_filter_vars AS vars
 WHERE 1=1
-    AND vars.record = 'norm_shipments'
+    AND vars.record = 'NORM_SHIPMENTS'
 """
 
 query_list.append(["prod.norm_shipments_ce", norm_shipments_ce, "append"])

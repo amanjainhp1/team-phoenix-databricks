@@ -12,6 +12,12 @@ from datetime import date
 
 # COMMAND ----------
 
+try:
+    version = dbutils.widgets.get("version")
+except Exception(e):
+    print("ERROR: version parameter is not set\n")
+    print(e)
+
 redshift_dbname = configs["redshift_dbname"]
 redshift_port = configs["redshift_port"]
 username = configs["redshift_username"] 
@@ -21,8 +27,8 @@ redshift_url = configs["redshift_url"]
 cur_date = date.today().strftime("%Y.%m.%d")
 ns_source = 'NS - DBT build - ' + cur_date
 ib_source = 'IB - DBT build - ' + cur_date
-ns_record = 'norm_shipments'
-ib_record = 'ib'
+ns_record = 'NORM_SHIPMENTS'
+ib_record = 'IB'
 
 # COMMAND ----------
 
@@ -35,7 +41,7 @@ call_redshift_addversion_sproc(configs, ib_record, ib_source)
 
 # COMMAND ----------
 
-insert_ns_ib = """
+insert_ns_ib = f"""
 with filters as
 (
     SELECT record
@@ -45,8 +51,8 @@ with filters as
         , load_date
         , official
     FROM prod.version
-    WHERE record in ('ib', 'norm_shipments')
-        AND version = '2022.03.29.1'
+    WHERE record in ('IB', 'NORM_SHIPMENTS')
+        AND version = {version}
 ),
 scenario_setup as
 (
@@ -58,7 +64,7 @@ scenario_setup as
     FROM filters AS vars
     LEFT JOIN stage.norm_ships_inputs AS inputs
         ON 1=1
-    WHERE vars.record = 'norm_shipments'
+    WHERE vars.record = 'NORM_SHIPMENTS'
 
     UNION ALL
 
@@ -70,8 +76,8 @@ scenario_setup as
     FROM filters AS vars
     LEFT JOIN stage.ib_staging_inputs AS inputs
         ON 1=1
-    WHERE vars.record IN ('ib')
-        AND inputs.record <> 'lfd_decay'
+    WHERE vars.record IN ('IB')
+        AND inputs.record <> 'LFD_DECAY'
 
     UNION ALL
 
@@ -81,8 +87,8 @@ scenario_setup as
         , vars.version
         , CAST(vars.load_date AS date) AS load_date
     FROM filters AS vars
-    CROSS JOIN (SELECT DISTINCT source_name FROM filters WHERE record = 'ib') AS ib
-    WHERE vars.record = 'norm_shipments'
+    CROSS JOIN (SELECT DISTINCT source_name FROM filters WHERE record = 'IB') AS ib
+    WHERE vars.record = 'NORM_SHIPMENTS'
 
 )
 INSERT INTO prod.scenario
@@ -91,7 +97,7 @@ SELECT scenario_name
 	, version
 	, load_date
 FROM scenario_setup
-where record not in ('Instant Toner', 'lf_lag')
+where record not in ('INSTANT TONER', 'LF_LAG')
 order by 1,2
 """
 
