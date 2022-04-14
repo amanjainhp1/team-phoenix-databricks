@@ -9,6 +9,7 @@ Jobs:
   - ink-usage-color
   - ink-usage-total
   - installed-base
+  - installed-base-promo
   - lf-decay
   - lf-ltf
   - lf-ltf-splits

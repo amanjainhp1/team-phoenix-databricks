@@ -10,9 +10,71 @@ query_list = []
 
 # COMMAND ----------
 
-normShips = """
+norm_ships_inputs = """
 
 
+with nrm_01_filter_vars as (
+
+
+SELECT record
+    , forecast_name
+    , MAX(version) AS max_version
+FROM prod.hardware_ltf
+WHERE record IN ('HW_FCST')
+    AND official = 1
+GROUP BY record, forecast_name
+
+UNION ALL
+
+SELECT record
+    , forecast_name
+    , MAX(version) AS max_version
+FROM prod.hardware_ltf
+WHERE record IN ('HW_STF_FCST')
+    AND official = 1
+GROUP BY record, forecast_name
+
+UNION ALL
+
+SELECT record
+    , NULL as forecast_name
+    , MAX(version) AS max_version
+FROM prod.actuals_hw
+WHERE record = 'ACTUALS - HW'
+    AND official = 1
+GROUP BY record
+
+UNION ALL
+
+SELECT record
+    , NULL as forecast_name
+    , MAX(version) AS max_version
+FROM prod.actuals_hw
+WHERE record = 'ACTUALS_LF'
+    AND official = 1
+GROUP BY record
+
+UNION ALL
+
+SELECT record
+    , forecast_name
+    , MAX(version) AS max_version
+FROM prod.hardware_ltf
+WHERE record IN ('HW_LTF_LF')
+    AND official = 1
+GROUP BY record, forecast_name
+)SELECT 'NORM_SHIPMENTS_STAGING' AS tbl_name
+    , CASE WHEN record IN  ('HW_STF_FCST','HW_LF_FCST') THEN forecast_name ELSE record END AS record
+    , max_version AS version
+    , GETDATE() AS execute_time
+FROM nrm_01_filter_vars
+"""
+
+query_list.append(["stage.norm_ships_inputs", norm_ships_inputs, "overwrite"])
+
+# COMMAND ----------
+
+norm_ships = """
 with nrm_02_hw_acts as (
 
 
@@ -25,7 +87,7 @@ SELECT ref.region_5
 FROM "prod"."actuals_hw" AS act
 JOIN "mdm"."iso_country_code_xref" AS ref
     ON act.country_alpha2 = ref.country_alpha2
-WHERE act.record IN ('ACTUALS - HW', 'ACTUALS_LF')
+WHERE act.record IN ('ACTUALS - HW','ACTUALS_LF')
       AND act.official = 1
 GROUP BY ref.region_5
     , act.record
@@ -260,7 +322,7 @@ WHERE 1=1
     AND NOT hw.pl IN ('GW', 'LX')
 """
 
-query_list.append(["stage.norm_ships", normShips])
+query_list.append(["stage.norm_ships", norm_ships, "overwrite"])
 
 # COMMAND ----------
 

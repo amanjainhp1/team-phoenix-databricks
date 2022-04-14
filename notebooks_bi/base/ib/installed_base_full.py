@@ -9,6 +9,105 @@ query_list = []
 
 # COMMAND ----------
 
+ib_staging_inputs = """
+
+
+with ib_01_filter_vars as (
+
+
+SELECT record
+	, MAX(version) AS version
+FROM "prod"."ce_splits"
+WHERE 1=1
+    AND official = 1
+GROUP BY record
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "prod"."decay"
+WHERE 1=1
+    AND official = 1
+    -- AND record <> 'lfd_decay'
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "mdm"."printer_lag"
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "prod"."instant_ink_enrollees"
+WHERE 1=1
+    AND official = 1
+
+UNION ALL
+
+SELECT 'IINK_IB_LTF' AS record
+    , MAX(version) AS version
+FROM "prod"."instant_ink_enrollees_ltf"
+WHERE 1=1
+
+UNION ALL
+
+SELECT 'HARDWARE_LTF_MAX_DATE' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('HW_FCST')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('HW_LTF_LF')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
+    , version
+FROM "prod"."norm_shipments"
+WHERE 1=1
+    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+
+UNION ALL
+
+SELECT 'BUILD_NORM_SHIPS' AS record
+    , '1.1' AS version
+)SELECT 'ib_staging_temp' AS tbl_name
+    , record
+    , version AS version
+    , GETDATE() AS execute_time
+FROM ib_01_filter_vars
+WHERE 1=1
+    AND record NOT IN ('PROD_NORM_SHIPS', 'BUILD_NORM_SHIPS')
+
+UNION ALL
+
+-- just report the single norm ships input - either stage or prod
+SELECT 'ib_staging_temp' AS tbl_name
+    , record
+    , version AS version
+    , GETDATE() AS execute_time
+FROM ib_01_filter_vars
+WHERE 1=1
+    AND record IN ('BUILD_NORM_SHIPS')
+"""
+
+query_list.append(["stage.ib_staging_inputs", ib_staging_inputs, "overwrite"])
+
+# COMMAND ----------
+
 ce_splits_pre = """
 
 
@@ -183,7 +282,7 @@ LEFT JOIN ib_02c_ce_splits_final AS ce
 WHERE 1=1
 """
 
-query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre])
+query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"])
 
 # COMMAND ----------
 
@@ -215,7 +314,7 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , ucep.platform_subset
 """
 
-query_list.append(["stage.ib_01_hw_decay", hw_decay])
+query_list.append(["stage.ib_01_hw_decay", hw_decay, "overwrite"])
 
 # COMMAND ----------
 
@@ -480,7 +579,7 @@ WHERE 1=1
 FROM ib_12_ce_splits_post
 """
 
-query_list.append(["stage.ib_02_ce_splits", ce_splits])
+query_list.append(["stage.ib_02_ce_splits", ce_splits, "overwrite"])
 
 # COMMAND ----------
 
@@ -688,7 +787,7 @@ GROUP BY month_begin
     , platform_subset
 """
 
-query_list.append(["stage.ib_03_iink_complete", iink_complete])
+query_list.append(["stage.ib_03_iink_complete", iink_complete, "overwrite"])
 
 # COMMAND ----------
 
@@ -709,99 +808,6 @@ SELECT month_begin
 FROM "stage"."ib_03_iink_complete"
 WHERE 1=1
     AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE)
-),  ib_01_filter_vars as (
-
-
-SELECT record
-	, MAX(version) AS version
-FROM "prod"."ce_splits"
-WHERE 1=1
-    AND official = 1
-GROUP BY record
-
-UNION ALL
-
-SELECT DISTINCT record
-    , version
-FROM "prod"."decay"
-WHERE 1=1
-    AND official = 1
-    -- AND record <> 'lfd_decay'
-
-UNION ALL
-
-SELECT DISTINCT record
-    , version
-FROM "mdm"."printer_lag"
-
-UNION ALL
-
-SELECT DISTINCT record
-    , version
-FROM "prod"."instant_ink_enrollees"
-WHERE 1=1
-    AND official = 1
-
-UNION ALL
-
-SELECT 'IINK_IB_LTF' AS record
-    , MAX(version) AS version
-FROM "prod"."instant_ink_enrollees_ltf"
-WHERE 1=1
-
-UNION ALL
-
-SELECT 'HARDWARE_LTF_MAX_DATE' AS record
-    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
-FROM "prod"."hardware_ltf"
-WHERE 1=1
-    AND record IN ('HW_FCST')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
-    AND official = 1
-
-UNION ALL
-
-SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
-    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
-FROM "prod"."hardware_ltf"
-WHERE 1=1
-    AND record IN ('HW_LTF_LF')
-    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
-    AND official = 1
-
-UNION ALL
-
-SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments"
-WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
-
-UNION ALL
-
-SELECT 'BUILD_NORM_SHIPS' AS record
-    , '1.1' AS version
-),  ib_staging_inputs as (
-
-
-SELECT 'ib_staging_temp' AS tbl_name
-    , record
-    , version AS version
-    , GETDATE() AS execute_time
-FROM ib_01_filter_vars
-WHERE 1=1
-    AND record NOT IN ('PROD_NORM_SHIPS', 'BUILD_NORM_SHIPS')
-
-UNION ALL
-
--- just report the single norm ships input - either stage or prod
-SELECT 'ib_staging_temp' AS tbl_name
-    , record
-    , version AS version
-    , GETDATE() AS execute_time
-FROM ib_01_filter_vars
-WHERE 1=1
-    AND record IN ('BUILD_NORM_SHIPS')
 ),  ib_14_iink_act_stf as (
 
 
@@ -838,17 +844,17 @@ GROUP BY iiel.platform_subset
 
 SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
             WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
-            WHEN ltf.region_5 IN ('Central Europe','Greater Asia','Greater China','India','ISE',
-                                  'Latin America','North America','Northern Europe','Southern Europe','UK&I') THEN 'market10'
+            WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
+                                  'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
             ELSE 'ERROR' END AS geography_grain
     , ltf.region_5 AS geography
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
-    , MAX(CASE WHEN ltf.metric = 'P2 enrollees' THEN ltf.value END) AS p2_enrollees
-    , MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 cumulative' THEN ltf.value END)) AS p2_cumulative
-    , MAX(CASE WHEN ltf.metric = 'Cumulative' THEN ltf.value END) AS cumulative
+    , MAX(CASE WHEN ltf.metric = 'P2 ENROLLEES' THEN ltf.value END) AS p2_enrollees
+    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END)) AS p2_cumulative
+    , MAX(CASE WHEN ltf.metric = 'CUMULATIVE' THEN ltf.value END) AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
-JOIN ib_staging_inputs AS fv
+JOIN "stage"."ib_staging_inputs" AS fv
     ON fv.version = ltf.version
     AND fv.record = 'IINK_IB_LTF'
 JOIN "mdm"."calendar" AS c
@@ -861,8 +867,8 @@ WHERE 1=1
     AND ltf.cal_date > ( SELECT CAST(MAX(month_begin) AS DATE) FROM ib_14_iink_act_stf )
 GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
               WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
-              WHEN ltf.region_5 IN ('Central Europe','Greater Asia','Greater China','India','ISE',
-                                    'Latin America','North America','Northern Europe','Southern Europe','UK&I') THEN 'market10'
+              WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
+                                    'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
               ELSE 'ERROR' END
     , ltf.region_5
     , c.Fiscal_Year_Qtr
@@ -1002,7 +1008,7 @@ WHERE 1=1
     AND pre.record IN ('IB_TRAD', 'IB_IINK')
 """
 
-query_list.append(["stage.ib_staging", ib_staging])
+query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 
 # COMMAND ----------
 
