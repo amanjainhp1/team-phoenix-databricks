@@ -12,11 +12,7 @@ from datetime import date
 
 # COMMAND ----------
 
-try:
-    version = dbutils.widgets.get("version")
-except Exception(e):
-    print("ERROR: version parameter is not set\n")
-    print(e)
+query_list = []
 
 redshift_dbname = configs["redshift_dbname"]
 redshift_port = configs["redshift_port"]
@@ -36,8 +32,11 @@ ib_record = 'IB'
 
 # COMMAND ----------
 
-call_redshift_addversion_sproc(configs, ns_record, ns_source)
-call_redshift_addversion_sproc(configs, ib_record, ib_source)
+ns_record_max_version_info = call_redshift_addversion_sproc(configs, ns_record, ns_source)
+ib_record_max_version_info = call_redshift_addversion_sproc(configs, ib_record, ib_source)
+
+version = ns_record_max_version_info[0]
+print(version)
 
 # COMMAND ----------
 
@@ -46,13 +45,12 @@ with filters as
 (
     SELECT record
         , version
-        , sub_version
         , source_name
         , load_date
         , official
     FROM prod.version
     WHERE record in ('IB', 'NORM_SHIPMENTS')
-        AND version = {version}
+        AND version = '{version}'
 ),
 scenario_setup as
 (
@@ -91,7 +89,6 @@ scenario_setup as
     WHERE vars.record = 'NORM_SHIPMENTS'
 
 )
-INSERT INTO prod.scenario
 SELECT scenario_name
 	, record
 	, version
@@ -101,6 +98,8 @@ where record not in ('INSTANT TONER', 'LF_LAG')
 order by 1,2
 """
 
+query_list.append(["prod.scenario", insert_ns_ib, "append"])
+
 # COMMAND ----------
 
-submit_remote_query(redshift_dbname, redshift_port, username, password, redshift_url, insert_ns_ib)
+# MAGIC %run ../common/output_to_redshift

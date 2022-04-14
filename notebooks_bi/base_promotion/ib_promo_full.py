@@ -28,7 +28,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('IB', 'NORM_SHIPMENTS')
-    AND version = {version}
+    AND version = '{version}'
 )SELECT ns.record
     , ns.cal_date
     , ns.region_5
@@ -59,7 +59,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('IB', 'NORM_SHIPMENTS')
-    AND version = {version}
+    AND version = '{version}'
 )SELECT ib.record
     , vars.version
     , vars.load_date
@@ -93,7 +93,7 @@ SELECT record
     , measure
     , units
     , 0 AS official
-FROM "stage"."ib_source"
+FROM "prod"."ib_source"
 """
 
 query_list.append(["prod.ib", ib, "overwrite"])
@@ -173,10 +173,10 @@ WHERE 1=1
     , ib.version
     , CAST(ib.load_date AS DATE) AS load_date
     , CAST(ib.cal_date AS VARCHAR(25)) + '-' + ib.platform_subset + '-' + ib.country + '-' + ib.customer_engagement AS composite_key
-FROM "stage"."ib_source" AS ib
+FROM "prod"."ib_source" AS ib
 LEFT JOIN ib_promo_06_rdma AS rdmapl
     ON rdmapl.platform_subset = ib.platform_subset
-LEFT JOIN "prod"."iso_country_code_xref" AS iso
+LEFT JOIN "mdm"."iso_country_code_xref" AS iso
     ON iso.country_alpha2 = ib.country
 LEFT JOIN "mdm"."iso_cc_rollup_xref" AS cc
     ON cc.country_alpha2 = ib.country
@@ -228,7 +228,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('IB', 'NORM_SHIPMENTS')
-    AND version = {version}
+    AND version = '{version}'
 )SELECT ib.record
     , vars.version
     , vars.load_date
@@ -264,7 +264,7 @@ SELECT record
     , official
 FROM "prod"."version"
 WHERE record in ('IB', 'NORM_SHIPMENTS')
-    AND version = {version}
+    AND version = '{version}'
 )SELECT 'norm_ships_ce' AS record
     , vars.version
     , vars.load_date
@@ -283,8 +283,6 @@ WHERE 1=1
 
 query_list.append(["prod.norm_shipments_ce", norm_shipments_ce, "append"])
 
-#TODO: Add a mode parameter to query_list
-
 # COMMAND ----------
 
-# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list

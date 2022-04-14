@@ -118,6 +118,16 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "product_line_xref"
             },
+            "product_line_scenarios_xref": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "product_line_scenarios_xref",
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "mdm", 
+                "destination_table": "product_line_scenarios_xref"
+            },
             "profit_center_code_xref": {
                 "source_system": "sqlserver",
                 "source_database":"IE2_Prod",
