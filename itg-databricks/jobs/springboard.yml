@@ -10,6 +10,7 @@ Jobs:
   - ink-usage-total
   - installed-base
   - installed-base-promo
+  - installed-base-scenario
   - lf-decay
   - lf-ltf
   - lf-ltf-splits
