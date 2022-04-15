@@ -13,13 +13,21 @@
 
 query = """
 
-create external table phoenix_spectrum.usage_share 
+create external table phoenix_spectrum_prod.ib 
 (
-record varchar(255)
+record varchar(255),
+cal_date date,
+country_alpha2 varchar(255),
+platform_subset varchar(255),
+customer_engagement varchar(255),
+measure varchar(255),
+units float,
+official bool,
+load_date timestamp,
+version varchar(255)
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/usage_share/2022.01.13.1/';
-
+location 's3://dataos-core-prod-team-phoenix/spectrum/ib/';
 """
 
 
