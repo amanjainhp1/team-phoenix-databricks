@@ -28,7 +28,7 @@ select
 	load_date
 from
 	Archive.dbo.usage_share_archive
-where version = '2021.10.29.1'
+where version = '2021.10.25.1'
   
 """
 
