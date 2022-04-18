@@ -1,6 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("redshift_secrets_name", "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj")
-# COMMAND ----------
 
 # MAGIC %run ../common/configs
 
