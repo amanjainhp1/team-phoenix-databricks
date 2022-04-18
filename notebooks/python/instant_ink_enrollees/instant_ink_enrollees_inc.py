@@ -53,9 +53,9 @@ SELECT
 ,NULL version
 ,1 official
 FROM app_bm_instant_ink_bi.app_bm_instant_ink_bi.fcst_work_6f_summary_output_PR
-WHERE record = 'Instant Ink'  AND year_month > (select case when cast(date_part(month,cast(max(year_month) as date)) as integer) < 10 THEN date_part(year,cast(max(year_month) as date)) || '0' || date_part(month,cast(max(year_month) as date))
+WHERE record = 'INSTANT INK'  AND year_month > (select case when cast(date_part(month,cast(max(year_month) as date)) as integer) < 10 THEN date_part(year,cast(max(year_month) as date)) || '0' || date_part(month,cast(max(year_month) as date))
 when cast(date_part(year,cast(max(year_month) as date)) as integer) >=10 then date_part(year,cast(max(year_month) as date)) || date_part(month,cast(max(year_month) as date)) end mon
-from prod.instant_ink_enrollees WHERE official = 1 AND data_source = 'Act')
+from prod.instant_ink_enrollees WHERE official = 1 AND data_source = 'ACT')
 """
 
 final_iink_enrollees = read_redshift_to_df(configs) \
@@ -65,7 +65,7 @@ final_iink_enrollees = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 add_version_sproc = """
-call prod.addversion_sproc('iink_ib', 'forecaster_input');  
+call prod.addversion_sproc('IINK_IB', 'FORECASTER_INPUT');  
 """
 
 iink_proc = """
