@@ -1,4 +1,9 @@
 # Databricks notebook source
+dbutils.widgets.text("tasks", "")
+dbutils.widgets.text("version", "")
+
+# COMMAND ----------
+
 # retrieve tasks from widgets/parameters
 tasks = dbutils.widgets.get("tasks").split(";")
 
@@ -27,14 +32,15 @@ for key, value in notebooks.items():
     
     if any(task in tasks for task in ["all", f"{key}"]):
         print(f"LOG: running {notebook} notebook")
+        
+        notebook_args = {}
+        if key == "ib-promo":
+            notebook_args["version"] = dbutils.widgets.get("version")
+
         try:
             start_time = time.time()
-            dbutils.notebook.run(notebook_path, 0)
-            completion_time = str(int(time.time() - start_time))
-            print(f"LOG: {notebook} notebook completed in {completion_time} seconds")
+            dbutils.notebook.run(notebook_path, 0, notebook_args)
+            completion_time = str(round((time.time() - start_time)/60, 1))
+            print(f"LOG: {notebook} notebook completed in {completion_time} minutes")
         except WorkflowException as e:
            dbutils.notebook.exit(e)
-
-# COMMAND ----------
-
-
