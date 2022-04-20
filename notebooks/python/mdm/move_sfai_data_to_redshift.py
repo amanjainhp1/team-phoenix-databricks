@@ -95,7 +95,6 @@ write_df_to_s3(final_table_df, "{}{}/{}/{}/".format(constants['S3_BASE_BUCKET'][
 
 # truncate existing redshift data and
 # write data to redshift
-                                                              
 submit_remote_query(stack, configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], "TRUNCATE " + destination)
 
 write_df_to_redshift(configs, final_table_df, destination, "append")

@@ -18,6 +18,16 @@ try:
 except:
     tables = json.loads("""
         {
+            "actuals_supplies": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "actuals_supplies",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod",
+                "destination_table": "actuals_supplies"
+            },
             "calendar": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
