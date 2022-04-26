@@ -6,6 +6,7 @@ import json
 from pyspark.sql import functions as f
 import psycopg2
 from typing import Union
+from pyspark.sql.dataframe import DataFrame
 
 # COMMAND ----------
 
@@ -20,7 +21,7 @@ def submit_remote_query(dbname, port, user, password, host, sql_query):
 
 # COMMAND ----------
 
-def read_redshift_to_df(configs):
+def read_redshift_to_df(configs: dict) -> DataFrame:
     df = spark.read \
     .format("com.databricks.spark.redshift") \
     .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(configs["redshift_url"], configs["redshift_port"], configs["redshift_dbname"])) \
@@ -32,7 +33,7 @@ def read_redshift_to_df(configs):
 
 # COMMAND ----------
 
-def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
+def write_df_to_redshift(configs: dict, df: DataFrame, destination: str = "", mode: str = "append", postactions: str = "", preactions: str = "") -> None:
     for column in df.dtypes:
         if column[1] == 'string':
             df = df.withColumn(column[0], f.upper(f.col(column[0])))
@@ -56,7 +57,7 @@ def write_df_to_redshift(configs, df, destination, mode, postactions = ""):
 
 # COMMAND ----------
 
-def read_sql_server_to_df(configs):
+def read_sql_server_to_df(configs: dict) -> DataFrame:
     df = spark.read \
         .format("jdbc") \
         .option("url",  configs["sfai_url"]) \
@@ -66,7 +67,7 @@ def read_sql_server_to_df(configs):
 
 # COMMAND ----------
 
-def write_df_to_sqlserver(configs, df, destination, mode):
+def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", mode: str = "append") -> None:
     try:
         df.write \
             .format("jdbc") \
@@ -83,7 +84,7 @@ def write_df_to_sqlserver(configs, df, destination, mode):
 
 # COMMAND ----------
 
-def write_df_to_s3(df, destination, format, mode):
+def write_df_to_s3(df: DataFrame, destination: str = "", format: str = "parquet", mode: str = "append"):
     df.write \
         .format(format) \
         .mode(mode) \
@@ -91,7 +92,7 @@ def write_df_to_s3(df, destination, format, mode):
 
 # COMMAND ----------
 
-def call_redshift_addversion_sproc(configs: list, record: str, source_name: str) -> Union[str, datetime]:
+def call_redshift_addversion_sproc(configs: dict, record: str, source_name: str) -> Union[str, datetime]:
     
     call_addversion_sproc_query = "CALL prod.addversion_sproc('{}', '{}');".format(record, source_name)
     
