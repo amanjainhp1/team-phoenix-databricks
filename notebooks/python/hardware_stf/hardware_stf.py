@@ -147,7 +147,7 @@ SELECT DISTINCT
     , c.category_feature
 FROM wd3 a
 LEFT JOIN rdma b
-    ON UPPER(a.base_prod_number)=UPPER(b.base_prod_number)
+    ON UPPER(a.base_product_number)=UPPER(b.base_prod_number)
 LEFT JOIN hardware_xref c
     ON UPPER(b.Platform_Subset)=UPPER(c.platform_subset)
 LEFT JOIN iso_country_code_xref d
