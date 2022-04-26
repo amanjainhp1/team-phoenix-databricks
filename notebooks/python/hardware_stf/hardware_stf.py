@@ -462,7 +462,7 @@ hardware_stf_landing.createOrReplaceTempView("hardware_stf_landing")
 # COMMAND ----------
 
 # --Add version to version table
-max_version_info = call_addversion_sproc('HW_STF_FCST', 'ARCHER')
+max_version_info = call_redshift_addversion_sproc(configs, 'HW_STF_FCST', 'ARCHER')
 
 max_forecast_version = max_version_info[0]
 max_forecast_load_date = max_version_info[1]
