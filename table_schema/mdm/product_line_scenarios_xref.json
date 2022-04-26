@@ -1,8 +1,8 @@
 {
   "fields": [
     {
-      "description": "iso_cc_id",
-      "name": "iso_cc_id",
+      "description": "plsx_id",
+      "name": "plsx_id",
       "type": "IDENTITY",
       "nullable": false,
       "encode": "raw",
@@ -11,77 +11,63 @@
     {
       "description": "record",
       "name": "record",
-      "type": "VARCHAR(50)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "country_alpha2",
-      "name": "country_alpha2",
-      "type": "VARCHAR(50)",
-      "nullable": false,
-      "encode": "lzo"
-    },
-    {
-      "description": "country_scenario",
-      "name": "country_scenario",
       "type": "VARCHAR(256)",
-      "nullable": false,
-      "encode": "lzo" 
-    },
-    {
-      "description": "country_begin_date",
-      "name": "country_begin_date",
-      "type": "DATE",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "country_end_date",
-      "name": "country_end_date",
-      "type": "DATE",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "country_level_1",
-      "name": "country_level_1",
-      "type": "VARCHAR(250)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "country_level_2",
-      "name": "country_level_2",
-      "type": "VARCHAR(250)",
+      "description": "pl_scenario",
+      "name": "pl_scenario",
+      "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "country_level_3",
-      "name": "country_level_3",
-      "type": "VARCHAR(250)",
+      "description": "pl",
+      "name": "pl",
+      "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "country_level_4",
-      "name": "country_level_4",
-      "type": "VARCHAR(250)",
+      "description": "pl_level_1",
+      "name": "pl_level_1",
+      "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "country_level_5",
-      "name": "country_level_5",
-      "type": "VARCHAR(250)",
+      "description": "pl_level_2",
+      "name": "pl_level_2",
+      "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },
     {
-      "description": "country_level_6",
-      "name": "country_level_6",
-      "type": "VARCHAR(250)",
+      "description": "pl_level_3",
+      "name": "pl_level_3",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pl_level_4",
+      "name": "pl_level_4",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pl_level_5",
+      "name": "pl_level_5",
+      "type": "VARCHAR(256)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "pl_level_6",
+      "name": "pl_level_6",
+      "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"
     },

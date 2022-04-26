@@ -148,7 +148,7 @@ with prod as
         , ib.customer_engagement
         , ib.version
         , SUM(ib.units) AS units
-    FROM "dev"."prod"."ib" AS ib
+    FROM "prod"."ib" AS ib
     WHERE ib.version IN ('2022.01.26.1')
         AND ib.measure = 'ib'
     GROUP BY ib.cal_date
@@ -165,7 +165,7 @@ stage as
         , ib.split_name AS customer_engagement
         , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
-    FROM "dev"."stage"."ib_staging" AS ib
+    FROM "stage"."ib_staging" AS ib
     GROUP BY ib.month_begin
         , ib.country_alpha2
         , ib.platform_subset
@@ -252,7 +252,7 @@ with prod as
         , ib.customer_engagement
         , ib.version
         , SUM(ib.units) AS units
-    FROM "dev"."prod"."ib" AS ib
+    FROM "prod"."ib" AS ib
     WHERE ib.version IN ('2022.01.26.1')
         AND ib.measure = 'ib'
     GROUP BY ib.cal_date
@@ -269,7 +269,7 @@ stage as
         , ib.split_name AS customer_engagement
         , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
-    FROM "dev"."stage"."ib_staging" AS ib
+    FROM "stage"."ib_staging" AS ib
     GROUP BY ib.month_begin
         , ib.country_alpha2
         , ib.platform_subset
@@ -359,8 +359,8 @@ with prod as
     SELECT ib.cal_date
         , ib.version
         , SUM(ib.units) AS units
-    FROM "dev"."prod"."ib" AS ib
-    join dev.mdm.hardware_xref as hw
+    FROM "prod"."ib" AS ib
+    join mdm.hardware_xref as hw
         on hw.platform_subset = ib.platform_subset
     WHERE ib.version IN ('2022.01.26.1')
         AND ib.measure = 'ib'
@@ -374,8 +374,8 @@ stage as
     SELECT ib.month_begin AS cal_date
         , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
-    FROM "dev"."stage"."ib_staging" AS ib
-    join dev.mdm.hardware_xref as hw
+    FROM "stage"."ib_staging" AS ib
+    join mdm.hardware_xref as hw
         on hw.platform_subset = ib.platform_subset
     WHERE 1=1
         AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
@@ -463,7 +463,7 @@ with prod as
                   , ib.customer_engagement
                   , ib.version
                   , SUM(ib.units) AS units
-             FROM "dev"."prod"."ib" AS ib
+             FROM "prod"."ib" AS ib
              WHERE ib.version IN ('2022.01.26.1')
                AND ib.measure = 'ib'
                AND ib.cal_date BETWEEN '2013-11-01' AND '2025-10-01'
@@ -481,7 +481,7 @@ with prod as
                   , ib.split_name AS customer_engagement
                   , cast('ib_staging' as varchar) AS version
                   , SUM(ib.ib) AS ib
-             FROM "dev"."stage"."ib_staging" AS ib
+             FROM "stage"."ib_staging" AS ib
              WHERE 1=1
                AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
              GROUP BY ib.month_begin
@@ -493,7 +493,7 @@ select cal_date
      , prod.version + ' - ' + prod.customer_engagement as variable
      , sum(units) as ib
 from prod
-join dev.mdm.hardware_xref as hw
+join mdm.hardware_xref as hw
   on hw.platform_subset = prod.platform_subset
 where 1=1
   and hw.technology = 'INK'
@@ -507,7 +507,7 @@ select cal_date
      , stage.version + ' - ' + stage.customer_engagement as variable
      , sum(ib) as ib
 from stage
-join dev.mdm.hardware_xref as hw
+join mdm.hardware_xref as hw
   on hw.platform_subset = stage.platform_subset
 where 1=1
   and hw.technology = 'INK'

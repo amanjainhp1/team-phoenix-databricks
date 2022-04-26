@@ -2,11 +2,13 @@
 Jobs:
   - actuals-hw
   - ce-split
+  - flash-load
   - hardware-ltf
   - hardware-stf
   - ink-share
   - ink-usage-color
   - ink-usage-total
+  - installed-base
   - lf-decay
   - lf-ltf
   - lf-ltf-splits
@@ -20,3 +22,6 @@ Jobs:
 
 DeleteJobs:
   - table-creator
+  - installed-base-promo
+  - installed-base-scenario
+  - norm-ships

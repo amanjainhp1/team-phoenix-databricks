@@ -29,13 +29,14 @@ select max(version) into max_version
 from prod.version
 where record = v1_record;
 
-IF record_count > 0 then
-		update prod.version
-		set official = 0
-		where 1=1
-			and record = v1_record
-			and record <> 'IB';
+update prod.version
+set official = 0
+where 1=1
+	and record = v1_record
+	and record <> 'IB';
 
+IF record_count > 0 then
+		
 		INSERT INTO prod.version
 		(record, version, source_name, official, load_date)
 		VALUES

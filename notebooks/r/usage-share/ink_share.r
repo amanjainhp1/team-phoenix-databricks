@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# Version 2021.11.29.1
+# Version 2022.04.05.1
 # title: "100% IB Ink Share DE with IE 2.0 IB"
 # output:
 #   html_notebook: default
@@ -119,279 +119,29 @@ sfai <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.
 # MAGIC val cutoffDate = dbutils.widgets.get("cutoff_dt")
 # MAGIC 
 # MAGIC val tableMonthQuery = s"""
-# MAGIC            --Share and Usage Splits (Trad)
-# MAGIC WITH sub_a AS (
-# MAGIC 	SELECT printer_id
-# MAGIC 	-- Ref
-# MAGIC 		, CASE
-# MAGIC 			WHEN CHARINDEX(' ',use.platform_subset_reporting_name)=0 THEN use.platform_subset_reporting_name
-# MAGIC 			ELSE LEFT(use.platform_subset_reporting_name,CHARINDEX(' ',use.platform_subset_reporting_name)-1)
-# MAGIC 			END AS printer_short_name
-# MAGIC 		, use.platform_subset_reporting_name AS printer_platform_name
-# MAGIC 		, ref.rdma_platform_subset_name
-# MAGIC 		, use.hp_strategic_region_code AS printer_region_code
-# MAGIC 		, use.derived_country_name
-# MAGIC 		, use.hp_country_common_name
-# MAGIC 		, SUBSTRING(use.fiscal_year_quarter,1,4) AS year
-# MAGIC 		, SUBSTRING(use.fiscal_year_quarter,5,6) AS quarter
-# MAGIC 		, use.date_month_dim_ky
-# MAGIC 		, CASE WHEN use.printer_instant_ink_state = 'ENROLLED' THEN 'I-INK'
-# MAGIC 		       WHEN use.printer_instant_ink_state = 'SUBSCRIBED' THEN 'I-INK'
-# MAGIC 		       ELSE 'TRAD'
-# MAGIC 		       END
-# MAGIC 		       AS printer_managed
-# MAGIC 		, use.product_price_range
-# MAGIC 		, use.product_technology_type
-# MAGIC 		, use.product_technology_split
-# MAGIC 		, ref.platform_name
-# MAGIC 		, TRIM(regexp_replace(ref.product_model_name,'[0-9]+')) AS product_model_name
-# MAGIC 		, ref.product_line_code
-# MAGIC 		, ref.product_function_code
-# MAGIC 		, ref.product_business_model
-# MAGIC 	-- Black CCs
-# MAGIC 		, COALESCE(use.k_total_cc,0) AS k_total
-# MAGIC 		, COALESCE(use.k_no_host_cc,0) AS k_no_host
-# MAGIC 		, COALESCE(use.k_host_cc,0) AS k_host		
-# MAGIC 		, COALESCE(use.k_hp_cc,0) AS k_hp
-# MAGIC 		, COALESCE(use.k_refill_cc,0) AS k_refill
-# MAGIC 		, COALESCE(use.k_altered_cc,0) AS k_reman
-# MAGIC 		, COALESCE(use.k_emulated_cc,0) AS k_clone
-# MAGIC 		, k_refill+k_reman+k_clone AS k_nohp
-# MAGIC 	-- Cyan CCs
-# MAGIC 		, COALESCE(use.c_total_cc,0) AS c_total
-# MAGIC 		, COALESCE(use.c_no_host_cc,0) AS c_no_host
-# MAGIC 		, COALESCE(use.c_host_cc,0) AS c_host
-# MAGIC 		, COALESCE(use.c_hp_cc,0) AS c_hp
-# MAGIC 		, COALESCE(use.c_refill_cc,0) AS c_refill
-# MAGIC 		, COALESCE(use.c_altered_cc,0) AS c_reman
-# MAGIC 		, COALESCE(use.c_emulated_cc,0) AS c_clone		
-# MAGIC 		, c_refill+c_reman+c_clone AS c_nohp
-# MAGIC 	-- Magenta CCs		
-# MAGIC 		, COALESCE(use.m_total_cc,0) AS m_total
-# MAGIC 		, COALESCE(use.m_no_host_cc,0) AS m_no_host
-# MAGIC 		, COALESCE(use.m_host_cc,0) AS m_host
-# MAGIC 		, COALESCE(use.m_hp_cc,0) AS m_hp
-# MAGIC 		, COALESCE(use.m_refill_cc,0) AS m_refill
-# MAGIC 		, COALESCE(use.m_altered_cc,0) AS m_reman
-# MAGIC 		, COALESCE(use.m_emulated_cc,0) AS m_clone
-# MAGIC 		, m_refill+m_reman+m_clone AS m_nohp
-# MAGIC 	-- Yellow CCs
-# MAGIC 		, COALESCE(use.y_total_cc,0) AS y_total
-# MAGIC 		, COALESCE(use.y_no_host_cc,0) AS y_no_host
-# MAGIC 		, COALESCE(use.y_host_cc,0) AS y_host
-# MAGIC 		, COALESCE(use.y_hp_cc,0) AS y_hp
-# MAGIC 		, COALESCE(use.y_refill_cc,0) AS y_refill
-# MAGIC 		, COALESCE(use.y_altered_cc,0) AS y_reman
-# MAGIC 		, COALESCE(use.y_emulated_cc,0) AS y_clone
-# MAGIC 		, y_refill+y_reman+y_clone AS y_nohp
-# MAGIC 	-- Photo Black CCs
-# MAGIC 		, COALESCE(use.lk_total_cc,0) AS lk_total
-# MAGIC 		, COALESCE(use.lk_no_host_cc,0) AS lk_no_host
-# MAGIC 		, COALESCE(use.lk_host_cc,0) AS lk_host
-# MAGIC 		, COALESCE(use.lk_hp_cc,0) AS lk_hp
-# MAGIC 		, COALESCE(use.lk_refill_cc,0) AS lk_refill
-# MAGIC 		, COALESCE(use.lk_altered_cc,0) AS lk_reman
-# MAGIC 		, COALESCE(use.lk_emulated_cc,0) AS lk_clone
-# MAGIC 		, lk_refill+lk_reman+lk_clone AS lk_nohp		
-# MAGIC 	-- Color CCs
-# MAGIC 		, c_total+m_total+y_total+lk_total AS col_total
-# MAGIC 		, c_no_host+m_no_host+y_no_host+lk_no_host AS col_no_host
-# MAGIC 		, c_host+m_host+y_host+lk_host AS col_host
-# MAGIC 		, c_hp+m_hp+y_hp+lk_hp AS col_hp
-# MAGIC 		, c_refill+m_refill+y_refill+lk_refill AS col_refill
-# MAGIC 		, c_reman+m_reman+y_reman+lk_reman AS col_reman
-# MAGIC 		, c_clone+m_clone+y_clone+lk_clone AS col_clone
-# MAGIC 		, c_nohp+m_nohp+y_nohp+lk_nohp AS col_nohp		
-# MAGIC 	-- Total CCs
-# MAGIC 		, k_total+col_total AS tot_cc
-# MAGIC 		, COALESCE(use.total_cc,0) AS total_cc_check
-# MAGIC 	-- Total No Host CCs
-# MAGIC 		, k_no_host+col_no_host AS tot_no_host_cc
-# MAGIC 		, COALESCE(use.total_no_host_cc,0) AS total_no_host_cc_check		
-# MAGIC 	-- HP CCs
-# MAGIC 		, k_hp+c_hp+m_hp+y_hp+lk_hp AS tot_hp
-# MAGIC 		, COALESCE(use.hp_cc,0) AS hp_cc_check		
-# MAGIC 	-- HP Inserted CCs
-# MAGIC 		, COALESCE(use.fw_hp_ink_inserted_cc,0) AS inserted_hp_cc		
-# MAGIC 	-- Total Pages
-# MAGIC 		, COALESCE(use.pages_total,0) AS total_pages		
-# MAGIC 	-- Other
-# MAGIC 		, use.days
-# MAGIC 		, use.ib_weight*use.ratio_month1_filter AS ib_weight_m1_adj	
-# MAGIC 		, use.ib_weight
-# MAGIC 	FROM cumulus_prod02_biz_trans.biz_trans.idst_print_share_usage use
-# MAGIC 	LEFT OUTER JOIN cumulus_prod02_ref_enrich.ref_enrich.product_ref ref
-# MAGIC 		ON (use.product_number=ref.product_number)
-# MAGIC 	WHERE 1=1
-# MAGIC 		AND month_order > 1
-# MAGIC     AND printer_months >= 100 AND ib_weight*ratio_month1_filter <= 1000
-# MAGIC     AND loyalty_subclass IN ('Host','HP Loyal','Disloyal','Defector','Non-HP Only','Suspect')
-# MAGIC     AND use.product_technology_split NOT IN ('TIJ_2.XG1','TIJ_2.XG2 BCP','TIJ_2.XG2 MATURE','TIJ_2.XG3 GEO OJ','TIJ_2.XG3 GEO OJ MMOTR','TIJ_2.XG3 GEO STD','TIJ_2.XG3 GEO STD MMOTR','TIJ_4.0 GEKKO','TIJ_4.0 MPENNY','TIJ_4.0 OASIS GHID')
-# MAGIC     AND use.product_number NOT IN ('Y0G49B','Z3M46B') -- Cancelled SKU's intended for EU (CO does not want them in our data)
-# MAGIC 		AND use.share_printer_filter = 'New'
-# MAGIC 		  --Remove if on Restricted Country List (Cuba, Iran, Sudan, Syria, North Korea) or no Market Ten mapping (Antarctica, Netherlands Antilles) 
-# MAGIC     AND use.hp_country_common_name NOT IN ('CUBA','IRAN, ISLAMIC REPUBLIC OF','SUDAN','SYRIAN ARAB REPUBLIC','ANTARCTICA','NETHERLANDS ANTILLES')
-# MAGIC     --AND use.ciss_printer=0  ---CISS included 
-# MAGIC 
-# MAGIC      )
-# MAGIC , sub_b AS (
-# MAGIC 	SELECT
-# MAGIC 	-- Ref
-# MAGIC 		--printer_short_name
-# MAGIC 		printer_platform_name
-# MAGIC 		, rdma_platform_subset_name
-# MAGIC 		, printer_region_code
-# MAGIC 		, derived_country_name
-# MAGIC 		, hp_country_common_name
-# MAGIC 		, year
-# MAGIC 		, quarter
-# MAGIC 		, date_month_dim_ky
-# MAGIC 		, printer_managed
-# MAGIC 		--, product_price_range
-# MAGIC 		--, product_technology_type
-# MAGIC 		--, product_technology_split
-# MAGIC 		--, platform_name
-# MAGIC 		--, product_model_name
-# MAGIC 		--, product_line_code
-# MAGIC 		--, product_function_code
-# MAGIC 		--, product_business_model
-# MAGIC 	-- Black CCs
-# MAGIC 		, ROUND(SUM(k_total*ib_weight_m1_adj),2) AS k_total_cc_sum	
-# MAGIC 		, ROUND(SUM(k_no_host*ib_weight_m1_adj),2) AS k_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(k_host*ib_weight_m1_adj),2) AS k_host_cc_sum
-# MAGIC 		, ROUND(SUM(k_hp*ib_weight_m1_adj),2) AS k_hp_cc_sum
-# MAGIC 		, ROUND(SUM(k_refill*ib_weight_m1_adj),2) AS k_refill_cc_sum
-# MAGIC 		, ROUND(SUM(k_reman*ib_weight_m1_adj),2) AS k_reman_cc_sum
-# MAGIC 		, ROUND(SUM(k_clone*ib_weight_m1_adj),2) AS k_clone_cc_sum	
-# MAGIC 		, ROUND(SUM(k_nohp*ib_weight_m1_adj),2) AS k_nohp_cc_sum		
-# MAGIC 	-- Cyan CCs
-# MAGIC 		, ROUND(SUM(c_total*ib_weight_m1_adj),2) AS c_total_cc_sum	
-# MAGIC 		, ROUND(SUM(c_no_host*ib_weight_m1_adj),2) AS c_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(c_host*ib_weight_m1_adj),2) AS c_host_cc_sum
-# MAGIC 		, ROUND(SUM(c_hp*ib_weight_m1_adj),2) AS c_hp_cc_sum
-# MAGIC 		, ROUND(SUM(c_refill*ib_weight_m1_adj),2) AS c_refill_cc_sum
-# MAGIC 		, ROUND(SUM(c_reman*ib_weight_m1_adj),2) AS c_reman_cc_sum
-# MAGIC 		, ROUND(SUM(c_clone*ib_weight_m1_adj),2) AS c_clone_cc_sum
-# MAGIC 		, ROUND(SUM(c_nohp*ib_weight_m1_adj),2) AS c_nohp_cc_sum	
-# MAGIC 	-- Magenta CCs		
-# MAGIC 		, ROUND(SUM(m_total*ib_weight_m1_adj),2) AS m_total_cc_sum		
-# MAGIC 		, ROUND(SUM(m_no_host*ib_weight_m1_adj),2) AS m_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(m_host*ib_weight_m1_adj),2) AS m_host_cc_sum
-# MAGIC 		, ROUND(SUM(m_hp*ib_weight_m1_adj),2) AS m_hp_cc_sum
-# MAGIC 		, ROUND(SUM(m_refill*ib_weight_m1_adj),2) AS m_refill_cc_sum
-# MAGIC 		, ROUND(SUM(m_reman*ib_weight_m1_adj),2) AS m_reman_cc_sum
-# MAGIC 		, ROUND(SUM(m_clone*ib_weight_m1_adj),2) AS m_clone_cc_sum
-# MAGIC 		, ROUND(SUM(m_nohp*ib_weight_m1_adj),2) AS m_nohp_cc_sum
-# MAGIC 	-- Yellow CCs
-# MAGIC 		, ROUND(SUM(y_total*ib_weight_m1_adj),2) AS y_total_cc_sum
-# MAGIC 		, ROUND(SUM(y_no_host*ib_weight_m1_adj),2) AS y_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(y_host*ib_weight_m1_adj),2) AS y_host_cc_sum
-# MAGIC 		, ROUND(SUM(y_hp*ib_weight_m1_adj),2) AS y_hp_cc_sum
-# MAGIC 		, ROUND(SUM(y_refill*ib_weight_m1_adj),2) AS y_refill_cc_sum
-# MAGIC 		, ROUND(SUM(y_reman*ib_weight_m1_adj),2) AS y_reman_cc_sum
-# MAGIC 		, ROUND(SUM(y_clone*ib_weight_m1_adj),2) AS y_clone_cc_sum
-# MAGIC 		, ROUND(SUM(y_nohp*ib_weight_m1_adj),2) AS y_nohp_cc_sum		
-# MAGIC 	-- Photo Black CCs
-# MAGIC 		, ROUND(SUM(lk_total*ib_weight_m1_adj),2) AS lk_total_cc_sum
-# MAGIC 		, ROUND(SUM(lk_no_host*ib_weight_m1_adj),2) AS lk_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(lk_host*ib_weight_m1_adj),2) AS lk_host_cc_sum
-# MAGIC 		, ROUND(SUM(lk_hp*ib_weight_m1_adj),2) AS lk_hp_cc_sum
-# MAGIC 		, ROUND(SUM(lk_refill*ib_weight_m1_adj),2) AS lk_refill_cc_sum
-# MAGIC 		, ROUND(SUM(lk_reman*ib_weight_m1_adj),2) AS lk_reman_cc_sum
-# MAGIC 		, ROUND(SUM(lk_clone*ib_weight_m1_adj),2) AS lk_clone_cc_sum
-# MAGIC 		, ROUND(SUM(lk_nohp*ib_weight_m1_adj),2) AS lk_nohp_cc_sum		
-# MAGIC 	-- Color CCs
-# MAGIC 		, ROUND(SUM(col_total*ib_weight_m1_adj),2) AS col_total_cc_sum	
-# MAGIC 		, ROUND(SUM(col_no_host*ib_weight_m1_adj),2) AS col_no_host_cc_sum	
-# MAGIC 		, ROUND(SUM(col_host*ib_weight_m1_adj),2) AS col_host_cc_sum	
-# MAGIC 		, ROUND(SUM(col_hp*ib_weight_m1_adj),2) AS col_hp_cc_sum	
-# MAGIC 		, ROUND(SUM(col_refill*ib_weight_m1_adj),2) AS col_refill_cc_sum	
-# MAGIC 		, ROUND(SUM(col_reman*ib_weight_m1_adj),2) AS col_reman_cc_sum	
-# MAGIC 		, ROUND(SUM(col_clone*ib_weight_m1_adj),2) AS col_clone_cc_sum	
-# MAGIC 		, ROUND(SUM(col_nohp*ib_weight_m1_adj),2) AS col_nohp_cc_sum		
-# MAGIC 	-- Total CCs
-# MAGIC 		, ROUND(SUM(tot_cc*ib_weight_m1_adj),2) AS tot_cc_sum
-# MAGIC 		, ROUND(SUM(total_cc_check*ib_weight_m1_adj),2) AS total_cc_check_sum
-# MAGIC 	-- Total No Host CCs
-# MAGIC 		, ROUND(SUM(tot_no_host_cc*ib_weight_m1_adj),2) AS tot_no_host_cc_sum
-# MAGIC 		, ROUND(SUM(total_no_host_cc_check*ib_weight_m1_adj),2) AS total_no_host_cc_check_sum		
-# MAGIC 	-- HP CCs
-# MAGIC 		, ROUND(SUM(tot_hp*ib_weight_m1_adj),2) AS tot_hp_cc_sum
-# MAGIC 		, ROUND(SUM(hp_cc_check*ib_weight_m1_adj),2) AS hp_cc_check_sum	
-# MAGIC 	-- HP Inserted CCs
-# MAGIC 		, ROUND(SUM(inserted_hp_cc*ib_weight_m1_adj),2) AS inserted_hp_cc_sum		
-# MAGIC 	-- Total Pages
-# MAGIC 		, ROUND(SUM(total_pages*ib_weight_m1_adj),2) AS total_pages_sum		
-# MAGIC 	-- Other
-# MAGIC 		, SUM(days*ib_weight_m1_adj) AS days_ib_ext_sum
-# MAGIC 		, COUNT(DISTINCT printer_id) AS printer_count
-# MAGIC 		, sum(ib_weight) as ib_weight
-# MAGIC 	FROM sub_a  
-# MAGIC 	WHERE 1=1
-# MAGIC 		--AND printer_managed = 'TRADITIONAL'
-# MAGIC 	GROUP BY
-# MAGIC 		--printer_short_name
-# MAGIC 		printer_platform_name
-# MAGIC 		, rdma_platform_subset_name
-# MAGIC 		, printer_region_code
-# MAGIC 		, derived_country_name
-# MAGIC 		, hp_country_common_name
-# MAGIC 		, year
-# MAGIC 		, quarter
-# MAGIC 		, date_month_dim_ky
-# MAGIC 		, printer_managed
-# MAGIC 		--, product_price_range
-# MAGIC 		--, product_technology_type
-# MAGIC 		--, product_technology_split
-# MAGIC 		--, platform_name
-# MAGIC 		--, product_model_name
-# MAGIC 		--, product_line_code
-# MAGIC 		--, product_function_code
-# MAGIC 		--, product_business_model
-# MAGIC )
+# MAGIC --Share and Usage Splits (Trad)
 # MAGIC SELECT 
-# MAGIC -- Ref
-# MAGIC 	--printer_short_name
 # MAGIC 	printer_platform_name
-# MAGIC 	, rdma_platform_subset_name
 # MAGIC 	, printer_region_code
-# MAGIC 	, derived_country_name as country_alpha2
+# MAGIC 	, country_alpha2
 # MAGIC 	, hp_country_common_name
 # MAGIC 	, year
 # MAGIC 	, quarter
 # MAGIC 	, date_month_dim_ky
 # MAGIC 	, printer_managed
-# MAGIC 	--, product_price_range
-# MAGIC 	--, product_technology_type
-# MAGIC 	--, product_technology_split
-# MAGIC 	--, platform_name
-# MAGIC 	--, product_model_name
-# MAGIC 	--, product_line_code
-# MAGIC 	--, product_function_code
-# MAGIC 	--, product_business_model
-# MAGIC 	, tot_hp_cc_sum/nullif(tot_no_host_cc_sum,0) AS hp_share
-# MAGIC 	, tot_hp_cc_sum as ps_num
-# MAGIC   , tot_no_host_cc_sum as ps_den
-# MAGIC 	, k_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS black_cc_ib_wtd_avg
-# MAGIC 	, col_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS color_cc_ib_wtd_avg
-# MAGIC 	, c_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS cyan_cc_ib_wtd_avg
-# MAGIC 	, m_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS magenta_cc_ib_wtd_avg
-# MAGIC 	, y_total_cc_sum/nullif((days_ib_ext_sum/30.4),0) AS yellow_cc_ib_wtd_avg
-# MAGIC 	, tot_cc_sum/nullif((days_ib_ext_sum/30.4),0) as tot_cc_ib_wtd_avg
-# MAGIC 	, total_pages_sum/nullif((days_ib_ext_sum/30.4),0) AS total_pages_ib_wtd_avg
-# MAGIC 	, col_total_cc_sum/nullif(col_total_cc_sum+k_total_cc_sum,0) AS pct_color
-# MAGIC 	, printer_count AS reporting_printers
-# MAGIC 	, ib_weight
-# MAGIC FROM sub_b
-# MAGIC WHERE 1=1
-# MAGIC 	--AND printer_platform_name = 'CESAR'
-# MAGIC 	--AND printer_region_code = 'EU'
-# MAGIC 	--AND date_month_dim_ky = '201905'
-# MAGIC 	AND date_month_dim_ky < ${cutoffDate}
-# MAGIC 	--AND printer_managed != 'ENROLLED' #decision to include enrolled as i-ink
-# MAGIC ORDER BY date_month_dim_ky
-# MAGIC 	, printer_region_code
-# MAGIC 	, printer_platform_name
+# MAGIC 	, hp_share
+# MAGIC 	, black_cc_ib_wtd_avg
+# MAGIC 	, color_cc_ib_wtd_avg
+# MAGIC 	, cyan_cc_ib_wtd_avg
+# MAGIC 	, magenta_cc_ib_wtd_avg
+# MAGIC 	, yellow_cc_ib_wtd_avg
+# MAGIC 	, tot_cc_ib_wtd_avg
+# MAGIC 	, total_pages_ib_wtd_avg AS ps_den
+# MAGIC     , total_pages_ib_wtd_avg * hp_share AS ps_num
+# MAGIC 	, pct_color	 
+# MAGIC 	, reporting_printers
+# MAGIC     , connected_ib
+# MAGIC FROM cumulus_prod02_biz_trans.biz_trans.v_print_share_usage_forecasting
 # MAGIC """
 # MAGIC 
 # MAGIC val tableMonth = readRedshiftToDF(configs)
@@ -406,15 +156,9 @@ table_month <- SparkR::collect(SparkR::sql("SELECT * FROM table_month"))
 
 # COMMAND ----------
 
-#table_month$rtm <- ifelse(table_month$printer_managed=="SUBSCRIBED","I-INK", ifelse(table_month$printer_managed=="ENROLLED","I-INK","TRAD"))
 table_month$rtm <- table_month$printer_managed
 
-table_month$rdma_platform_subset_name <- ifelse(str_sub(table_month$rdma_platform_subset_name,start=-3)==' EM',substr(table_month$rdma_platform_subset_name,1,nchar(table_month$rdma_platform_subset_name)-3),table_month$rdma_platform_subset_name)
-table_monthrdma_platform_subset_name <- ifelse(str_sub(table_month$rdma_platform_subset_name,start=-3)==' DM',substr(table_month$rdma_platform_subset_name,1,nchar(table_month$rdma_platform_subset_name)-3),table_month$rdma_platform_subset_name)
-
-
 ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
-#ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
 
 #IB Table from MDM  
   ibtable <- dbGetQuery(sfai,paste("
@@ -443,6 +187,8 @@ ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
                             , b.region_5, a.country,d.hw_product_family
                    ",sep="", collapse = NULL))
 
+# COMMAND ----------
+
 #Get Market10 Information
 country_info <- dbGetQuery(sfai,"
                       WITH mkt10 AS (
@@ -459,6 +205,9 @@ country_info <- dbGetQuery(sfai,"
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
                            ")
+
+# COMMAND ----------
+
 country_info <- sqldf("SELECT * from country_info where country_alpha2 in (select distinct country from ibtable)")
 hw_info <- dbGetQuery(sfai,
                     "SELECT distinct platform_subset, pl as  product_line_code, epa_family as platform_division_code, sf_mf as platform_function_code
@@ -470,6 +219,9 @@ hw_info <- dbGetQuery(sfai,
                     from IE2_Prod.dbo.hardware_xref
                     "
                     )
+
+# COMMAND ----------
+
 #Get Intro Dates
 ibintrodt <- dbGetQuery(sfai,"
             SELECT  a.platform_subset, a.customer_engagement
@@ -484,41 +236,45 @@ ibintrodt <- dbGetQuery(sfai,"
                    ")
 ibintrodt$intro_yyyymm <- paste0(substr(ibintrodt$intro_date,1,4),substr(ibintrodt$intro_date,6,7))
 
+# COMMAND ----------
+
 table_month <- sqldf("
                      with sub1 as (
-             select a.printer_platform_name, a.rdma_platform_subset_name, a.printer_region_code
-              , a.country_alpha2, ci.market10, ci.region_5, ci.developed_emerging, a.rtm
-              , hw.platform_function_code, hw.cm
-              --, a.platform_business_code
-              , a.year, a.quarter, a.date_month_dim_ky as fyearmo, a.printer_managed --, hw.market_group as platform_market_code
-              , hw.platform_division_code, hw.product_brand
-              , hw.intro_price as product_intro_price, id.intro_yyyymm as product_introduction_date --, a.product_printhead_technology_designator
-              , hw.print_mono_speed_pages, hw.print_color_speed_pages
-              --, a.product_model_name ,a.product_financial_market_code
-              , hw.product_line_code --, a.product_function_code, a.product_business_model
-
+              select a.printer_platform_name
+              , a.printer_region_code
+              , a.country_alpha2
+              , ci.market10
+              , ci.region_5
+              , ci.developed_emerging
+              , a.rtm
+              , hw.platform_function_code
+              , hw.cm
+              , a.year
+              , a.quarter
+              , a.date_month_dim_ky as fyearmo
+              , a.printer_managed
+              , hw.platform_division_code
+              , hw.product_brand
+              , hw.intro_price as product_intro_price
+              , id.intro_yyyymm as product_introduction_date
+              , hw.print_mono_speed_pages
+              , hw.print_color_speed_pages
+              , hw.product_line_code
               , a.tot_cc_ib_wtd_avg as total_cc                                
               , a.tot_cc_ib_wtd_avg as usage      --Consumed Ink
               , a.color_cc_ib_wtd_avg as c_usage  --Consumed color Ink
-
               , a.hp_share  --Ink Share
               , a.ps_num
               , a.ps_den
               , a.reporting_printers as sumn
               , a.pct_color
-
-
              from table_month a
-             --LEFT JOIN sub0 
-             --on a.rdma_platform_subset_name=sub0.rdma_platform_subset_name 
-             --and a.printer_region_code=sub0.printer_region_code
-             --and a.printer_managed=sub0.printer_managed
              LEFT JOIN hw_info hw
-              on a.rdma_platform_subset_name=hw.platform_subset
+              on a.printer_platform_name=hw.platform_subset
              LEFT JOIN country_info ci 
               ON a.country_alpha2=ci.country_alpha2 
              LEFT JOIN ibintrodt id
-              ON a.rdma_platform_subset_name=id.platform_subset and a.rtm=id.customer_engagement
+              ON a.printer_platform_name=id.platform_subset and a.rtm=id.customer_engagement
             )
             select * from sub1")
 
@@ -540,39 +296,39 @@ product_ib2 <- sqldf(paste("
                               "))
 
  table_quarter <- sqldf("
-                       SELECT rdma_platform_subset_name, country_alpha2, platform_function_code, cm --, platform_business_code
-                       --,printer_platform_name, full_platform_name
-                        , market10, region_5, developed_emerging
-                        , year, quarter 
-                        , (year||quarter) as  fiscal_year_quarter
-                        , rtm --, platform_market_code
-                        , platform_division_code, product_brand
+                        SELECT printer_platform_name
+                        , country_alpha2
+                        , platform_function_code
+                        , cm 
+                        , market10
+                        , region_5
+                        , developed_emerging
+                        , year
+                        , quarter 
+                        , quarter as  fiscal_year_quarter
+                        , rtm
+                        , platform_division_code
+                        , product_brand
                         , min(product_intro_price) as product_intro_price
-                        , product_introduction_date --, product_printhead_technology_designator
-                        , print_mono_speed_pages, print_color_speed_pages --, product_model_name
-                        --, product_financial_market_code
-                        , product_line_code --, product_function_code, product_business_model
-
+                        , product_introduction_date
+                        , print_mono_speed_pages
+                        , print_color_speed_pages
+                        , product_line_code
                         , avg(pct_color) as pct_color
-                        --, avg(k_hp_avg) as k_hp_avg
                         , sum(sumn) as sumn
-                        --, sum(days) as days
                         , avg(usage) as usage
                         , avg(hp_share) as hp_share_avg        --straight average hp_share
                         , sum(ps_num)/sum(ps_den) AS hp_share  --weighted average hp_share
-
                         FROM table_month
                         group by
-                        --printer_platform_name, full_platform_name, 
-                        rdma_platform_subset_name, country_alpha2, platform_function_code, cm --, platform_business_code
+                        printer_platform_name, country_alpha2, platform_function_code, cm
                         , market10, region_5, developed_emerging
                         , year, quarter 
-                        , rtm --, platform_market_code
-                        , platform_division_code, product_brand --, product_intro_price
-                        , product_introduction_date --, product_printhead_technology_designator
-                        , print_mono_speed_pages, print_color_speed_pages --, product_model_name
-                        --, product_financial_market_code
-                        , product_line_code --, product_function_code, product_business_model
+                        , rtm
+                        , platform_division_code, product_brand
+                        , product_introduction_date 
+                        , print_mono_speed_pages, print_color_speed_pages
+                        , product_line_code
                        ")
 #close(ch)
 
@@ -625,24 +381,6 @@ Pred_Raw_in <- sqldf("select distinct Platform_Subset as platform_subset_name
                     END AS Predecessor_src
                   from Pred_Raw_file")
 
-# Pred_Raw <- Pred_Raw_in %>%
-#   mutate(Count = 1,
-#          Predecessor = ifelse(grepl(Predecessor, pattern = "N/A", ignore.case = T), yes = NA, no = trimws(toupper(as.character(Predecessor)))),
-#          platform_subset_name = trimws(toupper(as.character(platform_subset_name)))) %>%
-#   group_by(platform_subset_name, Predecessor) %>%
-#   dplyr::summarise(Count = sum(Count)) %>% 
-#   filter(!Predecessor %in% c("?", ""),
-#          !is.na(Predecessor)) %>%
-#   select(-Count) %>%
-#   group_by(platform_subset_name) %>%
-#   mutate(Count = seq_along(platform_subset_name),
-#          Count_max = max(Count),
-#         Count_2 = ifelse(Predecessor == "NONE" & Count == 1 & Count < Count_max, yes = 0, no = Count)) %>%
-#   filter(Count_2 != 0) %>%
-#    group_by(platform_subset_name) %>%
-#   filter(Count_2 == min(Count_2)) %>%
-#   select(-Count, -Count_max, -Count_2)
-
 Pred_Raw <- sqldf("select trim(platform_subset_name) as platform_subset_name,trim(Predecessor) as Predecessor,trim(Predecessor_src) as Predecessor_src, count(*) as count
                   from Pred_Raw_in
                   where Predecessor !='0' and Predecessor is not null and Predecessor !='N/A' and Predecessor !='NONE'
@@ -662,13 +400,6 @@ printer_list <- sqldf("
                             left join ibintrodt b on b.platform_subset=d.platform_subset
                             --left join product_info2alt e on e.platform_subset_name=d.printer_platform_name
                       ")
-
-#printer_list<-subset(printer_list,platform_page_category=="A4")
-#printer_list<-printer_list[c(1:8)]
-
-#product_ib2a <- read_csv(file="C:/Users/timothy/Documents/IB/IB_30Oct19.csv", na="")
-#product_ib2a$region <- ifelse(product_ib2a$region_5=="N.Amer","NA",as.character(product_ib2a$Region_5))
-#product_ib2a$de <- ifelse(product_ib2a$Country_Alpha2=="check",substring(as.character(product_ib2a$SubRegion.25),nchar(as.character(product_ib2a$SubRegion.25))), ifelse(product_ib2a$Country_Alpha2 %in% c("AU","CA","DE","ES","FR","GB","IT","US"),"D","E"))
 
 product_ib2 <- sqldf("
               SELECT platform_subset_name
@@ -719,7 +450,7 @@ page_share_2$rtm=toupper(page_share_2$rtm)
 #check2 <- subset(page_share,page_share$`Platform Name`=="MOON AIO" & page_share$`Report Period`=="2017Q3" & page_share$Country=="BULGARIA")
 
 page_share_reg <- sqldf("
-                       SELECT rdma_platform_subset_name as platform_name, fiscal_year_quarter
+                       SELECT printer_platform_name as platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5 as region_code 
@@ -727,7 +458,7 @@ page_share_reg <- sqldf("
                         , avg(hp_share) as hp_share
                         , SUM(sumn) as printer_count_month_ps
                       from  page_share_2
-                      group by rdma_platform_subset_name, fiscal_year_quarter
+                      group by printer_platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5
@@ -738,7 +469,7 @@ page_share_reg <- sqldf("
                        
                        ")
 page_share_m10 <- sqldf("
-                       SELECT rdma_platform_subset_name as platform_name, fiscal_year_quarter
+                       SELECT printer_platform_name as platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5 as region_code 
@@ -747,7 +478,7 @@ page_share_m10 <- sqldf("
                         , avg(hp_share) as hp_share
                         , SUM(sumn) as printer_count_month_ps
                       from  page_share_2
-                      group by rdma_platform_subset_name, fiscal_year_quarter
+                      group by printer_platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5
@@ -758,7 +489,7 @@ page_share_m10 <- sqldf("
 
                        ")
 page_share_mde <- sqldf("
-                       SELECT rdma_platform_subset_name as platform_name, fiscal_year_quarter
+                       SELECT printer_platform_name as platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5 as region_code 
@@ -767,7 +498,7 @@ page_share_mde <- sqldf("
                         , avg(hp_share) as hp_share
                         , SUM(sumn) as printer_count_month_ps
                       from  page_share_2
-                      group by rdma_platform_subset_name, fiscal_year_quarter
+                      group by printer_platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5
@@ -778,7 +509,7 @@ page_share_mde <- sqldf("
                        ,region_code 
                        ")
 page_share_ctr <- sqldf("
-                       SELECT rdma_platform_subset_name as platform_name, fiscal_year_quarter
+                       SELECT printer_platform_name as platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5 as region_code 
@@ -788,7 +519,7 @@ page_share_ctr <- sqldf("
                         , avg(hp_share) as hp_share
                         , SUM(sumn) as printer_count_month_ps
                       from  page_share_2
-                      group by rdma_platform_subset_name, fiscal_year_quarter
+                      group by printer_platform_name, fiscal_year_quarter
                        , product_brand
                        , rtm
                        , region_5
@@ -870,86 +601,46 @@ for (printer in unique(page_share_reg$grp)){
   dat1 <- subset(page_share_reg,grp==printer)
   if (nrow(dat1) <4 ) {next}
   
-  #mindt <- min(dat1$fiscal_year_quarter)
-  mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
-  #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
-  dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
-  #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
-  mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
-  
-  #values for sigmoid curve start
-  midtime <- median(dat1$timediff)
-  maxtimediff <- max(90-max(dat1$timediff),0) #number of months between end of data and 7.5 years (90 months)
-  #maxtimediff <- max(2*midtime-max(dat1$timediff),0) #number of quarters between end of data and 30 quarters
-  maxtimediff2 <- max(dat1$timediff)
-   
-  dat1$value <- as.numeric(dat1$value)
-  maxv=min(max(dat1$value)+max(dat1$value)*(0.002*mintimediff),1.5)
-  minv=max(min(dat1$value)*0.85,0.05)
-  spreadv <- min(1-(min(maxv,1) + minv)/2,(max(maxv,1)+minv)/2)
-  frstshr <- dat1[1,10]
-  
-  #Sigmoid Model 
-  sigmoid <- value~max-(exp((timediff-med)*spread)/(exp((timediff-med)*spread)+1)*(1-(min+(1-max))))
- 
-  fitmodel <- nls2(formula=sigmoid, 
-                    data=dat1,
-                    start=list(min=minv, max=maxv, med=midtime, spread=spreadv),
-                    lower=c(min=0.05,max=0.5,med=0, spread=0.05),
-                    upper=c(min=1,max=2,med=1000, spread=1),
-                    algorithm = "grid-search", 
-                    #weights=supply_count_share,
-                    weights = timediff,
-                    control=list(maxiter=10000 ,tol=1e-05 ,minFactor=1/1024 , warnOnly=TRUE), all=FALSE)
-  
-  #linear model
-  dat1b <- sqldf("select * from dat1 order by timediff desc limit 8")
-  fitmodel2 <- lm(value ~ timediff, data=dat1b)
-  
-  #fitmodel3 <- lm((value) ~ timediff, data=dat1)
-    
-  # timediff <- c(0:59)
-  # preddata <- as.data.frame(timediff)
-  # 
-  # #dat2<- dat1[,c("timediff")]
-  # preddata <- merge(preddata,dat1, by="timediff", all.x=TRUE)
-  # 
-  # fit1 <- as.data.frame(predict(object=fitmodel,newdata=preddata, type="response", se.fit=F))
-  # fit2 <- as.data.frame(exp(predict(object=fitmodel2,newdata=preddata, type="response", se.fit=F)))
-  # #fit3 <- as.data.frame(predict(object=fitmodel3,newdata=preddata, type="response", se.fit=F))
-  # 
-  # colnames(fit1) <- "fit1"
-  # colnames(fit2) <- "fit2"
-  # colnames(fit3) <- "fit3"
-  # preddata <- cbind(preddata,fit1,fit2,fit3)
-  # preddata <- sqldf(paste("select a.*, b.value as obs
-  #                           --, b.supply_count_share
-  #                         from preddata a left join dat1 b on a.timediff=b.timediff"))
-  # adjval <- 0.9
-  # 
-  # preddata$fit4 <- ifelse(!is.na(preddata$hp_share),preddata$hp_share, ifelse(preddata$timediff<maxtimediff2,preddata$fit1,
-  #                         adjval^(preddata$timediff-maxtimediff2)*preddata$fit2+(1-(adjval^(preddata$timediff-maxtimediff2)))*preddata$fit1))
-  #preddata$fit5 <- ifelse(!is.na(preddata$hp_share),preddata$hp_share, ifelse(preddata$timediff<maxtimediff2,preddata$fit1,
-   #                       0.5^(1+(preddata$timediff-maxtimediff2) %/% 3)*preddata$fit2+(1-0.5^(1+(preddata$timediff-maxtimediff2) %/% 3))*preddata$fit1))
-  #preddata$fit5 <- ifelse(!is.na(preddata$hp_share),preddata$hp_share, ifelse(preddata$timediff<maxtimediff2,preddata$fit1,
-  #                        0.5^(preddata$timediff-maxtimediff2)*preddata$fit3+(1-0.5^(preddata$timediff-maxtimediff2))*preddata$fit1))
-  #preddata$rpgp <- ifelse(preddata$supply_count_share<200,1,ifelse(preddata$supply_count_share<1000,2,
-   #                              ifelse(preddata$supply_count_share<10000,3,4)))
+    #mindt <- min(dat1$fiscal_year_quarter)
+    mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
+    #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
+    dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+    #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
+    mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
 
-  # plot(y=preddata$value,x=preddata$timediff, type="p", col=preddata$rpgp
-  #       ,main=paste("Share for ",printer)
-  #        ,xlab="Date", ylab="HP Share", ylim=c(0,1))
-  # lines(y=preddata$value,x=preddata$timediff, col='black')
-  # lines(y=preddata$fit1,x=preddata$timediff,col="blue")
-  # lines(y=preddata$fit2,x=preddata$timediff,col="red")
-  # lines(y=preddata$fit3,x=preddata$timediff,col="green")
-  # lines(y=preddata$fit4,x=preddata$timediff,col="purple", lty=3)
-  # lines(y=preddata$fit5,x=preddata$timediff,col="orange", lty=4)
-  #legend(x=50,y=.5, c("<500","<1,000","<10,000",">10,000"),cex=0.4,col=c(1,2,3,4),pch=1)
+    #values for sigmoid curve start
+    midtime <- median(dat1$timediff)
+    maxtimediff <- max(90-max(dat1$timediff),0) #number of months between end of data and 7.5 years (90 months)
+    #maxtimediff <- max(2*midtime-max(dat1$timediff),0) #number of quarters between end of data and 30 quarters
+    maxtimediff2 <- max(dat1$timediff)
+
+    dat1$value <- as.numeric(dat1$value)
+    maxv=min(max(dat1$value)+max(dat1$value)*(0.002*mintimediff),1.5)
+    minv=max(min(dat1$value)*0.85,0.05)
+    spreadv <- min(1-(min(maxv,1) + minv)/2,(max(maxv,1)+minv)/2)
+    
+    frstshr <- dat1[1,10]
+
+
+    #Sigmoid Model 
+    sigmoid <- value~max-(exp((timediff-med)*spread)/(exp((timediff-med)*spread)+1)*(1-(min+(1-max))))
+
+    fitmodel <- nls2(formula=sigmoid, 
+                      data=dat1,
+                      start=list(min=minv, max=maxv, med=midtime, spread=spreadv),
+                      lower=c(min=0.05,max=0.5,med=0, spread=0.05),
+                      upper=c(min=1,max=2,med=1000, spread=1),
+                      algorithm = "grid-search", 
+                      #weights=supply_count_share,
+                      weights = timediff,
+                      control=list(maxiter=10000 ,tol=1e-05 ,minFactor=1/1024 , warnOnly=TRUE), all=FALSE)
+
+    #linear model
+    dat1b <- sqldf("select * from dat1 order by timediff desc limit 8")
+    fitmodel2 <- lm(value ~ timediff, data=dat1b)
 
     ceoffo <- as.data.frame(coef(fitmodel))
     coeffo2 <- as.data.frame(coef(fitmodel2))
-  
     coeffout<-  as.data.frame(cbind(ceoffo[1,],ceoffo[2,],ceoffo[3,]
                         ,ceoffo[4,],coeffo2[1,],coeffo2[2,]
                         #,unique(as.character(dat1$Platform.Subset))
@@ -965,8 +656,7 @@ for (printer in unique(page_share_reg$grp)){
     colnames(coeffout)[6] <- "b"
     colnames(coeffout)[7] <- "grp"
 
-  
-  data_coefr[[printer]] <- coeffout
+    data_coefr[[printer]] <- coeffout
 
 }
 
@@ -1239,7 +929,7 @@ for (printer in unique(page_share_ctr$grp)){
     colnames(coeffout)[6] <- "b"
     colnames(coeffout)[7] <- "grp"
   
-  data_coefc[[printer]] <- coeffout
+    data_coefc[[printer]] <- coeffout
 
 }
 
@@ -1943,8 +1633,6 @@ UPM2$MPV_Raw <- (UPM2$MPV_RawIB)
 UPM2$MPV_TS  <- (UPM2$MPV_TSIB)
 UPM2$MPV_TD  <- (UPM2$MPV_TDIB)
 
-#UPM2c$MPV_UPM <- (UPM2c$MPV_UPMIB)
-#UPM2c$MPV_Raw <- (UPM2c$MPV_RawIB)
 UPM2c$MPV_TS  <- (UPM2c$MPV_TSIB)
 UPM2c$MPV_TD  <- (UPM2c$MPV_TDIB)
 
@@ -1952,24 +1640,10 @@ months <- as.data.frame(seq(as.Date("1989101",format="%Y%m%d"),as.Date("20500101
 colnames(months) <- "CalYrDate"
 quarters2 <- as.data.frame(months[rep(seq_len(nrow(months)),nrow(proxylist_final2)),])
 colnames(quarters2) <- "CalDate"
-# final_list <- proxylist_final2[rep(seq_len(nrow(proxylist_final2)),each=nrow(months)),] 
-# final_list <- cbind(final_list,quarters2)
-# 
-# final_list$printer_intro_month <- as.Date(paste0(final_list$printer_intro_month,'01'),format="%Y%m%d")
-# final_list$timediff <- as.numeric(((as.Date(final_list$CalDate, format="%Y-%m-%d")-as.Date(final_list$printer_intro_month,format="%Y-%m-%d"))/365)*4)
-# final_list$FYearMo <- format(final_list$CalDate,"%Y%m")
-# final_list$FYQtr <- lubridate::quarter(as.Date(final_list$'CalDate', format="%Y-%m-%d"),with_year=TRUE, fiscal_start=11)
-# final_list$FYQtr <- gsub("[.]","Q",final_list$FYQtr)
-# 
-# final_list$model_share_ps <- ifelse(final_list$timediff<0,NA,sigmoid_pred(final_list$ps_min,final_list$ps_max,final_list$ps_med,final_list$ps_spread,final_list$timediff))
-
-# rm(UPM) #remove for space
-# rm(UPMc)#remove for space
-# gc()
 
 dashampv <- table_month
 dashampv2 <- sqldf("
-                       SELECT rdma_platform_subset_name
+                       SELECT printer_platform_name
                         , fyearmo
                         , product_brand
                         , platform_division_code
@@ -1981,13 +1655,13 @@ dashampv2 <- sqldf("
                       from 
                        dashampv  
                       group by  fyearmo
-                        , rdma_platform_subset_name
+                        , printer_platform_name
                         , product_brand
                         , platform_division_code
                         , country_alpha2 
                         , rtm
                       order by  fyearmo
-                        , rdma_platform_subset_name
+                        , printer_platform_name
                         , product_brand
                         , platform_division_code
                         , country_alpha2
@@ -2085,7 +1759,7 @@ final_list2 <- SparkR::sql("
                         ON (b.printer_platform_name=d.platform_name AND b.Country_Cd=d.country_alpha2
                             AND b.FYQtr=d.fiscal_year_quarter and b.rtm=d.rtm)
                       LEFT JOIN dashampv2 e
-                        ON (b.printer_platform_name=e.rdma_platform_subset_name AND b.Country_Cd=e.country_alpha2  
+                        ON (b.printer_platform_name=e.printer_platform_name AND b.Country_Cd=e.country_alpha2  
                           AND b.FYearMo=e.fyearmo and b.rtm=e.rtm)
                       LEFT JOIN UPM3 g
                         ON (b.printer_platform_name=g.printer_platform_name and b.Country_Cd=g.Country_Cd and b.rtm=g.rtm)
