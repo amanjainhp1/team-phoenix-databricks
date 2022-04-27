@@ -861,7 +861,7 @@ JOIN "mdm"."calendar" AS c
         on c.Date = ltf.cal_date
 WHERE 1=1
     AND ltf.region_5 <> 'WW'
-    AND ltf.metric IN ('Cumulative', 'P2 enrollees', 'P2 cumulative')
+    AND ltf.metric IN ('CUMULATIVE', 'P2 ENROLLEES', 'P2 CUMULATIVE')
     AND ltf.value <> 0
     AND NOT ltf.value IS NULL
     AND ltf.cal_date > ( SELECT CAST(MAX(month_begin) AS DATE) FROM ib_14_iink_act_stf )
