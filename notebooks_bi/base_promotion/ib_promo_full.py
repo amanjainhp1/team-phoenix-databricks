@@ -236,7 +236,7 @@ WHERE record in ('IB', 'NORM_SHIPMENTS')
     , ib.country_alpha2 AS country
     , ib.platform_subset
     , UPPER(ib.split_name) AS customer_engagement
-    , 'printer_installs' AS measure
+    , 'PRINTER_INSTALLS' AS measure
     , ib.printer_installs AS units
 FROM "stage"."ib_staging" AS ib
 JOIN ib_promo_01_filter_vars AS vars
@@ -265,7 +265,7 @@ SELECT record
 FROM "prod"."version"
 WHERE record in ('IB', 'NORM_SHIPMENTS')
     AND version = '{version}'
-)SELECT 'norm_ships_ce' AS record
+)SELECT 'NORM_SHIPS_CE' AS record
     , vars.version
     , vars.load_date
     , ns.month_begin AS cal_date
