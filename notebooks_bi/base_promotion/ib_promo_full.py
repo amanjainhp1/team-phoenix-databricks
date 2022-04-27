@@ -67,7 +67,7 @@ WHERE record in ('IB', 'NORM_SHIPMENTS')
     , ib.country_alpha2 AS country
     , ib.platform_subset
     , UPPER(ib.split_name) AS customer_engagement
-    , 'ib' AS measure
+    , 'IB' AS measure
     , ib.ib AS units
 FROM "stage"."ib_staging" AS ib
 JOIN ib_promo_01_filter_vars AS vars
