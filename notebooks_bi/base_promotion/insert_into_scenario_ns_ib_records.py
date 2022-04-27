@@ -102,4 +102,4 @@ query_list.append(["prod.scenario", insert_ns_ib, "append"])
 
 # COMMAND ----------
 
-# MAGIC %run ../common/output_to_redshifgit
+# MAGIC %run ../common/output_to_redshift
