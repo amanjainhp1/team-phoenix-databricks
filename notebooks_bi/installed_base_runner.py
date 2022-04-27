@@ -42,5 +42,5 @@ for key, value in notebooks.items():
             dbutils.notebook.run(notebook_path, 0, notebook_args)
             completion_time = str(round((time.time() - start_time)/60, 1))
             print(f"LOG: {notebook} notebook completed in {completion_time} minutes")
-        except WorkflowException as e:
-           dbutils.notebook.exit(e)
+        except Exception as e:
+           raise dbutils.notebook.exit(e)

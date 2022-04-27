@@ -218,4 +218,4 @@ for result in thread:
 # COMMAND ----------
 
 if len(failed_jobs) > 0:
-    dbutils.notebook.exit("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
+    raise Exception("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
