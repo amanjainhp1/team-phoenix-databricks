@@ -84,7 +84,7 @@ UNION ALL
 
 SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
-)SELECT 'ib_staging_temp' AS tbl_name
+)SELECT 'IB_STAGING_TEMP' AS tbl_name
     , record
     , version AS version
     , GETDATE() AS execute_time
@@ -95,7 +95,7 @@ WHERE 1=1
 UNION ALL
 
 -- just report the single norm ships input - either stage or prod
-SELECT 'ib_staging_temp' AS tbl_name
+SELECT 'IB_STAGING_TEMP' AS tbl_name
     , record
     , version AS version
     , GETDATE() AS execute_time
@@ -923,7 +923,7 @@ SELECT 'IB_TRAD' AS record
     , NULL AS version
     , NULL as load_date
     , ib.month_begin
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , cc.market10 AS geography
     , ib.country_alpha2
     , ib.hps_ops
@@ -975,7 +975,7 @@ SELECT 'IB_IINK' AS record
     , NULL AS version
     , NULL as load_date
     , iink.month_begin
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , cc.market10 AS geography
     , iink.country_alpha2
     , CASE WHEN hw.business_feature IS NULL THEN 'other' ELSE hw.business_feature END AS hps_ops
