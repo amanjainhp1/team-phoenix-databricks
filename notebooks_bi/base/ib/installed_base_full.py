@@ -84,7 +84,7 @@ UNION ALL
 
 SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
-)SELECT 'IB_STAGING_TEMP' AS tbl_name
+)SELECT 'ib_staging_temp' AS tbl_name
     , record
     , version AS version
     , GETDATE() AS execute_time
@@ -95,7 +95,7 @@ WHERE 1=1
 UNION ALL
 
 -- just report the single norm ships input - either stage or prod
-SELECT 'IB_STAGING_TEMP' AS tbl_name
+SELECT 'ib_staging_temp' AS tbl_name
     , record
     , version AS version
     , GETDATE() AS execute_time
