@@ -47,6 +47,7 @@ def write_df_to_redshift(configs: dict, df: DataFrame, destination: str = "", mo
             .option("aws_iam_role", configs["aws_iam_role"]) \
             .option("user", configs["redshift_username"]) \
             .option("password", configs["redshift_password"]) \
+            .option("preactions", preactions) \
             .option("postactions", "GRANT ALL ON {} TO GROUP {};{}".format(destination, configs["redshift_dev_group"], postactions)) \
             .option("extracopyoptions", "TIMEFORMAT 'auto'") \
             .mode(mode) \
