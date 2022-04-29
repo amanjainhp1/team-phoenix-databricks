@@ -26,7 +26,7 @@ def submit_remote_query(dbname: str, port: str, user: str, password: str, host: 
     submit_remote_query_inner_func(conn_string, sql_query)
 
 @submit_remote_query.register
-def _(arg: dict, sql_query: str):
+def _(configs: dict, sql_query: str):
     conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
         .format(configs["redshift_dbname"], configs["redshift_port"], \
                 configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
