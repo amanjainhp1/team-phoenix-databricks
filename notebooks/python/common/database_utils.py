@@ -1,23 +1,36 @@
 # Databricks notebook source
-from sqlite3 import Timestamp
 import boto3
-from datetime import datetime
 import json
-from pyspark.sql import functions as f
 import psycopg2
-from typing import Union
+
+from datetime import datetime
+from functools import singledispatch
+from pyspark.sql import functions as f
 from pyspark.sql.dataframe import DataFrame
+from sqlite3 import Timestamp
+from typing import Union
 
 # COMMAND ----------
 
-def submit_remote_query(dbname, port, user, password, host, sql_query):  
-    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
-        .format(dbname, port, user, password, host)
+def submit_remote_query_inner_func(conn_string: str, sql_query: str):
     con = psycopg2.connect(conn_string)
     cur = con.cursor()
     cur.execute(sql_query)
     con.commit()
-    cur.close()
+    cur.close()    
+
+@singledispatch
+def submit_remote_query(dbname: str, port: str, user: str, password: str, host: str, sql_query: str):
+    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+        .format(dbname, port, user, password, host)
+    submit_remote_query_inner_func(conn_string, sql_query)
+
+@submit_remote_query.register
+def _(configs: dict, sql_query: str):
+    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+        .format(configs["redshift_dbname"], configs["redshift_port"], \
+                configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
+    submit_remote_query_inner_func(conn_string, sql_query)
 
 # COMMAND ----------
 

@@ -180,6 +180,8 @@ write_df_to_redshift(configs, second_transformation, "stage.hardware_ltf_02", "o
 third_transformation.cache()
 write_df_to_redshift(configs, third_transformation, "stage.hardware_ltf_03", "overwrite")
 
+submit_remote_query(configs, f"UPDATE prod.hardware_ltf SET official = 0 WHERE record = '{record}';")
+
 write_df_to_redshift(configs, third_transformation, "prod.hardware_ltf", "append")
 
 # COMMAND ----------
