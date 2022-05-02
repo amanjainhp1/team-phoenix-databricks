@@ -99,6 +99,7 @@ query = '''
     ON c.country_alpha2 = i.country
     WHERE i.official = 1  
 '''
+spark.sql("CREATE SCHEMA IF NOT EXISTS stage")
 
 initial_ce_split = spark.sql(query)
 spark.sql("DROP TABLE IF EXISTS stage.initial_ce_split")
@@ -140,7 +141,6 @@ query = '''
   WHERE ce_split > 1 and split_name = 'I-INK'
   '''
 ce_greater_one = spark.sql(query)
-spark.sql("CREATE SCHEMA IF NOT EXISTS stage")
 spark.sql("DROP TABLE IF EXISTS stage.ce_greater_one")
 ce_greater_one.write.format("delta").saveAsTable("stage.ce_greater_one")
 ce_greater_one.createOrReplaceTempView("ce_greater_one_df_view")
