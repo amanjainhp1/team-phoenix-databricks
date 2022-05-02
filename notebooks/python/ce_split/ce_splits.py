@@ -1,5 +1,6 @@
 # Databricks notebook source
 import json
+from datetime import date
 from pyspark.sql.functions import *
 
 # COMMAND ----------
@@ -202,8 +203,6 @@ norm = spark.sql(query1)
 norm.createOrReplaceTempView('norm_view')
 
 # COMMAND ----------
-
-from datetime import date
 
 current_date = str(date.today())
 
