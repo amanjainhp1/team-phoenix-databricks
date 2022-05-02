@@ -2,9 +2,6 @@
 import json
 from pyspark.sql.functions import *
 
-with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
-  constants = json.load(json_file)
-
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
@@ -43,14 +40,11 @@ for table in tables:
     
     # Load the data from its source.
     df = get_data_by_table(table)
-
-    #drop table if exists
-    dbutils.fs.rm(f'/tmp/delta/{schema}/{table_name}',recurse=True)  
-    spark.sql("DROP TABLE IF EXISTS " + table)
         
     # Write the data to its target.
     df.write \
       .format(write_format) \
+      .mode("overwrite") \
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
@@ -106,8 +100,8 @@ query = '''
 '''
 
 initial_ce_split = spark.sql(query)
-spark.sql("DROP TABLE IF EXISTS dev.initial_ce_split")
-initial_ce_split.write.format("delta").saveAsTable("dev.initial_ce_split")
+spark.sql("DROP TABLE IF EXISTS stage.initial_ce_split")
+initial_ce_split.write.format("delta").saveAsTable("stage.initial_ce_split")
 initial_ce_split.createOrReplaceTempView("initial_ce_split_df_view")
 
 # COMMAND ----------
@@ -117,19 +111,19 @@ query ='''
   SELECT DISTINCT platform_subset,
   country,
   year_month
-  FROM dev.initial_ce_split
+  FROM stage.initial_ce_split
   WHERE ce_split <= 0 and split_name = 'I-INK'
   '''
 ce_less_zero=spark.sql(query)
-spark.sql("DROP TABLE IF EXISTS dev.ce_less_zero")
-ce_less_zero.write.format("delta").saveAsTable("dev.ce_less_zero")
+spark.sql("DROP TABLE IF EXISTS stage.ce_less_zero")
+ce_less_zero.write.format("delta").saveAsTable("stage.ce_less_zero")
 ce_less_zero.createOrReplaceTempView("ce_less_zero_df_view")
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC MERGE INTO dev.initial_ce_split AS d 
-# MAGIC using (SELECT platform_subset,country,year_month FROM  dev.ce_less_zero) AS k 
+# MAGIC MERGE INTO stage.initial_ce_split AS d 
+# MAGIC using (SELECT platform_subset,country,year_month FROM  stage.ce_less_zero) AS k 
 # MAGIC ON d.platform_subset = k.platform_subset 
 # MAGIC   AND d.country = k.country 
 # MAGIC   AND d.year_month = k.year_month
@@ -141,20 +135,21 @@ ce_less_zero.createOrReplaceTempView("ce_less_zero_df_view")
 from pyspark.sql.functions import lit
 query = '''
   SELECT DISTINCT platform_subset,country,year_month
-  FROM dev.initial_ce_split
+  FROM stage.initial_ce_split
   WHERE ce_split > 1 and split_name = 'I-INK'
   '''
 ce_greater_one = spark.sql(query)
-spark.sql("DROP TABLE IF EXISTS dev.ce_greater_one")
-ce_greater_one.write.format("delta").saveAsTable("dev.ce_greater_one")
+spark.sql("CREATE SCHEMA IF NOT EXISTS stage")
+spark.sql("DROP TABLE IF EXISTS stage.ce_greater_one")
+ce_greater_one.write.format("delta").saveAsTable("stage.ce_greater_one")
 ce_greater_one.createOrReplaceTempView("ce_greater_one_df_view")
 
 # COMMAND ----------
 
 # MAGIC %sql
 # MAGIC --SET CORRESPONDING TRAD CE SPLITS (FROM ABOVE BLOCK) FOR I-INK SPLITS GREATER THAN 0
-# MAGIC MERGE INTO dev.initial_ce_split AS d 
-# MAGIC using (SELECT platform_subset,country,year_month FROM  dev.ce_greater_one) AS k 
+# MAGIC MERGE INTO stage.initial_ce_split AS d 
+# MAGIC using (SELECT platform_subset,country,year_month FROM  stage.ce_greater_one) AS k 
 # MAGIC ON d.platform_subset = k.platform_subset 
 # MAGIC   AND d.country = k.country 
 # MAGIC   AND d.year_month = k.year_month
@@ -163,11 +158,11 @@ ce_greater_one.createOrReplaceTempView("ce_greater_one_df_view")
 # MAGIC set d.ce_split = 0;
 # MAGIC 
 # MAGIC 
-# MAGIC UPDATE dev.initial_ce_split SET ce_split = 1 WHERE ce_split > 1 and split_name = 'I-INK'
+# MAGIC UPDATE stage.initial_ce_split SET ce_split = 1 WHERE ce_split > 1 and split_name = 'I-INK'
 
 # COMMAND ----------
 
-initial_ce_split_df = spark.sql('''select * from dev.initial_ce_split''')
+initial_ce_split_df = spark.sql('''select * from stage.initial_ce_split''')
 initial_ce_split_df.createOrReplaceTempView('initial_ce_split_df_view')
 
 # COMMAND ----------
@@ -207,6 +202,8 @@ norm = spark.sql(query1)
 norm.createOrReplaceTempView('norm_view')
 
 # COMMAND ----------
+
+from datetime import date
 
 current_date = str(date.today())
 
