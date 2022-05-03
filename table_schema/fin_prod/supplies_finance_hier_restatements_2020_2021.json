@@ -180,78 +180,78 @@
 
 
         {
-            "description": "l2fa-contra-rev-contractual",
-            "name": "l2fa-contra-rev-contractual",
+            "description": "l2fa_contra_rev_contractual",
+            "name": "l2fa_contra_rev_contractual",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-contra-rev-discretionary",
-            "name": "l2fa-contra-rev-discretionary",
+            "description": "l2fa_contra_rev_discretionary",
+            "name": "l2fa_contra_rev_discretionary",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-net-curency",
-            "name": "l2fa-net-curency",
+            "description": "l2fa_net_curency",
+            "name": "l2fa_net_curency",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-net-revenues",
-            "name": "l2fa-net-revenues",
+            "description": "l2fa_net_revenues",
+            "name": "l2fa_net_revenues",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-cost-of-prod-serv",
-            "name": "l2fa-cost-of-prod-serv",
+            "description": "l2fa_cost_of_prod_serv",
+            "name": "l2fa_cost_of_prod_serv",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-oh-lem",
-            "name": "l2fa-oh-lem",
+            "description": "l2fa_oh_lem",
+            "name": "l2fa_oh_lem",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-inventory-costs",
-            "name": "l2fa-inventory-costs",
+            "description": "l2fa_inventory_costs",
+            "name": "l2fa_inventory_costs",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-logistics",
-            "name": "l2fa-logistics",
+            "description": "l2fa_logistics",
+            "name": "l2fa_logistics",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-warranty",
-            "name": "l2fa-warranty",
+            "description": "l2fa_warranty",
+            "name": "l2fa_warranty",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-total-cos",
-            "name": "l2fa-total-cos",
+            "description": "l2fa_total_cos",
+            "name": "l2fa_total_cos",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "l2fa-gross-profit",
-            "name": "l2fa-gross-proft",
+            "description": "l2fa_gross_profit",
+            "name": "l2fa_gross_proft",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
