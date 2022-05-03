@@ -1,0 +1,166 @@
+{
+    "fields": [
+        {
+            "description": "forecast_supplies_base_prod_id",
+            "name": "forecast_supplies_base_prod_id",
+            "type": "IDENTITY",
+            "nullable": false,
+            "encode": "raw",
+            "sort_key": true
+        },
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(30)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(255)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_line_code",
+            "name": "base_product_line_code",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region5",
+            "name": "region5",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(255)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "insights_base_units",
+            "name": "insights_base_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "baseprod_gru",
+            "name": "baseprod_gru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "baseprod_contra_perunit",
+            "name": "baseprod_contra_perunit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "baseprod_revenuecurrencyhedge_unit",
+            "name": "baseprod_revenuecurrencyhedge_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "baseprod_variablecost_perunit",
+            "name": "baseprod_variablecost_perunit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "baseprod_fixedcost_perunit",
+            "name": "baseprod_fixedcost_perunit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "official",
+            "name": "official",
+            "type": "BOOLEAN",
+            "nullable": false,
+            "encode": "raw"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "sales_gru_version",
+            "name": "sales_gru_version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "contra_version",
+            "name": "contra_version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "variablecost_version",
+            "name": "variablecost_version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "fixedcost_version",
+            "name": "fixedcost_version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "currencyhedge_version",
+            "name": "currencyhedge_version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
