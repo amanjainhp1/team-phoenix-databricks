@@ -58,6 +58,16 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "decay"
             },
+            "forecast_supplies_baseprod": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Financials", 
+                "source_schema": "dbo", 
+                "source_table": "forecast_supplies_baseprod",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "fin_prod", 
+                "destination_table": "forecast_supplies_baseprod"
+            },
             "hardware_xref": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -108,6 +118,26 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "iso_country_code_xref"
             },
+            "odw_sacp_actuals": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Financials",
+                "source_schema": "ms4", 
+                "source_table": "odw_sacp_actuals", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "fin_prod", 
+                "destination_table": "odw_sacp_actuals"
+            },
+            "planet_actuals": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Financials",
+                "source_schema": "dbo", 
+                "source_table": "planet_actuals", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "fin_prod", 
+                "destination_table": "planet_actuals"
+            },
             "printer_lag": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
@@ -148,6 +178,16 @@ except:
                 "destination_schema": "mdm",
                 "destination_table": "profit_center_code_xref"
             },
+            "supplies_finance_hier_restaments_2020_2021": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Landing",
+                "source_schema": "dbo", 
+                "source_table": "supplies_finance_hier_restaments_2020_2021", 
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "fin_prod",
+                "destination_table": "supplies_finance_hier_restaments_2020_2021"
+            },
             "supplies_hw_mapping": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
@@ -177,6 +217,26 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm",
                 "destination_table": "yield"
+            },
+            "working_forecast": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "working_forecast",
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "prod",
+                "destination_table": "working_forecast"
+            },
+            "working_forecast_country": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "working_forecast_country",
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "prod",
+                "destination_table": "working_forecast_country"
             }
         }
     """)
