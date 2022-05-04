@@ -12,7 +12,7 @@
 # COMMAND ----------
 
 # load parquet file
-ib_s3 = spark.read.parquet("s3://dataos-core-prod-team-phoenix/spectrum/ib/2022.03.29.1/*.parquet")
+ib_s3 = spark.read.parquet("s3://dataos-core-prod-team-phoenix/spectrum/usage_share/2022.03.30.1/part-00000-tid-8115564011186470121-e71422ba-d821-43a3-8ec2-de78d5282772-5-1-c000.snappy.parquet")
 # ib_s3.display()
 
 
@@ -20,6 +20,7 @@ ib_s3 = spark.read.parquet("s3://dataos-core-prod-team-phoenix/spectrum/ib/2022.
 # COMMAND ----------
 
 # ib_s3.count()
+ib_s3.show()
 
 # COMMAND ----------
 
@@ -32,6 +33,10 @@ ib_s3 = ib_s3 \
 
 # ib_s3.display()
 
+
+# COMMAND ----------
+
+write_df_to_sqlserver(configs, ib_s3, "archive.dbo.usage_share_archive", "append")
 
 # COMMAND ----------
 
