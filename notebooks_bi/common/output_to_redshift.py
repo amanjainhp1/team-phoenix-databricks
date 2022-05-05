@@ -14,27 +14,20 @@ from pyspark.sql.functions import *
 
 # COMMAND ----------
 
+# MAGIC %run ../../notebooks/python/common/configs
+
+# COMMAND ----------
+
 # globals
-secrets_url = dbutils.widgets.text("arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj", "")
-spark_url = dbutils.widgets.text("jdbc:redshift://dataos-redshift-core-dev-01.hp8.us:5439/dev?ssl_verify=None", "")
-redshift_url = dbutils.widgets.text("dataos-core-dev-team-phoenix.dev.hpdataos.com", "")
-spark_temp_dir = dbutils.widgets.text("s3a://dataos-core-dev-team-phoenix/redshift_temp/", "")
-aws_iam = dbutils.widgets.text("arn:aws:iam::740156627385:role/team-phoenix-role", "")
-spark_format = dbutils.widgets.text("com.databricks.spark.redshift", "")
-
-# COMMAND ----------
-
-# MAGIC %run ../../notebooks/python/common/secrets_manager_utils
-
-# COMMAND ----------
-
-# Secrets Variables
-# redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-redshift_secrets = secrets_get(secrets_url, "us-west-2")
-spark.conf.set("username", redshift_secrets["username"])
-spark.conf.set("password", redshift_secrets["password"])
-username = spark.conf.get("username")
-password = spark.conf.get("password")
+spark_format = "com.databricks.spark.redshift"
+redshift_url = configs["redshift_url"]
+spark_temp_dir = configs["redshift_temp_bucket"]
+aws_iam = configs["aws_iam_role"]
+redshift_port = configs["redshift_port"]
+redshift_dbname = configs["redshift_dbname"]
+redshift_dev_group = configs["redshift_dev_group"]
+username = configs["redshift_username"] 
+password = configs["redshift_password"]
 
 # COMMAND ----------
 
@@ -50,52 +43,62 @@ password = spark.conf.get("password")
 # COMMAND ----------
 
 class RedshiftOut:
-  def get_data(self, username, password, table_name, query):
-     dataDF = spark.read \
-        .format(dbutils.widgets.get(spark_format)) \
-        .option("url", dbutils.widgets.get(spark_url)) \
-        .option("tempdir", dbutils.widgets.get(spark_temp_dir)) \
-        .option("aws_iam_role", dbutils.widgets.get(aws_iam)) \
-        .option("user", username) \
-        .option("password", password) \
-        .option("query", query) \
-        .load()
-     
-     return(dataDF)
-  
-  
-  def save_table(self, dataDF):
-      dataDF.write \
-      .format(dbutils.widgets.get(spark_format)) \
-      .option("url", dbutils.widgets.get(spark_url)) \
-      .option("dbtable", table_name) \
-      .option("tempdir", dbutils.widgets.get(spark_temp_dir)) \
-      .option("aws_iam_role", dbutils.widgets.get(aws_iam)) \
-      .option("user", username) \
-      .option("password", password) \
-      .mode("overwrite") \
-      .save()
-      
-  
-  # from Matt Koson, Data Engineer
-  def submit_remote_query(self, dbname, port, user, password, host, sql_query):  
-      conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
-          .format(dbname, port, user, password, host)
-      
-      con = psycopg2.connect(conn_string)
-      cur = con.cursor()
-      cur.execute(sql_query)
-      con.commit()
-      cur.close()
-  
+    def get_data(self, username, password, table_name, query):
+        dataDF = spark.read \
+            .format(spark_format) \
+            .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(redshift_url, redshift_port, redshift_dbname)) \
+            .option("tempdir", spark_temp_dir) \
+            .option("aws_iam_role", aws_iam) \
+            .option("user", username) \
+            .option("password", password) \
+            .option("query", query) \
+            .load()
+        
+        return(dataDF)
 
+
+    def save_table(self, dataDF, write_mode):
+        dataDF.write \
+            .format(spark_format) \
+            .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(redshift_url, redshift_port, redshift_dbname)) \
+            .option("dbtable", table_name) \
+            .option("tempdir", spark_temp_dir) \
+            .option("aws_iam_role", aws_iam) \
+            .option("user", username) \
+            .option("password", password) \
+            .mode(write_mode) \
+            .save()
+
+    # from Matt Koson, Data Engineer
+    def submit_remote_query(self, dbname, port, user, password, host, sql_query):  
+        conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+            .format(dbname, port, user, password, host)
+
+        con = psycopg2.connect(conn_string)
+        cur = con.cursor()
+        cur.execute(sql_query)
+        con.commit()
+        cur.close()
 
 # COMMAND ----------
 
 for obj in query_list:
-  table_name = obj[0]
-  query = obj[1]
-  read_obj = RedshiftOut()
-  data_df = read_obj.get_data(username, password, table_name, query)
-  read_obj.save_table(data_df)
-  read_obj.submit_remote_query("dev", "5439", username, password, redshift_url, f'GRANT ALL ON {table_name} TO group dev_arch_eng')
+    table_name = obj[0]
+    query = obj[1]
+    write_mode = obj[2]
+    query_name = table_name.split('.')[1]
+    try:
+        read_obj = RedshiftOut()
+        data_df = read_obj.get_data(username, password, table_name, query)
+        print("Query " + query_name + " retrieved.")
+    except Exception(e):
+        print("Error, query " + query_name + " not retrieved.")
+        print(e)
+    
+    try:
+        read_obj.save_table(data_df, write_mode)
+        read_obj.submit_remote_query(redshift_dbname, redshift_port, username, password, redshift_url, f'GRANT ALL ON {table_name} TO group {redshift_dev_group}')
+        print("Table " + table_name + " created.\n")
+    except Exception(e):
+        print("Error, table " + table_name + " not created.\n")
+        print(e)

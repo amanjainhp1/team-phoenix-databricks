@@ -1,0 +1,288 @@
+{
+    "fields": [
+        {
+            "description": "sfhr_id",
+            "name": "sfhr_id",
+            "type": "IDENTITY",
+            "nullable": false,
+            "encode": "raw",
+            "sort_key": true
+        },
+        {
+            "description": "l6_description",
+            "name": "l6_description",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "market",
+            "name": "market",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "sacp_date_period",
+            "name": "sacp_date_period",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "net_revenues",
+            "name": "net_revenues",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "gross_trade_revenues",
+            "name": "gross_trade_revenues",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "trade_discounts",
+            "name": "trade_discounts",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "contra_revenue",
+            "name": "contra_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "contractual_discounts",
+            "name": "contractual_discounts",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "special_negotiated_discou",
+            "name": "special_negotiated_discou",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "product_category_discount",
+            "name": "product_category_discount",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "product_returns",
+            "name": "product_returns",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "price_protection",
+            "name": "price_protection",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "partner_programs",
+            "name": "partner_programs",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "other_discounts",
+            "name": "other_discounts",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "trd_discount_on_support_a",
+            "name": "trd_discount_on_support_a",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "ic_discounts_lo",
+            "name": "ic_discounts_lo",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "net_currency",
+            "name": "net_currency",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "total_cost_of_sales",
+            "name": "total_cost_of_sales",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "cost_of_sales",
+            "name": "cost_of_sales",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "cost_of_prod_and_services",
+            "name": "cost_of_prod_and_services",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "per_exp_sply_chn_cost",
+            "name": "per_exp_sply_chn_cost",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "warranty",
+            "name": "warranty",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "end_of_life_cost",
+            "name": "end_of_life_cost",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "other_cost_of_sales",
+            "name": "other_cost_of_sales",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+
+
+
+        {
+            "description": "l2fa_contra_rev_contractual",
+            "name": "l2fa_contra_rev_contractual",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_contra_rev_discretionary",
+            "name": "l2fa_contra_rev_discretionary",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_net_curency",
+            "name": "l2fa_net_curency",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_net_revenues",
+            "name": "l2fa_net_revenues",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_cost_of_prod_serv",
+            "name": "l2fa_cost_of_prod_serv",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_oh_lem",
+            "name": "l2fa_oh_lem",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_inventory_costs",
+            "name": "l2fa_inventory_costs",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_logistics",
+            "name": "l2fa_logistics",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_warranty",
+            "name": "l2fa_warranty",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_total_cos",
+            "name": "l2fa_total_cos",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "l2fa_gross_profit",
+            "name": "l2fa_gross_proft",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "official",
+            "name": "official",
+            "type": "BOOLEAN",
+            "nullable": false,
+            "encode": "raw"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": false,
+            "encode": "az64"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

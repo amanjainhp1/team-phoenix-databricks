@@ -2,6 +2,20 @@
 
 This repository contains all Team Phoenix Databricks notebooks used in jobs that are deployed by Azure DevOps.
 
+## Infrastructure Status
+
+|Name|Technology|Dev Status|ITG Status |Prod Status|
+|---|---|---|---|---|
+|app_bm_instant_ink_bi|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|cumulus_prod02_ref_enrich|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|cumulus_prod02_biz_trans|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|cumulus_prod04_dashboard|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|dataos-`<env>`-team-phoenix|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|dataos-`<env>`-team-phoenix-fin|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|enrich-data-lake-restricted-prod/gpsy|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|hp-bigdata-prod-enrichment/ie2_deliverables/rdma/rdma_base_to_sales|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+|insights-environment-sandbox|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
+
 ## New Job Checklist
 
 1. Clone repo, fetch/pull latest, and checkout new branch from master e.g.
@@ -55,6 +69,9 @@ dataos-prod: https://dataos-prod.cloud.databricks.com/
 dev: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=8937    
 itg: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373    
 prod: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=10475    
+
+## Confluence
+https://rndwiki.inc.hpicorp.net/confluence/display/SuppliesBigData/Team+Phoenix+Databricks  
 
 ## Informative Links
 DataOS: Guide to the Cloud: https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/    

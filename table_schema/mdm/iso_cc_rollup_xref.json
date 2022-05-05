@@ -23,6 +23,13 @@
       "encode": "lzo"
     },
     {
+      "description": "country_scenario",
+      "name": "country_scenario",
+      "type": "VARCHAR(256)",
+      "nullable": false,
+      "encode": "lzo" 
+    },
+    {
       "description": "country_begin_date",
       "name": "country_begin_date",
       "type": "DATE",

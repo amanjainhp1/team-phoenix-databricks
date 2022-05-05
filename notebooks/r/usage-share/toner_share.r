@@ -3637,6 +3637,8 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
                             ifelse(final_list7$Region=="LA",final_list7$Usage_c*0.038,
                                    final_list7$Usage_c*0.037))))))
 
+ final_list7$total_pages <- final_list7$Usage*final_list7$ib
+ final_list7$hp_pages <- final_list7$Usage*final_list7$ib*final_list7$Page_Share                                         
 
 
 # #write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","DUPSM Explorer Adj (",Sys.Date(),").csv", sep=''), x=final_list8,row.names=FALSE, na="")
@@ -3808,8 +3810,76 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 WHERE Usage_c is not null AND Usage_c >0
                  
                  "))
+                       
+mdm_tbl_pages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'total_pages' as measure
+                , total_pages as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
+                       
+mdm_tbl_hppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'hp_pages' as measure
+                , hp_pages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
+         
+mdm_tbl_ib <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'ib' as measure
+                , ib as units
+                , NULL as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
                                             
-mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
+mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage, mdm_tbl_pages, mdm_tbl_hppages, mdm_tbl_ib)
+
+#mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
 
 mdm_tbl$cal_date <- to_date(mdm_tbl$cal_date,format="yyyy-MM-dd")
 mdm_tbl$forecast_created_date <- to_date(mdm_tbl$forecast_created_date,format="yyyy-MM-dd")
