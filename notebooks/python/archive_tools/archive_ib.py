@@ -14,7 +14,7 @@
 ib_archive_query = """
 
 SELECT
-    record
+    UPPER(record) as record
     ,cal_date
     ,country as country_alpha2
     ,platform_subset
@@ -24,8 +24,8 @@ SELECT
     ,official
     ,load_date
     ,version
-  FROM archive.dbo.ib_archive
-  WHERE version = '2022.03.29.1'
+  FROM ie2_prod.dbo.ib
+  WHERE version = '2022.05.02.1'
   
 """
 
