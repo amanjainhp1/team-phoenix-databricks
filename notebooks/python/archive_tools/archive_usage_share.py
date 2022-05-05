@@ -27,9 +27,9 @@ select
 	version,
 	load_date
 from
-	Archive.dbo.usage_share_archive
-where version = '2021.12.16.1'
-  
+	archive.dbo.usage_share_archive
+where version = '2021.02.12.1'
+
 """
 
 redshift_usage_share_archive_records = read_sql_server_to_df(configs) \
