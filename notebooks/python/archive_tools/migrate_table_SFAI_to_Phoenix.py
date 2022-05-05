@@ -17,18 +17,15 @@ SELECT [record]
       ,[cal_date]
       ,[geography_grain]
       ,[geography]
+      ,[measure]
       ,[platform_subset]
       ,[customer_engagement]
-      ,[forecast_process_note]
-      ,[forecast_created_date]
-      ,[data_source]
+      ,[assumption]
+      ,[official]
+      ,[Units]
       ,[version]
-      ,[measure]
-      ,[units]
-      ,[proxy_used]
-      ,[ib_version]
       ,[load_date]
-  FROM ie2_landing.[dbo].[usage_share_country_spin_landing]
+  FROM ie2_landing.[dbo].[usage_share_adjust]
 """
 
 records = read_sql_server_to_df(configs) \
@@ -37,7 +34,7 @@ records = read_sql_server_to_df(configs) \
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, records, "prod.usage_share_country_spin", "overwrite")
+write_df_to_redshift(configs, records, "prod.usage_share_adjust", "overwrite")
 
 # COMMAND ----------
 
@@ -45,6 +42,8 @@ write_df_to_redshift(configs, records, "prod.usage_share_country_spin", "overwri
 # write to parquet file in s3
 
 # s3a://dataos-core-dev-team-phoenix/product/list_price_gpsy/
+
+#when we move this to PROD, we'll need to be sure and write out .parquet files for backup reason.  I didn't do this on 5/5/22 when inserting data into the DEV environment.
 
 s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/list_price_gpsy/" + max_version
 
