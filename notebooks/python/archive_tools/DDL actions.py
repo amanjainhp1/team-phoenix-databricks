@@ -12,7 +12,6 @@
 # COMMAND ----------
 
 query = """
-
 create external table phoenix_spectrum_prod.ib 
 (
 record varchar(255),
@@ -47,7 +46,7 @@ def submit_spectrum_query(dbname, port, user, password, host, sql_query):
     con.commit()
     cur.close()
 
-submit_spectrum_query("prod", configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], query)
+submit_spectrum_query("dev", configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], query)
 
 
 # COMMAND ----------
