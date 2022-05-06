@@ -23,8 +23,8 @@
             "encode": "az64"
         },
         {
-            "description": "region5",
-            "name": "region5",
+            "description": "region_5",
+            "name": "region_5",
             "type": "VARCHAR(50)",
             "nullable": false,
             "encode": "lzo"
