@@ -38,7 +38,6 @@ INSERT INTO mdm.supplies_xref
     , official
     , last_modified_date
     , load_date
-    , version
 )
 SELECT record
     , base_product_number
@@ -60,20 +59,8 @@ SELECT record
     , 1 AS offical
     , current_date AS last_modified_date
     , current_date AS load_date
-    , 'NEW DATA' AS version
 FROM stage.supplies_xref_temp_landing;
 
----------------------------------RUN SPROC TO UPDATE VERSION AND LOAD DATE IN PROD TABLE-------------------------------------------
-
-CALL prod.addversion_sproc('SUPPLIES_XREF', 'FORECASTER INPUT');
-
-----------------UPDATE PROD VERSION------------------------------------------
-
-UPDATE mdm.supplies_xref
-SET 
-    version = (SELECT MAX(version) FROM prod.version v WHERE record  = 'SUPPLIES_XREF'),
-    load_date = (SELECT MAX(load_date) from prod.version v  WHERE record  = 'SUPPLIES_XREF')
-WHERE version = 'NEW DATA';
 
 ---------------------TRUNCATE TEMP TABLE-----------------------------------
 
