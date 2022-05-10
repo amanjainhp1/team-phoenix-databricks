@@ -4,6 +4,7 @@ AS $$
 
 BEGIN
 
+DECLARE
 current_date TIMESTAMP;
 
 SELECT GETDATE() INTO current_date;
