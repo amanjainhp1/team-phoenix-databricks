@@ -2131,6 +2131,9 @@ final_list7 <- withColumn(final_list7, "Share_Source_PS", ifelse(like(final_list
 #write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","DUPSM Explorer Adj (",Sys.Date(),").csv", sep=''), x=final_list7,row.names=FALSE, na="")
 #s3write_using(x=final_list9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/ink_100pct_test",Sys.Date(),".csv"), row.names=FALSE, na="")
 
+final_list7$total_pages <- final_list7$Usage*final_list7$ib
+final_list7$hp_pages <- final_list7$Usage*final_list7$ib*final_list7$Page_Share
+                                             
 createOrReplaceTempView(final_list7, "final_list7")
 
 # COMMAND ----------
@@ -2299,6 +2302,69 @@ mdm_tbl_cusage <- SparkR::sql(paste("select distinct
                 WHERE Usage_c is not null AND Usage_c >0
                  
                  ",sep=""))
+                                             
+mdm_tbl_pages <- SparkR::sql(paste("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , rtm as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'total_pages' as measure
+                , total_pages as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 ",sep=""))
+             
+mdm_tbl_hppages <- SparkR::sql(paste("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , rtm as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'hp_pages' as measure
+                , hp_pages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 ",sep=""))
+                        
+mdm_tbl_ib <- SparkR::sql(paste("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , rtm as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'ib' as measure
+                , ib as units
+                , NULL as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 ",sep=""))
 
 # mdm_tbl_cusagec <- SparkR::sql(paste("select distinct
 #                 '",rec1,"' as record
@@ -2363,8 +2429,10 @@ mdm_tbl_cusage <- SparkR::sql(paste("select distinct
                  
 #                  ",sep=""))
 
-mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
-
+mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage, mdm_tbl_pages, mdm_tbl_hppages, mdm_tbl_ib)
+                                             
+#mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
+                                             
 mdm_tbl$cal_date <- to_date(mdm_tbl$cal_date,format="yyyy-MM-dd")
 mdm_tbl$forecast_created_date <- to_date(mdm_tbl$forecast_created_date,format="yyyy-MM-dd")
 mdm_tbl$load_date <- to_date(mdm_tbl$load_date,format="yyyy-MM-dd")
