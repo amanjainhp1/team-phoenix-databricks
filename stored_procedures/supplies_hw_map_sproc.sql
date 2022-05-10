@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE prod.p_supplies_hw_mapping()
+CREATE OR REPLACE PROCEDURE prod.supplies_hw_mapping_sproc()
     LANGUAGE plpgsql
 AS $$
 
