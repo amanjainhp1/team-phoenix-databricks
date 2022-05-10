@@ -30,8 +30,8 @@
             "encode": "lzo"
         },
         {
-            "description": "region5",
-            "name": "region5",
+            "description": "region_5",
+            "name": "region_5",
             "type": "VARCHAR(255)",
             "nullable": true,
             "encode": "lzo"
