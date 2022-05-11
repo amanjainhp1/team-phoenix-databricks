@@ -72,8 +72,8 @@
             "encode": "raw"
         },
         {
-            "description": "supplies_spare_cartridges",
-            "name": "supplies_spare_cartridges",
+            "description": "supplies_spares_cartridges",
+            "name": "supplies_spares_cartridges",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
