@@ -43,4 +43,4 @@ for key, value in notebooks.items():
             completion_time = str(round((time.time() - start_time)/60, 1))
             print(f"LOG: {notebook} notebook completed in {completion_time} minutes")
         except Exception as e:
-           raise dbutils.notebook.exit(e)
+            raise dbutils.notebook.exit(e)

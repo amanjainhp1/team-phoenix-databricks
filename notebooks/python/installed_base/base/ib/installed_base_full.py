@@ -1018,7 +1018,3 @@ query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-
