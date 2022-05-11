@@ -61,9 +61,7 @@ SET
     version = (SELECT MAX(version) FROM prod.version WHERE record = 'YIELD')
 WHERE version = 'NEW DATA'; 
 
-----------------------------------------TRUNCATE TEMP LANDING-------------------------------------------------------------
 
-TRUNCATE TABLE stage.yield_temp_landing;
 END;
 
 $$
