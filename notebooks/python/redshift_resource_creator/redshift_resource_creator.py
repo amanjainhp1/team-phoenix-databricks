@@ -154,6 +154,6 @@ for input_file in input_files:
     permissions_query = f"""
     -- Permissions
     GRANT ALL ON PROCEDURE {sproc_schema}.{sproc_name}(varchar, varchar) TO {configs["redshift_username"]};
-    GRANT ALL ON PROCEDURE{sproc_schema}.{sproc_name}(varchar, varchar) TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
+    GRANT ALL ON PROCEDURE {sproc_schema}.{sproc_name}(varchar, varchar) TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
     submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query + "\n" + permissions_query)
