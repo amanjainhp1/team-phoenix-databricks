@@ -2,70 +2,82 @@ CREATE OR REPLACE PROCEDURE prod.addversion_sproc(v1_record varchar, v2_source_n
 	LANGUAGE plpgsql
 AS $$
 
-declare
-record_count integer;
-max_version text;
-current_date timestamp;
-current_date_string text;
+DECLARE
+record_count INTEGER;
+max_version TEXT;
+current_date TIMESTAMP;
+current_date_string TEXT;
 
-begin
+BEGIN
 
 /* Built 1/1/2022 - Brent Merrick
 * This function adds records to the prod.version table for
 * different datasets
 */
 
-select getdate() into current_date;
+SELECT GETDATE() INTO current_date;
 
-select replace(trunc(getdate()), '-', '.') into current_date_string;
+SELECT REPLACE(TRUNC(GETDATE()), '-', '.') INTO current_date_string;
 
-select COUNT(1) into record_count
-from prod.version
-where 1=1
-	and record = v1_record
-	and version like (current_date_string + '.%');
+SELECT COUNT(1) INTO record_count
+FROM prod.version
+WHERE 1=1
+	AND record = v1_record
+	AND version LIKE (current_date_string + '.%');
 
-select max(version) into max_version
-from prod.version
-where record = v1_record;
+SELECT MAX(version) INTO max_version
+FROM prod.version
+WHERE record = v1_record;
 
-update prod.version
-set official = 0
-where 1=1
-	and record = v1_record
-	and record <> 'IB';
+UPDATE prod.version
+SET official = 0
+WHERE 1=1
+	AND record = v1_record
+	AND record <> 'IB';
 
-IF record_count > 0 then
-		
-		INSERT INTO prod.version
-		(record, version, source_name, official, load_date)
-		VALUES
-		(
-		v1_record
-		,current_date_string + '.' + cast(cast(right(max_version,1) as int)+1 as text)
-		,v2_source_name
-		,case v1_record
-				when 'IB' then 0
-				else 1
-			end
-		,current_date
-		);
-else
-		INSERT INTO prod.version
-		(record, version, source_name, official, load_date)
-		VALUES
-		(
-		v1_record
-		,current_date_string + '.1'
-		,v2_source_name
-		,case v1_record
-						when 'IB' then 0
-						else 1
-					end
-		,current_date
-		);
-end if;
-end;
+IF record_count > 0 THEN
+    INSERT INTO prod.version
+    (
+        record
+        , version
+        , source_name
+        , official
+        , load_date
+    )
+    VALUES
+    (
+        v1_record
+        , current_date_string + '.' + CAST(CAST(RIGHT(max_version, 1) AS INT)+1 AS TEXT)
+        , v2_source_name
+        , CASE v1_record
+            WHEN 'IB' THEN 0
+            ELSE 1
+            END AS official
+    , current_date AS load_date
+    );
+ELSE
+    INSERT INTO prod.version
+    (
+        record
+        , version
+        , source_name
+        , official
+        , load_date
+    )
+    VALUES
+    (
+        v1_record
+        , current_date_string + '.1' AS version
+        , v2_source_name
+        , CASE v1_record
+            WHEN 'IB' then 0
+            ELSE 1
+            END AS official
+        , current_date AS load_date
+    );
+END IF;
+
+END;
 
 $$
 ;
