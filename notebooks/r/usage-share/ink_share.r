@@ -2346,7 +2346,6 @@ mdm_tbl_pages <- SparkR::sql(paste("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -2368,7 +2367,6 @@ mdm_tbl_pages <- SparkR::sql(paste("select distinct
                 , IMPV_Route as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -2411,7 +2409,6 @@ mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
                 , Proxy_PS as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -2433,7 +2430,6 @@ mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
                 , Proxy_PS as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -2455,7 +2451,6 @@ mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
                 , Proxy_PS as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -2477,7 +2472,6 @@ mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
                 , Proxy_PS as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
