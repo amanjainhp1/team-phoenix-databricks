@@ -8,7 +8,7 @@ from datetime import date
 
 # COMMAND ----------
 
-# MAGIC %run ../../notebooks/python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
