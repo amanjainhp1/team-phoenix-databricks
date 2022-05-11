@@ -10,13 +10,10 @@ Jobs:
   - ink-usage-color
   - ink-usage-total
   - installed-base
-  - installed-base-promo
-  - installed-base-scenario
   - lf-decay
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
-  - norm-ships
   - rdma-full-load
   - redshift-resource-creator
   - toner-share
@@ -26,3 +23,6 @@ Jobs:
 
 DeleteJobs:
   - table-creator
+  - installed-base-promo
+  - installed-base-scenario
+  - norm-ships

@@ -923,7 +923,7 @@ SELECT 'IB_TRAD' AS record
     , NULL AS version
     , NULL as load_date
     , ib.month_begin
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , cc.market10 AS geography
     , ib.country_alpha2
     , ib.hps_ops
@@ -975,7 +975,7 @@ SELECT 'IB_IINK' AS record
     , NULL AS version
     , NULL as load_date
     , iink.month_begin
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , cc.market10 AS geography
     , iink.country_alpha2
     , CASE WHEN hw.business_feature IS NULL THEN 'other' ELSE hw.business_feature END AS hps_ops
@@ -1018,7 +1018,3 @@ query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-

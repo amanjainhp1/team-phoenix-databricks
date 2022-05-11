@@ -10,4 +10,4 @@ default_custom_tags:
 airflow_gitops:
   publish_job_ids: true
   repo: https://github.azc.ext.hp.com/hp-data-platform/k8s-dataos-core-dev-2.git
-  path: 'flux/namespaces/infra/airflow2-dev/databricks-springboard-job-ids-cm.yaml'
+  path: 'flux2-green/namespaces/infra/airflow-dev/databricks-springboard-job-ids-cm.yaml'

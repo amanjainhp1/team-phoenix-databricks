@@ -23,7 +23,7 @@
     },
     {
       "description": "base_product_number",
-      "name": "base_prod_number",
+      "name": "base_product_number",
       "type": "VARCHAR(256)",
       "nullable": true,
       "encode": "lzo"

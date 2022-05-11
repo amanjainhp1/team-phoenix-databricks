@@ -1,8 +1,8 @@
 {
     "fields": [
         {
-            "description": "sup_hw_id",
-            "name": "sup_hw_id",
+            "description": "working_forecast_country_id",
+            "name": "working_forecast_country_id",
             "type": "IDENTITY",
             "nullable": false,
             "encode": "raw",
@@ -11,15 +11,22 @@
         {
             "description": "record",
             "name": "record",
-            "type": "VARCHAR(256)",
-            "nullable": true,
+            "type": "VARCHAR(50)",
+            "nullable": false,
             "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
         },
         {
             "description": "geography_grain",
             "name": "geography_grain",
-            "type": "VARCHAR(256)",
-            "nullable": true,
+            "type": "VARCHAR(8)",
+            "nullable": false,
             "encode": "lzo"
         },
         {
@@ -30,17 +37,10 @@
             "encode": "lzo"
         },
         {
-            "description": "base_product_number",
-            "name": "base_product_number",
-            "type": "VARCHAR(256)",
-            "nullable": true,
-            "encode": "lzo"
-        },
-        {
-            "description": "customer_engagement",
-            "name": "customer_engagement",
-            "type": "VARCHAR(256)",
-            "nullable": true,
+            "description": "country",
+            "name": "country",
+            "type": "VARCHAR(50)",
+            "nullable": false,
             "encode": "lzo"
         },
         {
@@ -51,39 +51,32 @@
             "encode": "lzo"
         },
         {
-            "description": "eol",
-            "name": "eol",
-            "type": "BOOLEAN",
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "customer_engagement",
+            "name": "customer_engagement",
+            "type": "VARCHAR(64)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "cartridges",
+            "name": "cartridges",
+            "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "eol_date",
-            "name": "eol_date",
-            "type": "DATE",
-            "nullable": true,
-            "encode": "az64"
-        },
-        {
-            "description": "host_multiplier",
-            "name": "host_multiplier",
-            "type": "INTEGER",
-            "nullable": true,
-            "encode": "az64"
-        },
-        {
-            "description": "official",
-            "name": "official",
-            "type": "BOOLEAN",
-            "nullable": true,
+            "description": "imp_corrected_cartridges",
+            "name": "imp_corrected_cartridges",
+            "type": "DOUBLE PRECISION",
+            "nullable": false,
             "encode": "raw"
-        },
-        {
-            "description": "last_modified_date",
-            "name": "last_modified_date",
-            "type": "TIMESTAMP WITH TIME ZONE",
-            "nullable": true,
-            "encode": "az64"
         },
         {
             "description": "load_date",

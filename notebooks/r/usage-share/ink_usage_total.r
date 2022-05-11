@@ -143,10 +143,10 @@ oldNewDemarcation <- end1
 # MAGIC 	, yellow_cc_ib_wtd_avg
 # MAGIC 	, tot_cc_ib_wtd_avg
 # MAGIC 	, total_pages_ib_wtd_avg
-# MAGIC		, pct_color	 
+# MAGIC 	, pct_color	 
 # MAGIC 	, reporting_printers
 # MAGIC     , connected_ib
-# MAGIC	FROM cumulus_prod02_biz_trans.biz_trans.v_print_share_usage_forecasting
+# MAGIC FROM cumulus_prod02_biz_trans.biz_trans.v_print_share_usage_forecasting
 # MAGIC """
 # MAGIC 
 # MAGIC val zero = readRedshiftToDF(configs)
@@ -162,9 +162,6 @@ zero <- SparkR::collect(SparkR::sql("SELECT * FROM zero"))
 # COMMAND ----------
 
 # Step 1 - query for Normalized extract specific to PE and RM
-
-zero$rdma_platform_subset_name <- ifelse(str_sub(zero$rdma_platform_subset_name,start=-3)==' EM',substr(zero$rdma_platform_subset_name,1,nchar(zero$rdma_platform_subset_name)-3),zero$rdma_platform_subset_name)
-zero$rdma_platform_subset_name <- ifelse(str_sub(zero$rdma_platform_subset_name,start=-3)==' DM',substr(zero$rdma_platform_subset_name,1,nchar(zero$rdma_platform_subset_name)-3),zero$rdma_platform_subset_name)
 
 ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
 #ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
@@ -196,6 +193,8 @@ ibtable <- dbGetQuery(cprod,paste0("
                             , b.region_5, a.country
                    "))
 
+# COMMAND ----------
+
 hw_info <- dbGetQuery(cprod,
                     "SELECT distinct platform_subset, pl as  product_line_code, hw_product_family as platform_division_code, sf_mf as platform_function_code
                     , SUBSTRING(mono_color,1,1) as cm, UPPER(brand) as product_brand
@@ -206,7 +205,7 @@ hw_info <- dbGetQuery(cprod,
                     )
 
 #Find how many are not matching in BD#
-nmlst <- sqldf("SELECT distinct rdma_platform_subset_name,printer_platform_name from zero")
+nmlst <- sqldf("SELECT distinct printer_platform_name from zero")
 nmlst2 <- as.data.frame(unique(ibtable$platform_subset))
 colnames(nmlst2) <- "ib_name"
 hw_info2 <- dbGetQuery(cprod,
@@ -217,14 +216,15 @@ hw_info2 <- dbGetQuery(cprod,
 missing_name <- sqldf("select a.*, b.product_lifecycle_status, b.successor, b.predecessor
                       from nmlst2 a 
                       left join hw_info2 b on a.ib_name=b.platform_subset 
-                      where ib_name not in (select rdma_platform_subset_name from nmlst)
+                      where ib_name not in (select printer_platform_name from nmlst)
                       ")
 table(missing_name$product_lifecycle_status)
 missing_name2 <- sqldf("select a.*, b.product_lifecycle_status, b.successor, b.predecessor 
-                       from nmlst a left join hw_info2 b on a.rdma_platform_subset_name=b.platform_subset where rdma_platform_subset_name not in (select ib_name from nmlst2)")
+                       from nmlst a left join hw_info2 b on a.printer_platform_name=b.platform_subset where printer_platform_name not in (select ib_name from nmlst2)")
 print(missing_name)
 print(missing_name2)
-#
+
+# COMMAND ----------
 
 ibintrodt <- dbGetQuery(cprod,"
             SELECT  a.platform_subset
@@ -238,6 +238,8 @@ ibintrodt <- dbGetQuery(cprod,"
                     GROUP BY a.platform_subset
                    ")
 ibintrodt$intro_yyyymm <- paste0(substr(ibintrodt$intro_date,1,4),substr(ibintrodt$intro_date,6,7))
+
+# COMMAND ----------
 
 #Get Market10 Information
 country_info <- dbGetQuery(cprod,"
@@ -256,41 +258,40 @@ country_info <- dbGetQuery(cprod,"
                             ON a.country_alpha2=b.country_alpha2
                            ")
 
-zero <- sqldf("
-            --with sub0 as (select rdma_platform_subset_name,printer_region_code,country_alpha2,printer_managed
-              --,sum(case when numerator_insertions is null then 1 else 0 end) as null_count
-              --,sum(1) as full_count
-              --from zero
-              --group by rdma_platform_subset_name,printer_region_code,printer_managed)
-            with sub1 as (
-             select a.printer_platform_name, a.rdma_platform_subset_name, ci.region_5 as printer_region_code, ci.country_alpha2
-              , ci.market10, SUBSTR(ci.developed_emerging,1,1) as developed_emerging
-              , hw.platform_function_code, hw.cm
-              --, a.platform_business_code
-              , a.year, a.quarter, a.date_month_dim_ky as fyearmo, a.printer_managed, hw.market_group as platform_market_code
-              , hw.platform_division_code, hw.product_brand
-              , hw.intro_price as product_intro_price, id.intro_date as product_introduction_date --, a.product_printhead_technology_designator
-              , hw.print_mono_speed_pages, hw.print_color_speed_pages
-              --, a.product_model_name ,a.product_financial_market_code
-              , hw.product_line_code --, a.product_function_code, a.product_business_model
+# COMMAND ----------
 
+zero <- sqldf("
+            with sub1 as (
+              select a.printer_platform_name
+              , a.printer_region_code
+              , a.country_alpha2
+              , ci.market10
+              , SUBSTR(ci.developed_emerging,1,1) as developed_emerging
+              , hw.platform_function_code
+              , hw.cm
+              , a.year
+              , a.quarter
+              , a.date_month_dim_ky as fyearmo
+              , a.printer_managed
+              , hw.market_group as platform_market_code
+              , hw.platform_division_code
+              , hw.product_brand
+              , hw.intro_price as product_intro_price
+              , id.intro_date as product_introduction_date
+              , hw.print_mono_speed_pages
+              , hw.print_color_speed_pages
+              , hw.product_line_code
               , a.tot_cc_ib_wtd_avg as total_cc                                
               , a.tot_cc_ib_wtd_avg as usage
               , a.tot_cc_ib_wtd_avg as MPVa  --Consumed Ink
               , a.reporting_printers as sumn
-
              from zero a
-             --LEFT JOIN sub0 
-              --on a.rdma_platform_subset_name=sub0.rdma_platform_subset_name 
-              --and a.printer_region_code=sub0.printer_region_code
-              --and a.printer_managed=sub0.printer_managed
              LEFT JOIN hw_info hw
-              on a.rdma_platform_subset_name=hw.platform_subset
+              on a.printer_platform_name=hw.platform_subset
              LEFT JOIN country_info ci 
               ON a.country_alpha2=ci.country_alpha2 
              LEFT JOIN ibintrodt id
-              ON a.rdma_platform_subset_name=id.platform_subset
-             --WHERE hw.cm='C'
+              ON a.printer_platform_name=id.platform_subset
             )
             select * from sub1
             ")
@@ -710,17 +711,14 @@ str(decay)
 #zeroa <- zero
 #zeroa$product_brand <- ifelse(zeroa$printer_platform_name %in% c('MALBEC','MANHATTAN','WEBER BASE'),"OJP",zeroa$product_brand)  #These are listed as both OJ and OJP
 
-usage <- sqldf("select --CASE WHEN rdma_platform_subset_name is not null and rdma_platform_subset_name <> '' then rdma_platform_subset_name
- -- ELSE printer_platform_name 
-  --END as printer_platform_name
-  rdma_platform_subset_name as printer_platform_name
+usage <- sqldf("select
+  printer_platform_name
 , printer_region_code, market10, developed_emerging, country_alpha2,rtm, FYearMo, platform_division_code, product_brand
 , MAX(MPVa) AS MPVa
 , SUM(sumn) AS Na
 from zero
 group by 1=1
-, rdma_platform_subset_name  --, printer_platform_name
---, CASE WHEN rdma_platform_subset_name is not null and rdma_platform_subset_name <> '' then rdma_platform_subset_name ELSE printer_platform_name END
+, printer_platform_name
 , printer_region_code, market10, developed_emerging, country_alpha2, rtm, FYearMo, platform_division_code, product_brand
 order by printer_platform_name, printer_region_code, market10, developed_emerging, country_alpha2, rtm, FYearMo, platform_division_code, product_brand")
 head(usage)
@@ -951,31 +949,6 @@ usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.co
 
 # Step 16 - extracting Intro year for a given Platform n region
 
-# ibtable <- dbGetQuery(cprod,"
-#                    select  a.platform_subset
-#                           , cal_date
-#                           , YEAR(a.cal_date)*100+MONTH(a.cal_date) AS month_begin
-#                           , d.technology AS hw_type
-#                           , a.customer_engagement  AS rtm
-#                           , b.region_5
-#                           , a.country
-#                           --,substring(b.developed_emerging,1,1) as developed_emerging
-#                           , sum(a.units) as ib
-#                           , a.version
-#                     from IE2_Prod.dbo.ib a with (NOLOCK)
-#                     left join IE2_Prod.dbo.iso_country_code_xref b with (NOLOCK)
-#                       on (a.country=b.country_alpha2)
-#                     left join IE2_Prod.dbo.hardware_xref d with (NOLOCK)
-#                        on (a.platform_subset=d.platform_subset)
-#                     where a.measure='ib'
-#                       and a.version = (select max(version) from IE2_Prod.dbo.ib)
-#                       and (upper(d.technology)='INK' or (d.technology='PWA' and (upper(d.hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
-#                           and a.platform_subset not like 'PANTHER%' and a.platform_subset not like 'JAGUAR%'))
-#                       and d.product_lifecycle_status not in ('E','M')
-#                     group by a.platform_subset, a.cal_date, d.technology, a.customer_engagement, a.version
-#                           --, b.developed_emerging
-#                             , b.region_5, a.country
-#                    ")
 introYear <- sqldf(" SELECT a.platform_subset as printer_platform_name, a.rtm
                           , a.Region_5 AS printer_region_code
                           , b.country_alpha2
@@ -3775,67 +3748,6 @@ createOrReplaceTempView(d4, "final1")
 
 # COMMAND ----------
 
-# Step 77 - Attaching route information 
-
-# final2 <- sqldf('select aa1.*, aa2.Route
-#                 from 
-#                 final1 aa1
-#                 inner join
-#                 route aa2
-#                 on
-#                 aa1.platform_division_code = aa2.platform_division_code 
-#                 and
-#                 aa1.product_brand = aa2.product_brand 
-#                 and
-#                 aa1.printer_platform_name = aa2.printer_platform_name 
-#                 and
-#                 aa1.printer_region_code = aa2.printer_region_code 
-#                 and 
-#                 aa1.rtm=aa2.rtm
-#                 ')
-
-# COMMAND ----------
-
-# Step 78 - Attaching Source information
-
-# final3 <- sqldf('select aa1.*, aa2.Source_vlook as Data_Source
-#                 from 
-#                 final2 aa1
-#                 left outer join
-#                 sourceR aa2
-#                 on
-#                 aa1.printer_platform_name = aa2.printer_platform_name 
-#                 and
-#                 aa1.printer_region_code = aa2.printer_region_code
-#                 and
-#                 aa1.rtm=aa2.rtm
-#                 ')
-
-# final3$Data_Source <- ifelse(is.na(final3$Data_Source),"DIM_PLATFORM", final3$Data_Source)
-
-# COMMAND ----------
-
-# Step 79 - Attaching Speed number and Intro price
-
-# final4 <- sqldf('select aa1.*
-#                 , aa2.product_intro_price as product_intro_price
-#                 , aa2.print_mono_speed_pages as K_PPM
-#                 , aa2.print_color_speed_pages as Clr_PPM
-#                 , aa2.platform_finance_market_category_code as FMC
-#                 from final3 aa1
-#                 left outer join 
-#                 PoR aa2
-#                 on 
-#                 aa1.printer_platform_name = aa2.printer_platform_name
-#                 and
-#                 aa1.platform_division_code = aa2.platform_division_code
-#                 and
-#                 aa1.product_brand = aa2.product_brand
-#                 --and aa1.rtm=aa2.rtm
-#                 ')
-
-# COMMAND ----------
-
 # Step 80 - Attaching Segment Specific MPV and N
 
 createOrReplaceTempView(as.DataFrame(usage), "usage")
@@ -3921,7 +3833,7 @@ output_file_name <- paste0("s3://", aws_bucket_name, "UPM_Ink_Ctry(", todaysDate
 SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
 
 print(output_file_name)
-  
+
 end.time2 <- Sys.time()
 time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
 

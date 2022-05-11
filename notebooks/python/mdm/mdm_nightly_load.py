@@ -18,6 +18,16 @@ try:
 except:
     tables = json.loads("""
         {
+            "actuals_supplies": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "actuals_supplies",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod",
+                "destination_table": "actuals_supplies"
+            },
             "calendar": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
@@ -47,6 +57,16 @@ except:
                 "destination_database": "",
                 "destination_schema": "prod", 
                 "destination_table": "decay"
+            },
+            "forecast_supplies_baseprod": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Financials", 
+                "source_schema": "dbo", 
+                "source_table": "forecast_supplies_baseprod",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "fin_prod", 
+                "destination_table": "forecast_supplies_baseprod"
             },
             "hardware_xref": {
                 "source_system": "sqlserver", 
@@ -98,6 +118,26 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "iso_country_code_xref"
             },
+            "odw_sacp_actuals": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Financials",
+                "source_schema": "ms4", 
+                "source_table": "odw_sacp_actuals", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "fin_prod", 
+                "destination_table": "odw_sacp_actuals"
+            },
+            "planet_actuals": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Financials",
+                "source_schema": "dbo", 
+                "source_table": "planet_actuals", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "fin_prod", 
+                "destination_table": "planet_actuals"
+            },
             "printer_lag": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
@@ -137,6 +177,16 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm",
                 "destination_table": "profit_center_code_xref"
+            },
+            "supplies_finance_hier_restatements_2020_2021": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Landing",
+                "source_schema": "dbo", 
+                "source_table": "supplies_finance_hier_restatements_2020_2021", 
+                "destination_system": "redshift",
+                "destination_database": "", 
+                "destination_schema": "fin_prod",
+                "destination_table": "supplies_finance_hier_restatements_2020_2021"
             },
             "supplies_hw_mapping": {
                 "source_system": "sqlserver", 
@@ -208,4 +258,4 @@ for result in thread:
 # COMMAND ----------
 
 if len(failed_jobs) > 0:
-    dbutils.notebook.exit("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
+    raise Exception("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
