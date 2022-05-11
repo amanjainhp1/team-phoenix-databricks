@@ -52,7 +52,7 @@ IF record_count > 0 THEN
         , CASE v1_record
             WHEN 'IB' THEN 0
             ELSE 1
-            END AS official
+            END official
     , current_date AS load_date
     );
 ELSE
@@ -72,7 +72,7 @@ ELSE
         , CASE v1_record
             WHEN 'IB' then 0
             ELSE 1
-            END AS official
+            END official
         , current_date AS load_date
     );
 END IF;
