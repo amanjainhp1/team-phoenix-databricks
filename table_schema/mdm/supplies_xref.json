@@ -147,13 +147,6 @@
             "type": "TIMESTAMP WITH TIME ZONE",
             "nullable": true,
             "encode": "az64"
-        },
-        {
-            "description": "version",
-            "name": "version",
-            "type": "VARCHAR(16)",
-            "nullable": true,
-            "encode": "lzo"
         }
     ],
     "permissions": [
