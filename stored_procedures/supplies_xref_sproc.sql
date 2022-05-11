@@ -61,11 +61,6 @@ SELECT record
     , current_date AS load_date
 FROM stage.supplies_xref_temp_landing;
 
-
----------------------TRUNCATE TEMP TABLE-----------------------------------
-
-TRUNCATE TABLE stage.supplies_xref_temp_landing;
-
 END;
 
 $$
