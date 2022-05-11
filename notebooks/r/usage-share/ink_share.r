@@ -2567,7 +2567,8 @@ mdm_tbl_ib <- SparkR::sql(paste("select distinct
                  
 #                  ",sep=""))
 
-mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage, mdm_tbl_pages, mdm_tbl_hppages, mdm_tbl_ib)
+mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage, mdm_tbl_pages, mdm_tbl_hppages, 
+                 mdm_tbl_kpages, mdm_tbl_cpages, mdm_tbl_khppages, mdm_tbl_chppages, mdm_tbl_knhppages, mdm_tbl_cnhppages, mdm_tbl_ib)
                                              
 #mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
                                              
