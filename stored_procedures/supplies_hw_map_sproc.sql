@@ -51,10 +51,6 @@ SELECT 'SUPPLIES_HW_MAP' AS record
 FROM stage.supplies_hw_mapping_temp_landing sm
 WHERE is_delete != 1; 
 
----------------------TRUNCATE TEMP TABLE-----------------------------------
-
-TRUNCATE TABLE stage.supplies_hw_mapping_temp_landing;
-
 END;
 
 $$
