@@ -2133,6 +2133,12 @@ final_list7 <- withColumn(final_list7, "Share_Source_PS", ifelse(like(final_list
 
 final_list7$total_pages <- final_list7$Usage*final_list7$ib
 final_list7$hp_pages <- final_list7$Usage*final_list7$ib*final_list7$Page_Share
+final_list7$total_kpages <- final_list7$Usage_k*final_list7$ib 
+final_list7$total_cpages <- final_list7$Usage_c*final_list7$ib
+final_list7$hp_kpages <- final_list7$Usage_k*final_list7$ib*final_list7$Page_Share 
+final_list7$hp_cpages <- final_list7$Usage_c*final_list7$ib*final_list7$Page_Share
+final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(1-final_list7$Page_Share) 
+final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(1-final_list7$Page_Share) 
                                              
 createOrReplaceTempView(final_list7, "final_list7")
 
@@ -2323,6 +2329,50 @@ mdm_tbl_pages <- SparkR::sql(paste("select distinct
                 WHERE Usage_c is not null AND Usage_c >0
                  
                  ",sep=""))
+                                             
+ mdm_tbl_kpages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'total_k_pages' as measure
+                , total_kpages as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
+                      
+ mdm_tbl_cpages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'total_c_pages' as measure
+                , total_cpages as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
              
 mdm_tbl_hppages <- SparkR::sql(paste("select distinct
                 '",rec1,"' as record
@@ -2344,6 +2394,94 @@ mdm_tbl_hppages <- SparkR::sql(paste("select distinct
                 WHERE Usage_c is not null AND Usage_c >0
                  
                  ",sep=""))
+                        
+mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'hp_k_pages' as measure
+                , hp_kpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))   
+                                            
+mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'hp_c_pages' as measure
+                , hp_cpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))  
+
+mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'non_hp_k_pages' as measure
+                , nonhp_kpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 ")) 
+                       
+mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'non_hp_c_pages' as measure
+                , nonhp_cpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                , model_group
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
                         
 mdm_tbl_ib <- SparkR::sql(paste("select distinct
                 '",rec1,"' as record
