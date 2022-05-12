@@ -8,7 +8,7 @@ from datetime import date
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../../common/configs
 
 # COMMAND ----------
 
@@ -28,7 +28,7 @@ ib_record = 'IB'
 
 # COMMAND ----------
 
-# MAGIC %run ../../notebooks/python/common/database_utils
+# MAGIC %run ../../common/database_utils
 
 # COMMAND ----------
 
@@ -102,4 +102,4 @@ query_list.append(["prod.scenario", insert_ns_ib, "append"])
 
 # COMMAND ----------
 
-# MAGIC %run ../common/output_to_redshift
+# MAGIC %run ../../common/output_to_redshift

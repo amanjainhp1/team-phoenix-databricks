@@ -5,7 +5,7 @@ import os
 
 # COMMAND ----------
 
-# MAGIC %run ./common/secrets_manager_utils
+# MAGIC %run ./common/configs
 
 # COMMAND ----------
 
@@ -16,25 +16,6 @@ import os
 dbutils.widgets.text("redshift_secrets_name", "") # arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ
 dbutils.widgets.text("stack", "") # itg
 dbutils.widgets.text("job_dbfs_path", "") # dbfs:/dataos-pipeline-springboard/itg/table-creator/green
-
-# COMMAND ----------
-
-# import constants
-with open(dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/configs/constants.json") as json_file:
-  constants = json.load(json_file)
-
-# COMMAND ----------
-
-# create configs
-redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
- 
-configs = {}
-configs["redshift_temp_bucket"] = "{}redshift_temp/".format(constants['S3_BASE_BUCKET'][dbutils.widgets.get("stack")])
-configs["redshift_username"] = redshift_secrets["username"]
-configs["redshift_password"] = redshift_secrets["password"]
-configs["redshift_url"] = constants['REDSHIFT_URLS'][dbutils.widgets.get("stack")]
-configs["redshift_port"] = constants['REDSHIFT_PORTS'][dbutils.widgets.get("stack")]
-configs["redshift_dbname"] = dbutils.widgets.get("stack")
 
 # COMMAND ----------
 
@@ -103,16 +84,16 @@ def set_permissions(input_json_dict, schema, table):
 
 # define method to retrieve file list and add to list
 def get_file_list(job_dbfs_subfolder, file_substring):
-  root = dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + job_dbfs_subfolder
-  input_files = []
+    root = dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + job_dbfs_subfolder
+    input_files = []
 
-  # add all json files to a list
-  for path, subdirs, files in os.walk(root):
-      for name in files:
-          if file_substring in name:
-              input_files.append(os.path.join(path, name))
-  
-  return input_files
+    # add all json files to a list
+    for path, subdirs, files in os.walk(root):
+        for name in files:
+            if file_substring in name:
+                input_files.append(os.path.join(path, name))
+
+    return input_files
 
 # COMMAND ----------
 
@@ -134,7 +115,7 @@ for input_json_file in input_json_files:
     if dbutils.widgets.get("drop_tables").lower() == "true":
         drop_table_query = "DROP TABLE IF EXISTS {}.{};".format(input_schema, input_table_name)
     
-    submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], drop_table_query + sql_query)
+    submit_remote_query(configs, drop_table_query + sql_query)
 
 # COMMAND ----------
 
@@ -154,4 +135,4 @@ for input_file in input_files:
     GRANT ALL ON PROCEDURE {sproc} TO {configs["redshift_username"]};
     GRANT ALL ON PROCEDURE {sproc} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
-    submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query + "\n" + permissions_query)
+    submit_remote_query(configs, sql_query + "\n" + permissions_query)
