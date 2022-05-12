@@ -1,4 +1,8 @@
 # Databricks notebook source
+import re
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
