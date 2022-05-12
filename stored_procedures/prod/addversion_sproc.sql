@@ -67,7 +67,7 @@ ELSE
     VALUES
     (
         v1_record
-        , current_date_string + '.1' AS version
+        , current_date_string + '.1'
         , v2_source_name
         , CASE v1_record
             WHEN 'IB' then 0
