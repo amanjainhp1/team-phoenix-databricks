@@ -17,7 +17,7 @@ USING stage.supplies_hw_mapping_temp_landing stm
 WHERE supplies_hw_mapping.base_product_number = stm.base_product_number 
     AND supplies_hw_mapping.geography = stm.geography
     AND supplies_hw_mapping.platform_subset = stm.platform_subset 
-    AND supplies_hw_mapping.customer_engagement = stm.customer_engagement
+    AND supplies_hw_mapping.customer_engagement = stm.customer_engagement;
 
 -----------------------------------INSERT RECORDS FROM TEMP TABLE-------------------------------------------------------------------
 

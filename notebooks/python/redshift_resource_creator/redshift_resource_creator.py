@@ -146,14 +146,12 @@ input_files = get_file_list("/stored_procedures/", ".sql")
 
 for input_file in input_files:
     
-    sproc_schema = input_file.split("/")[len(input_file.split("/"))-2]
-    sproc_name = input_file.split("/")[len(input_file.split("/"))-1].replace(".sql", "")
-    
     sql_query = open(input_file).read()
+    sproc = re.sub('CREATE OR REPLACE PROCEDURE', '', sql_query.split("\n")[0])
     
     permissions_query = f"""
     -- Permissions
-    GRANT ALL ON PROCEDURE {sproc_schema}.{sproc_name}(varchar, varchar) TO {configs["redshift_username"]};
-    GRANT ALL ON PROCEDURE {sproc_schema}.{sproc_name}(varchar, varchar) TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
+    GRANT ALL ON PROCEDURE {sproc} TO {configs["redshift_username"]};
+    GRANT ALL ON PROCEDURE {sproc} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
     submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], sql_query + "\n" + permissions_query)
