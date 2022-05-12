@@ -285,4 +285,4 @@ query_list.append(["prod.norm_shipments_ce", norm_shipments_ce, "append"])
 
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
