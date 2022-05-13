@@ -2137,8 +2137,8 @@ final_list7$total_kpages <- final_list7$Usage_k*final_list7$ib
 final_list7$total_cpages <- final_list7$Usage_c*final_list7$ib
 final_list7$hp_kpages <- final_list7$Usage_k*final_list7$ib*final_list7$Page_Share 
 final_list7$hp_cpages <- final_list7$Usage_c*final_list7$ib*final_list7$Page_Share
-final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(1-final_list7$Page_Share) 
-final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(1-final_list7$Page_Share) 
+final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(lit(1)-final_list7$Page_Share) 
+final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share) 
                                              
 createOrReplaceTempView(final_list7, "final_list7")
 
