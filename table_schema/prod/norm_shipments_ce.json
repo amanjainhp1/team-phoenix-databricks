@@ -56,7 +56,7 @@
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
-        }
+        },
         {
             "description": "units",
             "name": "units",
