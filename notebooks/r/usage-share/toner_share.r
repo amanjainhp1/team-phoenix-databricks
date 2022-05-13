@@ -3643,8 +3643,8 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
  final_list7$total_cpages <- final_list7$Usage_c*final_list7$ib
  final_list7$hp_kpages <- final_list7$Usage_k*final_list7$ib*final_list7$Page_Share 
  final_list7$hp_cpages <- final_list7$Usage_c*final_list7$ib*final_list7$Page_Share
- final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(1-final_list7$Page_Share) 
- final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(1-final_list7$Page_Share)
+ final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(lit(1)-final_list7$Page_Share) 
+ final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share)
 
 # #write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","DUPSM Explorer Adj (",Sys.Date(),").csv", sep=''), x=final_list8,row.names=FALSE, na="")
 
