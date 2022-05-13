@@ -13,11 +13,45 @@ query_list = []
 
 # MAGIC %md
 # MAGIC 
+# MAGIC ## Month Num AP JP Helper
+
+# COMMAND ----------
+
+npi_helper_1 = """
+with npi_01_month_num_combos as (
+
+
+SELECT DISTINCT orl.platform_subset
+    , orl.customer_engagement
+    , orl.geography
+FROM "prod"."usage_share_override_npi" orl
+WHERE orl.geography IN ('AP','JP')
+),  npi_02_month_num_ap_jp_combos as (
+
+
+SELECT nc.platform_subset
+    , nc.customer_engagement
+    , COUNT(*) AS column_count
+FROM npi_01_month_num_combos nc
+GROUP BY nc.platform_subset
+    , nc.customer_engagement
+HAVING COUNT(*) > 1
+)SELECT platform_subset + UPPER(customer_engagement) AS pl_key
+FROM npi_02_month_num_ap_jp_combos
+"""
+
+query_list.append(["stage.us_overrides_helper_1", npi_helper_1, "overwrite"])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
 # MAGIC ### Usage Share Overrides Normalized Landing
 
 # COMMAND ----------
 
 overrides_norm_landing = """
+
 with npi_06_month_num_ib_dates as (
 
 
@@ -27,10 +61,10 @@ SELECT DISTINCT ib.platform_subset
 	, cc.market10
 	, cc.region_5
 FROM "prod"."ib" ib
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.04.25.1'
+	AND ib.version = '2022.05.12.1'
 	AND ib.measure = 'IB'
 ),  npi_05_month_num_min_max_dates_r5 as (
 
@@ -41,10 +75,10 @@ SELECT ib.platform_subset
 	, CAST(min(cal_date) AS DATE) AS min_date
 	, CAST(max(cal_date) AS DATE) AS max_date
 FROM "prod"."ib" ib
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.04.25.1'
+	AND ib.version = '2022.05.12.1'
 	AND ib.measure = 'IB'
 GROUP BY platform_subset
 	, ib.customer_engagement
@@ -82,7 +116,7 @@ SELECT a.record
 	, a.proxy_used
 	, a.ib_version
 	, a.load_date
-FROM "stage"."usage_share_override_landing" a
+FROM "prod"."usage_share_override_npi" a
 INNER JOIN npi_08_month_num_date_diff_r5 b
 ON a.platform_subset=b.platform_subset
 	AND UPPER(a.customer_engagement) = UPPER(b.customer_engagement)
@@ -108,7 +142,7 @@ SELECT DISTINCT a.record
     , a.load_date
 	, b.market10
 FROM npi_09_month_num_usage_1 a
-LEFT JOIN "prod"."iso_country_code_xref" b
+LEFT JOIN "mdm"."iso_country_code_xref" b
 ON a.geography=b.region_5
 WHERE 1=1
 	AND b.region_5 IS NOT NULL
@@ -131,13 +165,13 @@ SELECT DISTINCT a.record
     , a.load_date
 	, b.market10
 FROM npi_09_month_num_usage_1 a
-LEFT JOIN "prod"."iso_country_code_xref" b
+LEFT JOIN "mdm"."iso_country_code_xref" b
 ON a.geography=b.region_5
 WHERE 1=1
 	AND b.region_5 IS NOT NULL
 	AND a.geography IN ('JP')
 	AND (platform_subset + UPPER(customer_engagement)) NOT IN
-		(SELECT * FROM ie2_staging.test.us_overrides_helper_1)
+		(SELECT * FROM stage.us_overrides_helper_1)
 ),  npi_04_month_num_min_max_date_m10 as (
 
 
@@ -147,11 +181,11 @@ SELECT ib.platform_subset
     , CAST(min(cal_date) AS DATE) AS min_date
     , CAST(max(cal_date) AS DATE) AS max_date
 FROM "prod"."ib" ib
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 on ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.04.25.1'
-	AND measure = 'ib'
+	AND ib.version = '2022.05.12.1'
+	AND measure = 'IB'
 GROUP BY ib.platform_subset
 	, ib.customer_engagement
 	, cc.market10
@@ -246,12 +280,12 @@ SELECT a.platform_subset
 	, CAST(min(cal_date) AS DATE) AS min_ib_date
 	, CAST(max(cal_date) AS DATE) AS max_ib_date
 FROM "prod"."ib" a
-LEFT JOIN "prod"."iso_country_code_xref" b
+LEFT JOIN "mdm"."iso_country_code_xref" b
 ON a.country=country_alpha2
-LEFT JOIN "prod"."hardware_xref" c
+LEFT JOIN "mdm"."hardware_xref" c
 ON a.platform_subset=c.platform_subset
 WHERE 1=1
-	AND a.version = '2022.04.25.1'
+	AND a.version = '2022.05.12.1'
 	AND measure = 'IB'
 	AND c.product_lifecycle_status = 'N'
 GROUP BY a.platform_subset
@@ -294,7 +328,7 @@ WHERE 1=1
 
 
 SELECT DISTINCT c.date
-FROM "prod"."calendar" c
+FROM "mdm"."calendar" c
 WHERE c.Day_of_Month = 1
 ),  npi_19_fill_missing_dates_to_expand as (
 
@@ -328,7 +362,7 @@ INNER JOIN npi_15_fill_missing_us_data b
 
 SELECT DISTINCT x.region_5
     , x.market10
-FROM "prod"."iso_country_code_xref" x
+FROM "mdm"."iso_country_code_xref" x
 WHERE 1=1
     AND region_5 IS NOT NULL
     AND region_5 <> 'JP'
@@ -417,8 +451,6 @@ query_list.append(["stage.usage_share_overrides_normalized_final_landing", norm_
 # COMMAND ----------
 
 npi_out = """
-
-
 with npi_23_uss_telemetry as (
 
 
@@ -434,7 +466,7 @@ SELECT ls.record
     , ls.source
     , CAST(NULL AS VARCHAR) AS version
     , CAST(NULL AS VARCHAR) AS load_date
-FROM "stage"."uss_03_land_spin" ls
+FROM "stage"."uss_01_land_spin" ls
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ls.platform_subset = hw.platform_subset
 WHERE source = 'Telemetry'
@@ -444,7 +476,7 @@ WHERE source = 'Telemetry'
 
 SELECT fl.record
 	, fl.cal_date
-	, 'market10' AS geography_grain
+	, 'MARKET10' AS geography_grain
 	, fl.market10 AS geography
 	, fl.platform_subset
 	, UPPER(fl.customer_engagement) AS customer_engagement
@@ -455,10 +487,9 @@ SELECT fl.record
     , CAST(NULL AS VARCHAR) AS version
     , CAST(NULL AS VARCHAR) AS load_date
 FROM "stage"."usage_share_overrides_normalized_final_landing" as fl
-WHERE (fl.platform_subset + customer_engagement + market10 + CONVERT(VARCHAR(20),cal_date,20) + measure) NOT IN
+WHERE (fl.platform_subset + customer_engagement + market10 + CONVERT(VARCHAR(20),cal_date) + measure) NOT IN
 (
-    SELECT DISTINCT t1.platform_subset + t1.customer_engagement + t1.geography +
-        CONVERT(VARCHAR(10),t1.cal_date,20) + t1.measure
+    SELECT DISTINCT t1.platform_subset + t1.customer_engagement + t1.geography + CONVERT(VARCHAR(10),t1.cal_date) + t1.measure
     FROM npi_23_uss_telemetry t1
 )
 ),  npi_25_month_num_override_temp as (
@@ -507,7 +538,7 @@ select ust.record
         , ust.version
         , ust.load_date
     from npi_25_month_num_override_temp as ust
-    join ie2_prod.dbo.hardware_xref as hw
+    join mdm.hardware_xref as hw
         on hw.platform_subset = ust.platform_subset
     where 1=1
         and ust.customer_engagement = 'I-INK'
@@ -645,3 +676,7 @@ query_list.append(["stage.usage_share_override_npi_out", npi_out, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+

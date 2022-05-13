@@ -6,6 +6,7 @@
 
 # Global Variables
 try:
+    dbutils.widgets.text("version", "2022.05.12.1")
     version = dbutils.widgets.get("version")
 except Exception(e):
     print("ERROR: version parameter is not set\n")
@@ -42,7 +43,7 @@ CROSS JOIN ib_promo_01_filter_vars AS vars
 WHERE vars.record = 'NORM_SHIPMENTS'
 """
 
-query_list.append(["prod.norm_shipments", norm_ships, "overwrite"])
+#query_list.append(["prod.norm_shipments", norm_ships, "overwrite"])
 
 # COMMAND ----------
 
@@ -76,7 +77,7 @@ WHERE 1=1
     AND ib.record = 'IB'
 """
 
-query_list.append(["prod.ib_source", ib_source, "overwrite"])
+#query_list.append(["prod.ib_source", ib_source, "overwrite"])
 
 # COMMAND ----------
 
@@ -285,4 +286,4 @@ query_list.append(["prod.norm_shipments_ce", norm_shipments_ce, "append"])
 
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../../common/output_to_redshift" $query_list=query_list

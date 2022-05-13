@@ -18,7 +18,7 @@ query_list = []
 
 # COMMAND ----------
 
-uss_05_npi_matures = """
+uss_02_npi_matures = """
 with uss_02_01_npi_matures as (
 
 
@@ -33,7 +33,7 @@ SELECT uss.record
     , uss.units
     , uss.ib_version
     , uss.source
-FROM "stage"."uss_03_land_spin" uss
+FROM "stage"."uss_01_land_spin" uss
 LEFT JOIN "stage"."usage_share_override_npi_out" npi
     ON uss.platform_subset  = npi.platform_subset
         AND uss.customer_engagement = npi.customer_engagement
@@ -75,7 +75,7 @@ WHERE 1=1
     , uss.ib_version
     , uss.source
 FROM uss_02_02_npi_matures uss
-INNER JOIN "prod"."hardware_xref" hw
+INNER JOIN "mdm"."hardware_xref" hw
 ON hw.platform_subset = uss.platform_subset
 AND hw.technology IN ('INK','LASER','PWA')
 UNION ALL
@@ -90,13 +90,13 @@ SELECT DISTINCT ont.record
 	, ont.ib_version
 	, ont.source
 FROM "stage"."usage_share_override_npi_out" ont
-INNER JOIN "prod"."hardware_xref" hw
+INNER JOIN "mdm"."hardware_xref" hw
 ON hw.platform_subset = ont.platform_subset
 AND hw.technology IN ('INK','LASER','PWA')
 UNION ALL
 SELECT fl.record
     , fl.cal_date
-    , 'market10' as geography_grain
+    , 'MARKET10' as geography_grain
     , fl.market10 as geography
     , fl.platform_subset
     , fl.customer_engagement
@@ -105,12 +105,12 @@ SELECT fl.record
     , cast(fl.ib_version AS VARCHAR) as ib_version
     ,'FIJI' AS source
 FROM "stage"."usage_share_matures_normalized_final_landing" fl
-INNER JOIN "prod"."hardware_xref" hw
+INNER JOIN "mdm"."hardware_xref" hw
 ON hw.platform_subset = fl.platform_subset
 AND hw.technology IN ('INK','LASER','PWA')
 """
 
-query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
+# query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
 
 # COMMAND ----------
 
@@ -134,7 +134,7 @@ SELECT us.record
 FROM "stage"."uss_02_npi_matures" us
 """
 
-query_list.append(["stage.usage_share_staging_preadjust", pre_adjust, "overwrite"])
+# query_list.append(["stage.usage_share_staging_preadjust", pre_adjust, "overwrite"])
 
 # COMMAND ----------
 
@@ -158,9 +158,9 @@ SELECT us.record
     , us.units
     , us.ib_version
     , us.source
-    , (SELECT MAX(version) FROM ie2_prod.dbo.version WHERE record = 'usage_share') as version
-    , (SELECT MAX(load_date) FROM ie2_prod.dbo.version WHERE record = 'usage_share') as load_date
-FROM "stage"."uss_05_npi_matures" us
+    , (SELECT MAX(version) FROM prod.version WHERE record = 'USAGE_SHARE') as version
+    , (SELECT MAX(load_date) FROM prod.version WHERE record = 'USAGE_SHARE') as load_date
+FROM "stage"."uss_02_npi_matures" us
 ),  adjust_01_select_old_adjust as (
 
 
@@ -208,7 +208,7 @@ SELECT adj.record
     , adj.assumption
     , adj.official
     , adj.Units
-    , (SELECT MAX(version) FROM ie2_prod.dbo.version WHERE record = 'USAGE_SHARE_ADJUST') as version
+    , (SELECT MAX(version) FROM prod.version WHERE record = 'USAGE_SHARE_ADJUST') as version
     , adj.load_date
 FROM adjust_02_update_not_official adj
 WHERE  version <> 'New Version'
@@ -251,13 +251,13 @@ WHERE official=1
 
 SELECT distinct iso.region_5
     , iso.market10
-FROM "prod"."iso_country_code_xref" iso
+FROM "mdm"."iso_country_code_xref" iso
 ),  adjust_08_adjust_adj2 as (
 
 
 SELECT adj1.record
     , adj1.cal_date
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , cc1.market10 AS geography
     , adj1.measure
     , adj1.platform_subset
@@ -390,7 +390,7 @@ FROM adjust_09_adjust_out adj
     , ao.assumption
     , ao.official
     , ao.units
-    , (SELECT TOP 1 ib_version FROM adjust_11_uss_post_adjust WITH (NOLOCK) WHERE ib_version <> 'ib_version' ORDER BY 1 DESC) as ib_version
+    , (SELECT TOP 1 ib_version FROM adjust_11_uss_post_adjust WHERE ib_version <> 'ib_version' ORDER BY 1 DESC) as ib_version
     , ao.source
     , ao.version
     , ao.load_date

@@ -35,10 +35,10 @@ SELECT uso.record
     , uso.proxy_used
     , uso.ib_version
     , uso.load_date
-FROM "prod"."usage_share_override_mature_landing" uso
+FROM "prod"."usage_share_override_mature" uso
 """
 
-query_list.append(["stage.usage_share_overrides_mature_landing", matures_landing, "overwrite"])
+query_list.append(["stage.usage_share_overrides_matures_landing", matures_landing, "overwrite"])
 
 # COMMAND ----------
 
@@ -93,8 +93,8 @@ SELECT DISTINCT oml.record
     , oml.ib_version
     , oml.load_date
     , cc.market10
-FROM "prod"."usage_share_overrides_matures_landing" oml
-LEFT JOIN "prod"."iso_country_code_xref" cc
+FROM "prod"."usage_share_override_mature" oml
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON oml.geography=cc.region_5
 WHERE 1=1
 	AND cc.region_5 IS NOT NULL
@@ -118,8 +118,8 @@ SELECT DISTINCT oml.record
     , oml.ib_version
     , oml.load_date
 	, cc.market10
-FROM "prod"."usage_share_overrides_matures_landing" oml
-LEFT JOIN "prod"."iso_country_code_xref" cc
+FROM "prod"."usage_share_override_mature" oml
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON oml.geography=cc.region_5
 WHERE 1=1
 	AND cc.region_5 IS NOT NULL
@@ -134,10 +134,10 @@ SELECT DISTINCT ib.platform_subset
 	, UPPER(ib.customer_engagement) AS customer_engagement
 	, cc.market10
 FROM "prod"."ib" ib
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.04.25.1'
+	AND ib.version = '2022.05.12.1'
 	AND ib.measure = 'IB'
 ),  matures_05_month_num_min_max_dates as (
 
@@ -148,10 +148,10 @@ SELECT ib.platform_subset
 	, CAST(min(cal_date) AS DATE) AS min_date
 	, CAST(max(cal_date) AS DATE) AS max_date
 FROM "prod"."ib" ib
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
 on ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.04.25.1'
+	AND ib.version = '2022.05.12.1'
 	AND measure = 'IB'
 GROUP BY ib.platform_subset
     , ib.customer_engagement
@@ -212,7 +212,7 @@ INNER JOIN matures_07_month_num_date_diff b
    , a.load_date
    , a.market10
 FROM matures_09_month_num_final a
-LEFT JOIN "prod"."hardware_xref" b
+LEFT JOIN "mdm"."hardware_xref" b
     ON a.platform_subset=b.platform_subset
 WHERE 1=1
    AND b.product_lifecycle_status IN ('M','C')
@@ -238,12 +238,12 @@ SELECT ib.platform_subset
     , CAST(min(cal_date) AS DATE) AS min_ib_date
     , CAST(max(cal_date) AS DATE) AS max_ib_date
 FROM "prod"."ib" ib
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
     on ib.country=cc.country_alpha2
-LEFT JOIN "prod"."hardware_xref" hw
+LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
-	AND ib.version = '2022.04.25.1'
+	AND ib.version = '2022.05.12.1'
 	AND measure = 'IB'
 	AND hw.product_lifecycle_status = 'M'
 GROUP BY ib.platform_subset
@@ -286,7 +286,7 @@ WHERE 1=1
 
 
 SELECT DISTINCT date
-FROM "prod"."calendar"
+FROM "mdm"."calendar"
 WHERE Day_of_Month = 1
 ),  matures_16_fill_missing_dates_to_expand as (
 
@@ -319,7 +319,7 @@ INNER JOIN matures_12_fill_missing_us_data b
 
 SELECT DISTINCT region_5
     , market10
-FROM "prod"."iso_country_code_xref"
+FROM "mdm"."iso_country_code_xref"
 WHERE 1=1
     AND region_5 IS NOT NULL
     AND region_5 <> 'JP'
@@ -379,7 +379,7 @@ SELECT nl.record
     , nl.market10
     , hw.product_lifecycle_status
 FROM "stage"."usage_share_matures_normalized_landing" nl
-INNER JOIN "prod"."hardware_xref" hw
+INNER JOIN "mdm"."hardware_xref" hw
     ON nl.platform_subset=hw.platform_subset
 WHERE 1=1
     AND hw.product_lifecycle_status = 'M'
@@ -402,7 +402,7 @@ SELECT fl.record
     , fl.market10
     , hw.product_lifecycle_status
 FROM "stage"."usage_share_matures_normalized_fill_landing" fl
-INNER JOIN "prod"."hardware_xref" hw
+INNER JOIN "mdm"."hardware_xref" hw
     ON fl.platform_subset=hw.platform_subset
 WHERE 1=1
     AND hw.product_lifecycle_status = 'M'

@@ -33,12 +33,12 @@ SELECT lnd.record
     , lnd.units
     , lnd.proxy_used
     , lnd.ib_version
-    -- , '2022.04.25.1' as ib_version -- UPDATE 03-30-2022 because toner and ink are different versions in the version table
+    -- , '2022.05.12.1' as ib_version -- UPDATE 03-30-2022 because toner and ink are different versions in the version table
     , (SELECT MAX(load_date) FROM "prod"."version" WHERE record = 'USAGE_SHARE') as load_date
 FROM "phoenix_spectrum"."cupsm" lnd
 """
 
-query_list.append(["stage.usage_share_landing", usg_shr_landing, "overwrite"])
+# query_list.append(["stage.usage_share_landing", usg_shr_landing, "overwrite"])
 
 # COMMAND ----------
 
@@ -67,7 +67,7 @@ SELECT spin.record
 FROM "prod"."usage_share_country_spin" spin
 """
 
-query_list.append(["stage.usage_share_spin_landing", usg_shr_spin_landing, "overwrite"])
+# query_list.append(["stage.usage_share_spin_landing", usg_shr_spin_landing, "overwrite"])
 
 # COMMAND ----------
 
@@ -87,21 +87,21 @@ SELECT us.record
 	, us.platform_subset
 	, us.customer_engagement
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'Telemetry'
-		WHEN us.data_source LIKE 'UPM%' THEN 'Modelled' END
+		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_u
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'Telemetry'
-		WHEN us.data_source LIKE 'UPM%' THEN 'Modelled' END
+		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_c
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'Telemetry'
-		WHEN us.data_source LIKE 'UPM%' THEN 'Modelled' END
+		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_k
 	, MIN(CASE WHEN us.measure='HP_SHARE' THEN
-		CASE WHEN us.data_source='Have Data' THEN 'Telemetry'
-		WHEN us.data_source LIKE 'Model%' THEN 'Modelled'
-		WHEN us.data_source LIKE 'Proxied%' THEN 'Modelled' END
+		CASE WHEN us.data_source='Have Data' THEN 'TELEMETRY'
+		WHEN us.data_source LIKE 'Model%' THEN 'MODELLED'
+		WHEN us.data_source LIKE 'Proxied%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_s
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS Usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS Page_Share
@@ -139,9 +139,9 @@ LEFT JOIN "prod"."ib" ib
     ON us.cal_date=ib.cal_date
     AND us.geography=ib.country
     AND us.platform_subset=ib.platform_subset
-    AND ib.version='2022.04.25.1'
+    AND ib.version='2022.05.12.1'
     AND ib.customer_engagement = us.customer_engagement
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
     ON us.geography=cc.country_alpha2
 ),  land_05_helper_3 as (
 
@@ -262,7 +262,7 @@ WHERE Usage_K IS NOT NULL
     AND Usage_K > 0
 )SELECT h6.record
     , h6.cal_date
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , h6.market10
     , h6.platform_subset
     , h6.customer_engagement
@@ -293,28 +293,28 @@ SELECT us.record
 	, us.platform_subset
 	, us.customer_engagement
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'Telemetry'
-		WHEN us.data_source = 'UPM' THEN 'Modelled' END
+		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		WHEN us.data_source = 'UPM' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_u
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'Telemetry'
-		WHEN us.data_source = 'UPM' THEN 'Modelled' END
+		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		WHEN us.data_source = 'UPM' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_c
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'Telemetry'
-		WHEN us.data_source = 'UPM' THEN 'Modelled' END
+		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		WHEN us.data_source = 'UPM' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_k
 	, MIN(CASE WHEN us.measure='HP_SHARE' THEN
-		CASE WHEN us.data_source='Have Data' THEN 'Telemetry'
-		WHEN us.data_source='Modeled by Proxy' THEN 'Modelled'
-		WHEN us.data_source='Modeled' THEN 'Modelled' END
+		CASE WHEN us.data_source='Have Data' THEN 'TELEMETRY'
+		WHEN us.data_source='Modeled by Proxy' THEN 'MODELLED'
+		WHEN us.data_source='Modeled' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_s
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS Usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS Page_Share
     , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS Usage_c
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS Usage_k
 	, us.ib_version
-FROM "stage"."usage_share_country_spin_landing" us
+FROM "stage"."usage_share_spin_landing" us
 GROUP BY us.record
 	, us.cal_date
 	, us.geography
@@ -346,7 +346,7 @@ LEFT JOIN "prod"."ib" ib
     AND us.geography=ib.country
     AND us.platform_subset=ib.platform_subset
     AND ib.version='2022.04.25.1'
-LEFT JOIN "prod"."iso_country_code_xref" cc
+LEFT JOIN "mdm"."iso_country_code_xref" cc
     ON us.geography=cc.country_alpha2
 ),  spin_03_helper_3 as (
 
@@ -467,7 +467,7 @@ WHERE Usage_K IS NOT NULL
     AND Usage_K > 0
 )SELECT h6.record
     , h6.cal_date
-    , 'market10' AS geography_grain
+    , 'MARKET10' AS geography_grain
     , h6.market10
     , h6.platform_subset
     , h6.customer_engagement
@@ -535,7 +535,7 @@ SELECT us.record
     , us.units
     , us.ib_version
     , us.source
-FROM "dev"."stage"."uss_03_land_spin" us
+FROM "dev"."stage"."uss_01_land_spin" us
 """
 
 query_list.append(["stage.usage_share_staging_pre_override", pre_override, "overwrite"])
@@ -549,3 +549,7 @@ query_list.append(["stage.usage_share_staging_pre_override", pre_override, "over
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+
