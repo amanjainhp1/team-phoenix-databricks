@@ -52,8 +52,8 @@ IF record_count > 0 THEN
         , CASE v1_record
             WHEN 'IB' THEN 0
             ELSE 1
-            END AS official
-    , current_date AS load_date
+            END
+    , current_date
     );
 ELSE
     INSERT INTO prod.version
@@ -67,13 +67,13 @@ ELSE
     VALUES
     (
         v1_record
-        , current_date_string + '.1' AS version
+        , current_date_string + '.1'
         , v2_source_name
         , CASE v1_record
             WHEN 'IB' then 0
             ELSE 1
-            END AS official
-        , current_date AS load_date
+            END
+        , current_date
     );
 END IF;
 

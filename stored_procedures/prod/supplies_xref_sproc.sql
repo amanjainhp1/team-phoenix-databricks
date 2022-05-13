@@ -2,10 +2,10 @@ CREATE OR REPLACE PROCEDURE prod.supplies_xref_sproc()
     LANGUAGE plpgsql
 AS $$
 
-BEGIN
-
 DECLARE
 current_date TIMESTAMP;
+
+BEGIN
 
 SELECT GETDATE() INTO current_date;
 ---------------------------DELETE RECORDS FROM PROD THAT EXIST IN TEMP TABLE---------------------------------------------

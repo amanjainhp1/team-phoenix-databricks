@@ -2,10 +2,10 @@ CREATE OR REPLACE PROCEDURE prod.yield_sproc()
     LANGUAGE plpgsql
 AS $$
 
-BEGIN
-
 DECLARE
 current_date TIMESTAMP;
+
+BEGIN
 
 SELECT GETDATE() INTO current_date;
 
