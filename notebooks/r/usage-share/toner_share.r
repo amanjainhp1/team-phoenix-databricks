@@ -3702,6 +3702,7 @@ mdm_tbl_share <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                  
                  "))
@@ -3723,6 +3724,7 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage is not null
                  
@@ -3745,6 +3747,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE MPV_n is not null AND MPV_n >0
                  
@@ -3767,6 +3770,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Share_Raw_N_PS is not null AND Share_Raw_N_PS >0
                  
@@ -3789,6 +3793,7 @@ mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage is not null
                  
@@ -3811,6 +3816,7 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3833,6 +3839,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3855,6 +3862,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3877,6 +3885,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3899,6 +3908,7 @@ mdm_tbl_hppages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3921,6 +3931,7 @@ mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3943,6 +3954,7 @@ mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3965,6 +3977,7 @@ mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3987,6 +4000,7 @@ mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -4009,6 +4023,7 @@ mdm_tbl_ib <- SparkR::sql(paste0("select distinct
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
                 , model_group
+                , label as usage_path
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
