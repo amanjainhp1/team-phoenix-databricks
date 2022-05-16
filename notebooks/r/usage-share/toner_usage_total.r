@@ -291,7 +291,16 @@ hw_info <- dbGetQuery(cprod,"
                             or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
                       ")
   
-zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_code, c.market10, c.developed_emerging, a.FYearMo, SUBSTR(d.mono_color,1,1) as CM, d.pro_vs_ent as EP, a.platform_function_code, a.platform_market_code, d.product_structure
+zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_code, c.market10, c.developed_emerging, a.FYearMo, SUBSTR(d.mono_color,1,1) as CM
+                  , d.pro_vs_ent as EP, a.platform_function_code
+                  , CASE WHEN a.platform_market_code in ('ULE','PLE-L','PLE-H','PLE','DSK') THEN 'DSK'
+                         WHEN a.platform_market_code in ('SWT-L','SWL') THEN 'SWL'
+                         WHEN a.platform_market_code in ('SWT-H','SWT-H Pro','SWH') THEN 'SWH'
+                         WHEN a.platform_market_code in ('DEPT','Dept','Dept-High','DPT') THEN 'DPT'
+                         WHEN a.platform_market_code in ('WG','WGP') THEN 'WGP'
+                         ELSE NULL
+                                END AS platform_market_code
+                 , d.product_structure
                   , SUM(SumMPV/SumN*b.ib) AS SumMPV, sum(a.SumN) as SumN, sum(b.ib) as SUMib
               from zeroi a
               left join ibtable b
@@ -623,10 +632,20 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
   outcome_o <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, market10, region_5, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome0
                      group by platform_market_code, CM, developed_emerging, month, market10, region_5")
+  outcome_o2 <- sqldf("SELECT distinct o.platform_market_code, o.CM, o.developed_emerging, s.month, o.market10, o.region_5, o.b1
+                      from stratjn s
+                      left join outcome_o o
+                      on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
+                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging ")
   outcome_r <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, region_5, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome_o
                      group by platform_market_code, CM, developed_emerging, month, region_5")
-  
+  outcome_r2 <- sqldf("SELECT distinct o.platform_market_code, o.CM, o.developed_emerging, s.month, o.region_5, o.b1
+                     from stratjn s
+                      left join outcome_r o
+                      on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
+                        and s.region_5=o.region_5 and s.developed_emerging=o.developed_emerging
+                     ")
   outcome_a <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome_o
                      group by platform_market_code, CM, developed_emerging, month")
@@ -651,8 +670,8 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                      group by CM, month")
                      
   outcome <- sqldf(" SELECT distinct s.platform_market_code, s.CM, s.market10, s.developed_emerging, s.month
-                  , CASE WHEN o.b1 is not null then o.b1
-                         WHEN r.b1 is not null then r.b1
+                  , CASE WHEN o2.b1 is not null then o2.b1
+                         WHEN r2.b1 is not null then r2.b1
                          WHEN a.b1 is not null then a.b1
                          WHEN b.b1 is not null then b.b1
                          WHEN c.b1 is not null then c.b1
@@ -683,8 +702,8 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                          WHEN f.mo_Smooth is not null then f.mo_Smooth
                          ELSE NULL
                        END as mo_Smooth
-                  , CASE WHEN o.b1 is not null then 'self'
-                         WHEN r.b1 is not null then 'reg5'
+                  , CASE WHEN o2.b1 is not null then 'self'
+                         WHEN r2.b1 is not null then 'reg5'
                          WHEN a.b1 is not null then 'nomkt'
                          WHEN b.b1 is not null then 'nocs'
                          WHEN c.b1 is not null then 'nopl'
@@ -699,10 +718,16 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                   
                   left join outcome_o o
                   on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
-                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month 
+                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month
+                  left join outcome_o2 o2
+                  on s.platform_market_code=o2.platform_market_code and s.CM=o2.CM  
+                    and s.market10=o2.market10 and s.developed_emerging=o2.developed_emerging
                   left join outcome_r r
                   on s.platform_market_code=r.platform_market_code and s.CM=r.CM  
                     and s.developed_emerging=r.developed_emerging and s.month=r.month and s.region_5=r.region_5 
+                  left join outcome_r2 r2
+                  on s.platform_market_code=r2.platform_market_code and s.CM=r2.CM  
+                    and s.developed_emerging=r2.developed_emerging and s.region_5=r2.region_5
                   left join outcome_a a
                   on s.platform_market_code=a.platform_market_code and s.CM=a.CM 
                     and s.developed_emerging=a.developed_emerging and s.month=a.month 
@@ -726,6 +751,10 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                     and s.month=w.month
                    ")
   outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
+
+  outcome <- sqldf("select platform_market_code, CM, market10, developed_emerging, month, AVG(b1) as b1, seasonality, mo_Smooth, src from outcome
+                   group by platform_market_code, CM, market10, developed_emerging, month, seasonality, mo_Smooth, src ")
+  
          
   outcome$b1check <- outcome$b1                      #For checking limits
   outcome$b1 <- ifelse(outcome$b1 > -0.01, -.01,outcome$b1)
@@ -4207,8 +4236,21 @@ start.time2 <- Sys.time()
 # s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",Sys.Date(),").parquet"))
 
 output_file_name <- paste0("s3://", aws_bucket_name, "UPM_ctry(", todaysDate, ").parquet")
+  
+#test1 <- final9 %>% group_by(Platform_Subset_Nm, Country_Cd, FYearMo) %>% summarize(count=n()) %>% filter(count!=1)
+check_dups <- SparkR::sql("
+                WITH stp1 AS (SELECT Platform_Subset_Nm, Country_Cd, FYearMo, count(*) as numobs
+                  FROM final_9
+                Group by Platform_Subset_Nm, Country_Cd, FYearMo)
+                SELECT *
+                 FROM stp1
+                 WHERE numobs !=1
+                 ")
 
+if(nrow(check_dups)==0){
 SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
+ } ELSE {print("Duplicates in data")}
+
 
 print(output_file_name)
 
