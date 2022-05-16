@@ -1,4 +1,8 @@
 # Databricks notebook source
+import re
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -70,6 +74,10 @@ for col in output_table_cols:
                 if input_table_cols.__contains__(col):
                     query = query + col
                 else: # special column conditions
+                    if re.sub('[\\^_]', '-', col) in input_table_cols:
+                        query = query + '`' + re.sub('[\\^_]', '-', col) + '`' + ' AS ' + col
+                    if re.sub('[\\^_]', ' ', col) in input_table_cols:
+                        query = query + '`' + re.sub('[\\^_]', ' ', col) + '`' + ' AS ' + col
                     if col == "official":
                         query = query + "1 AS official"
                     if col == "last_modified_date":
@@ -90,14 +98,38 @@ final_table_df = spark.sql(query + "FROM table_df")
 
 # COMMAND ----------
 
-# write data to S3
-write_df_to_s3(final_table_df, "{}{}/{}/{}/".format(constants['S3_BASE_BUCKET'][stack], configs["destination_table"], configs["datestamp"], configs["timestamp"]), "csv", "overwrite")
+filtervals = []
+if configs["destination_table"] in ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod']:
+    filtercol = ''
+    if configs["destination_table"] == 'working_forecast_country':
+        filtercol = 'country' 
+    elif configs["destination_table"] == 'working_forecast':
+        filtercol= 'geography'
+    else:
+        filtercol = 'country_alpha2'
+    
+    filtervals = read_sql_server_to_df(configs) \
+        .option('query', f'SELECT DISTINCT {filtercol} from {source}') \
+        .load() \
+        .select(f'{filtercol}') \
+        .rdd.flatMap(lambda x: x).collect()
+    filtervals.sort()
+    
+    for filterval in filtervals:
+        print(filterval + " data loaded")
+        write_df_to_redshift(configs, final_table_df.filter(f"{filtercol} = '{filterval}'"), destination, "append")
 
-# truncate existing redshift data and
-# write data to redshift
-submit_remote_query(stack, configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], "TRUNCATE " + destination)
+# COMMAND ----------
 
-write_df_to_redshift(configs, final_table_df, destination, "append")
+if configs["destination_table"] not in ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod']:
+    # write data to S3
+    write_df_to_s3(final_table_df, "{}{}/{}/{}/".format(constants['S3_BASE_BUCKET'][stack], configs["destination_table"], configs["datestamp"], configs["timestamp"]), "csv", "overwrite")
+
+    # truncate existing redshift data and
+    # write data to redshift
+    submit_remote_query(stack, configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], "TRUNCATE " + destination)
+
+    write_df_to_redshift(configs, final_table_df, destination, "append")
 
 # COMMAND ----------
 

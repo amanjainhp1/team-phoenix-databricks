@@ -51,8 +51,8 @@
             "encode": "raw"
         },
         {
-            "description": "l2fa_net_curency",
-            "name": "l2fa_net_curency",
+            "description": "l2fa_net_currency",
+            "name": "l2fa_net_currency",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
@@ -108,7 +108,7 @@
         },
         {
             "description": "l2fa_gross_profit",
-            "name": "l2fa_gross_proft",
+            "name": "l2fa_gross_profit",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"

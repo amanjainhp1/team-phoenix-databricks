@@ -1,110 +1,110 @@
 {
-  "fields": [
-    {
-      "description": "sup_hw_id",
-      "name": "sup_hw_id",
-      "type": "IDENTITY",
-      "nullable": false,
-      "encode": "raw",
-      "sort_key": true
-    },
-    {
-      "description": "record",
-      "name": "record",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "geography_grain",
-      "name": "geography_grain",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "geography",
-      "name": "geography",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "base_product_number",
-      "name": "base_product_number",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "customer_engagement",
-      "name": "customer_engagement",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "platform_subset",
-      "name": "platform_subset",
-      "type": "VARCHAR(256)",
-      "nullable": true,
-      "encode": "lzo"
-    },
-    {
-      "description": "eol",
-      "name": "eol",
-      "type": "BOOLEAN",
-      "nullable": true,
-      "encode": "raw"
-    },
-    {
-      "description": "eol_date",
-      "name": "eol_date",
-      "type": "DATE",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "host_multiplier",
-      "name": "host_multiplier",
-      "type": "INTEGER",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "official",
-      "name": "official",
-      "type": "BOOLEAN",
-      "nullable": true,
-      "encode": "raw"
-    },
-    {
-      "description": "last_modified_date",
-      "name": "last_modified_date",
-      "type": "TIMESTAMP WITH TIME ZONE",
-      "nullable": true,
-      "encode": "az64"
-    },
-    {
-      "description": "load_date",
-      "name": "load_date",
-      "type": "TIMESTAMP WITH TIME ZONE",
-      "nullable": true,
-      "encode": "az64"
-    }
-  ],
-  "permissions": [
-    {
-      "permission_type": "grant",
-      "permission_type_level": "all",
-      "permission_target_level": "group",
-      "permission_target": "dev_arch_eng"
-    },
-    {
-      "permission_type": "grant",
-      "permission_type_level": "all",
-      "permission_target_level": "user",
-      "permission_target": "auto_glue"
-    }
-  ]
+    "fields": [
+        {
+            "description": "sup_hw_id",
+            "name": "sup_hw_id",
+            "type": "IDENTITY",
+            "nullable": false,
+            "encode": "raw",
+            "sort_key": true
+        },
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography_grain",
+            "name": "geography_grain",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography",
+            "name": "geography",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "customer_engagement",
+            "name": "customer_engagement",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "platform_subset",
+            "name": "platform_subset",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "eol",
+            "name": "eol",
+            "type": "BOOLEAN",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "eol_date",
+            "name": "eol_date",
+            "type": "DATE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "host_multiplier",
+            "name": "host_multiplier",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "official",
+            "name": "official",
+            "type": "BOOLEAN",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "last_modified_date",
+            "name": "last_modified_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
 }

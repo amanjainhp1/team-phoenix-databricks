@@ -1,6 +1,5 @@
 # Databricks notebook source
 dbutils.widgets.text("tasks", "")
-dbutils.widgets.text("version", "")
 
 # COMMAND ----------
 
@@ -9,8 +8,8 @@ tasks = dbutils.widgets.get("tasks").split(";")
 
 # error and exit if task list contains any erroneous value
 for task in tasks:
-    if task not in ["all", "norm-ships", "ib-base", "ib-scenario", "ib-promo", "ib-to-sfai"]:
-        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are all, norm-ships, ib-base, ib-scenario, ib-promo, ib-sfai with a semicolon (;) delimiter.")
+    if task not in ["all", "norm-ships", "ib-base", "ib-promo", "ib-copy"]:
+        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are all, norm-ships, ib-base, ib-promo, and ib-copy with a semicolon (;) delimiter.")
 
 # COMMAND ----------
 
@@ -20,9 +19,8 @@ import time
 notebooks = {
     "norm-ships": "./base/norm_shipments/norm_ships",
     "ib-base": "./base/ib/installed_base_full",
-    "ib-scenario": "./base_promotion/insert_into_scenario_ns_ib_records",
     "ib-promo": "./base_promotion/ib_promo_full",
-    "ib-to-sfai": "./load_ib_to_sfai"
+    "ib-copy": "./load_ib_to_sfai"
 }
 
 # loop through each installed-base related notebook in order and run
@@ -35,8 +33,6 @@ for key, value in notebooks.items():
         print(f"LOG: running {notebook} notebook")
         
         notebook_args = {}
-        if key == "ib-promo":
-            notebook_args["version"] = dbutils.widgets.get("version")
 
         try:
             start_time = time.time()
