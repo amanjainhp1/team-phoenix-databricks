@@ -100,7 +100,7 @@ for table in tables.items():
     # if a destination column not in source cols, fill in with NULL
     for destination_col in destination_cols:
         if destination_col not in source_df.columns:
-            source_df = source_df.withColumn(f"{destination_col}", f.lit(None))
+            source_df = source_df.withColumn(f"{destination_col}", f.lit(None).cast("string"))
     
     source_df = source_df.select(destination_cols)
     source_df.show()
@@ -112,9 +112,9 @@ for table in tables.items():
     source_df = source_df.repartition(n_partitions+1)  
 
     if mode == "append":
-        write_df_to_sqlserver(configs, destination, mode)
+        write_df_to_sqlserver(configs, source_df, destination, mode)
     elif mode == "overwrite":
-        write_df_to_sqlserver(configs, destination "append", "", f"truncate {destination}")
+        write_df_to_sqlserver(configs, source_df, destination, "append", "", f"truncate {destination}")
 
     completion_time = str(round((time.time()-start_time)/60, 1))
     print("LOG: loaded {} to {} in {} minutes".format(source, destination, completion_time))
