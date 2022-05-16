@@ -1,9 +1,15 @@
 # Databricks notebook source
+import pyspark.sql.functions as f
+import time
+from pyspark.sql import Window
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ./common/database_utils
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
@@ -36,8 +42,9 @@ tables = {
 }
 
 # COMMAND ----------
-import pyspark.sql.functions as f
-from pyspark.sql import Window
+
+max_version_ib = ""
+max_version_ns = ""
 
 for table in tables.items():
     start_time = time.time()
@@ -45,9 +52,6 @@ for table in tables.items():
     source = table[1]["source"]
     destination = table[1]["destination"]
     mode = table[1]["action"]
-    
-    max_version_ib = ""
-    max_version_ns = ""
     
     print("LOG: loading {} to {}".format(source, destination))
     
@@ -64,7 +68,7 @@ for table in tables.items():
     if "version" in source:
         w = Window.partitionBy('record')
         source_df = source_df.withColumn('max_version', f.max('version').over(w)) \
-            .where('record IS IN ("IB", "NORM_SHIPMENTS")') \
+            .where('record IN ("IB", "NORM_SHIPMENTS")') \
             .where(f.col('version') == f.col('max_version'))
         
         max_version_ib = source_df.where('record = "IB"') \
@@ -74,6 +78,9 @@ for table in tables.items():
         max_version_ns = source_df.where('record = "NORM_SHIPMENTS"') \
             .select('max_version') \
             .head()[0]
+        
+        print("LOG: max_version_ib: " + max_version_ib)
+        print("LOG: max_version_ns: " + max_version_ns)
         
         source_df = source_df.drop('max_version')
     # for prod.scenario, select all records grouped by latest load_date
@@ -86,10 +93,17 @@ for table in tables.items():
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
     # else select latest version
-    else:
-        source_df = source_df.filter(f"version = '{max_version_ib}'")
+    elif "ib" in source:
+        source_df = source_df.filter(f"version = '{max_version_ib}'") \
+            .withColumnRenamed("country_alpha2", "country")
+    
+    # if a destination column not in source cols, fill in with NULL
+    for destination_col in destination_cols:
+        if destination_col not in source_df.columns:
+            source_df = source_df.withColumn(f"{destination_col}", f.lit(None))
     
     source_df = source_df.select(destination_cols)
+    source_df.show()
     
     # re-partition the data to get as close as to 1048576 rows per partition as possible
     # see https://devblogs.microsoft.com/azure-sql/partitioning-on-spark-fast-loading-clustered-columnstore-index/
@@ -104,3 +118,7 @@ for table in tables.items():
 
     completion_time = str(round((time.time()-start_time)/60, 1))
     print("LOG: loaded {} to {} in {} minutes".format(source, destination, completion_time))
+
+# COMMAND ----------
+
+
