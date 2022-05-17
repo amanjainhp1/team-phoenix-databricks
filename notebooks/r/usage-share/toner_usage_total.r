@@ -16,9 +16,10 @@ notebook_start_time <- Sys.time()
 dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("redshift_secrets_name", "")
 dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
+dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prod"))
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("bdtbl", "")
+dbutils.widgets.text("outnm_dt", "")
 
 # COMMAND ----------
 
@@ -752,8 +753,8 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                    ")
   outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
 
-  outcome <- sqldf("select platform_market_code, CM, market10, developed_emerging, month, AVG(b1) as b1, seasonality, mo_Smooth, src from outcome
-                   group by platform_market_code, CM, market10, developed_emerging, month, seasonality, mo_Smooth, src ")
+  outcome <- sqldf("select platform_market_code, CM, market10, developed_emerging, month, AVG(b1) as b1, seasonality, mo_Smooth, src, strata from outcome
+                   group by platform_market_code, CM, market10, developed_emerging, month, seasonality, mo_Smooth, src, strata")
   
          
   outcome$b1check <- outcome$b1                      #For checking limits
@@ -4240,7 +4241,7 @@ output_file_name <- paste0("s3://", aws_bucket_name, "UPM_ctry(", todaysDate, ")
 #test1 <- final9 %>% group_by(Platform_Subset_Nm, Country_Cd, FYearMo) %>% summarize(count=n()) %>% filter(count!=1)
 check_dups <- SparkR::sql("
                 WITH stp1 AS (SELECT Platform_Subset_Nm, Country_Cd, FYearMo, count(*) as numobs
-                  FROM final_9
+                  FROM final9
                 Group by Platform_Subset_Nm, Country_Cd, FYearMo)
                 SELECT *
                  FROM stp1
