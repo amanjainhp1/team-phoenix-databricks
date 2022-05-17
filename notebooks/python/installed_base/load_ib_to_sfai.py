@@ -13,6 +13,15 @@ from pyspark.sql import Window
 
 # COMMAND ----------
 
+import pymssql
+
+def submit_remote_sfai_query(configs:dict, db_name:str = "IE2_Prod", query: str = ""):
+    conn = pymssql.connect(configs['sfai_url'].split('//')[1], configs["sfai_username"], configs["sfai_password"], db_name)
+    cursor = conn.cursor()
+    cursor.execute(query)
+
+# COMMAND ----------
+
 tables = {
     "version": {
         "source": "prod.version",
@@ -82,7 +91,9 @@ for table in tables.items():
         print("LOG: max_version_ib: " + max_version_ib)
         print("LOG: max_version_ns: " + max_version_ns)
         
-        source_df = source_df.drop('max_version')
+        source_df = source_df.drop('max_version') \
+            .withColumn('sub_version', f.lit(1).cast('integer'))
+    
     # for prod.scenario, select all records grouped by latest load_date
     elif "scenario" in source:
         w = Window.partitionBy('record')
@@ -96,11 +107,6 @@ for table in tables.items():
     elif "ib" in source:
         source_df = source_df.filter(f"version = '{max_version_ib}'") \
             .withColumnRenamed("country_alpha2", "country")
-    
-    # if a destination column not in source cols, fill in with NULL
-    for destination_col in destination_cols:
-        if destination_col not in source_df.columns:
-            source_df = source_df.withColumn(f"{destination_col}", f.lit(None).cast("string"))
     
     source_df = source_df.select(destination_cols)
     source_df.show()
@@ -121,4 +127,13 @@ for table in tables.items():
 
 # COMMAND ----------
 
+update_version_query = """
+update ie2_prod.dbo.version 
+set official = 0
+where 1=1
+   and record = 'norm_shipments'
+   and version <> (select max(version) from ie2_prod.dbo.version where record = 'norm_shipments')
+   and official = 1
+"""
 
+submit_remote_sfai_query(configs, "IE2_Prod", update_version_query)
