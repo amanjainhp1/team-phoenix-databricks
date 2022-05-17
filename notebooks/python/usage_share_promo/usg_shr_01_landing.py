@@ -105,7 +105,7 @@ SELECT us.record
 		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_c
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='DASHBIARD' THEN 'TELEMETRY'
+		CASE WHEN us.data_source='DASHBOARD' THEN 'TELEMETRY'
 		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_k
 	, MIN(CASE WHEN us.measure='HP_SHARE' THEN
