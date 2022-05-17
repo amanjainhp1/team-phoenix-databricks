@@ -11,10 +11,13 @@ dbutils.widgets.text("version", "")
 # retrieve tasks from widgets/parameters
 tasks = dbutils.widgets.get("tasks").split(";")
 
+# define all possible tasks
+possible_tasks = ["all", "landing", "npi", "matures", "adjusts", "final"]
+
 # error and exit if task list contains any erroneous value
 for task in tasks:
-    if task not in ["all", "landing", "npi", "matures", "adjusts", "final"]:
-        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are all, landing, npi, matures, adjusts, and final with a semicolon (;) delimiter.")
+    if task not in possible_tasks:
+        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are {} with a semicolon (;) delimiter.".format(", ".join(possible_tasks)))
 
 # COMMAND ----------
 
