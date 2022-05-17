@@ -4249,7 +4249,7 @@ check_dups <- SparkR::sql("
 
 if(nrow(check_dups)==0){
 SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
- } ELSE {print("Duplicates in data")}
+ } else {print("Duplicates in data")}
 
 
 print(output_file_name)
