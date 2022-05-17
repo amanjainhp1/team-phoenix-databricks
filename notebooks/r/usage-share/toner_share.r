@@ -3698,10 +3698,9 @@ mdm_tbl_share <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'hp_share' as measure
                 , Page_Share as units
-                , Proxy_PS as proxy_used
+                , CONCAT(Proxy_PS,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                  
                  "))
@@ -3719,10 +3718,9 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'usage' as measure
                 , Usage as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage is not null
                  
@@ -3741,10 +3739,9 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'Usage_n' as measure
                 , MPV_n as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE MPV_n is not null AND MPV_n >0
                  
@@ -3763,10 +3760,9 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'Share_n' as measure
                 , Share_Raw_N_PS as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Share_Raw_N_PS is not null AND Share_Raw_N_PS >0
                  
@@ -3785,10 +3781,9 @@ mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'k_usage' as measure
                 , Usage as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage is not null
                  
@@ -3807,10 +3802,9 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'color_usage' as measure
                 , Usage_c as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3829,10 +3823,9 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'total_pages' as measure
                 , total_pages as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3851,10 +3844,9 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'total_k_pages' as measure
                 , total_kpages as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3873,10 +3865,9 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'total_c_pages' as measure
                 , total_cpages as units
-                , IMPV_Route as proxy_used
+                , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3895,10 +3886,9 @@ mdm_tbl_hppages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'hp_pages' as measure
                 , hp_pages as units
-                , Proxy_PS as proxy_used
+                , CONCAT(Proxy_PS,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3917,10 +3907,9 @@ mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'hp_k_pages' as measure
                 , hp_kpages as units
-                , Proxy_PS as proxy_used
+                , CONCAT(Proxy_PS,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3939,10 +3928,9 @@ mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'hp_c_pages' as measure
                 , hp_cpages as units
-                , Proxy_PS as proxy_used
+                , CONCAT(Proxy_PS,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3961,10 +3949,9 @@ mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'non_hp_k_pages' as measure
                 , nonhp_kpages as units
-                , Proxy_PS as proxy_used
+                , CONCAT(Proxy_PS,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -3983,10 +3970,9 @@ mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
                 , '",vsn,"' as version
                 , 'non_hp_c_pages' as measure
                 , nonhp_cpages as units
-                , Proxy_PS as proxy_used
+                , CONCAT(Proxy_PS,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -4008,7 +3994,6 @@ mdm_tbl_ib <- SparkR::sql(paste0("select distinct
                 , NULL as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
-                , model_group
                 from final_list8
                 WHERE Usage_c is not null AND Usage_c >0
                  
@@ -4023,7 +4008,7 @@ mdm_tbl$cal_date <- to_date(mdm_tbl$cal_date,format="yyyy-MM-dd")
 mdm_tbl$forecast_created_date <- to_date(mdm_tbl$forecast_created_date,format="yyyy-MM-dd")
 mdm_tbl$load_date <- to_date(mdm_tbl$load_date,format="yyyy-MM-dd")
 
-mdm_tbl$dm_version <- lit(dm_version)
+#mdm_tbl$dm_version <- lit(dm_version)
 
 createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 
