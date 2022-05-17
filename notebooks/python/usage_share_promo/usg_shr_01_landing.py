@@ -8,6 +8,16 @@
 
 # COMMAND ----------
 
+# for interactive sessions, define a version widget
+dbutils.widgets.text("version", "")
+
+# COMMAND ----------
+
+# retrieve version from widget
+version = dbutils.widgets.get("version")
+
+# COMMAND ----------
+
 query_list = []
 
 # COMMAND ----------
@@ -58,7 +68,7 @@ SELECT spin.record
     , spin.forecast_process_note
     , spin.forecast_created_date
     , spin.data_source
-    , (SELECT MAX(version) FROM "prod"."version" WHERE record = 'usage_share') as version
+    , (SELECT MAX(version) FROM "prod"."version" WHERE record = 'USAGE_SHARE') as version
     , spin.measure
     , spin.units
     , spin.proxy_used
@@ -77,7 +87,7 @@ FROM "prod"."usage_share_country_spin" spin
 
 # COMMAND ----------
 
-land_out = """
+land_out = f"""
 with land_03_helper_1 as (
 
 
@@ -87,7 +97,7 @@ SELECT us.record
 	, us.platform_subset
 	, us.customer_engagement
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		CASE WHEN us.data_source='DASHBOARD' THEN 'TELEMETRY'
 		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_u
 	, MIN(CASE WHEN us.measure='USAGE' THEN
@@ -95,13 +105,13 @@ SELECT us.record
 		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_c
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		CASE WHEN us.data_source='DASHBIARD' THEN 'TELEMETRY'
 		WHEN us.data_source LIKE 'UPM%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_k
 	, MIN(CASE WHEN us.measure='HP_SHARE' THEN
-		CASE WHEN us.data_source='Have Data' THEN 'TELEMETRY'
-		WHEN us.data_source LIKE 'Model%' THEN 'MODELLED'
-		WHEN us.data_source LIKE 'Proxied%' THEN 'MODELLED' END
+		CASE WHEN us.data_source='HAVE DATA' THEN 'TELEMETRY'
+		WHEN us.data_source LIKE 'MODEL%' THEN 'MODELLED'
+		WHEN us.data_source LIKE 'PROXIED%' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_s
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS Usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS Page_Share
@@ -139,7 +149,7 @@ LEFT JOIN "prod"."ib" ib
     ON us.cal_date=ib.cal_date
     AND us.geography=ib.country
     AND us.platform_subset=ib.platform_subset
-    AND ib.version='2022.05.12.1'
+    AND ib.version='{version}'
     AND ib.customer_engagement = us.customer_engagement
 LEFT JOIN "mdm"."iso_country_code_xref" cc
     ON us.geography=cc.country_alpha2
@@ -283,7 +293,7 @@ query_list.append(["stage.usage_share_staging_landing", land_out, "overwrite"])
 
 # COMMAND ----------
 
-spin_land_out = """
+spin_land_out = f"""
 with spin_01_helper_1 as (
 
 
@@ -293,11 +303,11 @@ SELECT us.record
 	, us.platform_subset
 	, us.customer_engagement
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		CASE WHEN us.data_source='DASHBOARD' THEN 'TELEMETRY'
 		WHEN us.data_source = 'UPM' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_u
 	, MIN(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 'TELEMETRY'
+		CASE WHEN us.data_source='DASHBOARD' THEN 'TELEMETRY'
 		WHEN us.data_source = 'UPM' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_c
 	, MIN(CASE WHEN us.measure='USAGE' THEN
@@ -305,9 +315,9 @@ SELECT us.record
 		WHEN us.data_source = 'UPM' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_k
 	, MIN(CASE WHEN us.measure='HP_SHARE' THEN
-		CASE WHEN us.data_source='Have Data' THEN 'TELEMETRY'
-		WHEN us.data_source='Modeled by Proxy' THEN 'MODELLED'
-		WHEN us.data_source='Modeled' THEN 'MODELLED' END
+		CASE WHEN us.data_source='HAVE DATA' THEN 'TELEMETRY'
+		WHEN us.data_source='MODELED BY PROXY' THEN 'MODELLED'
+		WHEN us.data_source='MODELED' THEN 'MODELLED' END
 		ELSE NULL END) AS data_source_s
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS Usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS Page_Share
@@ -345,7 +355,7 @@ LEFT JOIN "prod"."ib" ib
     ON us.cal_date=ib.cal_date
     AND us.geography=ib.country
     AND us.platform_subset=ib.platform_subset
-    AND ib.version='2022.04.25.1'
+    AND ib.version='{version}'
 LEFT JOIN "mdm"."iso_country_code_xref" cc
     ON us.geography=cc.country_alpha2
 ),  spin_03_helper_3 as (
@@ -549,7 +559,3 @@ query_list.append(["stage.usage_share_staging_pre_override", pre_override, "over
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-
