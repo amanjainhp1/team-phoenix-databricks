@@ -48,7 +48,7 @@ SELECT lnd.record
 FROM "phoenix_spectrum"."cupsm" lnd
 """
 
-# query_list.append(["stage.usage_share_landing", usg_shr_landing, "overwrite"])
+query_list.append(["stage.usage_share_landing", usg_shr_landing, "overwrite"])
 
 # COMMAND ----------
 
@@ -77,7 +77,7 @@ SELECT spin.record
 FROM "prod"."usage_share_country_spin" spin
 """
 
-# query_list.append(["stage.usage_share_spin_landing", usg_shr_spin_landing, "overwrite"])
+query_list.append(["stage.usage_share_spin_landing", usg_shr_spin_landing, "overwrite"])
 
 # COMMAND ----------
 

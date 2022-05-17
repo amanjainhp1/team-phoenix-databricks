@@ -110,7 +110,7 @@ ON hw.platform_subset = fl.platform_subset
 AND hw.technology IN ('INK','LASER','PWA')
 """
 
-# query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
+query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
 
 # COMMAND ----------
 
@@ -134,7 +134,7 @@ SELECT us.record
 FROM "stage"."uss_02_npi_matures" us
 """
 
-# query_list.append(["stage.usage_share_staging_preadjust", pre_adjust, "overwrite"])
+query_list.append(["stage.usage_share_staging_preadjust", pre_adjust, "overwrite"])
 
 # COMMAND ----------
 
@@ -471,7 +471,7 @@ query_list.append(["stage.usage_share_staging_pre_epaadjust", pre_epa, "overwrit
 #        AND us.cal_date = ed.cal_date
 #WHERE 1=1
 #	AND us.measure = 'HP_SHARE'
-#	AND us.source <> 'Telemetry'
+#	AND us.source <> 'TELEMETRY'
 #"""
 #
 #query_list.append(["stage.epa_02_epa_adjust_out", epa_adjust, "overwrite"])
