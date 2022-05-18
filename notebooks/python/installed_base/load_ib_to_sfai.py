@@ -19,6 +19,7 @@ def submit_remote_sfai_query(configs:dict, db_name:str = "IE2_Prod", query: str 
     conn = pymssql.connect(configs['sfai_url'].split('//')[1], configs["sfai_username"], configs["sfai_password"], db_name)
     cursor = conn.cursor()
     cursor.execute(query)
+    conn.close
 
 # COMMAND ----------
 
