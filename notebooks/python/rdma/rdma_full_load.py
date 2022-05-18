@@ -129,7 +129,7 @@ rdma_sales_product_option_df = rdma_sales_product_option_df \
 # COMMAND ----------
 
 #write data to redshift
-write_df_to_redshift(configs, rdma_base_to_sales_df, "prod.rdma_base_to_sales_product_map", "overwrite")
+write_df_to_redshift(configs, rdma_base_to_sales_df, "mdm.rdma_base_to_sales_product_map", "overwrite")
 
 # COMMAND ----------
 
@@ -338,9 +338,9 @@ write_df_to_redshift(configs, rdma_df, "stage.rdma_staging", "overwrite", rdma_s
 # COMMAND ----------
 
 # write data to redshift
-write_df_to_redshift(configs, rdma_sales_product_full_df, "prod.rdma_sales_product", "overwrite")
+write_df_to_redshift(configs, rdma_sales_product_full_df, "mdm.rdma_sales_product", "overwrite")
 
 # COMMAND ----------
 
 # write data to redshift
-write_df_to_redshift(configs, rdma_sales_product_option_df, "prod.rdma_sales_product_option", "overwrite")
+write_df_to_redshift(configs, rdma_sales_product_option_df, "mdm.rdma_sales_product_option", "overwrite")
