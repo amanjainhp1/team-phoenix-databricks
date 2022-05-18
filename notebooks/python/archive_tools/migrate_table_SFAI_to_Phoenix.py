@@ -14,18 +14,17 @@
 query = """
 
 SELECT [record]
-      ,[cal_date]
-      ,[geography_grain]
-      ,[geography]
-      ,[measure]
       ,[platform_subset]
+      ,[Crg_Base_Prod_Number]
+      ,[geography]
+      ,[geography_grain]
+      ,[cal_date]
+      ,[mix_pct]
+      ,[product_lifecycle_status]
       ,[customer_engagement]
-      ,[assumption]
-      ,[official]
-      ,[Units]
-      ,[version]
       ,[load_date]
-  FROM ie2_landing.[dbo].[usage_share_adjust]
+      ,[official]
+  FROM ie2_prod.[dbo].[cartridge_mix_override]
 """
 
 records = read_sql_server_to_df(configs) \
@@ -34,7 +33,7 @@ records = read_sql_server_to_df(configs) \
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, records, "prod.usage_share_adjust", "overwrite")
+write_df_to_redshift(configs, records, "prod.cartridge_mix_override", "overwrite")
 
 # COMMAND ----------
 
