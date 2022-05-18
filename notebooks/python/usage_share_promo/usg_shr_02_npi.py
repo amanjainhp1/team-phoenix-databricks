@@ -7,6 +7,16 @@
 
 # COMMAND ----------
 
+# for interactive sessions, define a version widget
+dbutils.widgets.text("version", "")
+
+# COMMAND ----------
+
+# retrieve version from widget
+version = dbutils.widgets.get("version")
+
+# COMMAND ----------
+
 query_list = []
 
 # COMMAND ----------
@@ -50,7 +60,7 @@ query_list.append(["stage.us_overrides_helper_1", npi_helper_1, "overwrite"])
 
 # COMMAND ----------
 
-overrides_norm_landing = """
+overrides_norm_landing = f"""
 
 with npi_06_month_num_ib_dates as (
 
@@ -64,7 +74,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.05.12.1'
+	AND ib.version = '{version}'
 	AND ib.measure = 'IB'
 ),  npi_05_month_num_min_max_dates_r5 as (
 
@@ -78,7 +88,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.05.12.1'
+	AND ib.version = '{version}'
 	AND ib.measure = 'IB'
 GROUP BY platform_subset
 	, ib.customer_engagement
@@ -184,7 +194,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
 on ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.05.12.1'
+	AND ib.version = '{version}'
 	AND measure = 'IB'
 GROUP BY ib.platform_subset
 	, ib.customer_engagement
@@ -270,7 +280,7 @@ query_list.append(["stage.usage_share_overrides_normalized_landing", overrides_n
 
 # COMMAND ----------
 
-norm_fill_landing = """
+norm_fill_landing = f"""
 with npi_14_fill_missing_ib_data as (
 
 
@@ -285,7 +295,7 @@ ON a.country=country_alpha2
 LEFT JOIN "mdm"."hardware_xref" c
 ON a.platform_subset=c.platform_subset
 WHERE 1=1
-	AND a.version = '2022.05.12.1'
+	AND a.version = '{version}'
 	AND measure = 'IB'
 	AND c.product_lifecycle_status = 'N'
 GROUP BY a.platform_subset
@@ -469,7 +479,7 @@ SELECT ls.record
 FROM "stage"."uss_01_land_spin" ls
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ls.platform_subset = hw.platform_subset
-WHERE source = 'Telemetry'
+WHERE source = 'TELEMETRY'
     AND hw.product_lifecycle_status = 'N'
 ),  npi_24_month_num_override_temp_pre as (
 

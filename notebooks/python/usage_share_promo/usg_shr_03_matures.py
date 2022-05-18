@@ -7,6 +7,16 @@
 
 # COMMAND ----------
 
+# for interactive sessions, define a version widget
+dbutils.widgets.text("version", "")
+
+# COMMAND ----------
+
+# retrieve version from widget
+version = dbutils.widgets.get("version")
+
+# COMMAND ----------
+
 query_list = []
 
 # COMMAND ----------
@@ -48,7 +58,7 @@ query_list.append(["stage.usage_share_overrides_matures_landing", matures_landin
 
 # COMMAND ----------
 
-matures_norm_landing = """
+matures_norm_landing = f"""
 with matures_02_month_num_combos as (
 
 
@@ -137,7 +147,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
 ON ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.05.12.1'
+	AND ib.version = '{version}'
 	AND ib.measure = 'IB'
 ),  matures_05_month_num_min_max_dates as (
 
@@ -151,7 +161,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
 on ib.country=cc.country_alpha2
 WHERE 1=1
-	AND ib.version = '2022.05.12.1'
+	AND ib.version = '{version}'
 	AND measure = 'IB'
 GROUP BY ib.platform_subset
     , ib.customer_engagement
@@ -228,7 +238,7 @@ query_list.append(["stage.usage_share_matures_normalized_landing", matures_norm_
 
 # COMMAND ----------
 
-matures_norm_fill_landing = """
+matures_norm_fill_landing = f"""
 with matures_11_fill_missing_ib_data as (
 
 
@@ -243,7 +253,7 @@ LEFT JOIN "mdm"."iso_country_code_xref" cc
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
-	AND ib.version = '2022.05.12.1'
+	AND ib.version = '{version}'
 	AND measure = 'IB'
 	AND hw.product_lifecycle_status = 'M'
 GROUP BY ib.platform_subset

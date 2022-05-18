@@ -110,7 +110,7 @@ ON hw.platform_subset = fl.platform_subset
 AND hw.technology IN ('INK','LASER','PWA')
 """
 
-# query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
+query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
 
 # COMMAND ----------
 
@@ -134,7 +134,7 @@ SELECT us.record
 FROM "stage"."uss_02_npi_matures" us
 """
 
-# query_list.append(["stage.usage_share_staging_preadjust", pre_adjust, "overwrite"])
+query_list.append(["stage.usage_share_staging_preadjust", pre_adjust, "overwrite"])
 
 # COMMAND ----------
 
@@ -193,7 +193,7 @@ SELECT record
     , version
     , load_date
 FROM adjust_01_select_old_adjust
-WHERE  version <> 'New Version'
+WHERE  version <> 'NEW VERSION'
     AND official = 1
 ),  adjust_03_update_version as (
 
@@ -211,7 +211,7 @@ SELECT adj.record
     , (SELECT MAX(version) FROM prod.version WHERE record = 'USAGE_SHARE_ADJUST') as version
     , adj.load_date
 FROM adjust_02_update_not_official adj
-WHERE  version <> 'New Version'
+WHERE  version <> 'NEW VERSION'
 ),  adjust_04_update_official as (
 
 
@@ -296,7 +296,7 @@ LEFT JOIN adjust_08_adjust_adj2 usa  -- true left outer join
         AND uss.geography=usa.geography
         AND usa.Units IS NOT NULL
 WHERE 1=1
-    AND uss.source <> 'Telemetry'
+    AND uss.source <> 'TELEMETRY'
     AND usa.platform_subset IS NULL
     AND usa.customer_engagement IS NULL
     AND usa.cal_date IS NULL
@@ -318,7 +318,7 @@ SELECT uss.record
    , uss.version
    , uss.load_date
 FROM adjust_05_update_version uss
-WHERE uss.source = 'Telemetry'
+WHERE uss.source = 'TELEMETRY'
 ),  adjust_09_adjust_out as (
 
 
@@ -345,7 +345,7 @@ INNER JOIN adjust_08_adjust_adj2 usa
         AND uss.geography=usa.geography
         AND usa.Units IS NOT NULL
 WHERE 1=1
-    AND uss.source <> 'Telemetry'
+    AND uss.source <> 'TELEMETRY'
 ),  adjust_11_uss_post_adjust as (
 
 
@@ -390,7 +390,7 @@ FROM adjust_09_adjust_out adj
     , ao.assumption
     , ao.official
     , ao.units
-    , (SELECT TOP 1 ib_version FROM adjust_11_uss_post_adjust WHERE ib_version <> 'ib_version' ORDER BY 1 DESC) as ib_version
+    , (SELECT TOP 1 ib_version FROM adjust_11_uss_post_adjust WHERE ib_version <> 'IB_VERSION' ORDER BY 1 DESC) as ib_version
     , ao.source
     , ao.version
     , ao.load_date
@@ -471,7 +471,7 @@ query_list.append(["stage.usage_share_staging_pre_epaadjust", pre_epa, "overwrit
 #        AND us.cal_date = ed.cal_date
 #WHERE 1=1
 #	AND us.measure = 'HP_SHARE'
-#	AND us.source <> 'Telemetry'
+#	AND us.source <> 'TELEMETRY'
 #"""
 #
 #query_list.append(["stage.epa_02_epa_adjust_out", epa_adjust, "overwrite"])

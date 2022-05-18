@@ -6,11 +6,21 @@
 
 # COMMAND ----------
 
+# for interactive sessions, define a version widget
+dbutils.widgets.text("version", "")
+
+# COMMAND ----------
+
+# retrieve version from widget
+version = dbutils.widgets.get("version")
+
+# COMMAND ----------
+
 query_list = []
 
 # COMMAND ----------
 
-usage_share_staging = """
+usage_share_staging = f"""
 with prod_00_iink_hp_share as (
 
 
@@ -23,7 +33,7 @@ FROM "prod"."ib" AS ib
 JOIN "mdm"."iso_country_code_xref" AS iso
     ON iso.country_alpha2 = ib.country
 WHERE 1=1
-    AND ib.version = '2022.05.12.1'
+    AND ib.version = '{version}'
     AND ib.customer_engagement = 'I-INK'
 )SELECT 'USAGE_SHARE' AS record
       , us.cal_date
