@@ -123,15 +123,15 @@ GRANT ALL ON prod.ib_datamart_source_vw to GROUP dev_arch_eng;
 
 # COMMAND ----------
 
-    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'" \
-        .format(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
-    con = psycopg2.connect(conn_string)
-    cur = con.cursor()
-    
-    cur.execute(ib_datamart_source_code)
-    con.commit()
-    
-    cur.close()
+conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'" \
+    .format(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
+con = psycopg2.connect(conn_string)
+cur = con.cursor()
+
+cur.execute(ib_datamart_source_code)
+con.commit()
+
+cur.close()
 
 
 # COMMAND ----------
@@ -143,12 +143,12 @@ drop view prod.ib_datamart_source_vw
 
 # COMMAND ----------
 
-   conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'" \
-        .format(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
-   con = psycopg2.connect(conn_string)
-   cur = con.cursor()
-    
-   cur.execute(drop_view_code)
-   con.commit()
-    
-   cur.close()
+conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'" \
+    .format(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
+con = psycopg2.connect(conn_string)
+cur = con.cursor()
+
+cur.execute(drop_view_code)
+con.commit()
+
+cur.close()
