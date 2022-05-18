@@ -8,8 +8,8 @@ tasks = dbutils.widgets.get("tasks").split(";")
 
 # error and exit if task list contains any erroneous value
 for task in tasks:
-    if task not in ["all", "norm-ships", "ib-base", "ib-promo"]:
-        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are all, norm-ships, ib-base, and ib-promo with a semicolon (;) delimiter.")
+    if task not in ["all", "norm-ships", "ib-base", "ib-promo", "ib-copy"]:
+        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are all, norm-ships, ib-base, ib-promo, and ib-copy with a semicolon (;) delimiter.")
 
 # COMMAND ----------
 
@@ -20,6 +20,7 @@ notebooks = {
     "norm-ships": "./base/norm_shipments/norm_ships",
     "ib-base": "./base/ib/installed_base_full",
     "ib-promo": "./base_promotion/ib_promo_full",
+    "ib-copy": "./load_ib_to_sfai"
 }
 
 # loop through each installed-base related notebook in order and run
@@ -36,7 +37,7 @@ for key, value in notebooks.items():
         try:
             start_time = time.time()
             dbutils.notebook.run(notebook_path, 0, notebook_args)
-            completion_time = str(round((time.time() - start_time)/60, 1))
+            completion_time = str(round((time.time()-start_time)/60, 1))
             print(f"LOG: {notebook} notebook completed in {completion_time} minutes")
         except Exception as e:
             raise dbutils.notebook.exit(e)
