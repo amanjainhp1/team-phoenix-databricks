@@ -12,7 +12,7 @@
 # COMMAND ----------
 
 query = """
-create external table phoenix_spectrum_prod.cupsm 
+create external table phoenix_spectrum_itg.cupsm 
 (
 record varchar(255),
 cal_date date,
@@ -31,7 +31,7 @@ ib_version varchar(255),
 load_date timestamp
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/cupsm/';
+location 's3://dataos-core-itg-team-phoenix/spectrum/cupsm/';
 """
 
 
@@ -51,7 +51,7 @@ def submit_spectrum_query(dbname, port, user, password, host, sql_query):
     con.commit()
     cur.close()
 
-submit_spectrum_query("prod", configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], query)
+submit_spectrum_query("itg", configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], query)
 
 
 # COMMAND ----------
