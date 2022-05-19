@@ -605,6 +605,7 @@ for (printer in unique(page_share_reg$grp)){
     mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
     #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
     dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+    dat1<- subset(dat1,timediff>0)
     #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
     mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
 
@@ -678,6 +679,7 @@ for (printer in unique(page_share_m10$grp)){
   mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
   dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+  dat1<- subset(dat1,timediff>0)
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
   mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
   
@@ -769,6 +771,7 @@ for (printer in unique(page_share_mde$grp)){
   mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
   dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+  dat1<- subset(dat1,timediff>0)
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
   mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
   
@@ -860,6 +863,7 @@ for (printer in unique(page_share_ctr$grp)){
   mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
   dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+  dat1<- subset(dat1,timediff>0)
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
   mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
   
