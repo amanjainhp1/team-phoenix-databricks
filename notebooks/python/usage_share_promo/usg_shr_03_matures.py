@@ -455,6 +455,108 @@ query_list.append(["stage.usage_share_overrides_matures_landing_final", matures_
 
 # MAGIC %md
 # MAGIC 
+# MAGIC ### Usage Share Staging 02 NPI Matures
+
+# COMMAND ----------
+
+uss_02_npi_matures = """
+with uss_02_01_npi_matures as (
+
+
+
+SELECT uss.record
+    , uss.cal_date
+    , uss.geography_grain
+    , uss.geography
+    , uss.platform_subset
+    , uss.customer_engagement
+    , uss.measure
+    , uss.units
+    , uss.ib_version
+    , uss.source
+FROM "stage"."uss_01_land_spin" uss
+LEFT JOIN "stage"."usage_share_override_npi_out" npi
+    ON uss.platform_subset  = npi.platform_subset
+        AND uss.customer_engagement = npi.customer_engagement
+        AND uss.geography = npi.geography
+WHERE 1=1
+    AND npi.platform_subset is NULL
+    AND npi.customer_engagement is NULL
+    AND npi.geography is NULL
+),  uss_02_02_npi_matures as (
+
+
+SELECT uss.record
+    , uss.cal_date
+    , uss.geography_grain
+    , uss.geography
+    , uss.platform_subset
+    , uss.customer_engagement
+    , uss.measure
+    , uss.units
+    , uss.ib_version
+    , uss.source
+FROM uss_02_01_npi_matures uss
+LEFT JOIN "stage"."usage_share_matures_normalized_final_landing" mat
+    ON uss.platform_subset  = mat.platform_subset
+        AND uss.customer_engagement = mat.customer_engagement
+        AND uss.geography = mat.market10
+WHERE 1=1
+    AND mat.platform_subset is NULL
+    AND mat.customer_engagement is NULL
+    AND mat.market10 is NULL
+)SELECT uss.record
+    , uss.cal_date
+    , uss.geography_grain
+    , uss.geography
+    , uss.platform_subset
+    , uss.customer_engagement
+    , uss.measure
+    , uss.units
+    , uss.ib_version
+    , uss.source
+FROM uss_02_02_npi_matures uss
+INNER JOIN "mdm"."hardware_xref" hw
+ON hw.platform_subset = uss.platform_subset
+AND hw.technology IN ('INK','LASER','PWA')
+UNION ALL
+SELECT DISTINCT ont.record
+	, ont.cal_date
+	, ont.geography_grain
+	, ont.geography
+	, ont.platform_subset
+	, ont.customer_engagement
+	, ont.measure
+	, ont.units
+	, ont.ib_version
+	, ont.source
+FROM "stage"."usage_share_override_npi_out" ont
+INNER JOIN "mdm"."hardware_xref" hw
+ON hw.platform_subset = ont.platform_subset
+AND hw.technology IN ('INK','LASER','PWA')
+UNION ALL
+SELECT fl.record
+    , fl.cal_date
+    , 'MARKET10' as geography_grain
+    , fl.market10 as geography
+    , fl.platform_subset
+    , fl.customer_engagement
+    , fl.measure
+    , fl.units
+    , cast(fl.ib_version AS VARCHAR) as ib_version
+    ,'FIJI' AS source
+FROM "stage"."usage_share_matures_normalized_final_landing" fl
+INNER JOIN "mdm"."hardware_xref" hw
+ON hw.platform_subset = fl.platform_subset
+AND hw.technology IN ('INK','LASER','PWA')
+"""
+
+query_list.append(["stage.uss_02_npi_matures", uss_02_npi_matures, "overwrite"])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
 # MAGIC ### Usage Share Write Out Matures
 
 # COMMAND ----------
