@@ -20,7 +20,10 @@ dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
 dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("bdtbl", "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg")
 dbutils.widgets.text("upm_date", "")
+dbutils.widgets.text("cutoff_dt", "")
+dbutils.widgets.text("upm_date_color", "")
 dbutils.widgets.text("writeout", "")
+dbutils.widgets.text("outnm_dt", "")
 
 # COMMAND ----------
 
@@ -2888,6 +2891,7 @@ UPM2 <- SparkR::sql('
               , avg(b.Seasonality) as Seasonality
               --, avg(b.Cyclical) as Cyclical
               , avg(b.Decay) as Decay
+              , a.label
               FROM UPM a 
               LEFT JOIN 
                 (SELECT Mkt, CM, FYearQtr --, avg(MUT) as MUT
@@ -2917,6 +2921,7 @@ UPM2 <- SparkR::sql('
               , a.rFYearQtr
               , a.FYear
               , FQtr
+              , a.label
               ')
 
 UPM2C <- SparkR::sql('
@@ -3165,6 +3170,7 @@ final_list2 <- SparkR::sql("
                       , d.value AS Share_Raw_PS
                       , d.printer_count_month_ps AS Share_Raw_N_PS
                       , e.usage_n
+                      , b.label
                       --, a.cu_proxy AS Proxy_CU
                       --, f.share_region_incl_flag AS BD_Share_Flag_CU
                       --, a.cu_min AS Model_Min_CU
@@ -3664,14 +3670,16 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
+final_list8$dm_version <- dm_version
 #month(final_list8$year_month_float) <- month(final_list8$year_month_float)-2
-
+outnm_dt <- dbutils.widgets.get("outnm_dt")
 today <- Sys.Date()
 vsn <- '2022.01.19.1'  #for DUPSM
 #vsn <- 'New Version'
 rec1 <- 'usage_share'
 geog1 <- 'country'
 tempdir(check=TRUE)
+fctsnt <- paste0("TONER ", substr(outnm_dt,1,2)," ",substr(outnm_dt,4,nchar(outnm_dt))," ",lubridate::year(today),".1")
 # rm(final_list2)
 #rm(final_list6)
 # rm(final_list7)
@@ -3692,7 +3700,7 @@ mdm_tbl_share <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Share_Source_PS as data_source
                 , '",vsn,"' as version
@@ -3712,7 +3720,7 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3733,7 +3741,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , 'n' as data_source
                 , '",vsn,"' as version
@@ -3754,7 +3762,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , 'n' as data_source
                 , '",vsn,"' as version
@@ -3775,7 +3783,7 @@ mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3796,7 +3804,7 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3817,7 +3825,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3838,7 +3846,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3859,7 +3867,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3880,7 +3888,7 @@ mdm_tbl_hppages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3901,7 +3909,7 @@ mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3922,7 +3930,7 @@ mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3943,7 +3951,7 @@ mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3964,7 +3972,7 @@ mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
@@ -3985,7 +3993,7 @@ mdm_tbl_ib <- SparkR::sql(paste0("select distinct
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
                 , 'Trad' as customer_engagement
-                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",fctsnt,"' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
