@@ -31,7 +31,7 @@ SELECT DISTINCT ib.cal_date
     , iso.market10 AS geography
 FROM "prod"."ib" AS ib
 JOIN "mdm"."iso_country_code_xref" AS iso
-    ON iso.country_alpha2 = ib.country
+    ON iso.country_alpha2 = ib.country_alpha2
 WHERE 1=1
     AND ib.version = '{version}'
     AND ib.customer_engagement = 'I-INK'

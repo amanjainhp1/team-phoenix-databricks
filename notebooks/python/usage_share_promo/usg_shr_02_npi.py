@@ -72,7 +72,7 @@ SELECT DISTINCT ib.platform_subset
 	, cc.region_5
 FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
-ON ib.country=cc.country_alpha2
+ON ib.country_alpha2=cc.country_alpha2
 WHERE 1=1
 	AND ib.version = '{version}'
 	AND ib.measure = 'IB'
@@ -86,7 +86,7 @@ SELECT ib.platform_subset
 	, CAST(max(cal_date) AS DATE) AS max_date
 FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
-ON ib.country=cc.country_alpha2
+ON ib.country_alpha2=cc.country_alpha2
 WHERE 1=1
 	AND ib.version = '{version}'
 	AND ib.measure = 'IB'
@@ -192,7 +192,7 @@ SELECT ib.platform_subset
     , CAST(max(cal_date) AS DATE) AS max_date
 FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
-on ib.country=cc.country_alpha2
+on ib.country_alpha2=cc.country_alpha2
 WHERE 1=1
 	AND ib.version = '{version}'
 	AND measure = 'IB'
@@ -291,7 +291,7 @@ SELECT a.platform_subset
 	, CAST(max(cal_date) AS DATE) AS max_ib_date
 FROM "prod"."ib" a
 LEFT JOIN "mdm"."iso_country_code_xref" b
-ON a.country=country_alpha2
+ON a.country_alpha2=b.country_alpha2
 LEFT JOIN "mdm"."hardware_xref" c
 ON a.platform_subset=c.platform_subset
 WHERE 1=1

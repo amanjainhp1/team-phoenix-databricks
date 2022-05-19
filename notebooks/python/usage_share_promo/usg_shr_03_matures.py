@@ -8,7 +8,7 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+dbutils.widgets.text("version", "2022.05.13.1")
 
 # COMMAND ----------
 
@@ -145,7 +145,7 @@ SELECT DISTINCT ib.platform_subset
 	, cc.market10
 FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
-ON ib.country=cc.country_alpha2
+ON ib.country_alpha2=cc.country_alpha2
 WHERE 1=1
 	AND ib.version = '{version}'
 	AND ib.measure = 'IB'
@@ -159,7 +159,7 @@ SELECT ib.platform_subset
 	, CAST(max(cal_date) AS DATE) AS max_date
 FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
-on ib.country=cc.country_alpha2
+on ib.country_alpha2=cc.country_alpha2
 WHERE 1=1
 	AND ib.version = '{version}'
 	AND measure = 'IB'
@@ -249,7 +249,7 @@ SELECT ib.platform_subset
     , CAST(max(cal_date) AS DATE) AS max_ib_date
 FROM "prod"."ib" ib
 LEFT JOIN "mdm"."iso_country_code_xref" cc
-    on ib.country=cc.country_alpha2
+    on ib.country_alpha2=cc.country_alpha2
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
