@@ -13,50 +13,29 @@ notebook_start_time <- Sys.time()
 
 # COMMAND ----------
 
-dbutils.widgets.text("ib_version", "")
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prod"))
-dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("bdtbl", "")
 dbutils.widgets.text("outnm_dt", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
-
-# COMMAND ----------
-
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 # MAGIC %python
-# MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 # MAGIC 
-# MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
-# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
+# MAGIC # retrieve configs and export to spark.confs for usage across languages
+# MAGIC for key, val in configs.items():
+# MAGIC     spark.conf.set(key, val)
 # MAGIC 
-# MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
-# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
+# MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
 
-# MAGIC %sh
-# MAGIC ls -l /usr/bin/java
-# MAGIC ls -l /etc/alternatives/java
-# MAGIC ln -s /usr/lib/jvm/java-8-openjdk-amd64 /usr/lib/jvm/default-java
-# MAGIC R CMD javareconf
-
-# COMMAND ----------
-
-packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR")
+packages <- c("sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR")
 
 # COMMAND ----------
 
@@ -66,87 +45,31 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 options(java.parameters = "-Xmx60g" )
 
-# setwd("~/work") #Set Work Directory ("~/NPI_Model") ~ for root directory
 options(scipen=999) #remove scientific notation
 tempdir(check=TRUE)
 
 # COMMAND ----------
 
-# mount s3 bucket to cluster
-aws_bucket_name <- "insights-environment-sandbox/BrentT/"
-mount_name <- "insights-environment-sandbox"
-
-tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
- error = function(e)
- print("Mount does not exist or is already mounted to cluster"))
+# define s3 bucket
+aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # COMMAND ----------
 
-# MAGIC %scala
-# MAGIC var configs: Map[String, String] = Map()
-# MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
-# MAGIC             "sfaiUrl" -> SFAI_URL,
-# MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
-# MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-# MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-# MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
+# load parquet data and register views
+bdtbl <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/20220520/123456789/bdtbl/"))
+createOrReplaceTempView(bdtbl, 'bdtbl')
 
-# COMMAND ----------
+hardware_xref <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/20220520/123456789/hardware_xref/"))
+createOrReplaceTempView(hardware_xref, 'hardware_xref')
 
-# MAGIC %scala
-# MAGIC val zeroiQuery = s""" 
-# MAGIC SELECT  tri_printer_usage_sn.printer_platform_name  
-# MAGIC                     , tri_printer_usage_sn.printer_region_code 
-# MAGIC                     , tri_printer_usage_sn.printer_country_iso_code
-# MAGIC                     , tri_printer_usage_sn.date_month_dim_ky as yyyymm
-# MAGIC                     --, CASE
-# MAGIC                         --WHEN SUBSTRING(tri_printer_usage_sn.date_month_dim_ky,5,6) IN ('11','12') 
-# MAGIC                               --THEN (CAST(tri_printer_usage_sn.date_month_dim_ky AS int) + 100 -10)
-# MAGIC                         --WHEN SUBSTRING(tri_printer_usage_sn.date_month_dim_ky,5,6) BETWEEN '01' AND'10' 
-# MAGIC                               --THEN (CAST(tri_printer_usage_sn.date_month_dim_ky AS int) + 2)
-# MAGIC                         --ELSE tri_printer_usage_sn.date_month_dim_ky 
-# MAGIC                         --END as FYearMo
-# MAGIC                     , CAST(tri_printer_usage_sn.date_month_dim_ky AS int) as FYearMo
-# MAGIC                     , tri_printer_usage_sn.printer_chrome_code AS CM
-# MAGIC                     , tri_printer_usage_sn.platform_business_code AS EP
-# MAGIC                     , tri_printer_usage_sn.printer_function_code as platform_function_code
-# MAGIC                     , tri_printer_usage_sn.platform_market_code
-# MAGIC                     , SUM(COALESCE(tri_printer_usage_sn.print_pages_total_ib_ext_sum,0)) as UsageNumerator
-# MAGIC                     , SUM(COALESCE(tri_printer_usage_sn.print_months_ib_ext_sum,0)) AS UsageDenominator
-# MAGIC                     , SUM(tri_printer_usage_sn.printer_count_month_usage_flag_sum) AS SumN
-# MAGIC                     FROM 
-# MAGIC                       ${dbutils.widgets.get("bdtbl")} tri_printer_usage_sn with (NOLOCK)
-# MAGIC                     WHERE 
-# MAGIC                       1=1
-# MAGIC                       AND printer_route_to_market_ib='Aftermarket'
-# MAGIC                    GROUP BY
-# MAGIC                       printer_platform_name  
-# MAGIC                     , printer_region_code 
-# MAGIC                     , printer_country_iso_code
-# MAGIC                     , yyyymm
-# MAGIC                     , FYearMo
-# MAGIC                     , CM
-# MAGIC                     , EP
-# MAGIC                     , platform_function_code
-# MAGIC                     , platform_market_code
-# MAGIC """
-# MAGIC 
-# MAGIC val zeroi = readRedshiftToDF(configs)
-# MAGIC   .option("query", zeroiQuery)
-# MAGIC   .load()
-# MAGIC 
-# MAGIC zeroi.createOrReplaceTempView("zeroi")
+ib <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/20220520/123456789/ib/"))
+createOrReplaceTempView(ib, 'ib')
 
-# COMMAND ----------
+iso_cc_rollup_xref <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/20220520/123456789/iso_cc_rollup_xref/"))
+createOrReplaceTempView(iso_cc_rollup_xref, 'iso_cc_rollup_xref')
 
-sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
-
-cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
-clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Landing;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
+iso_country_code_xref <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/20220520/123456789/iso_country_code_xref/"))
+createOrReplaceTempView(iso_country_code_xref, 'iso_country_code_xref')
 
 # COMMAND ----------
 
@@ -190,10 +113,6 @@ options(scipen=999)
 lock_weights <- 0   #0 for use calculated, 1 for use stated version
 lockwt_file <- 'toner_weights_75_Q4_qe_2021-11-16'
 
-#--------Big Data Table Name----------------------------------------------------------------------#
-#bdtbl <- 'dashboard.print_share_usage_agg_stg'
-bdtbl <- dbutils.widgets.get("bdtbl")
-
 #--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
 outnm_dt <- dbutils.widgets.get("outnm_dt")
 
@@ -201,103 +120,113 @@ outnm_dt <- dbutils.widgets.get("outnm_dt")
 
 # Step 1 - query for Normalized extract specific to PE and RM
 
-zeroi <- SparkR::collect(SparkR::sql("SELECT * FROM zeroi"))
+zeroi <- SparkR::collect(SparkR::sql("
+  SELECT  printer_platform_name  
+                      , printer_region_code 
+                      , printer_country_iso_code
+                      , date_month_dim_ky as yyyymm
+                      , CAST(date_month_dim_ky AS int) AS FYearMo
+                      , printer_chrome_code AS CM
+                      , platform_business_code AS EP
+                      , printer_function_code as platform_function_code
+                      , platform_market_code
+                      , SUM(COALESCE(print_pages_total_ib_ext_sum,0)) as UsageNumerator
+                      , SUM(COALESCE(print_months_ib_ext_sum,0)) AS UsageDenominator
+                      , SUM(printer_count_month_usage_flag_sum) AS SumN
+                      FROM 
+                       bdtbl
+                      WHERE 
+                        1=1
+                        AND printer_route_to_market_ib='AFTERMARKET'
+                     GROUP BY
+                        printer_platform_name  
+                      , printer_region_code 
+                      , printer_country_iso_code
+                      , yyyymm
+                      , FYearMo
+                      , CM
+                      , EP
+                      , platform_function_code
+                      , platform_market_code
+"))
 
-zeroi$SumMPV <- ifelse(zeroi$usagedenominator>0,zeroi$sumn*zeroi$usagenumerator/zeroi$usagedenominator,0)
-# # s3write_using(x=zeroi,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/BD_Zeroi(",Sys.Date(),").parquet"))
+zeroi$SumMPV <- ifelse(zeroi$UsageDenominator>0,zeroi$sumn*zeroi$UsageNumerator/zeroi$UsageDenominator,0)
 
 #Get Market10 Information
-country_info <- dbGetQuery(cprod,"
+country_info <- SparkR::collect(SparkR::sql("
                       WITH mkt10 AS (
                            SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM IE2_Prod.dbo.iso_cc_rollup_xref with (NOLOCK)
-                           WHERE country_scenario='Market10'
+                           FROM iso_cc_rollup_xref
+                           WHERE country_scenario='MARKET10'
                       ),
                       rgn5 AS (
                             SELECT country_alpha2, region_5, developed_emerging, country 
-                            FROM IE2_Prod.dbo.iso_country_code_xref with (NOLOCK)
+                            FROM iso_country_code_xref
                       )
                       SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
-                           ")
+                           "))
 
 #######SELECT IB VERSION#####
-#ib_version <- as.character(dbGetQuery(ch,"select max(ib_version) as ib_version from biz_trans.tri_platform_measures_ib"))  #FROM BD Dashboard
-ib_version <- dbutils.widgets.get("ib_version")
-#ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
 
-ibtable <- dbGetQuery(cprod,paste0("
+ibtable <- SparkR::collect(SparkR::sql(paste0("
                    select  a.platform_subset
                           , a.cal_date
                           ,YEAR(a.cal_date)*100+MONTH(a.cal_date) AS month_begin
                           ,d.technology AS hw_type
-                          --,a.customer_engagement  AS RTM
                           ,b.region_5
-                          ,a.country
-                          --,substring(b.developed_emerging,1,1) as de
+                          ,a.country_alpha2
                           ,sum(a.units) as ib
                           ,a.version
-                    from IE2_Prod.dbo.ib a with (NOLOCK)
-                    left join IE2_Prod.dbo.iso_country_code_xref b with (NOLOCK)
-                      on (a.country=b.country_alpha2)
-                    left join IE2_Prod.dbo.hardware_xref d with (NOLOCK)
+                    from ib a
+                    left join iso_country_code_xref b
+                      on (a.country_alpha2=b.country_alpha2)
+                    left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
-                    where a.measure='ib'
-                      --and a.version = (select max(version) from IE2_Prod.dbo.ib)
+                    where a.measure='IB'
                       and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
                           or a.platform_subset like 'PANTHER%' or a.platform_subset like 'JAGUAR%'))
-                      --and YEAR(a.cal_date) < 2026
-                      and a.version='",ib_version,"'
                     group by a.platform_subset, a.cal_date, d.technology  --, a.customer_engagement
                             ,a.version
-                          --, b.developed_emerging
-                            , b.region_5, a.country
-                   "))
+                            , b.region_5, a.country_alpha2
+                   ")))
 
-lastAvaiableYear <- as.numeric(dbGetQuery(cprod,paste0("
+lastAvaiableYear <- as.numeric(SparkR::collect(SparkR::sql(paste0("
                      select  max(YEAR(cal_date)) 
-                      from IE2_Prod.dbo.ib with (NOLOCK)
-                      where 1=1
-                        --and version = (select max(version) from IE2_Prod.dbo.ib)
-                        --and YEAR(a.cal_date) < 2026
-                        and version='",ib_version,"'
-                     ")))
-firstAvaiableYear <- as.numeric(dbGetQuery(cprod,paste0("
+                      from ib
+                     "))))
+firstAvaiableYear <- as.numeric(SparkR::collect(SparkR::sql(paste0("
                      select  min(YEAR(cal_date)) 
-                      from IE2_Prod.dbo.ib with (NOLOCK)
-                      where 1=1
-                        --and version = (select max(version) from IE2_Prod.dbo.ib)
-                        --and YEAR(a.cal_date) < 2026
-                        and version='",ib_version,"'
-                     ")))
+                      from ib
+                     "))))
   
-hw_info <- dbGetQuery(cprod,"
+hw_info <- SparkR::collect(SparkR::sql("
                       SELECT platform_subset, technology, pl, mono_ppm
                       , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                        WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                        WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                         ELSE NULL
                         END as pro_vs_ent
                       , format, mono_color, sf_mf, vc_category, product_structure
                               , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
                                     WHEN vc_category in ('SWT-L') THEN 'SWL'
                                     WHEN vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-                                    WHEN vc_category in ('Dept','Dept-High') THEN 'DPT'
+                                    WHEN vc_category in ('DEPT','DEPT-HIGH') THEN 'DPT'
                                     WHEN vc_category in ('WG') THEN 'WGP'
                                     ELSE NULL
                                 END AS platform_market_code
-                      FROM IE2_Prod.dbo.hardware_xref with (NOLOCK)
+                      FROM hardware_xref
                       WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
                             or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
-                      ")
-  
+                      "))
+
 zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_code, c.market10, c.developed_emerging, a.FYearMo, SUBSTR(d.mono_color,1,1) as CM
                   , d.pro_vs_ent as EP, a.platform_function_code
                   , CASE WHEN a.platform_market_code in ('ULE','PLE-L','PLE-H','PLE','DSK') THEN 'DSK'
                          WHEN a.platform_market_code in ('SWT-L','SWL') THEN 'SWL'
-                         WHEN a.platform_market_code in ('SWT-H','SWT-H Pro','SWH') THEN 'SWH'
-                         WHEN a.platform_market_code in ('DEPT','Dept','Dept-High','DPT') THEN 'DPT'
+                         WHEN a.platform_market_code in ('SWT-H','SWT-H PRO','SWH') THEN 'SWH'
+                         WHEN a.platform_market_code in ('DEPT','DEPT','DEPT-HIGH','DPT') THEN 'DPT'
                          WHEN a.platform_market_code in ('WG','WGP') THEN 'WGP'
                          ELSE NULL
                                 END AS platform_market_code
@@ -305,7 +234,7 @@ zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_cod
                   , SUM(SumMPV/SumN*b.ib) AS SumMPV, sum(a.SumN) as SumN, sum(b.ib) as SUMib
               from zeroi a
               left join ibtable b
-              on (a.printer_country_iso_code=b.country and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
+              on (a.printer_country_iso_code=b.country_alpha2 and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
               left join country_info c
               on a.printer_country_iso_code=c.country_alpha2
               left join hw_info d
@@ -356,11 +285,15 @@ zero_platform <- sqldf('select distinct printer_platform_name, printer_region_co
 zero_platform$source1 <-"tri_printer_usage_sn"
 zero_platformList <- reshape2::dcast(zero_platform, printer_platform_name ~market10, value.var="source1")
 
-countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("Central Europe","Greater Asia", "Greater China","India SL & BL","ISE","Latin America"
-                                                       ,"North America","Northern Europe","Southern Europe","UK&I")]))
+countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("CENTRAL EUROPE","GREATER ASIA", "GREATER CHINA","INDIA SL & BL","ISE","LATIN AMERICA"
+                                                       ,"NORTH AMERICA","NORTHERN EUROPE","SOUTHERN EUROPE","UK&I")]))
 paste("The total numbers of platform - region combinations that could be retrieved from the FACT PRINTER LASER MONTH table =", countFACT_LP_MONTH)
 
 head(zero)
+
+# COMMAND ----------
+
+nrow(zero)
 
 # COMMAND ----------
 
@@ -373,7 +306,7 @@ head(zero)
 
 one <- sqldf(paste("								
                    SELECT *, SUMpMPVN/SUMpN AS NormMPV	
-                   , 'avaiable' as dummy
+                   , 'AVAIABLE' as dummy
                    FROM										
                    (										
                    SELECT printer_platform_name, market10, developed_emerging
@@ -803,7 +736,7 @@ usage <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_co
                   , SUM(SumMPV/SumN*b.ib) AS SumMPV, sum(a.SumN) as SumN, sum(b.ib) as SUMib
               from zeroi a
               left join ibtable b
-              on (a.printer_country_iso_code=b.country and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
+              on (a.printer_country_iso_code=b.country_alpha2 and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
               left join country_info c
               on a.printer_country_iso_code=c.country_alpha2
               left join hw_info d
@@ -1075,7 +1008,7 @@ usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.co
                           , min(a.month_begin) as Intro_FYearMo
                     FROM ibtable a
                     left join country_info b
-                      on a.country=b.country_alpha2
+                      on a.country_alpha2=b.country_alpha2
                     GROUP BY a.platform_subset 
                           , a.Region_5
                           , b.country_alpha2
