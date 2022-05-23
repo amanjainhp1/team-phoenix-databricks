@@ -163,6 +163,13 @@
             "encode": "lzo"
         },
         {
+            "description": "platform_series_model_name",
+            "name": "platform_series_model_name",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
             "description": "printer_firmware_code",
             "name": "printer_firmware_code",
             "type": "VARCHAR(100)",
