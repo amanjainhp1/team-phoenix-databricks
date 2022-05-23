@@ -198,7 +198,7 @@ except:
                 "destination_schema": "mdm",
                 "destination_table": "supplies_xref"
             },
-            "supplies_xref": {
+            "tri_printer_ref_landing": {
                 "source_system": "sqlserver",
                 "source_database":"IE2_Landing",
                 "source_schema": "dbo",
