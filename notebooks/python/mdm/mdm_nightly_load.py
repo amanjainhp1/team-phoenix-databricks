@@ -198,6 +198,16 @@ except:
                 "destination_schema": "mdm",
                 "destination_table": "supplies_xref"
             },
+            "supplies_xref": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Landing",
+                "source_schema": "dbo",
+                "source_table": "tri_printer_ref_landing",
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "prod",
+                "destination_table": "tri_printer_ref_landing"
+            },
             "yield": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
