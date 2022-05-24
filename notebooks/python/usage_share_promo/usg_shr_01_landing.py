@@ -9,7 +9,7 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+dbutils.widgets.text("version", "2022.05.13.1")
 
 # COMMAND ----------
 
@@ -45,7 +45,7 @@ SELECT lnd.record
     , lnd.ib_version
     -- , '2022.05.12.1' as ib_version -- UPDATE 03-30-2022 because toner and ink are different versions in the version table
     , (SELECT MAX(load_date) FROM "prod"."version" WHERE record = 'USAGE_SHARE') as load_date
-FROM "phoenix_spectrum"."cupsm" lnd
+FROM "phoenix_spectrum_itg"."cupsm" lnd
 """
 
 query_list.append(["stage.usage_share_landing", usg_shr_landing, "overwrite"])
@@ -147,7 +147,7 @@ SELECT us.record
 FROM land_03_helper_1 us
 LEFT JOIN "prod"."ib" ib
     ON us.cal_date=ib.cal_date
-    AND us.geography=ib.country
+    AND us.geography=ib.country_alpha2
     AND us.platform_subset=ib.platform_subset
     AND ib.version='{version}'
     AND ib.customer_engagement = us.customer_engagement
@@ -353,7 +353,7 @@ SELECT us.record
 FROM spin_01_helper_1 us
 LEFT JOIN "prod"."ib" ib
     ON us.cal_date=ib.cal_date
-    AND us.geography=ib.country
+    AND us.geography=ib.country_alpha2
     AND us.platform_subset=ib.platform_subset
     AND ib.version='{version}'
 LEFT JOIN "mdm"."iso_country_code_xref" cc
@@ -545,7 +545,7 @@ SELECT us.record
     , us.units
     , us.ib_version
     , us.source
-FROM "dev"."stage"."uss_01_land_spin" us
+FROM "stage"."uss_01_land_spin" us
 """
 
 query_list.append(["stage.usage_share_staging_pre_override", pre_override, "overwrite"])
@@ -559,3 +559,7 @@ query_list.append(["stage.usage_share_staging_pre_override", pre_override, "over
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+
