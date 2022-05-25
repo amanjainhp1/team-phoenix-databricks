@@ -622,7 +622,7 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                    from stratpl a , stratcs b ,stratmk d, stratmn e")
   stratjn <- sqldf("SELECT a.*, b.region_5
                    from stratjn a
-                   left join (select distinct region_5, market10 from country_info) b
+                   left join (select distinct region_5, market10 from country_info WHERE region_5 not in ('JP','XU','XW')) b
                    on a.market10=b.market10")
   outcome0 <- sqldf("SELECT a.*, b.region_5
                    from outcome0 a
