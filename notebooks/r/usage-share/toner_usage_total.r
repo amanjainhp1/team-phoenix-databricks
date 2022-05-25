@@ -15,7 +15,6 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("datestamp", "")
 dbutils.widgets.text("timestamp", "")
-dbutils.widgets.text("outnm_dt", "")
 
 # COMMAND ----------
 
@@ -108,8 +107,8 @@ options(scipen=999)
 lock_weights <- 0   #0 for use calculated, 1 for use stated version
 lockwt_file <- 'toner_weights_75_Q4_qe_2021-11-16'
 
-#--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
-outnm_dt <- dbutils.widgets.get("outnm_dt")
+datestamp <- dbutils.widgets.get("datestamp")
+timestamp <- dbutils.widgets.get("timestamp")
 
 # COMMAND ----------
 
@@ -546,7 +545,7 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                    from stratpl a , stratcs b ,stratmk d, stratmn e")
   stratjn <- sqldf("SELECT a.*, b.region_5
                    from stratjn a
-                   left join (select distinct region_5, market10 from country_info) b
+                   left join (select distinct region_5, market10 from country_info WHERE region_5 not in ('JP','XU','XW')) b
                    on a.market10=b.market10")
   outcome0 <- sqldf("SELECT a.*, b.region_5
                    from outcome0 a
@@ -2225,7 +2224,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [North America] is not null then 'SELF'
                                 WHEN [North America] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [North America] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [North America] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [North America] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [North America] is null and [ISE] is not null then 'ISE'
                                 WHEN [North America] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [North America] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
@@ -2261,7 +2260,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [UK&I] is not null then 'SELF'
                                 WHEN [UK&I] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [UK&I] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [UK&I] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [UK&I] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [UK&I] is null and [ISE] is not null then 'ISE'
                                 WHEN [UK&I] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [UK&I] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
@@ -2290,7 +2289,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Northern Europe] is not null then 'SELF'
                                 WHEN [Northern Europe] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Northern Europe] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Northern Europe] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [Northern Europe] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Northern Europe] is null and [ISE] is not null then 'ISE'
                                 WHEN [Northern Europe] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [Northern Europe] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
@@ -2349,7 +2348,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [ISE] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [ISE] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [ISE] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [ISE] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [ISE] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [ISE] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [ISE] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
                                 WHEN [ISE] is null and [Greater Asia] is not null then 'GREATER ASIA'
@@ -2378,7 +2377,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Central Europe] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Central Europe] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [Central Europe] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [Central Europe] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [Central Europe] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Central Europe] is null and [ISE] is not null then 'ISE'
                                 WHEN [Central Europe] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [Central Europe] is null and [Greater Asia] is not null then 'GREATER ASIA'
@@ -2430,7 +2429,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [India SL & BL] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [India SL & BL] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [India SL & BL] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [India SL & BL] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [India SL & BL] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [India SL & BL] is null and [ISE] is not null then 'ISE'
                                 WHEN [India SL & BL] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
                                 WHEN [India SL & BL] is null and [Greater Asia] is not null then 'GREATER ASIA'
@@ -2459,7 +2458,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater Asia] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Greater Asia] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [Greater Asia] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [Greater Asia] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [Greater Asia] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Greater Asia] is null and [ISE] is not null then 'ISE'
                                 WHEN [Greater Asia] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [Greater Asia] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
@@ -2504,7 +2503,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater China] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Greater China] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [Greater China] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [Greater China] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [Greater China] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Greater China] is null and [ISE] is not null then 'ISE'
                                 WHEN [Greater China] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [Greater China] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
@@ -2556,7 +2555,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Latin America] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Latin America] is null and [UK&I] is not null then 'UK&I'
                                 WHEN [Latin America] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
-                                WHEN [Latin America] is null and [Southern Europe] is not null then 'SOUITHERN EUROPE'
+                                WHEN [Latin America] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Latin America] is null and [ISE] is not null then 'ISE'
                                 WHEN [Latin America] is null and [India SL & BL] is not null then 'INDIA SL & BL'
                                 WHEN [Latin America] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
@@ -2598,7 +2597,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               WHEN a.market10 = 'LATIN AMERICA' then f.Latin_America2
                               WHEN a.market10 = 'UK&I' then f.UKI2
                               WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_Europe2
-                              WHEN a.market10 = 'SOUITHERN EUROPE' then f.Southern_Europe2
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_Europe2
                               WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='DEVELOPED' THEN f.Central_Europe_D2
                               WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='EMERGING' THEN f.Central_Europe_E2
                               WHEN a.market10 = 'ISE' then f.ISE2
@@ -2617,7 +2616,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               WHEN a.market10 = 'LATIN AMERICA' then f.Latin_AmericaRoute
                               WHEN a.market10 = 'UK&I' then f.UKIRoute
                               WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_EuropeRoute
-                              WHEN a.market10 = 'SOUITHERN EUROPE' then f.Southern_EuropeRoute
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_EuropeRoute
                               WHEN a.market10 = 'CENTRAL EUROPE' then f.Central_EuropeRoute
                               WHEN a.market10 = 'ISE' then f.ISERoute
                               WHEN a.market10 = 'GREATER ASIA' then f.Greater_AsiaRoute
@@ -2633,7 +2632,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               WHEN a.market10 = 'LATIN AMERICA' then f.Latin_America_ERoute
                               WHEN a.market10 = 'UK&I' then f.UKI_DRoute
                               WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_Europe_DRoute
-                              WHEN a.market10 = 'SOUITHERN EUROPE' then f.Southern_Europe_DRoute
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_Europe_DRoute
                               WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='DEVELOPED' then f.Central_Europe_DRoute
                               WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='EMERGING' then f.Central_Europe_ERoute
                               WHEN a.market10 = 'ISE' then f.ISE_ERoute
@@ -2653,7 +2652,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               WHEN a.market10 = 'LATIN AMERICA' then f.Latin_AmericaRoute
                               WHEN a.market10 = 'UK&I' then f.UKIRoute
                               WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_EuropeRoute
-                              WHEN a.market10 = 'SOUITHERN EUROPE' then f.Southern_EuropeRoute
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_EuropeRoute
                               WHEN a.market10 = 'CENTRAL EUROPE' then f.Central_EuropeRoute
                               WHEN a.market10 = 'ISE' then f.ISERoute
                               WHEN a.market10 = 'GREATER ASIA' then f.Greater_AsiaRoute
@@ -2813,20 +2812,6 @@ PoR_2 <- SparkR::collect(SparkR::sql(
   PoR$product_intro_price <- ifelse(PoR$printer_platform_name=="TSUNAMI 3:1 ROW",ifelse(is.na(PoR$product_intro_price),149,PoR$product_intro_price),PoR$product_intro_price)
   PoR$product_intro_price <- ifelse(PoR$printer_platform_name=="TWEETIE",ifelse(is.na(PoR$product_intro_price),1279,PoR$product_intro_price),PoR$product_intro_price)
   PoR$product_intro_price <- ifelse(PoR$printer_platform_name=="WHITEHAWK",ifelse(is.na(PoR$product_intro_price),179,PoR$product_intro_price),PoR$product_intro_price)
-
-# COMMAND ----------
-
-nrow(SparkR::sql("SELECT ib.platform_subset, cc.country_level_2 as region_code, cr.developed_emerging
-        ,cal_date 
-        ,CASE
-          WHEN MONTH(cal_date) > 10 THEN  concat(YEAR(cal_date)+1,reverse(substring(reverse(concat('0000',MONTH(cal_date)-10)),1,2)))
-          ELSE concat(YEAR(cal_date),reverse(substring(reverse(concat('0000',MONTH(cal_date)+2)),1,2)))
-          END as fyearmo
-        FROM ib ib
-        LEFT JOIN iso_country_code_xref cr
-        ON ib.country_alpha2=cr.country_alpha2
-        LEFT JOIN (select * from iso_cc_rollup_xref where country_scenario='MARKET10') cc
-        ON ib.country_alpha2=cc.country_alpha2"))
 
 # COMMAND ----------
 
@@ -3002,21 +2987,7 @@ str(PoR2B)
 PoR2model <- PoR2B
   PoR2model$print_color_speed_pages <- as.numeric(PoR2model$print_color_speed_pages)
   PoR2model$print_mono_speed_pages <- as.numeric(PoR2model$print_mono_speed_pages)
-  
 
-  
-  #PoR2model <- sqldf('select *
-  #, case 
-  #when PLATFORM_TYPE = "OLD" and CM = "M" and SM = "SF" then (-0.70292 + 0.8000206*log(INTRO_PRICE_NUMBER) + 1.315551*log(MONO_SPEED_NUMBER) -0.008051*J90Mo) 
-  #when PLATFORM_TYPE = "OLD" and CM = "M" and SM = "MF" then (-2.376331 + 0.8661936*log(INTRO_PRICE_NUMBER) + 1.6562368*log(MONO_SPEED_NUMBER) -0.008247*J90Mo) 
-  #when PLATFORM_TYPE = "OLD" and CM = "C" and SM = "SF" then (-0.01346 + 0.7295208*log(INTRO_PRICE_NUMBER) + 1.1682769*log(MONO_SPEED_NUMBER) -0.006288*J90Mo -0.206628*IsDPT + 0.017758*IsDSK ) 
-  #when PLATFORM_TYPE = "OLD" and CM = "C" and SM = "MF" then (1.2004303 + 0.4817492*log(INTRO_PRICE_NUMBER) + 1.0721192*log(MONO_SPEED_NUMBER) -0.007462*J90Mo +0.3521691*log(COLOR_SPEED_NUMBER)) 
-  #end as model
-  #from PoR2B
-  #ORDER BY 
-  #Intro_FYearMo 
-  #, PLATFORM_TYPE 
-  #')
 ######NEED TO PULL IN NEW MODELS#######  
   PoR2model <- sqldf('select *
     , case 
@@ -3035,8 +3006,6 @@ PoR2model <- PoR2B
   
   PoR2model$rawMPV <- exp(as.numeric(PoR2model$model))
   str(PoR2model)
-  
-  #write.csv(paste(mainDir,subDir1,"/","PoR2model_iMPVmodeled_OLD_platforms",".csv", sep=''), x=PoR2model,row.names=FALSE, na="")
 
 # COMMAND ----------
 
@@ -3047,7 +3016,7 @@ Greater_China_D2, Greater_China_E2, Latin_America_E2
                         from PoR2model aa1 
                         left outer join 
                         usagesummaryNAEUAP aa2 
-                        on
+                        onz
                         aa1.printer_platform_name = aa2.printer_platform_name
                         where PLATFORM_TYPE = "OLD"
                         order by platform_market_code
@@ -3571,19 +3540,19 @@ routeT <- reshape2::dcast(route, platform_market_code + CM +printer_platform_nam
 
   route <- sqldf("SELECT *,
                   CASE WHEN Route = 'SELF' THEN 'MODELLED: SELF'
-                       WHEN Route = 'NA' THEN 'PROXIED: NA ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'UK' THEN 'PROXIED: UK ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'IS' THEN 'PROXIED: IS ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'IN' THEN 'PROXIED: IN ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'GAD' THEN 'PROXIED: GAD ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'GAE' THEN 'PROXIED: GAE ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'GCD' THEN 'PROXIED: GCD ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'GCE' THEN 'PROXIED: GCE ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'CED' THEN 'PROXIED: CED ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'CEE' THEN 'PROXIED: CEE ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'LA' THEN 'PROXIED: LA ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'NE' THEN 'PROXIED: NE ;'||CM||PLATFORM_MARKET_CODE
-                       WHEN Route = 'SE' THEN 'PROXIED: SE ;'||CM||PLATFORM_MARKET_CODE
+                       WHEN Route = 'NA' THEN 'PROXIED: NA ;'||CM||platform_market_code
+                       WHEN Route = 'UK' THEN 'PROXIED: UK ;'||CM||platform_market_code
+                       WHEN Route = 'IS' THEN 'PROXIED: IS ;'||CM||platform_market_code
+                       WHEN Route = 'IN' THEN 'PROXIED: IN ;'||CM||platform_market_code
+                       WHEN Route = 'GAD' THEN 'PROXIED: GAD ;'||CM||platform_market_code
+                       WHEN Route = 'GAE' THEN 'PROXIED: GAE ;'||CM||platform_market_code
+                       WHEN Route = 'GCD' THEN 'PROXIED: GCD ;'||CM||platform_market_code
+                       WHEN Route = 'GCE' THEN 'PROXIED: GCE ;'||CM||platform_market_code
+                       WHEN Route = 'CED' THEN 'PROXIED: CED ;'||CM||platform_market_code
+                       WHEN Route = 'CEE' THEN 'PROXIED: CEE ;'||CM||platform_market_code
+                       WHEN Route = 'LA' THEN 'PROXIED: LA ;'||CM||platform_market_code
+                       WHEN Route = 'NE' THEN 'PROXIED: NE ;'||CM||platform_market_code
+                       WHEN Route = 'SE' THEN 'PROXIED: SE ;'||CM||platform_market_code
                        WHEN Route = 'MODLED' THEN 'ML'
                        WHEN Route = 'FUTURE' THEN 'HW POR'
                   END AS label
@@ -3747,7 +3716,7 @@ normdatadate2 <- reshape2::melt(normdatadate, id.vars = c("platform_market_code"
 sourceRiMPV$mde <- ifelse(sourceRiMPV$market10=='CENTRAL EUROPE',paste0('CE',substr(sourceRiMPV$developed_emerging,1,1)),
                    ifelse(sourceRiMPV$market10=='GREATER ASIA',paste0('GA',substr(sourceRiMPV$developed_emerging,1,1)), 
                    ifelse(sourceRiMPV$market10=='GREATER CHINA',paste0('GC',substr(sourceRiMPV$developed_emerging,1,1)),
-                   ifelse(sourceRiMPV$market10=='North AMERICA','NA',
+                   ifelse(sourceRiMPV$market10=='NORTH AMERICA','NA',
                    ifelse(sourceRiMPV$market10=='NORTHERN EUROPE','NE',
                    ifelse(sourceRiMPV$market10=='SOUTHERN EUROPE','SE',
                    ifelse(sourceRiMPV$market10=='UK&I','UK',
@@ -3792,7 +3761,7 @@ normdataFinal0 <- sqldf("
 
                       END AS iMPV
                       ,CASE WHEN src.Route='COUNTRY' THEN upper('modelled: Self') 
-                            WHEN src.Route='dev/em' THEN upper('modelled: Dev/EM')
+                            WHEN src.Route='DEV/EM' THEN upper('modelled: Dev/EM')
                             WHEN src.Route='MARKET10' THEN upper('modelled: Market10')
                             WHEN src.Route='REGION5' THEN upper('modelled: Region5')
                             WHEN src.Route='SELF' THEN upper('modelled: Self')
@@ -3870,14 +3839,11 @@ normdataFinal$strata2 <- apply( normdataFinal[ , cols ] , 1 , paste , collapse =
 s1 <- as.data.frame(seq(max(1990,firstAvaiableYear), lastAvaiableYear, 1))
 s2 <- as.data.frame(seq(1, 12, 1))
 s3 <- merge(s1,s2,all=TRUE)
-# names(s3)[names(s3)=="seq(1990, 2020, 1)"] <- "year"
-# names(s3)[names(s3)=="seq(1, 12, 1)"] <- "month"
 names(s3)[1] <- "year"
 names(s3)[2] <- "month"
 names(s2)[1] <- "month"
 tempdir(check=TRUE)
 
-#   rm(PoR, PoR_1, zeroi, usage2, usage3, usage4, usage5, zero, two, three, four, outcome0, sourceR, sourceRiMPV, introYear3, introYear, iblist )
 gc()
 
 # COMMAND ----------
@@ -4091,28 +4057,26 @@ createOrReplaceTempView(final9, "final9")
 
 # COMMAND ----------
 
-# -------Can you create an Access database from server?  
-# Step 85 - exporting final10 Table into Access database
-
-start.time2 <- Sys.time()
-
-output_file_name <- paste0(aws_bucket_name, "UPM_ctry(", todaysDate, ")")
-
-check_dups <- SparkR::sql("
-                WITH stp1 AS (SELECT Platform_Subset_Nm, Country_Cd, FYearMo, count(*) as numobs
-                  FROM final9
-                Group by Platform_Subset_Nm, Country_Cd, FYearMo)
-                SELECT *
-                 FROM stp1
-                 WHERE numobs !=1
-                 ")
-
-if(nrow(check_dups)==0){SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")} else {print("Duplicates in data")}
-
-print(output_file_name)
-
-end.time2 <- Sys.time()
-time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
+# MAGIC %python
+# MAGIC # Step 85 - exporting final9 to S3
+# MAGIC 
+# MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_total"
+# MAGIC 
+# MAGIC check_dups = spark.sql("""
+# MAGIC                 WITH stp1 AS (SELECT Platform_Subset_Nm, Country_Cd, FYearMo, count(*) as numobs
+# MAGIC                   FROM final9
+# MAGIC                 Group by Platform_Subset_Nm, Country_Cd, FYearMo)
+# MAGIC                 SELECT *
+# MAGIC                  FROM stp1
+# MAGIC                  WHERE numobs !=1
+# MAGIC                  """)
+# MAGIC 
+# MAGIC if check_dups.count() == 0:
+# MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
+# MAGIC else:
+# MAGIC     print("Duplicates in data")
+# MAGIC 
+# MAGIC print(output_file_name)
 
 # COMMAND ----------
 

@@ -1,19 +1,4 @@
 # Databricks notebook source
-# TODO: for dev work only 
-notebook_args = {'tasks': 'all',
- 'ib_version': '2022.05.16.1',
- 'upm_date': '2022-05-20',
- 'upm_color_date': '2022-05-20',
- 'bdtbl': 'cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg',
- 'cutoff_dt': '',
- 'outnm_dt': '',
- 'writeout': 'false'}
-
-for key, val in notebook_args.items():
-    dbutils.widgets.text(key, val)
-
-# COMMAND ----------
-
 # MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
@@ -30,30 +15,30 @@ all_tables = {
     'bdtbl': {
         'tasks': ['all'],
         'query': f'SELECT * FROM {dbutils.widgets.get("bdtbl")}'
-#     },
-#     'calendar':{
-#         'tasks': ['all', 'share'],
-#         'query': f'SELECT * FROM mdm.calendar'
-#     },
-#     'hardware_xref': {
-#         'tasks': ['all'],
-#         'query': f'SELECT * FROM mdm.hardware_xref'
-#     },
-#     'ib': {
-#         'tasks': ['all'],
-#         'query': f"""SELECT * FROM prod.ib WHERE version = '{dbutils.widgets.get("ib_version")}'"""
-#     },
-#     'iso_cc_rollup_xref': {
-#         'tasks': ['all'],
-#         'query': f'SELECT * FROM mdm.iso_cc_rollup_xref'
-#     },
-#     'iso_country_code_xref': {
-#         'tasks': ['all'],
-#         'query': f'SELECT * FROM mdm.iso_country_code_xref'
-#     },
-#     'tri_printer_ref_landing': {
-#         'tasks': ['all', 'usage_total'],
-#         'query': f'SELECT * FROM prod.tri_printer_ref_landing'
+    },
+    'calendar':{
+        'tasks': ['all', 'share'],
+        'query': f'SELECT * FROM mdm.calendar'
+    },
+    'hardware_xref': {
+        'tasks': ['all'],
+        'query': f'SELECT * FROM mdm.hardware_xref'
+    },
+    'ib': {
+        'tasks': ['all'],
+        'query': f"""SELECT * FROM prod.ib WHERE version = '{dbutils.widgets.get("ib_version")}'"""
+    },
+    'iso_cc_rollup_xref': {
+        'tasks': ['all'],
+        'query': f'SELECT * FROM mdm.iso_cc_rollup_xref'
+    },
+    'iso_country_code_xref': {
+        'tasks': ['all'],
+        'query': f'SELECT * FROM mdm.iso_country_code_xref'
+    },
+    'tri_printer_ref_landing': {
+        'tasks': ['all', 'usage_total'],
+        'query': f'SELECT * FROM prod.tri_printer_ref_landing'
     }
 }
 
@@ -78,8 +63,4 @@ for key, value in all_tables.items():
                 if column[1] == 'string':
                     df = df.withColumn(column[0], f.upper(f.col(column[0])))
             
-            df.write.parquet("{}cupsm_inputs/{}/{}/{}/".format(constants["S3_BASE_BUCKET"][stack], "20220520", "123456789", key), mode = "overwrite") #TODO: add datestamp and timestamp parameters 
-
-# COMMAND ----------
-
-
+            df.write.parquet("{}cupsm_inputs/{}/{}//{}/{}/".format(constants["S3_BASE_BUCKET"][stack], "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), key), mode = "overwrite") #TODO: add datestamp and timestamp parameters 

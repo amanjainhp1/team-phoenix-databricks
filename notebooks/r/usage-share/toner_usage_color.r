@@ -13,7 +13,8 @@ notebook_start_time <- Sys.time()
 
 # COMMAND ----------
 
-dbutils.widgets.text("upm_date", "")
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("timestamp", "")
 
 # COMMAND ----------
 
@@ -55,7 +56,14 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # COMMAND ----------
 
-UPMDate <- dbutils.widgets.get("upm_date") #Change to date if not running on same date as UPM "2019-12-19" #
+# MAGIC %python
+# MAGIC # load parquet data and register views
+# MAGIC datestamp = dbutils.widgets.get('datestamp')
+# MAGIC timestamp = dbutils.widgets.get('timestamp')
+# MAGIC 
+# MAGIC tables = ['bdtbl', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
+# MAGIC for table in tables:
+# MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
 
 # COMMAND ----------
 
@@ -95,24 +103,6 @@ oldNewDemarcation <- end1
 
 options(stringsAsFactors= FALSE)
 options(scipen=999)
-
-# COMMAND ----------
-
-# load parquet data and register views
-bdtbl <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/toner/20220520/123456789/bdtbl/"))
-createOrReplaceTempView(bdtbl, 'bdtbl')
-
-hardware_xref <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/toner/20220520/123456789/hardware_xref/"))
-createOrReplaceTempView(hardware_xref, 'hardware_xref')
-
-ib <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/toner/20220520/123456789/ib/"))
-createOrReplaceTempView(ib, 'ib')
-
-iso_cc_rollup_xref <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/toner/20220520/123456789/iso_cc_rollup_xref/"))
-createOrReplaceTempView(iso_cc_rollup_xref, 'iso_cc_rollup_xref')
-
-iso_country_code_xref <- SparkR::read.parquet(glue::glue("{aws_bucket_name}/cupsm_inputs/toner/20220520/123456789/iso_country_code_xref/"))
-createOrReplaceTempView(iso_country_code_xref, 'iso_country_code_xref')
 
 # COMMAND ----------
 
@@ -159,7 +149,7 @@ ibtable <- SparkR::collect(SparkR::sql("
                           ,YEAR(a.cal_date)*100+MONTH(a.cal_date) AS month_begin
                           ,d.technology AS hw_type
                           ,b.region_5
-                          ,a.country
+                          ,a.country_alpha2
                           ,substring(b.developed_emerging,1,1) as de
                           ,sum(a.units) as ib
                           ,a.version
@@ -168,7 +158,7 @@ ibtable <- SparkR::collect(SparkR::sql("
                           ,d.business_feature
                     from ib a
                     left join iso_country_code_xref b
-                      on (a.country=b.country_alpha2)
+                      on (a.country_alpha2=b.country_alpha2)
                     left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
                     where a.measure = 'IB'
@@ -178,7 +168,7 @@ ibtable <- SparkR::collect(SparkR::sql("
                           ,a.cal_date
                           ,d.technology
                           ,b.region_5
-                          ,a.country
+                          ,a.country_alpha2
                           ,b.developed_emerging
                           ,a.version
                           ,d.mono_color
@@ -204,31 +194,31 @@ hwval <- SparkR::collect(SparkR::sql("
                     FROM hardware_xref
                     WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3') 
                           or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')))
-                    ")
+                    "))
 
 
 intro_dt <- SparkR::collect(SparkR::sql("
                      SELECT platform_subset, min(cal_date) as platform_intro_month
                      FROM ib
                      GROUP BY platform_subset
-                     ")
+                     "))
 
 #Get Market10 Information
-country_info <- dbGetQuery(cprod,"
+country_info <- SparkR::collect(SparkR::sql("
                       WITH mkt10 AS (
                            SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM IE2_Prod.dbo.iso_cc_rollup_xref
-                           WHERE country_scenario='Market10'
+                           FROM iso_cc_rollup_xref
+                           WHERE country_scenario='MARKET10'
                       ),
                       rgn5 AS (
                             SELECT country_alpha2, CASE WHEN region_5='JP' THEN 'AP' ELSE region_5 END AS region_5, developed_emerging, country 
-                            FROM IE2_Prod.dbo.iso_country_code_xref
+                            FROM iso_country_code_xref
                       )
                       SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
-                           ")
+                           "))
 
 zero <- sqldf("with sub0 as (select a.platform_name, c.region_5 as printer_region_code, a.calendar_year_month as FYearMo
                 , upper(SUBSTR(hw.mono_color,1,1)) as CM
@@ -243,7 +233,7 @@ zero <- sqldf("with sub0 as (select a.platform_name, c.region_5 as printer_regio
                 , SUM(ib.IB) as sumIB
             FROM zeroi a
             LEFT JOIN ibtable ib
-              ON (a.iso_country_code=ib.country and a.calendar_year_month=ib.month_begin and a.platform_name=ib.platform_subset)
+              ON (a.iso_country_code=ib.country_alpha2 and a.calendar_year_month=ib.month_begin and a.platform_name=ib.platform_subset)
             LEFT JOIN country_info c
               ON a.iso_country_code=c.country_alpha2 
             LEFT JOIN hwval hw
@@ -294,29 +284,18 @@ zero <- subset(zero, !is.na(CM))
 
 zero$platform_market_code <- ifelse(zero$platform_market_code=="WFP","WGP",zero$platform_market_code)
 
-#zero$EP <- ifelse(substring(zero$printer_platform_name,1,10)=="CLEARWATER",'PRO',zero$EP)
-#zero$EP <- ifelse(zero$printer_platform_name=="CLEARWATER MANAGED",'ENT',zero$EP)
-#zero$platform_market_code <- ifelse(substring(zero$printer_platform_name,1,10)=="CLEARWATER",'SWL',zero$platform_market_code)
-
 zero$pMPV <- ifelse(((zero$FYearMo) >= start1 & (zero$FYearMo <=end1)), zero$meansummpvwtn, NA)
 zero$pN <- ifelse(((zero$FYearMo) >= start1 & (zero$FYearMo <=end1)), zero$SumN, NA)
 zero$pMPVN <- zero$pMPV*zero$pN
 
 zero_platform <- sqldf('select distinct printer_platform_name, printer_region_code from zero order by printer_platform_name, printer_region_code')
-zero_platform$source1 <-"tri_printer_usage_sn"
+zero_platform$source1 <-"TRI_PRINTER_USAGE_SN"
 zero_platformList <- reshape2::dcast(zero_platform, printer_platform_name ~printer_region_code, value.var="source1")
 
 countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("AP","EU", "LA","NA")])) 
 paste("The total numbers of platform - region combinations that could be retrieved from the FACT PRINTER LASER MONTH table =", countFACT_LP_MONTH)
 
 head(zero)
-
-#not_in_use <- sqldf("select platform_subset,min(month_begin) as mindate,max(month_begin) as maxdate, sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature from ibtable where platform_subset not in (select platform_name from zeroi) group by platform_subset,sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature  ") 
-#not_in_use2 <- sqldf("select platform_subset,min(month_begin) as mindate,max(month_begin) as maxdate, sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature from ibtable where platform_subset not in (select printer_platform_name from zero) and platform_subset not in (select platform_subset from not_in_use) group by platform_subset,sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature  ") 
-#miss_val <- sqldf("select printer_platform_name, printer_region_code , CM, EP, sf_mf, platform_market_code
-                  #from zero
-                    #where (CM is null or EP is null or sf_mf is null or platform_market_code is null) and SumibWt is not null
-                   #")
 
 # COMMAND ----------
 
@@ -352,7 +331,7 @@ plot(grph2)
 
 one <- sqldf(paste("								
                    SELECT *, SUMpMPVN AS NormMPV
-                   , 'avaiable' as dummy
+                   , 'AVAIABLE' as dummy
                    FROM										
                    (										
                    SELECT printer_platform_name, printer_region_code,  market10, de, platform_market_code, sf_mf
@@ -461,56 +440,18 @@ threeg <- rbind(threeg,threegj)
 
 # COMMAND ----------
 
-# # Step 5 - drop groups if respective number < 200 and create MUT
-
-# four <- sqldf(paste("select three.CM, one.platform_market_code, one.printer_region_code, one.market10, one.de, one.printer_platform_name, one.sf_mf
-#                       , one.NormMPV
-#                       , three.medNMPV
-#                       , threec.wmedNMPV
-#                       , threee.wmedNMPVib
-#                       , threeg.wmedNMPVpg
-#                       , three.mnMPV
-#                       , threec.wmnNMPV
-#                       , threee.wmnNMPVib
-#                       , threeg.wmnNMPVpg
-#                       from one
-#                       left join three 
-#                       on one.platform_market_code=three.platform_market_code and one.printer_region_code=three.printer_region_code 
-#                         and one.sf_mf=three.sf_mf and one.market10=three.market10 and one.de=three.de
-#                       left join threec 
-#                       on one.platform_market_code=threec.platform_market_code and one.printer_region_code=threec.printer_region_code 
-#                         and one.sf_mf=threec.sf_mf and one.market10=threec.market10 and one.de=threec.de
-#                       left join threee 
-#                       on one.platform_market_code=threee.platform_market_code and one.printer_region_code=threee.printer_region_code 
-#                         and one.sf_mf=threee.sf_mf and one.market10=threee.market10 and one.de=threee.de
-#                       left join threeg 
-#                       on one.platform_market_code=threeg.platform_market_code and one.printer_region_code=threeg.printer_region_code 
-#                         and one.sf_mf=threeg.sf_mf and one.market10=threeg.market10 and one.de=threeg.de
-#                       where SumN >=", minSize, " and medNMPV is not null 
-#                       order by three.CM, one.platform_market_code, one.printer_region_code", sep = " ")
-#   )
+# MAGIC %python
+# MAGIC 
+# MAGIC spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_total").where("CM == 'C'").createOrReplaceTempView("upm")
 
 # COMMAND ----------
 
-UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
-
-UPM <- SparkR::filter(UPM, "CM == 'C'")
-
-createOrReplaceTempView(UPM, "UPM")
 createOrReplaceTempView(as.DataFrame(hwval), "hwval")
 
 UPM <- SparkR::sql("select upm.*, hw.sf_mf as SM, hw.pro_vs_ent as EP
-              from UPM upm left join hwval hw on upm.Platform_Subset_Nm =hw.platform_subset")
+              from upm left join hwval hw on upm.Platform_Subset_Nm =hw.platform_subset")
 
 createOrReplaceTempView(UPM, "UPM")
-# createOrReplaceTempView(as.DataFrame(threeg), "threeg")
-
-# UPMc <- SparkR::sql("SELECT upm.*, b.wmedNMPVpg
-#                FROM UPM upm
-#                LEFT JOIN threeg b
-#                 ON upm.Mkt=b.platform_market_code and upm.Region=b.printer_region_code and upm.SM=b.sf_mf
-              
-#               ")
 
 # COMMAND ----------
 
@@ -568,54 +509,18 @@ final9 <- SparkR::sql('
                     ON upm.Mkt=d.platform_market_code and upm.Region_DE=substr(d.de,1,1) and upm.SM=d.sf_mf
                 ')
 
-printSchema(final9)
-# final9$FYearMo <- as.character(final9$FYearMo)
-
-# head(final9)
+createOrReplaceTempView(final9, "final9")
 
 # COMMAND ----------
 
-# Step 85 - exporting final10 Table into Access database
-
-start.time2 <- Sys.time()
-
-# odbcDataSources()
-# 
-# ch2 <- odbcConnect(db1)
-# sqlTables(ch2)
-# 
-# variableTypes = c(Color_Pct="number", K_EYR="number"
-#                   , KCYM_EYR="number", POR_ColorPct="number"
-#                   ,POR_KEYR="number", POR_KCYMEYR="number")
-# 
-# 
-# sqlSave(ch2, final10, tablename = tb1, append = FALSE,
-#         rownames = FALSE, colnames = FALSE, safer = FALSE 
-#         # If "safer" = false, allow sqlSave to attempt to delete all the rows of an existing table, or to drop it
-#         ,varTypes=variableTypes
-# )
-# 
-# close(ch2)  
-
-
-# s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
-# s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").parquet"))
-
-output_file_name <- paste0("s3://", aws_bucket_name, "UPMColor_ctry(", todaysDate, ").parquet")
-
-SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
-
-print(output_file_name)
-
-end.time2 <- Sys.time()
-time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
-
-# COMMAND ----------
-
-# ---- Step 86 - exporting final10 Table into R database ----------------------------------#
-
-#s3saveRDS(x=final10,object="BrentT/UPM_Data.RDS", bucket="s3://insights-environment-sandbox/")
-# Cannot add "subdirectories" in S3, subdirectory name is part of the filename.  
+# MAGIC %python
+# MAGIC # Step 85 - exporting final9 to S3
+# MAGIC 
+# MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_color"
+# MAGIC 
+# MAGIC write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
+# MAGIC 
+# MAGIC print(output_file_name)
 
 # COMMAND ----------
 

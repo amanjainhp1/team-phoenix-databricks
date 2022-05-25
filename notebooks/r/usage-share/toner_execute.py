@@ -5,23 +5,27 @@ from time import time, sleep
 
 # COMMAND ----------
 
+# MAGIC %run ../../python/common/datetime_utils
+
+# COMMAND ----------
+
+# all toner_* parameters
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("timestamp", "")
+
 # toner_execute parameters
 dbutils.widgets.text("tasks", "")
 
-# all toner_* parameters
-dbutils.widgets.text("ib_version", "")
+# toner_retrieve_inputs parameters
 dbutils.widgets.text("bdtbl", "")
-dbutils.widgets.text("outnm_dt", "")
 dbutils.widgets.text("ib_version", "")
 
-# toner_usage_color & toner_share parameters
-dbutils.widgets.text("upm_date", "")
+# toner_usage_total parameters
+# toner_usage_color parameters
 
 # toner_share parameters
-dbutils.widgets.text("bdtbl", "")
 dbutils.widgets.text("cutoff_dt", "")
-dbutils.widgets.text("upm_date_color", "")
-dbutils.widgets.text("writeout", "")
+dbutils.widgets.text("outnm_dt", "")
 
 # COMMAND ----------
 
@@ -38,11 +42,10 @@ for task in tasks:
 
 # COMMAND ----------
 
-# set default dates if not specified
-today = str(date.today())
-
-upm_date = today if dbutils.widgets.get("upm_date") == "" else dbutils.widgets.get("upm_date")
-upm_date_color = today if dbutils.widgets.get("upm_date_color") == "" else dbutils.widgets.get("upm_date_color")
+# set default parameters if not provided by user
+date = Date()
+datestamp = date.getDatestamp() if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+timestamp = date.getTimestamp() if dbutils.widgets.get("timestamp") == "" else dbutils.widgets.get("timestamp")
 
 bdtbl = "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg" if  dbutils.widgets.get("bdtbl")=="" else dbutils.widgets.get("bdtbl")
 
@@ -72,13 +75,12 @@ notebooks = {
 # create dict of args
 notebook_args = {
             "tasks": f"{dbutils.widgets.get('tasks')}",
-            "ib_version": f"{dbutils.widgets.get('ib_version')}",
-            "upm_date": f"{upm_date}",
-            "upm_color_date": f"{upm_date_color}",
+            "datestamp": f"{datestamp}",
+            "timestamp": f"{timestamp}",
             "bdtbl": f"{bdtbl}",
+            "ib_version": f"{dbutils.widgets.get('ib_version')}",
             "cutoff_dt": f"{dbutils.widgets.get('cutoff_dt')}",
-            "outnm_dt": f"{dbutils.widgets.get('outnm_dt')}",
-            "writeout": f"{writeout}"
+            "outnm_dt": f"{dbutils.widgets.get('outnm_dt')}"
 }
 
 # COMMAND ----------
