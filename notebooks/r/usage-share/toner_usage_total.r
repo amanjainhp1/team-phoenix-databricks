@@ -4075,6 +4075,7 @@ createOrReplaceTempView(final9, "final9")
 # MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
 # MAGIC else:
 # MAGIC     print("Duplicates in data")
+# MAGIC     dbutils.notebook.exit("FAILED")
 # MAGIC 
 # MAGIC print(output_file_name)
 

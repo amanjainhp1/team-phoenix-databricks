@@ -54,19 +54,19 @@ bdtbl = "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg" if dbutil
 # specify notebook/task and notebook path relative to this notebook
 notebooks = {
     "retrieve_inputs": {
-        "precedence": "1",
+        "precedence": 1,
         "notebook": "./toner_retrieve_inputs"
     },
     "usage_total": {
-        "precedence": "2",
+        "precedence": 2,
         "notebook": "./toner_usage_total"
     },
     "usage_color": {
-        "precedence": "3",
+        "precedence": 3,
         "notebook": "./toner_usage_color"
     },
     "share": {
-        "precedence": "4",
+        "precedence": 4,
         "notebook": "./toner_share"}
 }
 
