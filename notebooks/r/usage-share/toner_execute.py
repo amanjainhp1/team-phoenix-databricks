@@ -47,9 +47,7 @@ date = Date()
 datestamp = date.getDatestamp() if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 timestamp = date.getTimestamp() if dbutils.widgets.get("timestamp") == "" else dbutils.widgets.get("timestamp")
 
-bdtbl = "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg" if  dbutils.widgets.get("bdtbl")=="" else dbutils.widgets.get("bdtbl")
-
-writeout = "false" if dbutils.widgets.get("writeout") == "" else dbutils.widgets.get("writeout")
+bdtbl = "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg" if dbutils.widgets.get("bdtbl") == "" else dbutils.widgets.get("bdtbl")
 
 # COMMAND ----------
 
