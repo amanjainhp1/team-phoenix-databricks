@@ -3016,7 +3016,7 @@ Greater_China_D2, Greater_China_E2, Latin_America_E2
                         from PoR2model aa1 
                         left outer join 
                         usagesummaryNAEUAP aa2 
-                        onz
+                        on
                         aa1.printer_platform_name = aa2.printer_platform_name
                         where PLATFORM_TYPE = "OLD"
                         order by platform_market_code
