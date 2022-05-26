@@ -117,7 +117,7 @@ def run_notebooks(notebooks: dict):
     for precedence in precedences:
         print("LOG: running notebooks with precedence value: " + str(precedence))
         
-        filtered_notebooks = filter_notebooks_by_precedence(precedence, notebooks, nmotebook_args)
+        filtered_notebooks = filter_notebooks_by_precedence(precedence, notebooks, notebook_args)
         
         if any(task in tasks for task in ["all", f"{list(filtered_notebooks.keys())}"]):
             
