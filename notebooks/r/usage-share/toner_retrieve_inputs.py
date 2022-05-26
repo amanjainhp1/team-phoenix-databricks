@@ -63,4 +63,4 @@ for key, value in all_tables.items():
                 if column[1] == 'string':
                     df = df.withColumn(column[0], f.upper(f.col(column[0])))
             
-            df.write.parquet("{}cupsm_inputs/{}/{}//{}/{}/".format(constants["S3_BASE_BUCKET"][stack], "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), key), mode = "overwrite") #TODO: add datestamp and timestamp parameters 
+            df.write.parquet("{}cupsm_inputs/{}/{}//{}/{}/".format(constants["S3_BASE_BUCKET"][stack], "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), key), mode = "overwrite")
