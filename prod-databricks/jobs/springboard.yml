@@ -14,10 +14,11 @@ Jobs:
   - mdm-nightly-load
   - rdma-full-load
   - redshift-resource-creator
-  - toner-share
-  - toner-usage-color
-  - toner-usage-total
+  - toner-usage-share
   - wd3-load
 
 DeleteJobs:
   - table-creator
+  - toner-share
+  - toner-usage-color
+  - toner-usage-total

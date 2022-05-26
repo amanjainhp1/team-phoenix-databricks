@@ -16,9 +16,7 @@ Jobs:
   - mdm-nightly-load
   - rdma-full-load
   - redshift-resource-creator
-  - toner-share
-  - toner-usage-color
-  - toner-usage-total
+  - toner-usage-share
   - wd3-load
 
 DeleteJobs:
@@ -26,3 +24,6 @@ DeleteJobs:
   - installed-base-promo
   - installed-base-scenario
   - norm-ships
+  - toner-share
+  - toner-usage-color
+  - toner-usage-total
