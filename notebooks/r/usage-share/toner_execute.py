@@ -119,7 +119,7 @@ def run_notebooks(notebooks: dict):
         
         filtered_notebooks = filter_notebooks_by_precedence(precedence, notebooks, notebook_args)
         
-        if any(task in tasks for task in ["all", f"{list(filtered_notebooks.keys())}"]):
+        if any(task in tasks for task in ["all"]+(list(filtered_notebooks.keys()))):
             
             filtered_notebook_list = []
             for key, value in filtered_notebooks.items():
