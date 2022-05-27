@@ -46,10 +46,18 @@ def read_redshift_to_df(configs: dict) -> DataFrame:
 
 # COMMAND ----------
 
-def write_df_to_redshift(configs: dict, df: DataFrame, destination: str = "", mode: str = "append", postactions: str = "", preactions: str = "") -> None:
+def df_strings_to_upper(df: DataFrame) -> DataFrame:
     for column in df.dtypes:
         if column[1] == 'string':
             df = df.withColumn(column[0], f.upper(f.col(column[0])))
+    return df
+
+# COMMAND ----------
+
+def write_df_to_redshift(configs: dict, df: DataFrame, destination: str = "", mode: str = "append", postactions: str = "", preactions: str = "") -> None:
+    
+    df = df_strings_to_upper(df)
+    
     try:
         df.write \
             .format("com.databricks.spark.redshift") \
@@ -98,7 +106,9 @@ def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", m
 
 # COMMAND ----------
 
-def write_df_to_s3(df: DataFrame, destination: str = "", format: str = "parquet", mode: str = "append"):
+def write_df_to_s3(df: DataFrame, destination: str = "", format: str = "parquet", mode: str = "append", upper_strings: bool = False) -> None:
+    if upper_strings:
+        df = df_strings_to_upper(df)
     df.write \
         .format(format) \
         .mode(mode) \
