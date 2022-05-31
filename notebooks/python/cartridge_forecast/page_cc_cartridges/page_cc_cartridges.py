@@ -82,9 +82,9 @@ WITH crg_months AS
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
      FROM stage.usage_share_staging AS d
      JOIN mdm.hardware_xref AS hw
-        ON hw.platform_subset = d.platform_subset
+        ON UPPER(hw.platform_subset) = UPPER(d.platform_subset)
      WHERE 1 = 1
-        AND hw.technology IN ('INK', 'LASER', 'PWA')
+        AND UPPER(hw.technology) IN ('INK', 'LASER', 'PWA')
      GROUP BY d.cal_date
             , d.geography
             , d.platform_subset
@@ -102,8 +102,8 @@ WITH crg_months AS
                    , v.cartridge_volume
      FROM stage.cartridge_units AS v
               JOIN stage.shm_base_helper AS shm
-                   ON shm.base_product_number = v.base_product_number
-                       AND shm.geography = v.geography
+                   ON UPPER(shm.base_product_number) = UPPER(v.base_product_number)
+                       AND UPPER(shm.geography) = UPPER(v.geography)
      WHERE 1 = 1
        AND v.cartridge_volume > 0)
 
@@ -125,23 +125,23 @@ WITH crg_months AS
                    , v.cartridge_volume * pf.yield AS pages
      FROM pcm_04_crg_actuals AS v
               JOIN mdm.supplies_xref AS s
-                   ON s.base_product_number = v.base_product_number
+                   ON UPPER(s.base_product_number) = UPPER(v.base_product_number)
               JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = v.platform_subset
+                   ON UPPER(hw.platform_subset) = UPPER(v.platform_subset)
               JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.platform_subset = v.platform_subset
-                       AND dmd.geography = v.geography
-                       AND dmd.cal_date = v.cal_date
+                   ON UPPER(dmd.platform_subset) = UPPER(v.platform_subset)
+                       AND UPPER(dmd.geography) = UPPER(v.geography)
+                       AND CAST(dmd.cal_date AS DATE) = CAST(v.cal_date AS DATE)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = v.base_product_number
-                       AND pf.cal_date = v.cal_date
-                       AND pf.market_10 = v.geography
+                   ON UPPER(pf.base_product_number) = UPPER(v.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(v.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(v.geography)
               JOIN stage.shm_base_helper AS shm
-                   ON shm.base_product_number = v.base_product_number
-                       AND shm.platform_subset = v.platform_subset
-                       AND shm.customer_engagement = dmd.customer_engagement
+                   ON UPPER(shm.base_product_number) = UPPER(v.base_product_number)
+                       AND UPPER(shm.platform_subset) = UPPER(v.platform_subset)
+                       AND UPPER(shm.customer_engagement) = UPPER(dmd.customer_engagement)
      WHERE 1 = 1
-       AND hw.technology IN ('INK', 'LASER', 'PWA'))
+       AND UPPER(hw.technology) IN ('INK', 'LASER', 'PWA'))
 
    , pcrg_01_k_acts AS
     (SELECT pcm.type
@@ -182,22 +182,22 @@ WITH crg_months AS
                     0))                                              AS imp_corrected_cartridges
      FROM stage.page_cc_mix AS pcm
               JOIN mdm.supplies_xref AS S
-                   ON S.base_product_number = pcm.base_product_number
+                   ON UPPER(S.base_product_number) = UPPER(pcm.base_product_number)
               JOIN pcm_02_hp_demand AS dmd
                    ON dmd.cal_date = pcm.cal_date
-                       AND dmd.geography = pcm.geography
-                       AND dmd.platform_subset = pcm.platform_subset
-                       AND dmd.customer_engagement = pcm.customer_engagement
+                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
+                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = pcm.base_product_number
-                       AND pf.cal_date = pcm.cal_date
-                       AND pf.market_10 = pcm.geography
+                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
               JOIN pcm_05_pages AS pc
                    ON pc.cal_date = pcm.cal_date
-                       AND pc.geography = pcm.geography
-                       AND pc.platform_subset = pcm.platform_subset
-                       AND pc.base_product_number = pcm.base_product_number
-                       AND pc.customer_engagement = pcm.customer_engagement
+                       AND UPPER(pc.geography) = UPPER(pcm.geography)
+                       AND UPPER(pc.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(pc.base_product_number) = UPPER(pcm.base_product_number)
+                       AND UPPER(pc.customer_engagement) = UPPER(pcm.customer_engagement)
      WHERE 1 = 1
        AND UPPER(pcm.type) = 'PCM_ENGINE_ACTS'
        AND UPPER(s.k_color) = 'BLACK')
@@ -241,22 +241,22 @@ WITH crg_months AS
                     0))                                              AS imp_corrected_cartridges
      FROM stage.page_cc_mix AS pcm
               JOIN mdm.supplies_xref AS s
-                   ON s.base_product_number = pcm.base_product_number
+                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.cal_date = pcm.cal_date
-                       AND dmd.geography = pcm.geography
-                       AND dmd.platform_subset = pcm.platform_subset
-                       AND dmd.customer_engagement = pcm.customer_engagement
+                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
+                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = pcm.base_product_number
-                       AND pf.cal_date = pcm.cal_date
-                       AND pf.market_10 = pcm.geography
+                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
               JOIN pcm_05_pages AS pc
-                   ON pc.cal_date = pcm.cal_date
-                       AND pc.geography = pcm.geography
-                       AND pc.platform_subset = pcm.platform_subset
-                       AND pc.base_product_number = pcm.base_product_number
-                       AND pc.customer_engagement = pcm.customer_engagement
+                   ON CAST(pc.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pc.geography) = UPPER(pcm.geography)
+                       AND UPPER(pc.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(pc.base_product_number) = UPPER(pcm.base_product_number)
+                       AND UPPER(pc.customer_engagement) = UPPER(pcm.customer_engagement)
      WHERE 1 = 1
        AND UPPER(pcm.type) = 'PCM_ENGINE_ACTS'
        AND CASE WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
@@ -301,22 +301,22 @@ WITH crg_months AS
                     0))                                            AS imp_corrected_cartridges
      FROM stage.page_cc_mix AS pcm
               JOIN mdm.supplies_xref AS s
-                   ON s.base_product_number = pcm.base_product_number
+                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.cal_date = pcm.cal_date
-                       AND dmd.geography = pcm.geography
-                       AND dmd.platform_subset = pcm.platform_subset
-                       AND dmd.customer_engagement = pcm.customer_engagement
+                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
+                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = pcm.base_product_number
-                       AND pf.cal_date = pcm.cal_date
-                       AND pf.market_10 = pcm.geography
+                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
               JOIN pcm_05_pages AS pc
-                   ON pc.cal_date = pcm.cal_date
-                       AND pc.geography = pcm.geography
-                       AND pc.platform_subset = pcm.platform_subset
-                       AND pc.base_product_number = pcm.base_product_number
-                       AND pc.customer_engagement = pcm.customer_engagement
+                   ON CAST(pc.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pc.geography) = UPPER(pcm.geography)
+                       AND UPPER(pc.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(pc.base_product_number) = UPPER(pcm.base_product_number)
+                       AND UPPER(pc.customer_engagement) = UPPER(pcm.customer_engagement)
      WHERE 1 = 1
        AND UPPER(pcm.type) = 'PCM_ENGINE_ACTS'
        AND CASE WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
@@ -344,18 +344,18 @@ WITH crg_months AS
             1.0                                                            AS imp_corrected_cartridges
      FROM stage.page_cc_mix AS pcm
               JOIN mdm.supplies_xref AS s
-                   ON s.base_product_number = pcm.base_product_number
+                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = pcm.platform_subset
+                   ON UPPER(hw.platform_subset) = UPPER(pcm.platform_subset)
               JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.cal_date = pcm.cal_date
-                       AND dmd.geography = pcm.geography
-                       AND dmd.platform_subset = pcm.platform_subset
-                       AND dmd.customer_engagement = pcm.customer_engagement
+                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
+                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = pcm.base_product_number
-                       AND pf.cal_date = pcm.cal_date
-                       AND pf.market_10 = pcm.geography
+                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
      WHERE 1 = 1
        AND UPPER(s.k_color) = 'BLACK'
        AND UPPER(pcm.type) <> 'PCM_ENGINE_ACTS')
@@ -381,18 +381,18 @@ WITH crg_months AS
             1.0                                                            AS imp_corrected_cartridges
      FROM stage.page_cc_mix AS pcm
               JOIN mdm.supplies_xref AS s
-                   ON s.base_product_number = pcm.base_product_number
+                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = pcm.platform_subset
+                   ON UPPER(hw.platform_subset) = UPPER(pcm.platform_subset)
               JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.cal_date = pcm.cal_date
-                       AND dmd.geography = pcm.geography
-                       AND dmd.platform_subset = pcm.platform_subset
-                       AND dmd.customer_engagement = pcm.customer_engagement
+                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
+                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = pcm.base_product_number
-                       AND pf.cal_date = pcm.cal_date
-                       AND pf.market_10 = pcm.geography
+                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
      WHERE 1 = 1
        AND CASE WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
            ELSE 'SINGLE' END = 'SINGLE'
@@ -421,18 +421,18 @@ WITH crg_months AS
             1.0                                                          AS imp_corrected_cartridges
      FROM stage.page_cc_mix AS pcm
               JOIN mdm.supplies_xref AS s
-                   ON s.base_product_number = pcm.base_product_number
+                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = pcm.platform_subset
+                   ON UPPER(hw.platform_subset) = UPPER(pcm.platform_subset)
               JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.cal_date = pcm.cal_date
-                       AND dmd.geography = pcm.geography
-                       AND dmd.platform_subset = pcm.platform_subset
-                       AND dmd.customer_engagement = pcm.customer_engagement
+                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
+                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
+                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
               JOIN pen_fills AS pf
-                   ON pf.base_product_number = pcm.base_product_number
-                       AND pf.cal_date = pcm.cal_date
-                       AND pf.market_10 = pcm.geography
+                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
      WHERE 1 = 1
        AND CASE WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
            ELSE 'SINGLE' END <> 'SINGLE'

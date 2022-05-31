@@ -227,7 +227,6 @@ query_list.append(["stage.cartridge_units", cartridge_units, "overwrite"])
 # COMMAND ----------
 
 page_mix_engine = """
-
 WITH pcm_02_hp_demand AS
     (SELECT d.cal_date
           , d.geography
@@ -754,7 +753,7 @@ WITH pcm_02_hp_demand AS
        AND c.day_of_month = 1
        AND c.date BETWEEN fm.supplies_forecast_start AND ddb.max_dmd_date)
 
-SELECT 'pcm_engine_acts' AS type
+SELECT 'PCM_ENGINE_ACTS' AS type
      , m10.cal_date
      , m10.geography_grain
      , m10.geography
@@ -766,12 +765,12 @@ SELECT 'pcm_engine_acts' AS type
      , CAST(cal_date AS varchar) + ' ' + geography + ' ' + platform_subset +
        ' ' +
        base_product_number + ' ' + customer_engagement + ' ' +
-       'pcm_engine_acts' AS composite_key
+       'PCM_ENGINE_ACTS' AS composite_key
 FROM pcm_10_mix_step_3_mix_acts AS m10
 
 UNION ALL
 
-SELECT 'pcm_engine_projection'                                          AS type
+SELECT 'PCM_ENGINE_PROJECTION'                                          AS type
      , m18.cal_date
      , m18.geography_grain
      , m18.geography
@@ -783,7 +782,7 @@ SELECT 'pcm_engine_projection'                                          AS type
      , CAST(cal_date AS varchar) + ' ' + geography + ' ' + platform_subset +
        ' ' +
        base_product_number + ' ' + customer_engagement + ' ' +
-       'pcm_engine_projection'                                                         AS composite_key
+       'PCM_ENGINE_PROJECTION'                                                         AS composite_key
 FROM pcm_18_projection AS m18
 """
 
@@ -1142,7 +1141,7 @@ WITH pcm_02_hp_demand AS
        AND c.day_of_month = 1
        AND c.date BETWEEN fm.supplies_forecast_start AND ddb.max_dmd_date)
 
-SELECT 'pcm_engine_acts' AS type
+SELECT 'PCM_ENGINE_ACTS' AS type
      , m8.cal_date
      , m8.geography_grain
      , m8.geography
@@ -1153,12 +1152,12 @@ SELECT 'pcm_engine_acts' AS type
      , CAST(cal_date AS varchar) + ' ' + geography + ' ' + platform_subset +
        ' ' +
        base_product_number + ' ' + customer_engagement + ' ' +
-       'pcm_engine_acts' AS composite_key
+       'PCM_ENGINE_ACTS' AS composite_key
 FROM pcm_08_mix_step_3_acts AS m8
 
 UNION ALL
 
-SELECT 'pcm_engine_projection'                                          AS type
+SELECT 'PCM_ENGINE_PROJECTION'                                          AS type
      , m14.cal_date
      , m14.geography_grain
      , m14.geography
@@ -1169,7 +1168,7 @@ SELECT 'pcm_engine_projection'                                          AS type
      , CAST(cal_date AS varchar) + ' ' + geography + ' ' + platform_subset +
        ' ' +
        base_product_number + ' ' + customer_engagement + ' ' +
-       'pcm_engine_projection'                                                         AS composite_key
+       'PCM_ENGINE_PROJECTION'                                                         AS composite_key
 FROM pcm_14_projection AS m14
 """
 
@@ -1419,9 +1418,9 @@ WITH pcm_27_pages_mix_prep AS
         FROM stage.page_mix_engine AS m19
                  LEFT OUTER JOIN stage.page_cc_mix_override AS m26
                                  ON m26.cal_date = m19.cal_date
-                                     AND m26.market10 = m19.geography
-                                     AND m26.platform_subset = m19.platform_subset
-                                     AND m26.customer_engagement = m19.customer_engagement
+                                     AND UPPER(m26.market10) = UPPER(m19.geography)
+                                     AND UPPER(m26.platform_subset) = UPPER(m19.platform_subset)
+                                     AND UPPER(m26.customer_engagement) = UPPER(m19.customer_engagement)
         WHERE 1 = 1
           AND m26.cal_date IS NULL
           AND m26.market10 IS NULL
@@ -1431,7 +1430,7 @@ WITH pcm_27_pages_mix_prep AS
         UNION ALL
 
         -- page mix uploads
-        SELECT 'pcm_forecaster_override' AS type
+        SELECT 'PCM_FORECASTER_OVERRIDE' AS type
              , m26.cal_date
              , 'MARKET10' AS geography_grain
              , m26.market10 AS geography
@@ -1452,7 +1451,24 @@ WITH pcm_27_pages_mix_prep AS
           , m27.page_mix
      FROM pcm_27_pages_mix_prep AS m27
      WHERE 1 = 1
-       AND m27.type = 'pcm_engine_acts' -- all actuals
+       AND UPPER(m27.type) = 'PCM_ENGINE_ACTS' -- all actuals
+
+     UNION ALL
+
+     SELECT m27.type
+          , m27.cal_date
+          , m27.geography_grain
+          , m27.geography
+          , m27.platform_subset
+          , m27.base_product_number
+          , m27.customer_engagement
+          , m27.page_mix
+     FROM pcm_27_pages_mix_prep AS m27
+              JOIN mdm.hardware_xref AS hw
+                   ON UPPER(hw.platform_subset) = UPPER(m27.platform_subset)
+     WHERE 1 = 1
+       AND UPPER(m27.type) = 'PCM_ENGINE_PROJECTION'
+       AND UPPER(hw.product_lifecycle_status) <> 'N' -- all forecast NOT NPIs
 
      UNION ALL
 
@@ -1468,25 +1484,8 @@ WITH pcm_27_pages_mix_prep AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = m27.platform_subset
      WHERE 1 = 1
-       AND m27.type = 'pcm_engine_projection'
-       AND hw.product_lifecycle_status <> 'N' -- all forecast NOT NPIs
-
-     UNION ALL
-
-     SELECT m27.type
-          , m27.cal_date
-          , m27.geography_grain
-          , m27.geography
-          , m27.platform_subset
-          , m27.base_product_number
-          , m27.customer_engagement
-          , m27.page_mix
-     FROM pcm_27_pages_mix_prep AS m27
-              JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = m27.platform_subset
-     WHERE 1 = 1
-       AND m27.type IN ('pcm_forecaster_override')
-       AND hw.product_lifecycle_status = 'N' -- all forecast NPIs
+       AND UPPER(m27.type) IN ('PCM_FORECASTER_OVERRIDE')
+       AND UPPER(hw.product_lifecycle_status) = 'N' -- all forecast NPIs
     )
 
 SELECT m28.type
@@ -1501,10 +1500,10 @@ SELECT m28.type
        m28.base_product_number + ' ' + m28.customer_engagement AS composite_key
 FROM pcm_28_pages_ccs_mix_filter AS m28
          JOIN stage.shm_base_helper AS shm
-              ON shm.geography = m28.geography
-                  AND shm.platform_subset = m28.platform_subset
-                  AND shm.base_product_number = m28.base_product_number
-                  AND shm.customer_engagement = m28.customer_engagement
+              ON UPPER(shm.geography) = UPPER(m28.geography)
+                  AND UPPER(shm.platform_subset) = UPPER(m28.platform_subset)
+                  AND UPPER(shm.base_product_number) = UPPER(m28.base_product_number)
+                  AND UPPER(shm.customer_engagement) = UPPER(m28.customer_engagement)
 """
 
 query_list.append(["stage.page_mix_complete", page_mix_complete, "overwrite"])
@@ -1531,9 +1530,9 @@ WITH pcm_27_pages_ccs_mix_prep AS
         FROM stage.cc_mix_engine AS m19
                  LEFT OUTER JOIN stage.page_cc_mix_override AS m26
                                  ON m26.cal_date = m19.cal_date
-                                     AND m26.market10 = m19.geography
-                                     AND m26.platform_subset = m19.platform_subset
-                                     AND m26.customer_engagement = m19.customer_engagement
+                                     AND UPPER(m26.market10) = UPPER(m19.geography)
+                                     AND UPPER(m26.platform_subset) = UPPER(m19.platform_subset)
+                                     AND UPPER(m26.customer_engagement) = UPPER(m19.customer_engagement)
         WHERE 1 = 1
           AND m26.cal_date IS NULL
           AND m26.market10 IS NULL
@@ -1543,7 +1542,7 @@ WITH pcm_27_pages_ccs_mix_prep AS
         UNION ALL
 
         -- cc mix uploads
-        SELECT 'pcm_forecaster_override' AS type
+        SELECT 'PCM_FORECASTER_OVERRIDE' AS type
              , m26.cal_date
              , 'MARKET10' AS geography_grain
              , m26.market10 AS geography
@@ -1564,7 +1563,24 @@ WITH pcm_27_pages_ccs_mix_prep AS
           , m27.cc_mix
      FROM pcm_27_pages_ccs_mix_prep AS m27
      WHERE 1 = 1
-       AND m27.type = 'pcm_engine_acts' -- all actuals
+       AND UPPER(m27.type) = 'PCM_ENGINE_ACTS' -- all actuals
+
+     UNION ALL
+
+     SELECT m27.type
+          , m27.cal_date
+          , m27.geography_grain
+          , m27.geography
+          , m27.platform_subset
+          , m27.base_product_number
+          , m27.customer_engagement
+          , m27.cc_mix
+     FROM pcm_27_pages_ccs_mix_prep AS m27
+              JOIN mdm.hardware_xref AS hw
+                   ON UPPER(hw.platform_subset) = UPPER(m27.platform_subset)
+     WHERE 1 = 1
+       AND UPPER(m27.type) = 'PCM_ENGINE_PROJECTION'
+       AND UPPER(hw.product_lifecycle_status) <> 'N' -- all forecast NOT NPIs
 
      UNION ALL
 
@@ -1580,25 +1596,8 @@ WITH pcm_27_pages_ccs_mix_prep AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = m27.platform_subset
      WHERE 1 = 1
-       AND m27.type = 'pcm_engine_projection'
-       AND hw.product_lifecycle_status <> 'N' -- all forecast NOT NPIs
-
-     UNION ALL
-
-     SELECT m27.type
-          , m27.cal_date
-          , m27.geography_grain
-          , m27.geography
-          , m27.platform_subset
-          , m27.base_product_number
-          , m27.customer_engagement
-          , m27.cc_mix
-     FROM pcm_27_pages_ccs_mix_prep AS m27
-              JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = m27.platform_subset
-     WHERE 1 = 1
-       AND m27.type IN ('pcm_forecaster_override')
-       AND hw.product_lifecycle_status = 'N' -- all forecast NPIs
+       AND m27.type IN ('PCM_FORECASTER_OVERRIDE')
+       AND UPPER(hw.product_lifecycle_status) = 'N' -- all forecast NPIs
     )
 
 SELECT m28.type
@@ -1613,10 +1612,10 @@ SELECT m28.type
        m28.base_product_number + ' ' + m28.customer_engagement AS composite_key
 FROM pcm_28_pages_ccs_mix_filter AS m28
          JOIN stage.shm_base_helper AS shm
-              ON shm.geography = m28.geography
-                  AND shm.platform_subset = m28.platform_subset
-                  AND shm.base_product_number = m28.base_product_number
-                  AND shm.customer_engagement = m28.customer_engagement
+              ON UPPER(shm.geography) = UPPER(m28.geography)
+                  AND UPPER(shm.platform_subset) = UPPER(m28.platform_subset)
+                  AND UPPER(shm.base_product_number) = UPPER(m28.base_product_number)
+                  AND UPPER(shm.customer_engagement) = UPPER(m28.customer_engagement)
 """
 
 query_list.append(["stage.cc_mix_complete", cc_mix_complete, "overwrite"])
