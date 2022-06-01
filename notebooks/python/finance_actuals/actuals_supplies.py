@@ -131,7 +131,3 @@ query = f"""
 """
 
 submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], query)
-
-# COMMAND ----------
-
-
