@@ -605,6 +605,7 @@ for (printer in unique(page_share_reg$grp)){
     mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
     #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
     dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+    dat1<- subset(dat1,timediff>0)
     #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
     mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
 
@@ -678,6 +679,7 @@ for (printer in unique(page_share_m10$grp)){
   mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
   dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+  dat1<- subset(dat1,timediff>0)
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
   mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
   
@@ -769,6 +771,7 @@ for (printer in unique(page_share_mde$grp)){
   mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
   dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+  dat1<- subset(dat1,timediff>0)
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
   mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
   
@@ -860,6 +863,7 @@ for (printer in unique(page_share_ctr$grp)){
   mindt <- as.Date(min(dat1$printer_intro_month),format="%Y-%m-%d")
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt)))
   dat1$timediff <- round(as.numeric(difftime(as.Date(as.yearqtr(dat1$fiscal_year_quarter,format="%YQ%q")),as.Date(dat1$printer_intro_month), units ="days")/(365.25/12)),0)
+  dat1<- subset(dat1,timediff>0)
   #dat1$timediff <- ((as.yearqtr(dat1$fiscal_year_quarter)-as.yearqtr(mindt))*4)
   mintimediff <- min(dat1$timediff) #number of quarters between printer introduction and start of data
   
@@ -2133,6 +2137,12 @@ final_list7 <- withColumn(final_list7, "Share_Source_PS", ifelse(like(final_list
 
 final_list7$total_pages <- final_list7$Usage*final_list7$ib
 final_list7$hp_pages <- final_list7$Usage*final_list7$ib*final_list7$Page_Share
+final_list7$total_kpages <- final_list7$Usage_k*final_list7$ib 
+final_list7$total_cpages <- final_list7$Usage_c*final_list7$ib
+final_list7$hp_kpages <- final_list7$Usage_k*final_list7$ib*final_list7$Page_Share 
+final_list7$hp_cpages <- final_list7$Usage_c*final_list7$ib*final_list7$Page_Share
+final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(lit(1)-final_list7$Page_Share) 
+final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share) 
                                              
 createOrReplaceTempView(final_list7, "final_list7")
 
@@ -2323,6 +2333,48 @@ mdm_tbl_pages <- SparkR::sql(paste("select distinct
                 WHERE Usage_c is not null AND Usage_c >0
                  
                  ",sep=""))
+                                             
+ mdm_tbl_kpages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'total_k_pages' as measure
+                , total_kpages as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
+                      
+ mdm_tbl_cpages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'total_c_pages' as measure
+                , total_cpages as units
+                , IMPV_Route as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
              
 mdm_tbl_hppages <- SparkR::sql(paste("select distinct
                 '",rec1,"' as record
@@ -2344,6 +2396,90 @@ mdm_tbl_hppages <- SparkR::sql(paste("select distinct
                 WHERE Usage_c is not null AND Usage_c >0
                  
                  ",sep=""))
+                        
+mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'hp_k_pages' as measure
+                , hp_kpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))   
+                                            
+mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'hp_c_pages' as measure
+                , hp_cpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))  
+
+mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'non_hp_k_pages' as measure
+                , nonhp_kpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 ")) 
+                       
+mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
+                '",rec1,"' as record
+                , year_month_float as cal_date
+                , '",geog1,"' as geography_grain
+                , Country_Cd as geography
+                , Platform_Subset_Nm as platform_subset
+                , 'Trad' as customer_engagement
+                , 'Modelled off of: Toner 100%IB process' as forecast_process_note
+                , '",today,"' as forecast_created_date
+                , Usage_Source as data_source
+                , '",vsn,"' as version
+                , 'non_hp_c_pages' as measure
+                , nonhp_cpages as units
+                , Proxy_PS as proxy_used
+                , '",ibversion,"' as ib_version
+                , '",today,"' as load_date
+                from final_list8
+                WHERE Usage_c is not null AND Usage_c >0
+                 
+                 "))
                         
 mdm_tbl_ib <- SparkR::sql(paste("select distinct
                 '",rec1,"' as record
@@ -2429,7 +2565,8 @@ mdm_tbl_ib <- SparkR::sql(paste("select distinct
                  
 #                  ",sep=""))
 
-mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage, mdm_tbl_pages, mdm_tbl_hppages, mdm_tbl_ib)
+mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage, mdm_tbl_pages, mdm_tbl_hppages, 
+                 mdm_tbl_kpages, mdm_tbl_cpages, mdm_tbl_khppages, mdm_tbl_chppages, mdm_tbl_knhppages, mdm_tbl_cnhppages, mdm_tbl_ib)
                                              
 #mdm_tbl <- rbind(mdm_tbl_share, mdm_tbl_usage, mdm_tbl_usagen, mdm_tbl_sharen, mdm_tbl_kusage, mdm_tbl_cusage)
                                              

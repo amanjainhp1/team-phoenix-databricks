@@ -13,60 +13,30 @@ notebook_start_time <- Sys.time()
 
 # COMMAND ----------
 
-dbutils.widgets.text("ib_version", "")
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
-dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("bdtbl", "dashboard.print_share_usage_agg_stg")
-dbutils.widgets.text("upm_date", "")
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("timestamp", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
-
-# COMMAND ----------
-
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 # MAGIC %python
-# MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 # MAGIC 
-# MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
-# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
+# MAGIC # retrieve configs and export to spark.confs for usage across languages
+# MAGIC for key, val in configs.items():
+# MAGIC     spark.conf.set(key, val)
 # MAGIC 
-# MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
-# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
+# MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
 
-# ---
-# #Version 2021.11.29.1#
-# title: "UPM with IE2.0 IB Color Pct"
-# output:
-#   word_document: default
-#   html_notebook: default
-# ---
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC ls -l /usr/bin/java
-# MAGIC ls -l /etc/alternatives/java
-# MAGIC ln -s /usr/lib/jvm/java-8-openjdk-amd64 /usr/lib/jvm/default-java
-# MAGIC R CMD javareconf
-
-# COMMAND ----------
-
-packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR", "spatstat")
+packages <- c("sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR", "spatstat")
 
 # COMMAND ----------
 
@@ -76,44 +46,24 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 options(java.parameters = "-Xmx40g")
 
-# setwd("~/work") #Set Work Directory ("~/NPI_Model") ~ for root directory
 options(scipen=999) #remove scientific notation
 tempdir(check=TRUE)
 
 # COMMAND ----------
 
-# mount s3 bucket to cluster
-aws_bucket_name <- "insights-environment-sandbox/BrentT/"
-mount_name <- "insights-environment-sandbox"
-
-tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
- error = function(e)
- print("Mount does not exist or is already mounted to cluster"))
+# define s3 bucket
+aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # COMMAND ----------
 
-# MAGIC %scala
-# MAGIC var configs: Map[String, String] = Map()
-# MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
-# MAGIC             "sfaiUrl" -> SFAI_URL,
-# MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
-# MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-# MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-# MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
-
-# COMMAND ----------
-
-UPMDate <- dbutils.widgets.get("upm_date") #Change to date if not running on same date as UPM "2019-12-19" #
-
-sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
-
-cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
-
-clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Landing;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
+# MAGIC %python
+# MAGIC # load parquet data and register views
+# MAGIC datestamp = dbutils.widgets.get('datestamp')
+# MAGIC timestamp = dbutils.widgets.get('timestamp')
+# MAGIC 
+# MAGIC tables = ['bdtbl', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
+# MAGIC for table in tables:
+# MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
 
 # COMMAND ----------
 
@@ -156,118 +106,69 @@ options(scipen=999)
 
 # COMMAND ----------
 
-# MAGIC %scala
-# MAGIC val zeroiQuery = s""" SELECT  tpmib.printer_platform_name as platform_name  
-# MAGIC                , tpmib.platform_std_name as platform_standard_name  
-# MAGIC                , tpmib.printer_country_iso_code as iso_country_code  
-# MAGIC                , tpmib.fiscal_year_quarter 
-# MAGIC                , tpmib.date_month_dim_ky as calendar_year_month 
-# MAGIC                , tpmib.share_region_incl_flag AS share_region_incl_flag   
-# MAGIC                , tpmib.ps_region_incl_flag AS page_share_region_incl_flag 
-# MAGIC                , tpmib.usage_region_incl_flag AS usage_region_incl_flag 
-# MAGIC                --Get numerator and denominator, already ib weighted at printer level
-# MAGIC                , SUM(COALESCE(tpmib.print_pages_total_ib_ext_sum,0)) as usage_numerator
-# MAGIC                , SUM(COALESCE(tpmib.print_pages_color_ib_ext_sum,0)) as color_numerator
-# MAGIC                , SUM(COALESCE(tpmib.print_months_ib_ext_sum,0)) as usage_denominator
-# MAGIC                , SUM(COALESCE(tpmib.printer_count_month_usage_flag_sum,0)) AS printer_count_month_use
-# MAGIC                , SUM(COALESCE(tpmib.printer_count_fyqtr_usage_flag_sum,0)) AS printer_count_fiscal_quarter_use
-# MAGIC                 FROM  
-# MAGIC                   ${dbutils.widgets.get("bdtbl")} tpmib
-# MAGIC                 WHERE 1=1 
-# MAGIC                   AND printer_route_to_market_ib='Aftermarket'
-# MAGIC                   AND printer_platform_name not in ('CICADA PLUS ROW',
-# MAGIC                                           'TSUNAMI 4:1 ROW',
-# MAGIC                                           'CRICKET',
-# MAGIC                                           'LONE PINE',
-# MAGIC                                           'MANTIS',
-# MAGIC                                           'CARACAL',
-# MAGIC                                           'EAGLE EYE',
-# MAGIC                                           'SID',
-# MAGIC                                           'TSUNAMI 4:1 CH/IND')
-# MAGIC                 GROUP BY tpmib.printer_platform_name  
-# MAGIC                , tpmib.platform_std_name  
-# MAGIC                , tpmib.printer_country_iso_code  
-# MAGIC                , tpmib.fiscal_year_quarter 
-# MAGIC                , tpmib.date_month_dim_ky 
-# MAGIC                , tpmib.share_region_incl_flag   
-# MAGIC                , tpmib.ps_region_incl_flag 
-# MAGIC                , tpmib.usage_region_incl_flag"""
-# MAGIC 
-# MAGIC val zeroi = readRedshiftToDF(configs)
-# MAGIC   .option("query", zeroiQuery)
-# MAGIC   .load()
-# MAGIC 
-# MAGIC zeroi.createOrReplaceTempView("zeroi")
-
-# COMMAND ----------
-
-zeroi <- SparkR::collect(SparkR::sql("SELECT * FROM zeroi"))
-
-# COMMAND ----------
-
 # Step 1 - query for Normalized extract specific to PE and RM
 
-# zeroi <- dbGetQuery(cprod,paste(						
-#   " 
-#   SELECT  tpmib.printer_platform_name as platform_name  
-#                , tpmib.platform_std_name as platform_standard_name  
-#                , tpmib.printer_country_iso_code as iso_country_code  
-#                , tpmib.fiscal_year_quarter 
-#                , tpmib.date_month_dim_ky as calendar_year_month 
-#                , tpmib.share_region_incl_flag AS share_region_incl_flag   
-#                , tpmib.ps_region_incl_flag AS page_share_region_incl_flag 
-#                , tpmib.usage_region_incl_flag AS usage_region_incl_flag 
-#                --Get numerator and denominator, already ib weighted at printer level
-#                , SUM(COALESCE(tpmib.print_pages_total_ib_ext_sum,0)) as usage_numerator
-#                , SUM(COALESCE(tpmib.print_pages_color_ib_ext_sum,0)) as color_numerator
-#                , SUM(COALESCE(tpmib.print_months_ib_ext_sum,0)) as usage_denominator
-#                , SUM(COALESCE(tpmib.printer_count_month_usage_flag_sum,0)) AS printer_count_month_use
-#                , SUM(COALESCE(tpmib.printer_count_fyqtr_usage_flag_sum,0)) AS printer_count_fiscal_quarter_use
-#                 FROM  
-#                   dashboard.print_share_usage_agg_stg tpmib with (NOLOCK)
-#                 WHERE 1=1 
-#                   AND printer_route_to_market_ib='Aftermarket'
-#                 GROUP BY tpmib.printer_platform_name  
-#                , tpmib.platform_std_name  
-#                , tpmib.printer_country_iso_code  
-#                , tpmib.fiscal_year_quarter 
-#                , tpmib.date_month_dim_ky 
-#                , tpmib.share_region_incl_flag   
-#                , tpmib.ps_region_incl_flag 
-#                , tpmib.usage_region_incl_flag
-#   ",sep = " ", collapse = NULL))
+zeroi = SparkR::collect(SparkR::sql(" SELECT  tpmib.printer_platform_name as platform_name  
+               , tpmib.platform_std_name as platform_standard_name  
+               , tpmib.printer_country_iso_code as iso_country_code  
+               , tpmib.fiscal_year_quarter 
+               , tpmib.date_month_dim_ky as calendar_year_month 
+               , tpmib.share_region_incl_flag AS share_region_incl_flag   
+               , tpmib.ps_region_incl_flag AS page_share_region_incl_flag 
+               , tpmib.usage_region_incl_flag AS usage_region_incl_flag 
+               --Get numerator and denominator, already ib weighted at printer level
+               , SUM(COALESCE(tpmib.print_pages_total_ib_ext_sum,0)) as usage_numerator
+               , SUM(COALESCE(tpmib.print_pages_color_ib_ext_sum,0)) as color_numerator
+               , SUM(COALESCE(tpmib.print_months_ib_ext_sum,0)) as usage_denominator
+               , SUM(COALESCE(tpmib.printer_count_month_usage_flag_sum,0)) AS printer_count_month_use
+               , SUM(COALESCE(tpmib.printer_count_fyqtr_usage_flag_sum,0)) AS printer_count_fiscal_quarter_use
+                FROM  
+                  bdtbl tpmib
+                WHERE 1=1 
+                  AND printer_route_to_market_ib='AFTERMARKET'
+                  AND printer_platform_name not in ('CICADA PLUS ROW',
+                                          'TSUNAMI 4:1 ROW',
+                                          'CRICKET',
+                                          'LONE PINE',
+                                          'MANTIS',
+                                          'CARACAL',
+                                          'EAGLE EYE',
+                                          'SID',
+                                          'TSUNAMI 4:1 CH/IND')
+                GROUP BY tpmib.printer_platform_name  
+               , tpmib.platform_std_name  
+               , tpmib.printer_country_iso_code  
+               , tpmib.fiscal_year_quarter 
+               , tpmib.date_month_dim_ky 
+               , tpmib.share_region_incl_flag   
+               , tpmib.ps_region_incl_flag 
+               , tpmib.usage_region_incl_flag"))
 
-#######SELECT IB VERSION#####
-#ib_version <- as.character(dbGetQuery(ch,"select max(ib_version) as ib_version from biz_trans.tri_platform_measures_ib"))  #FROM BD Dashboard
-ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
-#ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
-
-ibtable <- dbGetQuery(cprod,paste0("
+ibtable <- SparkR::collect(SparkR::sql("
                    select  a.platform_subset
                           ,YEAR(a.cal_date)*100+MONTH(a.cal_date) AS month_begin
                           ,d.technology AS hw_type
                           ,b.region_5
-                          ,a.country
+                          ,a.country_alpha2
                           ,substring(b.developed_emerging,1,1) as de
                           ,sum(a.units) as ib
                           ,a.version
                           ,d.mono_color
                           ,d.vc_category
                           ,d.business_feature
-                    from IE2_Prod.dbo.ib a with (NOLOCK)
-                    left join IE2_Prod.dbo.iso_country_code_xref b with (NOLOCK)
-                      on (a.country=b.country_alpha2)
-                    left join IE2_Prod.dbo.hardware_xref d with (NOLOCK)
+                    from ib a
+                    left join iso_country_code_xref b
+                      on (a.country_alpha2=b.country_alpha2)
+                    left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
-                    where a.measure = 'ib'
-                      and a.version = '",ib_version,"'
+                    where a.measure = 'IB'
                       and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3') 
                           or a.platform_subset like 'PANTHER%' or a.platform_subset like 'JAGUAR%')))
                     group by a.platform_subset
                           ,a.cal_date
                           ,d.technology
                           ,b.region_5
-                          ,a.country
+                          ,a.country_alpha2
                           ,b.developed_emerging
                           ,a.version
                           ,d.mono_color
@@ -276,48 +177,48 @@ ibtable <- dbGetQuery(cprod,paste0("
                    "))
 
 
-hwval <- dbGetQuery(cprod,"
+hwval <- SparkR::collect(SparkR::sql("
                     SELECT platform_subset, technology, pl, mono_ppm
                     , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                      WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                      WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                       ELSE NULL
                       END as pro_vs_ent
                     , format, mono_color, sf_mf, vc_category, product_structure
                             , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
                                   WHEN vc_category in ('SWT-L') THEN 'SWL'
-                                  WHEN vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-                                  WHEN vc_category in ('Dept','Dept-High') THEN 'DPT'
+                                  WHEN vc_category in ('SWT-H','SWT-H PRO') THEN 'SWH'
+                                  WHEN vc_category in ('DEPT','DEPT-HIGH') THEN 'DPT'
                                   WHEN vc_category in ('WG') THEN 'WGP'
                                   ELSE NULL
                               END AS platform_market_code
-                    FROM IE2_Prod.dbo.hardware_xref with (NOLOCK)
+                    FROM hardware_xref
                     WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3') 
                           or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')))
-                    ")
+                    "))
 
 
-intro_dt <- dbGetQuery(cprod,"
+intro_dt <- SparkR::collect(SparkR::sql("
                      SELECT platform_subset, min(cal_date) as platform_intro_month
-                     FROM ie2_Prod.dbo.ib
+                     FROM ib
                      GROUP BY platform_subset
-                     ")
+                     "))
 
 #Get Market10 Information
-country_info <- dbGetQuery(cprod,"
+country_info <- SparkR::collect(SparkR::sql("
                       WITH mkt10 AS (
                            SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM IE2_Prod.dbo.iso_cc_rollup_xref
-                           WHERE country_scenario='Market10'
+                           FROM iso_cc_rollup_xref
+                           WHERE country_scenario='MARKET10'
                       ),
                       rgn5 AS (
                             SELECT country_alpha2, CASE WHEN region_5='JP' THEN 'AP' ELSE region_5 END AS region_5, developed_emerging, country 
-                            FROM IE2_Prod.dbo.iso_country_code_xref
+                            FROM iso_country_code_xref
                       )
                       SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
-                           ")
+                           "))
 
 zero <- sqldf("with sub0 as (select a.platform_name, c.region_5 as printer_region_code, a.calendar_year_month as FYearMo
                 , upper(SUBSTR(hw.mono_color,1,1)) as CM
@@ -332,7 +233,7 @@ zero <- sqldf("with sub0 as (select a.platform_name, c.region_5 as printer_regio
                 , SUM(ib.IB) as sumIB
             FROM zeroi a
             LEFT JOIN ibtable ib
-              ON (a.iso_country_code=ib.country and a.calendar_year_month=ib.month_begin and a.platform_name=ib.platform_subset)
+              ON (a.iso_country_code=ib.country_alpha2 and a.calendar_year_month=ib.month_begin and a.platform_name=ib.platform_subset)
             LEFT JOIN country_info c
               ON a.iso_country_code=c.country_alpha2 
             LEFT JOIN hwval hw
@@ -383,29 +284,18 @@ zero <- subset(zero, !is.na(CM))
 
 zero$platform_market_code <- ifelse(zero$platform_market_code=="WFP","WGP",zero$platform_market_code)
 
-#zero$EP <- ifelse(substring(zero$printer_platform_name,1,10)=="CLEARWATER",'PRO',zero$EP)
-#zero$EP <- ifelse(zero$printer_platform_name=="CLEARWATER MANAGED",'ENT',zero$EP)
-#zero$platform_market_code <- ifelse(substring(zero$printer_platform_name,1,10)=="CLEARWATER",'SWL',zero$platform_market_code)
-
 zero$pMPV <- ifelse(((zero$FYearMo) >= start1 & (zero$FYearMo <=end1)), zero$meansummpvwtn, NA)
 zero$pN <- ifelse(((zero$FYearMo) >= start1 & (zero$FYearMo <=end1)), zero$SumN, NA)
 zero$pMPVN <- zero$pMPV*zero$pN
 
 zero_platform <- sqldf('select distinct printer_platform_name, printer_region_code from zero order by printer_platform_name, printer_region_code')
-zero_platform$source1 <-"tri_printer_usage_sn"
+zero_platform$source1 <-"TRI_PRINTER_USAGE_SN"
 zero_platformList <- reshape2::dcast(zero_platform, printer_platform_name ~printer_region_code, value.var="source1")
 
 countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("AP","EU", "LA","NA")])) 
 paste("The total numbers of platform - region combinations that could be retrieved from the FACT PRINTER LASER MONTH table =", countFACT_LP_MONTH)
 
 head(zero)
-
-#not_in_use <- sqldf("select platform_subset,min(month_begin) as mindate,max(month_begin) as maxdate, sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature from ibtable where platform_subset not in (select platform_name from zeroi) group by platform_subset,sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature  ") 
-#not_in_use2 <- sqldf("select platform_subset,min(month_begin) as mindate,max(month_begin) as maxdate, sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature from ibtable where platform_subset not in (select printer_platform_name from zero) and platform_subset not in (select platform_subset from not_in_use) group by platform_subset,sf_mf,mono_color,vc_category,subbrand,pro_vs_ent,business_feature  ") 
-#miss_val <- sqldf("select printer_platform_name, printer_region_code , CM, EP, sf_mf, platform_market_code
-                  #from zero
-                    #where (CM is null or EP is null or sf_mf is null or platform_market_code is null) and SumibWt is not null
-                   #")
 
 # COMMAND ----------
 
@@ -441,7 +331,7 @@ plot(grph2)
 
 one <- sqldf(paste("								
                    SELECT *, SUMpMPVN AS NormMPV
-                   , 'avaiable' as dummy
+                   , 'AVAIABLE' as dummy
                    FROM										
                    (										
                    SELECT printer_platform_name, printer_region_code,  market10, de, platform_market_code, sf_mf
@@ -550,56 +440,18 @@ threeg <- rbind(threeg,threegj)
 
 # COMMAND ----------
 
-# # Step 5 - drop groups if respective number < 200 and create MUT
-
-# four <- sqldf(paste("select three.CM, one.platform_market_code, one.printer_region_code, one.market10, one.de, one.printer_platform_name, one.sf_mf
-#                       , one.NormMPV
-#                       , three.medNMPV
-#                       , threec.wmedNMPV
-#                       , threee.wmedNMPVib
-#                       , threeg.wmedNMPVpg
-#                       , three.mnMPV
-#                       , threec.wmnNMPV
-#                       , threee.wmnNMPVib
-#                       , threeg.wmnNMPVpg
-#                       from one
-#                       left join three 
-#                       on one.platform_market_code=three.platform_market_code and one.printer_region_code=three.printer_region_code 
-#                         and one.sf_mf=three.sf_mf and one.market10=three.market10 and one.de=three.de
-#                       left join threec 
-#                       on one.platform_market_code=threec.platform_market_code and one.printer_region_code=threec.printer_region_code 
-#                         and one.sf_mf=threec.sf_mf and one.market10=threec.market10 and one.de=threec.de
-#                       left join threee 
-#                       on one.platform_market_code=threee.platform_market_code and one.printer_region_code=threee.printer_region_code 
-#                         and one.sf_mf=threee.sf_mf and one.market10=threee.market10 and one.de=threee.de
-#                       left join threeg 
-#                       on one.platform_market_code=threeg.platform_market_code and one.printer_region_code=threeg.printer_region_code 
-#                         and one.sf_mf=threeg.sf_mf and one.market10=threeg.market10 and one.de=threeg.de
-#                       where SumN >=", minSize, " and medNMPV is not null 
-#                       order by three.CM, one.platform_market_code, one.printer_region_code", sep = " ")
-#   )
+# MAGIC %python
+# MAGIC 
+# MAGIC spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_total").where("CM == 'C'").createOrReplaceTempView("upm")
 
 # COMMAND ----------
 
-UPM <- SparkR::read.parquet(path=paste0("s3://", aws_bucket_name, "UPM_ctry(",UPMDate,").parquet"))
-
-UPM <- SparkR::filter(UPM, "CM == 'C'")
-
-createOrReplaceTempView(UPM, "UPM")
 createOrReplaceTempView(as.DataFrame(hwval), "hwval")
 
 UPM <- SparkR::sql("select upm.*, hw.sf_mf as SM, hw.pro_vs_ent as EP
-              from UPM upm left join hwval hw on upm.Platform_Subset_Nm =hw.platform_subset")
+              from upm left join hwval hw on upm.Platform_Subset_Nm =hw.platform_subset")
 
 createOrReplaceTempView(UPM, "UPM")
-# createOrReplaceTempView(as.DataFrame(threeg), "threeg")
-
-# UPMc <- SparkR::sql("SELECT upm.*, b.wmedNMPVpg
-#                FROM UPM upm
-#                LEFT JOIN threeg b
-#                 ON upm.Mkt=b.platform_market_code and upm.Region=b.printer_region_code and upm.SM=b.sf_mf
-              
-#               ")
 
 # COMMAND ----------
 
@@ -657,54 +509,18 @@ final9 <- SparkR::sql('
                     ON upm.Mkt=d.platform_market_code and upm.Region_DE=substr(d.de,1,1) and upm.SM=d.sf_mf
                 ')
 
-printSchema(final9)
-# final9$FYearMo <- as.character(final9$FYearMo)
-
-# head(final9)
+createOrReplaceTempView(final9, "final9")
 
 # COMMAND ----------
 
-# Step 85 - exporting final10 Table into Access database
-
-start.time2 <- Sys.time()
-
-# odbcDataSources()
-# 
-# ch2 <- odbcConnect(db1)
-# sqlTables(ch2)
-# 
-# variableTypes = c(Color_Pct="number", K_EYR="number"
-#                   , KCYM_EYR="number", POR_ColorPct="number"
-#                   ,POR_KEYR="number", POR_KCYMEYR="number")
-# 
-# 
-# sqlSave(ch2, final10, tablename = tb1, append = FALSE,
-#         rownames = FALSE, colnames = FALSE, safer = FALSE 
-#         # If "safer" = false, allow sqlSave to attempt to delete all the rows of an existing table, or to drop it
-#         ,varTypes=variableTypes
-# )
-# 
-# close(ch2)  
-
-
-# s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
-# s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPMColor_ctry(",Sys.Date(),").parquet"))
-
-output_file_name <- paste0("s3://", aws_bucket_name, "UPMColor_ctry(", todaysDate, ").parquet")
-
-SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
-
-print(output_file_name)
-
-end.time2 <- Sys.time()
-time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
-
-# COMMAND ----------
-
-# ---- Step 86 - exporting final10 Table into R database ----------------------------------#
-
-#s3saveRDS(x=final10,object="BrentT/UPM_Data.RDS", bucket="s3://insights-environment-sandbox/")
-# Cannot add "subdirectories" in S3, subdirectory name is part of the filename.  
+# MAGIC %python
+# MAGIC # Step 85 - exporting final9 to S3
+# MAGIC 
+# MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_color"
+# MAGIC 
+# MAGIC write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
+# MAGIC 
+# MAGIC print(output_file_name)
 
 # COMMAND ----------
 

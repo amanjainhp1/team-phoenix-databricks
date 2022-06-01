@@ -1,8 +1,8 @@
 {
     "fields": [
         {
-            "description": "working_forecast_country_id",
-            "name": "working_forecast_country_id",
+            "description": "nsc_id",
+            "name": "nsc_id",
             "type": "IDENTITY",
             "nullable": false,
             "encode": "raw",
@@ -11,71 +11,57 @@
         {
             "description": "record",
             "name": "record",
-            "type": "VARCHAR(50)",
-            "nullable": false,
+            "type": "VARCHAR(64)",
+            "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "cal_date",
             "name": "cal_date",
             "type": "DATE",
-            "nullable": false,
+            "nullable": true,
             "encode": "az64"
         },
         {
-            "description": "geography_grain",
-            "name": "geography_grain",
-            "type": "VARCHAR(8)",
-            "nullable": false,
-            "encode": "lzo"
-        },
-        {
-            "description": "geography",
-            "name": "geography",
-            "type": "VARCHAR(256)",
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(32)",
             "nullable": true,
             "encode": "lzo"
         },
         {
-            "description": "country",
-            "name": "country",
-            "type": "VARCHAR(50)",
-            "nullable": false,
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(32)",
+            "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "platform_subset",
             "name": "platform_subset",
-            "type": "VARCHAR(256)",
-            "nullable": true,
-            "encode": "lzo"
-        },
-        {
-            "description": "base_product_number",
-            "name": "base_product_number",
-            "type": "VARCHAR(50)",
+            "type": "VARCHAR(128)",
             "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "customer_engagement",
             "name": "customer_engagement",
-            "type": "VARCHAR(64)",
+            "type": "VARCHAR(16)",
             "nullable": true,
             "encode": "lzo"
         },
         {
-            "description": "cartridges",
-            "name": "cartridges",
+            "description": "split_value",
+            "name": "split_value",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "imp_corrected_cartridges",
-            "name": "imp_corrected_cartridges",
+            "description": "units",
+            "name": "units",
             "type": "DOUBLE PRECISION",
-            "nullable": false,
+            "nullable": true,
             "encode": "raw"
         },
         {
@@ -88,7 +74,7 @@
         {
             "description": "version",
             "name": "version",
-            "type": "VARCHAR(50)",
+            "type": "VARCHAR(64)",
             "nullable": true,
             "encode": "lzo"
         }

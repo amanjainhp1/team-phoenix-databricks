@@ -9,7 +9,7 @@
 # MAGIC + demand
 # MAGIC   + production IB
 # MAGIC   + promoted U/S (in development)
-# MAGIC + pages_ccs_mix
+# MAGIC + page_cc_mix
 # MAGIC   
 
 # COMMAND ----------
@@ -171,4 +171,4 @@ query_list.append(["stage.cartridge_units", cartridge_units, "overwrite"])
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list

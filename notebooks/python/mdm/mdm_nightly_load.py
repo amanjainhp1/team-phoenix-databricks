@@ -58,16 +58,6 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "decay"
             },
-            "forecast_supplies_baseprod": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_supplies_baseprod",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_supplies_baseprod"
-            },
             "hardware_xref": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -207,6 +197,16 @@ except:
                 "destination_database": "",
                 "destination_schema": "mdm",
                 "destination_table": "supplies_xref"
+            },
+            "tri_printer_ref_landing": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Landing",
+                "source_schema": "dbo",
+                "source_table": "tri_printer_ref_landing",
+                "destination_system": "redshift", 
+                "destination_database": "",
+                "destination_schema": "prod",
+                "destination_table": "tri_printer_ref_landing"
             },
             "yield": {
                 "source_system": "sqlserver", 

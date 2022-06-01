@@ -13,49 +13,30 @@ notebook_start_time <- Sys.time()
 
 # COMMAND ----------
 
-dbutils.widgets.text("ib_version", "")
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
-dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("bdtbl", "")
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("timestamp", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/DatabaseUtils
-
-# COMMAND ----------
-
-# MAGIC %run ../../python/common/secrets_manager_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 # MAGIC %python
-# MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
 # MAGIC 
-# MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
-# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
+# MAGIC # retrieve configs and export to spark.confs for usage across languages
+# MAGIC for key, val in configs.items():
+# MAGIC     spark.conf.set(key, val)
 # MAGIC 
-# MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
-# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
+# MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
 
-# MAGIC %sh
-# MAGIC ls -l /usr/bin/java
-# MAGIC ls -l /etc/alternatives/java
-# MAGIC ln -s /usr/lib/jvm/java-8-openjdk-amd64 /usr/lib/jvm/default-java
-# MAGIC R CMD javareconf
-
-# COMMAND ----------
-
-packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR")
+packages <- c("sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "tidyverse", "SparkR")
 
 # COMMAND ----------
 
@@ -65,87 +46,24 @@ packages <- c("rJava", "RJDBC", "DBI", "sqldf", "zoo", "plyr", "reshape2", "lubr
 
 options(java.parameters = "-Xmx60g" )
 
-# setwd("~/work") #Set Work Directory ("~/NPI_Model") ~ for root directory
 options(scipen=999) #remove scientific notation
 tempdir(check=TRUE)
 
 # COMMAND ----------
 
-# mount s3 bucket to cluster
-aws_bucket_name <- "insights-environment-sandbox/BrentT/"
-mount_name <- "insights-environment-sandbox"
-
-tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mount_name)),
- error = function(e)
- print("Mount does not exist or is already mounted to cluster"))
+# define s3 bucket
+aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # COMMAND ----------
 
-# MAGIC %scala
-# MAGIC var configs: Map[String, String] = Map()
-# MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
-# MAGIC             "sfaiUrl" -> SFAI_URL,
-# MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
-# MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-# MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-# MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
-
-# COMMAND ----------
-
-# MAGIC %scala
-# MAGIC val zeroiQuery = s""" 
-# MAGIC SELECT  tri_printer_usage_sn.printer_platform_name  
-# MAGIC                     , tri_printer_usage_sn.printer_region_code 
-# MAGIC                     , tri_printer_usage_sn.printer_country_iso_code
-# MAGIC                     , tri_printer_usage_sn.date_month_dim_ky as yyyymm
-# MAGIC                     --, CASE
-# MAGIC                         --WHEN SUBSTRING(tri_printer_usage_sn.date_month_dim_ky,5,6) IN ('11','12') 
-# MAGIC                               --THEN (CAST(tri_printer_usage_sn.date_month_dim_ky AS int) + 100 -10)
-# MAGIC                         --WHEN SUBSTRING(tri_printer_usage_sn.date_month_dim_ky,5,6) BETWEEN '01' AND'10' 
-# MAGIC                               --THEN (CAST(tri_printer_usage_sn.date_month_dim_ky AS int) + 2)
-# MAGIC                         --ELSE tri_printer_usage_sn.date_month_dim_ky 
-# MAGIC                         --END as FYearMo
-# MAGIC                     , CAST(tri_printer_usage_sn.date_month_dim_ky AS int) as FYearMo
-# MAGIC                     , tri_printer_usage_sn.printer_chrome_code AS CM
-# MAGIC                     , tri_printer_usage_sn.platform_business_code AS EP
-# MAGIC                     , tri_printer_usage_sn.printer_function_code as platform_function_code
-# MAGIC                     , tri_printer_usage_sn.platform_market_code
-# MAGIC                     , SUM(COALESCE(tri_printer_usage_sn.print_pages_total_ib_ext_sum,0)) as UsageNumerator
-# MAGIC                     , SUM(COALESCE(tri_printer_usage_sn.print_months_ib_ext_sum,0)) AS UsageDenominator
-# MAGIC                     , SUM(tri_printer_usage_sn.printer_count_month_usage_flag_sum) AS SumN
-# MAGIC                     FROM 
-# MAGIC                       ${dbutils.widgets.get("bdtbl")} tri_printer_usage_sn with (NOLOCK)
-# MAGIC                     WHERE 
-# MAGIC                       1=1
-# MAGIC                       AND printer_route_to_market_ib='Aftermarket'
-# MAGIC                    GROUP BY
-# MAGIC                       printer_platform_name  
-# MAGIC                     , printer_region_code 
-# MAGIC                     , printer_country_iso_code
-# MAGIC                     , yyyymm
-# MAGIC                     , FYearMo
-# MAGIC                     , CM
-# MAGIC                     , EP
-# MAGIC                     , platform_function_code
-# MAGIC                     , platform_market_code
-# MAGIC """
+# MAGIC %python
+# MAGIC # load parquet data and register views
+# MAGIC datestamp = dbutils.widgets.get('datestamp')
+# MAGIC timestamp = dbutils.widgets.get('timestamp')
 # MAGIC 
-# MAGIC val zeroi = readRedshiftToDF(configs)
-# MAGIC   .option("query", zeroiQuery)
-# MAGIC   .load()
-# MAGIC 
-# MAGIC zeroi.createOrReplaceTempView("zeroi")
-
-# COMMAND ----------
-
-sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
-
-cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
-clanding <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Landing;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
+# MAGIC tables = ['bdtbl', 'calendar', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref', 'tri_printer_ref_landing']
+# MAGIC for table in tables:
+# MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
 
 # COMMAND ----------
 
@@ -189,113 +107,128 @@ options(scipen=999)
 lock_weights <- 0   #0 for use calculated, 1 for use stated version
 lockwt_file <- 'toner_weights_75_Q4_qe_2021-11-16'
 
-#--------Big Data Table Name----------------------------------------------------------------------#
-#bdtbl <- 'dashboard.print_share_usage_agg_stg'
-bdtbl <- dbutils.widgets.get("bdtbl")
-
-#--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
-outnm_dt <- dbutils.widgets.get("outnm_dt")
+datestamp <- dbutils.widgets.get("datestamp")
+timestamp <- dbutils.widgets.get("timestamp")
 
 # COMMAND ----------
 
 # Step 1 - query for Normalized extract specific to PE and RM
 
-zeroi <- SparkR::collect(SparkR::sql("SELECT * FROM zeroi"))
+zeroi <- SparkR::collect(SparkR::sql("
+  SELECT  printer_platform_name  
+                      , printer_region_code 
+                      , printer_country_iso_code
+                      , date_month_dim_ky as yyyymm
+                      , CAST(date_month_dim_ky AS int) AS FYearMo
+                      , printer_chrome_code AS CM
+                      , platform_business_code AS EP
+                      , printer_function_code as platform_function_code
+                      , platform_market_code
+                      , SUM(COALESCE(print_pages_total_ib_ext_sum,0)) as UsageNumerator
+                      , SUM(COALESCE(print_months_ib_ext_sum,0)) AS UsageDenominator
+                      , SUM(printer_count_month_usage_flag_sum) AS SumN
+                      FROM 
+                       bdtbl
+                      WHERE 
+                        1=1
+                        AND printer_route_to_market_ib='AFTERMARKET'
+                     GROUP BY
+                        printer_platform_name  
+                      , printer_region_code 
+                      , printer_country_iso_code
+                      , yyyymm
+                      , FYearMo
+                      , CM
+                      , EP
+                      , platform_function_code
+                      , platform_market_code
+"))
 
-zeroi$SumMPV <- ifelse(zeroi$usagedenominator>0,zeroi$sumn*zeroi$usagenumerator/zeroi$usagedenominator,0)
-# # s3write_using(x=zeroi,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/BD_Zeroi(",Sys.Date(),").parquet"))
+zeroi$SumMPV <- ifelse(zeroi$UsageDenominator>0,zeroi$SumN*zeroi$UsageNumerator/zeroi$UsageDenominator,0)
 
 #Get Market10 Information
-country_info <- dbGetQuery(cprod,"
+country_info <- SparkR::collect(SparkR::sql("
                       WITH mkt10 AS (
                            SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM IE2_Prod.dbo.iso_cc_rollup_xref with (NOLOCK)
-                           WHERE country_scenario='Market10'
+                           FROM iso_cc_rollup_xref
+                           WHERE country_scenario='MARKET10'
                       ),
                       rgn5 AS (
                             SELECT country_alpha2, region_5, developed_emerging, country 
-                            FROM IE2_Prod.dbo.iso_country_code_xref with (NOLOCK)
+                            FROM iso_country_code_xref
                       )
                       SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
-                           ")
+                           "))
 
 #######SELECT IB VERSION#####
-#ib_version <- as.character(dbGetQuery(ch,"select max(ib_version) as ib_version from biz_trans.tri_platform_measures_ib"))  #FROM BD Dashboard
-ib_version <- dbutils.widgets.get("ib_version")
-#ib_version <- as.character(dbGetQuery(cprod,"select max(version) as ib_version from IE2_Prod.dbo.ib with (NOLOCK)"))  #Phoenix
 
-ibtable <- dbGetQuery(cprod,paste0("
+ibtable <- SparkR::collect(SparkR::sql(paste0("
                    select  a.platform_subset
                           , a.cal_date
                           ,YEAR(a.cal_date)*100+MONTH(a.cal_date) AS month_begin
                           ,d.technology AS hw_type
-                          --,a.customer_engagement  AS RTM
                           ,b.region_5
-                          ,a.country
-                          --,substring(b.developed_emerging,1,1) as de
+                          ,a.country_alpha2
                           ,sum(a.units) as ib
                           ,a.version
-                    from IE2_Prod.dbo.ib a with (NOLOCK)
-                    left join IE2_Prod.dbo.iso_country_code_xref b with (NOLOCK)
-                      on (a.country=b.country_alpha2)
-                    left join IE2_Prod.dbo.hardware_xref d with (NOLOCK)
+                    from ib a
+                    left join iso_country_code_xref b
+                      on (a.country_alpha2=b.country_alpha2)
+                    left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
-                    where a.measure='ib'
-                      --and a.version = (select max(version) from IE2_Prod.dbo.ib)
+                    where a.measure='IB'
                       and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
                           or a.platform_subset like 'PANTHER%' or a.platform_subset like 'JAGUAR%'))
-                      --and YEAR(a.cal_date) < 2026
-                      and a.version='",ib_version,"'
                     group by a.platform_subset, a.cal_date, d.technology  --, a.customer_engagement
                             ,a.version
-                          --, b.developed_emerging
-                            , b.region_5, a.country
-                   "))
+                            , b.region_5, a.country_alpha2
+                   ")))
 
-lastAvaiableYear <- as.numeric(dbGetQuery(cprod,paste0("
+lastAvaiableYear <- as.numeric(SparkR::collect(SparkR::sql(paste0("
                      select  max(YEAR(cal_date)) 
-                      from IE2_Prod.dbo.ib with (NOLOCK)
-                      where 1=1
-                        --and version = (select max(version) from IE2_Prod.dbo.ib)
-                        --and YEAR(a.cal_date) < 2026
-                        and version='",ib_version,"'
-                     ")))
-firstAvaiableYear <- as.numeric(dbGetQuery(cprod,paste0("
+                      from ib
+                     "))))
+firstAvaiableYear <- as.numeric(SparkR::collect(SparkR::sql(paste0("
                      select  min(YEAR(cal_date)) 
-                      from IE2_Prod.dbo.ib with (NOLOCK)
-                      where 1=1
-                        --and version = (select max(version) from IE2_Prod.dbo.ib)
-                        --and YEAR(a.cal_date) < 2026
-                        and version='",ib_version,"'
-                     ")))
+                      from ib
+                     "))))
   
-hw_info <- dbGetQuery(cprod,"
+hw_info <- SparkR::collect(SparkR::sql("
                       SELECT platform_subset, technology, pl, mono_ppm
                       , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                        WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                        WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                         ELSE NULL
                         END as pro_vs_ent
                       , format, mono_color, sf_mf, vc_category, product_structure
                               , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
                                     WHEN vc_category in ('SWT-L') THEN 'SWL'
-                                    WHEN vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-                                    WHEN vc_category in ('Dept','Dept-High') THEN 'DPT'
+                                    WHEN vc_category in ('SWT-H','SWT-H PRO') THEN 'SWH'
+                                    WHEN vc_category in ('DEPT','DEPT-HIGH') THEN 'DPT'
                                     WHEN vc_category in ('WG') THEN 'WGP'
                                     ELSE NULL
                                 END AS platform_market_code
-                      FROM IE2_Prod.dbo.hardware_xref with (NOLOCK)
+                      FROM hardware_xref
                       WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
                             or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
-                      ")
-  
-zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_code, c.market10, c.developed_emerging, a.FYearMo, SUBSTR(d.mono_color,1,1) as CM, d.pro_vs_ent as EP, a.platform_function_code, a.platform_market_code, d.product_structure
+                      "))
+
+zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_code, c.market10, c.developed_emerging, a.FYearMo, SUBSTR(d.mono_color,1,1) as CM
+                  , d.pro_vs_ent as EP, a.platform_function_code
+                  , CASE WHEN a.platform_market_code in ('ULE','PLE-L','PLE-H','PLE','DSK') THEN 'DSK'
+                         WHEN a.platform_market_code in ('SWT-L','SWL') THEN 'SWL'
+                         WHEN a.platform_market_code in ('SWT-H','SWT-H PRO','SWH') THEN 'SWH'
+                         WHEN a.platform_market_code in ('DEPT','DEPT','DEPT-HIGH','DPT') THEN 'DPT'
+                         WHEN a.platform_market_code in ('WG','WGP') THEN 'WGP'
+                         ELSE NULL
+                                END AS platform_market_code
+                 , d.product_structure
                   , SUM(SumMPV/SumN*b.ib) AS SumMPV, sum(a.SumN) as SumN, sum(b.ib) as SUMib
               from zeroi a
               left join ibtable b
-              on (a.printer_country_iso_code=b.country and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
+              on (a.printer_country_iso_code=b.country_alpha2 and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
               left join country_info c
               on a.printer_country_iso_code=c.country_alpha2
               left join hw_info d
@@ -343,11 +276,11 @@ zero$pN <- ifelse(((zero$FYearMo) >= start1 & (zero$FYearMo <=end1)), zero$SumN,
 zero$pMPVN <- zero$pMPV*zero$pN
 
 zero_platform <- sqldf('select distinct printer_platform_name, printer_region_code, market10 from zero order by printer_platform_name, printer_region_code')
-zero_platform$source1 <-"tri_printer_usage_sn"
+zero_platform$source1 <-"TRI_PRINTER_USAGE_SN"
 zero_platformList <- reshape2::dcast(zero_platform, printer_platform_name ~market10, value.var="source1")
 
-countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("Central Europe","Greater Asia", "Greater China","India SL & BL","ISE","Latin America"
-                                                       ,"North America","Northern Europe","Southern Europe","UK&I")]))
+countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("CENTRAL EUROPE","GREATER ASIA", "GREATER CHINA","INDIA SL & BL","ISE","LATIN AMERICA"
+                                                       ,"NORTH AMERICA","NORTHERN EUROPE","SOUTHERN EUROPE","UK&I")]))
 paste("The total numbers of platform - region combinations that could be retrieved from the FACT PRINTER LASER MONTH table =", countFACT_LP_MONTH)
 
 head(zero)
@@ -363,7 +296,7 @@ head(zero)
 
 one <- sqldf(paste("								
                    SELECT *, SUMpMPVN/SUMpN AS NormMPV	
-                   , 'avaiable' as dummy
+                   , 'AVAIABLE' as dummy
                    FROM										
                    (										
                    SELECT printer_platform_name, market10, developed_emerging
@@ -612,7 +545,7 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                    from stratpl a , stratcs b ,stratmk d, stratmn e")
   stratjn <- sqldf("SELECT a.*, b.region_5
                    from stratjn a
-                   left join (select distinct region_5, market10 from country_info) b
+                   left join (select distinct region_5, market10 from country_info WHERE region_5 not in ('JP','XU','XW')) b
                    on a.market10=b.market10")
   outcome0 <- sqldf("SELECT a.*, b.region_5
                    from outcome0 a
@@ -623,10 +556,20 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
   outcome_o <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, market10, region_5, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome0
                      group by platform_market_code, CM, developed_emerging, month, market10, region_5")
+  outcome_o2 <- sqldf("SELECT distinct o.platform_market_code, o.CM, o.developed_emerging, s.month, o.market10, o.region_5, o.b1
+                      from stratjn s
+                      left join outcome_o o
+                      on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
+                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging ")
   outcome_r <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, region_5, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome_o
                      group by platform_market_code, CM, developed_emerging, month, region_5")
-  
+  outcome_r2 <- sqldf("SELECT distinct o.platform_market_code, o.CM, o.developed_emerging, s.month, o.region_5, o.b1
+                     from stratjn s
+                      left join outcome_r o
+                      on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
+                        and s.region_5=o.region_5 and s.developed_emerging=o.developed_emerging
+                     ")
   outcome_a <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome_o
                      group by platform_market_code, CM, developed_emerging, month")
@@ -651,8 +594,8 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                      group by CM, month")
                      
   outcome <- sqldf(" SELECT distinct s.platform_market_code, s.CM, s.market10, s.developed_emerging, s.month
-                  , CASE WHEN o.b1 is not null then o.b1
-                         WHEN r.b1 is not null then r.b1
+                  , CASE WHEN o2.b1 is not null then o2.b1
+                         WHEN r2.b1 is not null then r2.b1
                          WHEN a.b1 is not null then a.b1
                          WHEN b.b1 is not null then b.b1
                          WHEN c.b1 is not null then c.b1
@@ -683,15 +626,15 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                          WHEN f.mo_Smooth is not null then f.mo_Smooth
                          ELSE NULL
                        END as mo_Smooth
-                  , CASE WHEN o.b1 is not null then 'self'
-                         WHEN r.b1 is not null then 'reg5'
-                         WHEN a.b1 is not null then 'nomkt'
-                         WHEN b.b1 is not null then 'nocs'
-                         WHEN c.b1 is not null then 'nopl'
-                         WHEN d.b1 is not null then 'nomc'
-                         WHEN e.b1 is not null then 'nopfc'
-                         WHEN f.b1 is not null then 'noplmkt'
-                         WHEN w.b1 is not null then 'node'
+                  , CASE WHEN o2.b1 is not null then 'SELF'
+                         WHEN r2.b1 is not null then 'REG5'
+                         WHEN a.b1 is not null then 'NOMKT'
+                         WHEN b.b1 is not null then 'NOCS'
+                         WHEN c.b1 is not null then 'NOPL'
+                         WHEN d.b1 is not null then 'NOMC'
+                         WHEN e.b1 is not null then 'NOPFC'
+                         WHEN f.b1 is not null then 'NOPLMKT'
+                         WHEN w.b1 is not null then 'NODE'
                          ELSE NULL
                     END AS src
                 
@@ -699,10 +642,16 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                   
                   left join outcome_o o
                   on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
-                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month 
+                    and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month
+                  left join outcome_o2 o2
+                  on s.platform_market_code=o2.platform_market_code and s.CM=o2.CM  
+                    and s.market10=o2.market10 and s.developed_emerging=o2.developed_emerging
                   left join outcome_r r
                   on s.platform_market_code=r.platform_market_code and s.CM=r.CM  
                     and s.developed_emerging=r.developed_emerging and s.month=r.month and s.region_5=r.region_5 
+                  left join outcome_r2 r2
+                  on s.platform_market_code=r2.platform_market_code and s.CM=r2.CM  
+                    and s.developed_emerging=r2.developed_emerging and s.region_5=r2.region_5
                   left join outcome_a a
                   on s.platform_market_code=a.platform_market_code and s.CM=a.CM 
                     and s.developed_emerging=a.developed_emerging and s.month=a.month 
@@ -726,6 +675,10 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                     and s.month=w.month
                    ")
   outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
+
+  outcome <- sqldf("select platform_market_code, CM, market10, developed_emerging, month, AVG(b1) as b1, seasonality, mo_Smooth, src, strata from outcome
+                   group by platform_market_code, CM, market10, developed_emerging, month, seasonality, mo_Smooth, src, strata")
+  
          
   outcome$b1check <- outcome$b1                      #For checking limits
   outcome$b1 <- ifelse(outcome$b1 > -0.01, -.01,outcome$b1)
@@ -773,7 +726,7 @@ usage <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_co
                   , SUM(SumMPV/SumN*b.ib) AS SumMPV, sum(a.SumN) as SumN, sum(b.ib) as SUMib
               from zeroi a
               left join ibtable b
-              on (a.printer_country_iso_code=b.country and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
+              on (a.printer_country_iso_code=b.country_alpha2 and a.yyyymm=b.month_begin and a.printer_platform_name=b.platform_subset)
               left join country_info c
               on a.printer_country_iso_code=c.country_alpha2
               left join hw_info d
@@ -910,18 +863,18 @@ str(u2)
 # = "PE" when SNPE >= 200, = "IS", when (SNPE is NULL and SNIS >=200) or (SNPE < 200 and SNIS >=200), else = "RM"
 iblist <- sqldf("select distinct ib.platform_subset, ci.country_alpha2, ci.region_5, ci.market10, ci.developed_emerging
                 from ibtable ib left join country_info ci
-                on ib.country=ci.country_alpha2")
+                on ib.country_alpha2=ci.country_alpha2")
 
 sourceR <- sqldf("
                  select ib.platform_subset as printer_platform_name, ib.region_5 as printer_region_code, ib.developed_emerging, ib.market10, ib.country_alpha2,
                  COALESCE(u2.prcN,0) as prcN, COALESCE(u2.mktN,0) as mktN, COALESCE(u2.demN,0) as demN,COALESCE(u2.ctyN,0) as ctyN
                  , case 
-                 when u2.ctyN >= 200 then 'country'
-                 when u2.demN >=200 then 'dev/em'
-                 when u2.mktN >=200 then 'market10'
-                 when u2.prcN >=200 then 'region5'
-                 when ctyN >= 200 then 'country'
-                 else 'None'
+                 when u2.ctyN >= 200 then 'COUNTRY'
+                 when u2.demN >=200 then 'DEV/EM'
+                 when u2.mktN >=200 then 'MARKET10'
+                 when u2.prcN >=200 then 'REGION5'
+                 when ctyN >= 200 then 'COUNTRY'
+                 else 'NONE'
                  end as Source_vlook
                  ,oc.src
                  from iblist ib
@@ -992,17 +945,17 @@ usage3 <- sqldf("with reg as (
 
                 select a.* , 
                   CASE 
-                    WHEN Source_vlook = 'region5' THEN b.SMPV/b.SIB
-                    WHEN Source_vlook = 'market10' THEN c.SMPV/c.SIB
-                    WHEN Source_vlook = 'dev/em' THEN d.SMPV/c.SIB
-                    WHEN Source_vlook = 'country' THEN a.MPVa 
+                    WHEN Source_vlook = 'REGION5' THEN b.SMPV/b.SIB
+                    WHEN Source_vlook = 'MARKET10' THEN c.SMPV/c.SIB
+                    WHEN Source_vlook = 'DEV/EM' THEN d.SMPV/c.SIB
+                    WHEN Source_vlook = 'COUNTRY' THEN a.MPVa 
                     ELSE 0
                     END as MPV
                   ,CASE 
-                    WHEN Source_vlook = 'region5' THEN b.N
-                    WHEN Source_vlook = 'market10' THEN c.N
-                    WHEN Source_vlook = 'dev/em' THEN d.N
-                    WHEN Source_vlook = 'country' THEN a.Na 
+                    WHEN Source_vlook = 'REGION5' THEN b.N
+                    WHEN Source_vlook = 'MARKET10' THEN c.N
+                    WHEN Source_vlook = 'DEV/EM' THEN d.N
+                    WHEN Source_vlook = 'COUNTRY' THEN a.Na 
                     ELSE 0
                     END as N
                 from usage2 a
@@ -1045,7 +998,7 @@ usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.co
                           , min(a.month_begin) as Intro_FYearMo
                     FROM ibtable a
                     left join country_info b
-                      on a.country=b.country_alpha2
+                      on a.country_alpha2=b.country_alpha2
                     GROUP BY a.platform_subset 
                           , a.Region_5
                           , b.country_alpha2
@@ -1053,7 +1006,7 @@ usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.co
                           , b.developed_emerging
                    ")
 
-introYear$Source <- "FL_Installed_Base"
+introYear$Source <- "FL_INSTALLED_BASE"
 head(introYear)
 colnames(introYear)
 dim(introYear)
@@ -1093,10 +1046,6 @@ introYear3 <- sqldf('select aa1.printer_platform_name
                     left join introYear2d aa5
                       on aa1.printer_platform_name = aa5.printer_platform_name and aa1.market10=aa5.market10 and aa1.developed_emerging=aa5.developed_emerging
                     ')
-
-#write.csv(paste(mainDir,subDir1,"/","introYear",".csv", sep=''), x=introYear3,row.names=FALSE, na="")
-
-# introYearNA <- introYear[ which(introYear$Region_Cd =='NA'), ]
 
 # COMMAND ----------
 
@@ -1857,8 +1806,7 @@ wtaverage <- sqldf('select cm, platform_market_code
 wtaverage[is.na(wtaverage)] <- 1
 
 #  #---Write out weight file------------#
-#  s3write_using(x=wtaverage,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_weights_75_",outnm_dt,"_(",Sys.Date(),").csv"), row.names=FALSE, na="")
- 
+
  if(lock_weights==1) {
    wtavgin <- s3read_using(FUN = read_csv, object = paste0("s3://", aws_bucket_name, lockwt_file,".csv"), col_names=TRUE, na="")
    wtaverage <- wtavgin
@@ -2266,27 +2214,27 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Latin_America_E2
                                 , CASE 
-                                WHEN NA is not null THEN 'Self'
+                                WHEN NA is not null THEN 'SELF'
                                 WHEN NA is null and EU is not null THEN 'EU'
                                 WHEN NA is null and EU is null and AP is not null then 'AP'
                                 WHEN NA is null and EU is null and AP is null and LA is not null then 'LA'
                                 ELSE 'Six' 
                                 END as NAroute
                                 , CASE
-                                WHEN [North America] is not null then 'Self'
+                                WHEN [North America] is not null then 'SELF'
                                 WHEN [North America] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [North America] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [North America] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [North America] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [North America] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [North America] is null and [ISE] is not null then 'ISE'
-                                WHEN [North America] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [North America] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [North America] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [North America] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [North America] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [North America] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [North America] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [North America] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [North America] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [North America] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as North_AmericaRoute
                                 , CASE
-                                WHEN [North America_Developed] is not null then 'Self'
+                                WHEN [North America_Developed] is not null then 'SELF'
                                 WHEN [North America_Developed] is null and [UK&I_Developed] is not null then 'UK'
                                 WHEN [North America_Developed] is null and [Northern Europe_Developed] is not null then 'NE'
                                 WHEN [North America_Developed] is null and [Southern Europe_Developed] is not null then 'SE'
@@ -2309,20 +2257,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE 'Six'
                                 END as EUroute
                                 , CASE
-                                WHEN [UK&I] is not null then 'Self'
-                                WHEN [UK&I] is null and [North America] is not null then 'North America'
-                                WHEN [UK&I] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [UK&I] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [UK&I] is not null then 'SELF'
+                                WHEN [UK&I] is null and [North America] is not null then 'NORTH AMERICA'
+                                WHEN [UK&I] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [UK&I] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [UK&I] is null and [ISE] is not null then 'ISE'
-                                WHEN [UK&I] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [UK&I] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [UK&I] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [UK&I] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [UK&I] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [UK&I] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [UK&I] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [UK&I] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [UK&I] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [UK&I] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as UKIRoute
                                 , CASE
-                                WHEN [UK&I] is not null then 'Self'
+                                WHEN [UK&I] is not null then 'SELF'
                                 WHEN [UK&I] is null and [North America] is not null then 'NA'
                                 WHEN [UK&I] is null and [Northern Europe] is not null then 'NE'
                                 WHEN [UK&I] is null and [Southern Europe] is not null then 'SE'
@@ -2338,20 +2286,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as UKI_DRoute
                                 , CASE
-                                WHEN [Northern Europe] is not null then 'Self'
-                                WHEN [Northern Europe] is null and [North America] is not null then 'North America'
+                                WHEN [Northern Europe] is not null then 'SELF'
+                                WHEN [Northern Europe] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Northern Europe] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Northern Europe] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [Northern Europe] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Northern Europe] is null and [ISE] is not null then 'ISE'
-                                WHEN [Northern Europe] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [Northern Europe] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [Northern Europe] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [Northern Europe] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [Northern Europe] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [Northern Europe] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [Northern Europe] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [Northern Europe] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [Northern Europe] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [Northern Europe] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as Northern_EuropeRoute
                                 , CASE
-                                WHEN [Northern Europe] is not null then 'Self'
+                                WHEN [Northern Europe] is not null then 'SELF'
                                 WHEN [Northern Europe] is null and [North America] is not null then 'NA'
                                 WHEN [Northern Europe] is null and [UK&I] is not null then 'UK'
                                 WHEN [Northern Europe] is null and [Southern Europe] is not null then 'SE'
@@ -2367,20 +2315,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Northern_Europe_DRoute
                                 , CASE
-                                WHEN [Southern Europe] is not null then 'Self'
-                                WHEN [Southern Europe] is null and [North America] is not null then 'North America'
+                                WHEN [Southern Europe] is not null then 'SELF'
+                                WHEN [Southern Europe] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Southern Europe] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Southern Europe] is null and [Northern Europe] is not null then 'Northern Europe'
+                                WHEN [Southern Europe] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
                                 WHEN [Southern Europe] is null and [ISE] is not null then 'ISE'
-                                WHEN [Southern Europe] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [Southern Europe] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [Southern Europe] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [Southern Europe] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [Southern Europe] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [Southern Europe] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [Southern Europe] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [Southern Europe] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [Southern Europe] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [Southern Europe] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as Southern_EuropeRoute
                                 , CASE
-                                WHEN [Southern Europe] is not null then 'Self'
+                                WHEN [Southern Europe] is not null then 'SELF'
                                 WHEN [Southern Europe] is null and [North America] is not null then 'NA'
                                 WHEN [Southern Europe] is null and [UK&I] is not null then 'UK'
                                 WHEN [Southern Europe] is null and [Northern Europe] is not null then 'NE'
@@ -2396,20 +2344,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Southern_Europe_DRoute
                                 , CASE
-                                WHEN [ISE] is not null then 'Self'
-                                WHEN [ISE] is null and [North America] is not null then 'North America'
+                                WHEN [ISE] is not null then 'SELF'
+                                WHEN [ISE] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [ISE] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [ISE] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [ISE] is null and [Southern Europe] is not null then 'Southern Europe'
-                                WHEN [ISE] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [ISE] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [ISE] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [ISE] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [ISE] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [ISE] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [ISE] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
+                                WHEN [ISE] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [ISE] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [ISE] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [ISE] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [ISE] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as ISERoute
                                 , CASE
-                                WHEN [ISE] is not null then 'Self'
+                                WHEN [ISE] is not null then 'SELF'
                                 WHEN [ISE] is null and [North America] is not null then 'NA'
                                 WHEN [ISE] is null and [UK&I] is not null then 'UK'
                                 WHEN [ISE] is null and [Northern Europe] is not null then 'NE'
@@ -2425,20 +2373,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as ISE_ERoute
                                 , CASE
-                                WHEN [Central Europe] is not null then 'Self'
-                                WHEN [Central Europe] is null and [North America] is not null then 'North America'
+                                WHEN [Central Europe] is not null then 'SELF'
+                                WHEN [Central Europe] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Central Europe] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Central Europe] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [Central Europe] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [Central Europe] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [Central Europe] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Central Europe] is null and [ISE] is not null then 'ISE'
-                                WHEN [Central Europe] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [Central Europe] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [Central Europe] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [Central Europe] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [Central Europe] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [Central Europe] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [Central Europe] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [Central Europe] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as Central_EuropeRoute
                                 , CASE
-                                WHEN [Central Europe_Developed] is not null then 'Self'
+                                WHEN [Central Europe_Developed] is not null then 'SELF'
                                 WHEN [Central Europe_Developed] is null and [North America] is not null then 'NA'
                                 WHEN [Central Europe_Developed] is null and [UK&I] is not null then 'UK'
                                 WHEN [Central Europe_Developed] is null and [Northern Europe] is not null then 'NE'
@@ -2454,7 +2402,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Central_Europe_DRoute
                                 , CASE
-                                WHEN [Central Europe_Emerging] is not null then 'Self'
+                                WHEN [Central Europe_Emerging] is not null then 'SELF'
                                 WHEN [Central Europe_Emerging] is null and [North America] is not null then 'NA'
                                 WHEN [Central Europe_Emerging] is null and [UK&I] is not null then 'UK'
                                 WHEN [Central Europe_Emerging] is null and [Northern Europe] is not null then 'NE'
@@ -2470,27 +2418,27 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Central_Europe_ERoute
                                 , CASE 
-                                WHEN AP is not null THEN 'Self'
+                                WHEN AP is not null THEN 'SELF'
                                 WHEN AP is null and NA is not null THEN 'NA'
                                 WHEN AP is null and NA is null and EU is not null then 'EU'
                                 WHEN AP is null and NA is null and EU is null and LA is not null then 'LA'
                                 ELSE 'Six'
                                 END as AProute
                                 , CASE
-                                WHEN [India SL & BL] is not null then 'Self'
-                                WHEN [India SL & BL] is null and [North America] is not null then 'North America'
+                                WHEN [India SL & BL] is not null then 'SELF'
+                                WHEN [India SL & BL] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [India SL & BL] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [India SL & BL] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [India SL & BL] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [India SL & BL] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [India SL & BL] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [India SL & BL] is null and [ISE] is not null then 'ISE'
-                                WHEN [India SL & BL] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [India SL & BL] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [India SL & BL] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [India SL & BL] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [India SL & BL] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [India SL & BL] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [India SL & BL] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [India SL & BL] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as IndiaRoute
                                 , CASE
-                                WHEN [India SL & BL] is not null then 'Self'
+                                WHEN [India SL & BL] is not null then 'SELF'
                                 WHEN [India SL & BL] is null and [North America] is not null then 'NA'
                                 WHEN [India SL & BL] is null and [UK&I] is not null then 'UK'
                                 WHEN [India SL & BL] is null and [Northern Europe] is not null then 'NE'
@@ -2506,20 +2454,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as India_ERoute 
                                 , CASE
-                                WHEN [Greater Asia] is not null then 'Self'
-                                WHEN [Greater Asia] is null and [North America] is not null then 'North America'
+                                WHEN [Greater Asia] is not null then 'SELF'
+                                WHEN [Greater Asia] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Greater Asia] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Greater Asia] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [Greater Asia] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [Greater Asia] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [Greater Asia] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Greater Asia] is null and [ISE] is not null then 'ISE'
-                                WHEN [Greater Asia] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [Greater Asia] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [Greater Asia] is null and [Greater China] is not null then 'Greater China'
-                                WHEN [Greater Asia] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [Greater Asia] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [Greater Asia] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [Greater Asia] is null and [Greater China] is not null then 'GREATER CHINA'
+                                WHEN [Greater Asia] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as Greater_AsiaRoute
                                 , CASE
-                                WHEN [Greater Asia_Developed] is not null then 'Self'
+                                WHEN [Greater Asia_Developed] is not null then 'SELF'
                                 WHEN [Greater Asia_Developed] is null and [North America] is not null then 'NA'
                                 WHEN [Greater Asia_Developed] is null and [UK&I] is not null then 'UK'
                                 WHEN [Greater Asia_Developed] is null and [Northern Europe] is not null then 'NE'
@@ -2535,7 +2483,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_Asia_DRoute
                                 , CASE
-                                WHEN [Greater Asia_Emerging] is not null then 'Self'
+                                WHEN [Greater Asia_Emerging] is not null then 'SELF'
                                 WHEN [Greater Asia_Emerging] is null and [North America] is not null then 'NA'
                                 WHEN [Greater Asia_Emerging] is null and [UK&I] is not null then 'UK'
                                 WHEN [Greater Asia_Emerging] is null and [Northern Europe] is not null then 'NE'
@@ -2551,20 +2499,20 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_Asia_ERoute
                                 , CASE
-                                WHEN [Greater China] is not null then 'Self'
-                                WHEN [Greater China] is null and [North America] is not null then 'North America'
+                                WHEN [Greater China] is not null then 'SELF'
+                                WHEN [Greater China] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Greater China] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Greater China] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [Greater China] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [Greater China] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [Greater China] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Greater China] is null and [ISE] is not null then 'ISE'
-                                WHEN [Greater China] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [Greater China] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [Greater China] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [Greater China] is null and [Latin America] is not null then 'Latin America'
+                                WHEN [Greater China] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [Greater China] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [Greater China] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [Greater China] is null and [Latin America] is not null then 'LATIN AMERICA'
                                 ELSE null
                                 END as Greater_ChinaRoute
                                 , CASE
-                                WHEN [Greater China_Developed] is not null then 'Self'
+                                WHEN [Greater China_Developed] is not null then 'SELF'
                                 WHEN [Greater China_Developed] is null and [North America] is not null then 'NA'
                                 WHEN [Greater China_Developed] is null and [UK&I] is not null then 'UK'
                                 WHEN [Greater China_Developed] is null and [Northern Europe] is not null then 'NE'
@@ -2580,7 +2528,7 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_China_DRoute
                                 , CASE
-                                WHEN [Greater China_Emerging] is not null then 'Self'
+                                WHEN [Greater China_Emerging] is not null then 'SELF'
                                 WHEN [Greater China_Emerging] is null and [North America] is not null then 'NA'
                                 WHEN [Greater China_Emerging] is null and [UK&I] is not null then 'UK'
                                 WHEN [Greater China_Emerging] is null and [Northern Europe] is not null then 'NE'
@@ -2596,27 +2544,27 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_China_ERoute
                               , CASE 
-                                WHEN LA is not null THEN 'Self'
+                                WHEN LA is not null THEN 'SELF'
                                 WHEN LA is null and NA is not null THEN 'NA'
                                 WHEN LA is null and NA is null and EU is not null then 'EU'
                                 WHEN LA is null and NA is null and EU is null and AP is not null then 'AP'
                                 ELSE 'Six' 
                                 END as LAroute
                                 , CASE
-                                WHEN [Latin America] is not null then 'Self'
-                                WHEN [Latin America] is null and [North America] is not null then 'North America'
+                                WHEN [Latin America] is not null then 'SELF'
+                                WHEN [Latin America] is null and [North America] is not null then 'NORTH AMERICA'
                                 WHEN [Latin America] is null and [UK&I] is not null then 'UK&I'
-                                WHEN [Latin America] is null and [Northern Europe] is not null then 'Northern Europe'
-                                WHEN [Latin America] is null and [Southern Europe] is not null then 'Southern Europe'
+                                WHEN [Latin America] is null and [Northern Europe] is not null then 'NORTHERN EUROPE'
+                                WHEN [Latin America] is null and [Southern Europe] is not null then 'SOUTHERN EUROPE'
                                 WHEN [Latin America] is null and [ISE] is not null then 'ISE'
-                                WHEN [Latin America] is null and [India SL & BL] is not null then 'India SL & BL'
-                                WHEN [Latin America] is null and [Central Europe] is not null then 'Central Europe'
-                                WHEN [Latin America] is null and [Greater Asia] is not null then 'Greater Asia'
-                                WHEN [Latin America] is null and [Greater China] is not null then 'Greater China'
+                                WHEN [Latin America] is null and [India SL & BL] is not null then 'INDIA SL & BL'
+                                WHEN [Latin America] is null and [Central Europe] is not null then 'CENTRAL EUROPE'
+                                WHEN [Latin America] is null and [Greater Asia] is not null then 'GREATER ASIA'
+                                WHEN [Latin America] is null and [Greater China] is not null then 'GREATER CHINA'
                                 ELSE null
                                 END as Latin_AmericaRoute
                                 , CASE
-                                WHEN [Latin America] is not null then 'Self'
+                                WHEN [Latin America] is not null then 'SELF'
                                 WHEN [Latin America] is null and [North America] is not null then 'NA'
                                 WHEN [Latin America] is null and [UK&I] is not null then 'UK'
                                 WHEN [Latin America] is null and [Northern Europe] is not null then 'NE'
@@ -2639,77 +2587,77 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
    #Using Market10, can switch to Market10D/E?
       sourceRiMPV <- sqldf("
                        SELECT a.printer_platform_name, a.printer_region_code, a.developed_emerging, a.market10, a.country_alpha2
-                        ,CASE WHEN a.Source_vlook = 'country'  then b.iMPV
-                             WHEN a.Source_vlook = 'dev/em'   then c.iMPV
-                             WHEN a.Source_vlook = 'market10' then d.iMPV
-                             WHEN a.Source_vlook = 'region5'  then e.iMPV
-                             WHEN a.Source_vlook = 'None' then 
+                        ,CASE WHEN a.Source_vlook = 'COUNTRY'  then b.iMPV
+                             WHEN a.Source_vlook = 'DEV/EM'   then c.iMPV
+                             WHEN a.Source_vlook = 'MARKET10' then d.iMPV
+                             WHEN a.Source_vlook = 'REGION5'  then e.iMPV
+                             WHEN a.Source_vlook = 'NONE' then 
                               CASE
-                              WHEN a.market10 = 'North America' then f.North_America2
-                              WHEN a.market10 = 'Latin America' then f.Latin_America2
+                              WHEN a.market10 = 'NORTH AMERICA' then f.North_America2
+                              WHEN a.market10 = 'LATIN AMERICA' then f.Latin_America2
                               WHEN a.market10 = 'UK&I' then f.UKI2
-                              WHEN a.market10 = 'Northern Europe' then f.Northern_Europe2
-                              WHEN a.market10 = 'Southern Europe' then f.Southern_Europe2
-                              WHEN a.market10 = 'Central Europe' AND a.developed_emerging='Developed' THEN f.Central_Europe_D2
-                              WHEN a.market10 = 'Central Europe' AND a.developed_emerging='Emerging' THEN f.Central_Europe_E2
+                              WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_Europe2
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_Europe2
+                              WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='DEVELOPED' THEN f.Central_Europe_D2
+                              WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='EMERGING' THEN f.Central_Europe_E2
                               WHEN a.market10 = 'ISE' then f.ISE2
-                              WHEN a.market10 = 'Greater Asia' AND a.developed_emerging='Developed' then f.Greater_Asia_D2
-                              WHEN a.market10 = 'Greater Asia' AND a.developed_emerging='Emerging' then f.Greater_Asia_E2
-                              WHEN a.market10 = 'Greater China' AND a.developed_emerging='Developed' then f.Greater_China_D2
-                              WHEN a.market10 = 'Greater China' AND a.developed_emerging='Emerging' then f.Greater_China_E2
-                              WHEN a.market10 = 'India SL & BL' then f.India2
+                              WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='DEVELOPED' then f.Greater_Asia_D2
+                              WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='EMERGING' then f.Greater_Asia_E2
+                              WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='DEVELOPED' then f.Greater_China_D2
+                              WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='EMERGING' then f.Greater_China_E2
+                              WHEN a.market10 = 'INDIA SL & BL' then f.India2
                               END
                              ELSE null
                              END as iMPV
                           ,CASE 
-                             WHEN a.Source_vlook = 'None' then 
+                             WHEN a.Source_vlook = 'NONE' then 
                               CASE
-                              WHEN a.market10 = 'North America' then f.North_AmericaRoute
-                              WHEN a.market10 = 'Latin America' then f.Latin_AmericaRoute
+                              WHEN a.market10 = 'NORTH AMERICA' then f.North_AmericaRoute
+                              WHEN a.market10 = 'LATIN AMERICA' then f.Latin_AmericaRoute
                               WHEN a.market10 = 'UK&I' then f.UKIRoute
-                              WHEN a.market10 = 'Northern Europe' then f.Northern_EuropeRoute
-                              WHEN a.market10 = 'Southern Europe' then f.Southern_EuropeRoute
-                              WHEN a.market10 = 'Central Europe' then f.Central_EuropeRoute
+                              WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_EuropeRoute
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_EuropeRoute
+                              WHEN a.market10 = 'CENTRAL EUROPE' then f.Central_EuropeRoute
                               WHEN a.market10 = 'ISE' then f.ISERoute
-                              WHEN a.market10 = 'Greater Asia' then f.Greater_AsiaRoute
-                              WHEN a.market10 = 'Greater China' then f.Greater_ChinaRoute
-                              WHEN a.market10 = 'India SL & BL' then f.IndiaRoute
+                              WHEN a.market10 = 'GREATER ASIA' then f.Greater_AsiaRoute
+                              WHEN a.market10 = 'GREATER CHINA' then f.Greater_ChinaRoute
+                              WHEN a.market10 = 'INDIA SL & BL' then f.IndiaRoute
                               END
                              ELSE Source_vlook
                         END as Route
                         ,CASE 
-                             WHEN a.Source_vlook = 'None' then 
+                             WHEN a.Source_vlook = 'NONE' then 
                               CASE
-                              WHEN a.market10 = 'North America' then f.North_America_DRoute
-                              WHEN a.market10 = 'Latin America' then f.Latin_America_ERoute
+                              WHEN a.market10 = 'NORTH AMERICA' then f.North_America_DRoute
+                              WHEN a.market10 = 'LATIN AMERICA' then f.Latin_America_ERoute
                               WHEN a.market10 = 'UK&I' then f.UKI_DRoute
-                              WHEN a.market10 = 'Northern Europe' then f.Northern_Europe_DRoute
-                              WHEN a.market10 = 'Southern Europe' then f.Southern_Europe_DRoute
-                              WHEN a.market10 = 'Central Europe' AND a.developed_emerging='Developed' then f.Central_Europe_DRoute
-                              WHEN a.market10 = 'Central Europe' AND a.developed_emerging='Emerging' then f.Central_Europe_ERoute
+                              WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_Europe_DRoute
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_Europe_DRoute
+                              WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='DEVELOPED' then f.Central_Europe_DRoute
+                              WHEN a.market10 = 'CENTRAL EUROPE' AND a.developed_emerging='EMERGING' then f.Central_Europe_ERoute
                               WHEN a.market10 = 'ISE' then f.ISE_ERoute
-                              WHEN a.market10 = 'Greater Asia' AND a.developed_emerging='Developed' then f.Greater_Asia_DRoute
-                              WHEN a.market10 = 'Greater Asia' AND a.developed_emerging='Emerging' then f.Greater_Asia_ERoute
-                              WHEN a.market10 = 'Greater China' AND a.developed_emerging='Developed' then f.Greater_China_DRoute
-                              WHEN a.market10 = 'Greater China' AND a.developed_emerging='Emerging' then f.Greater_China_ERoute
-                              WHEN a.market10 = 'India SL & BL' then f.India_ERoute
+                              WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='DEVELOPED' then f.Greater_Asia_DRoute
+                              WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='EMERGING' then f.Greater_Asia_ERoute
+                              WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='DEVELOPED' then f.Greater_China_DRoute
+                              WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='EMERGING' then f.Greater_China_ERoute
+                              WHEN a.market10 = 'INDIA SL & BL' then f.India_ERoute
                               END
                              ELSE Source_vlook
                         END as RouteDE
                        ,CASE 
-                             WHEN a.Source_vlook = 'None' then 
+                             WHEN a.Source_vlook = 'NONE' then 
                               CASE
-                              WHEN a.src = 'reg5' THEN 'region5'
-                              WHEN a.market10 = 'North America' then f.North_AmericaRoute
-                              WHEN a.market10 = 'Latin America' then f.Latin_AmericaRoute
+                              WHEN a.src = 'REG5' THEN 'region5'
+                              WHEN a.market10 = 'NORTH AMERICA' then f.North_AmericaRoute
+                              WHEN a.market10 = 'LATIN AMERICA' then f.Latin_AmericaRoute
                               WHEN a.market10 = 'UK&I' then f.UKIRoute
-                              WHEN a.market10 = 'Northern Europe' then f.Northern_EuropeRoute
-                              WHEN a.market10 = 'Southern Europe' then f.Southern_EuropeRoute
-                              WHEN a.market10 = 'Central Europe' then f.Central_EuropeRoute
+                              WHEN a.market10 = 'NORTHERN EUROPE' then f.Northern_EuropeRoute
+                              WHEN a.market10 = 'SOUTHERN EUROPE' then f.Southern_EuropeRoute
+                              WHEN a.market10 = 'CENTRAL EUROPE' then f.Central_EuropeRoute
                               WHEN a.market10 = 'ISE' then f.ISERoute
-                              WHEN a.market10 = 'Greater Asia' then f.Greater_AsiaRoute
-                              WHEN a.market10 = 'Greater China' then f.Greater_ChinaRoute
-                              WHEN a.market10 = 'India SL & BL' then f.IndiaRoute
+                              WHEN a.market10 = 'GREATER ASIA' then f.Greater_AsiaRoute
+                              WHEN a.market10 = 'GREATER CHINA' then f.Greater_ChinaRoute
+                              WHEN a.market10 = 'INDIA SL & BL' then f.IndiaRoute
                               END
                              ELSE Source_vlook
                         END as Route2
@@ -2736,12 +2684,12 @@ usagesummaryNAEUAP <- usageSummary2TE_D3
 
 # Step 49 - Extracting PoR information for all platforms from DIM_PLATFORM table
 
-q4 <- (
+PoR_1 <- SparkR::collect(SparkR::sql(
     "
     SELECT DISTINCT platform_subset AS printer_platform_name
           , substring(mono_color,1,1) AS CM
           , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                        WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                        WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                         ELSE NULL
                         END AS EP
           , CASE WHEN por_ampv > 0 THEN por_ampv 
@@ -2752,32 +2700,30 @@ q4 <- (
           , intro_price
           , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
                  WHEN vc_category in ('SWT-L') THEN 'SWL'
-                 WHEN vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-                 WHEN vc_category in ('Dept','Dept-High') THEN 'DPT'
+                 WHEN vc_category in ('SWT-H','SWT-H PRO') THEN 'SWH'
+                 WHEN vc_category in ('DEPT', 'DEPT-HIGH') THEN 'DPT'
                  WHEN vc_category in ('WG') THEN 'WGP'
                  ELSE NULL
             END AS platform_finance_market_category_code
           , pl as product_line_code
           , format as platform_page_category
         FROM
-          ie2_Prod.dbo.hardware_xref
+          hardware_xref
         WHERE (upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
                             or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
     "
-  )  
-  
-  #PoR <- dbGetQuery(ch,q4)
-  PoR_1 <- dbGetQuery(cprod,q4)
+  ))
+
   PoR_1$product_usage_por_pages <- as.numeric(PoR_1$product_usage_por_pages)
   PoR_1$IsDSK <- ifelse(PoR_1$platform_finance_market_category_code =="DSK",1,0)
   PoR_1$IsDPT <- ifelse(PoR_1$platform_finance_market_category_code =="DPT",1,0)
  
-q4b <- (
+PoR_2 <- SparkR::collect(SparkR::sql(
     "with aa1 as (
         SELECT DISTINCT printer_platform_name
           , max(printer_intro_price) as product_intro_price
         FROM
-          ie2_Landing.dbo.tri_printer_ref_landing
+          tri_printer_ref_landing
         WHERE printer_technology_type in ('LASER','PWA')
         GROUP BY printer_platform_name
     )
@@ -2786,7 +2732,7 @@ q4b <- (
           , CASE WHEN printer_usage_por_pages > 0 THEN printer_usage_por_pages
             ELSE NULL END as product_usage_por_pages
         FROM
-          ie2_Landing.dbo.tri_printer_ref_landing
+          tri_printer_ref_landing
         WHERE printer_technology_type in ('LASER','PWA')
         )
      
@@ -2796,8 +2742,7 @@ q4b <- (
         on a.printer_platform_name=b.printer_platform_name
         group by a.printer_platform_name, a.product_intro_price
     "
-  )  
-  PoR_2 <- dbGetQuery(clanding,q4b)
+  ))
   
     PoR <- sqldf("select a.printer_platform_name 
                 ,a.cm
@@ -2872,7 +2817,7 @@ q4b <- (
 
 # Step - 50 -- extracting platform specific general IntroDate and create Old-Future type
 
-old <- dbGetQuery(cprod,paste("
+old <- SparkR::collect(SparkR::sql(paste("
    WITH ibset as (
         SELECT ib.platform_subset, cc.country_level_2 as region_code, cr.developed_emerging
         ,cal_date 
@@ -2880,11 +2825,11 @@ old <- dbGetQuery(cprod,paste("
           WHEN MONTH(cal_date) > 10 THEN  concat(YEAR(cal_date)+1,reverse(substring(reverse(concat('0000',MONTH(cal_date)-10)),1,2)))
           ELSE concat(YEAR(cal_date),reverse(substring(reverse(concat('0000',MONTH(cal_date)+2)),1,2)))
           END as fyearmo
-        FROM IE2_Prod.dbo.ib ib
-        LEFT JOIN IE2_Prod.dbo.iso_country_code_xref cr
-        ON ib.country=cr.country_alpha2
-        LEFT JOIN (select * from IE2_Prod.dbo.iso_cc_rollup_xref where country_scenario='Market10') cc
-        ON ib.country=cc.country_alpha2
+        FROM ib ib
+        LEFT JOIN iso_country_code_xref cr
+        ON ib.country_alpha2=cr.country_alpha2
+        LEFT JOIN (select * from iso_cc_rollup_xref where country_scenario='MARKET10') cc
+        ON ib.country_alpha2=cc.country_alpha2
    )
    , aa0 AS (
       SELECT substring(ref.mono_color,1,1) AS cm
@@ -2893,17 +2838,17 @@ old <- dbGetQuery(cprod,paste("
     , ib.developed_emerging
     , CASE WHEN ref.vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
            WHEN ref.vc_category in ('SWT-L') THEN 'SWL'
-           WHEN ref.vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-           WHEN ref.vc_category in ('Dept','Dept-High') THEN 'DPT'
+           WHEN ref.vc_category in ('SWT-H','SWT-H PRO') THEN 'SWH'
+           WHEN ref.vc_category in ('DEPT','DEPT-HIGH') THEN 'DPT'
            WHEN ref.vc_category in ('WG') THEN 'WGP'
            ELSE NULL
            END AS platform_market_code
     , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                        WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                        WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                         ELSE NULL
                         END AS ep
     , MIN(ib.fyearmo * 1) AS INTRODATE
-    FROM IE2_Prod.dbo.hardware_xref ref
+    FROM hardware_xref ref
     INNER JOIN
       ibset ib
     ON (ref.platform_subset=ib.platform_subset)
@@ -2914,13 +2859,13 @@ old <- dbGetQuery(cprod,paste("
     , ib.region_code
     , ib.developed_emerging
     , CASE WHEN ref.vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                        WHEN ref.vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                        WHEN ref.vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                         ELSE NULL
                         END
     , CASE WHEN ref.vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
            WHEN ref.vc_category in ('SWT-L') THEN 'SWL'
-           WHEN ref.vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-           WHEN ref.vc_category in ('Dept','Dept-High') THEN 'DPT'
+           WHEN ref.vc_category in ('SWT-H','SWT-H PRO') THEN 'SWH'
+           WHEN ref.vc_category in ('DEPT','DEPT-HIGH') THEN 'DPT'
            WHEN ref.vc_category in ('WG') THEN 'WGP'
            ELSE NULL END
   )
@@ -2928,19 +2873,19 @@ old <- dbGetQuery(cprod,paste("
   , aa1b as (
     SELECT
     cm, ep, platform_market_code, printer_platform_name, printer_region_code, INTRODATE
-    , CASE WHEN printer_region_code='North America' THEN  INTRODATE ELSE NULL END AS INTRODATE_NA
-    , CASE WHEN printer_region_code='Northern Europe' THEN INTRODATE ELSE NULL END AS INTRODATE_NE
-    , CASE WHEN printer_region_code='Southern Europe' THEN INTRODATE ELSE NULL END AS INTRODATE_SE
-    , CASE WHEN printer_region_code='Central Europe' AND developed_emerging='Developed' THEN INTRODATE ELSE NULL END AS INTRODATE_CED
-    , CASE WHEN printer_region_code='Central Europe' AND developed_emerging='Emerging' THEN INTRODATE ELSE NULL END AS INTRODATE_CEE
+    , CASE WHEN printer_region_code='NORTH AMERICA' THEN  INTRODATE ELSE NULL END AS INTRODATE_NA
+    , CASE WHEN printer_region_code='NORTHERN EUROPE' THEN INTRODATE ELSE NULL END AS INTRODATE_NE
+    , CASE WHEN printer_region_code='SOUTHERN EUROPE' THEN INTRODATE ELSE NULL END AS INTRODATE_SE
+    , CASE WHEN printer_region_code='CENTRAL EUROPE' AND developed_emerging='DEVELOPED' THEN INTRODATE ELSE NULL END AS INTRODATE_CED
+    , CASE WHEN printer_region_code='CENTRAL EUROPE' AND developed_emerging='EMERGING' THEN INTRODATE ELSE NULL END AS INTRODATE_CEE
     , CASE WHEN printer_region_code='UK&I' THEN INTRODATE ELSE NULL END AS INTRODATE_UK
     , CASE WHEN printer_region_code='ISE' THEN INTRODATE ELSE NULL END AS INTRODATE_IS
-    , CASE WHEN printer_region_code='India SL & BL' THEN  INTRODATE ELSE NULL END AS INTRODATE_IN
-    , CASE WHEN printer_region_code='Greater Asia' AND developed_emerging='Developed' THEN INTRODATE ELSE NULL END AS INTRODATE_GAD
-    , CASE WHEN printer_region_code='Greater Asia' AND developed_emerging='Emerging' THEN INTRODATE ELSE NULL END AS INTRODATE_GAE
-    , CASE WHEN printer_region_code='Greater China' AND developed_emerging='Developed' THEN INTRODATE ELSE NULL END AS INTRODATE_GCD
-    , CASE WHEN printer_region_code='Greater China' AND developed_emerging='Emerging' THEN INTRODATE ELSE NULL END AS INTRODATE_GCE
-    , CASE WHEN printer_region_code='Latin America' THEN  INTRODATE ELSE NULL END AS INTRODATE_LA
+    , CASE WHEN printer_region_code='INDIA SL & BL' THEN  INTRODATE ELSE NULL END AS INTRODATE_IN
+    , CASE WHEN printer_region_code='GREATER ASIA' AND developed_emerging='DEVELOPED' THEN INTRODATE ELSE NULL END AS INTRODATE_GAD
+    , CASE WHEN printer_region_code='GREATER ASIA' AND developed_emerging='EMERGING' THEN INTRODATE ELSE NULL END AS INTRODATE_GAE
+    , CASE WHEN printer_region_code='GREATER CHINA' AND developed_emerging='DEVELOPED' THEN INTRODATE ELSE NULL END AS INTRODATE_GCD
+    , CASE WHEN printer_region_code='GREATER CHINA' AND developed_emerging='EMERGING' THEN INTRODATE ELSE NULL END AS INTRODATE_GCE
+    , CASE WHEN printer_region_code='LATIN AMERICA' THEN  INTRODATE ELSE NULL END AS INTRODATE_LA
     FROM
     aa0
     )
@@ -2981,7 +2926,7 @@ old <- dbGetQuery(cprod,paste("
     bb2
     ORDER BY CM, EP, platform_market_code, printer_platform_name
     ",sep = " ", collapse = NULL
-))
+)))
 
   head(old)
   colnames(old)
@@ -3012,22 +2957,21 @@ str(PoR2)
 
 # Step 51A extracting platform-dim
 
-q5B <- ("SELECT distinct platform_subset AS printer_platform_name 
+platDim <- SparkR::collect(SparkR::sql("SELECT distinct platform_subset AS printer_platform_name 
                  , format AS platform_speed_segment_code
                  , sf_mf AS SM
                  , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                      WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                      WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                       ELSE NULL
                       END AS EP
                  , substring(mono_color,1,1) AS CM
-                 , CASE WHEN product_structure in ('Volume','Value High','Business','HPS')  THEN 'VHI'
-                        WHEN product_structure in ('Value','Personal','OPS') THEN 'VAL'
+                 , CASE WHEN product_structure in ('VOLUME','VALUE HIGH','BUSINESS','HPS')  THEN 'VHI'
+                        WHEN product_structure in ('VALUE','PERSONAL','OPS') THEN 'VAL'
                         ELSE NULL
                     END AS VV
-                 FROM ie2_Prod.dbo.hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                          or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')")
+                 FROM hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
+                          or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')"))
 
-platDim <- dbGetQuery(cprod,q5B)
 head(platDim)
 colnames(platDim)
 dim(platDim)
@@ -3043,21 +2987,7 @@ str(PoR2B)
 PoR2model <- PoR2B
   PoR2model$print_color_speed_pages <- as.numeric(PoR2model$print_color_speed_pages)
   PoR2model$print_mono_speed_pages <- as.numeric(PoR2model$print_mono_speed_pages)
-  
 
-  
-  #PoR2model <- sqldf('select *
-  #, case 
-  #when PLATFORM_TYPE = "OLD" and CM = "M" and SM = "SF" then (-0.70292 + 0.8000206*log(INTRO_PRICE_NUMBER) + 1.315551*log(MONO_SPEED_NUMBER) -0.008051*J90Mo) 
-  #when PLATFORM_TYPE = "OLD" and CM = "M" and SM = "MF" then (-2.376331 + 0.8661936*log(INTRO_PRICE_NUMBER) + 1.6562368*log(MONO_SPEED_NUMBER) -0.008247*J90Mo) 
-  #when PLATFORM_TYPE = "OLD" and CM = "C" and SM = "SF" then (-0.01346 + 0.7295208*log(INTRO_PRICE_NUMBER) + 1.1682769*log(MONO_SPEED_NUMBER) -0.006288*J90Mo -0.206628*IsDPT + 0.017758*IsDSK ) 
-  #when PLATFORM_TYPE = "OLD" and CM = "C" and SM = "MF" then (1.2004303 + 0.4817492*log(INTRO_PRICE_NUMBER) + 1.0721192*log(MONO_SPEED_NUMBER) -0.007462*J90Mo +0.3521691*log(COLOR_SPEED_NUMBER)) 
-  #end as model
-  #from PoR2B
-  #ORDER BY 
-  #Intro_FYearMo 
-  #, PLATFORM_TYPE 
-  #')
 ######NEED TO PULL IN NEW MODELS#######  
   PoR2model <- sqldf('select *
     , case 
@@ -3076,8 +3006,6 @@ PoR2model <- PoR2B
   
   PoR2model$rawMPV <- exp(as.numeric(PoR2model$model))
   str(PoR2model)
-  
-  #write.csv(paste(mainDir,subDir1,"/","PoR2model_iMPVmodeled_OLD_platforms",".csv", sep=''), x=PoR2model,row.names=FALSE, na="")
 
 # COMMAND ----------
 
@@ -3248,103 +3176,103 @@ PoR2model_iMPV5 <- sqldf('select *
 
 route5 <- sqldf("select platform_market_code as platform_market_code, CM as CM,printer_platform_name
                 , case 
-                when NA2 is not null then 'populated'
+                when NA2 is not null then 'POPULATED'
                 when NA3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as NAs
                -- , case 
-               -- when North_America2 is not null then 'populated'
+               -- when North_America2 is not null then 'POPULATED'
                -- when North_America3 is null then null
-               -- else 'Modeled'
+               -- else 'MODELED'
                -- end as North_Americas
                 --, case 
-                --when EU2 is not null then 'populated'
+                --when EU2 is not null then 'POPULATED'
                -- when EU3 is null then null
-                --else 'Modeled'
+                --else 'MODELED'
                 --end as EUs  
                 , case 
-                when UKI2 is not null then 'populated'
+                when UKI2 is not null then 'POPULATED'
                 when UKI3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as UKs
                 , case
-                when Northern_Europe2 is not null then 'populated'
+                when Northern_Europe2 is not null then 'POPULATED'
                 when Northern_Europe3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as NEs
                 , case
-                when Southern_Europe2 is not null then 'populated'
+                when Southern_Europe2 is not null then 'POPULATED'
                 when Southern_Europe3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as SEs
                 --, case
-                --when Central_Europe2 is not null then 'populated'
+                --when Central_Europe2 is not null then 'POPULATED'
                 --when Central_Europe3 is null then null
-                --else 'Modeled'
+                --else 'MODELED'
                 --end as Central_Europes
                 , case
-                when Central_Europe2 is not null then 'populated'
+                when Central_Europe2 is not null then 'POPULATED'
                 when Central_Europe_D3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as CEDs
                 , case
-                when Central_Europe2 is not null then 'populated'
+                when Central_Europe2 is not null then 'POPULATED'
                 when Central_Europe_E3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as CEEs
                 , case
-                when ISE2 is not null then 'populated'
+                when ISE2 is not null then 'POPULATED'
                 when ISE3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as ISs
                 --, case 
-                --when AP2 is not null then 'populated'
+                --when AP2 is not null then 'POPULATED'
                 --when AP3 is null then null
-                --else 'Modeled'
+                --else 'MODELED'
                 --end as APs     
-                , case when India2 is not null then 'populated'
+                , case when India2 is not null then 'POPULATED'
                 when India3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as INs
                 --, case 
-                --when Greater_Asia2 is not null then 'populated'
+                --when Greater_Asia2 is not null then 'POPULATED'
                 --when Greater_Asia3 is null then null
-                --else 'Modeled'
+                --else 'MODELED'
                 --end as Greater_Asias
                 , case 
-                when Greater_Asia2 is not null then 'populated'
+                when Greater_Asia2 is not null then 'POPULATED'
                 when Greater_Asia_D3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as GADs
                 , case 
-                when Greater_Asia2 is not null then 'populated'
+                when Greater_Asia2 is not null then 'POPULATED'
                 when Greater_Asia_E3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as GAEs
                 --, case
-                --when Greater_China2 is not null then 'populated'
+                --when Greater_China2 is not null then 'POPULATED'
                 --when Greater_China3 is null then null
-                --else 'Modeled'
+                --else 'MODELED'
                 --end as Greater_Chinas
                 , case
-                when Greater_China2 is not null then 'populated'
+                when Greater_China2 is not null then 'POPULATED'
                 when Greater_China_D3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as GCDs
                 , case
-                when Greater_China2 is not null then 'populated'
+                when Greater_China2 is not null then 'POPULATED'
                 when Greater_China_E3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as GCEs
                 , case 
-                when LA2 is not null then 'populated'
+                when LA2 is not null then 'POPULATED'
                 when LA3 is null then null
-                else 'Modeled'
+                else 'MODELED'
                 end as LAs 
                 --, case
-                --when Latin_America2 is not null then 'populated'
+                --when Latin_America2 is not null then 'POPULATED'
                 --when Latin_America3 is null then null
-                --else 'Modeled'
+                --else 'MODELED'
                 --end as Latin_Americas
 
 
@@ -3353,32 +3281,30 @@ route5 <- sqldf("select platform_market_code as platform_market_code, CM as CM,p
 
 route5B <- reshape2::melt(route5 , id.vars = c("platform_market_code", "CM","printer_platform_name"),variable.name = "printer_region_code", value.name = "Route")
 
-route5B <- route5B[which((route5B$Route=="Modeled")|is.na(route5B$Route)),]
+route5B <- route5B[which((route5B$Route=="MODELED")|is.na(route5B$Route)),]
 route5B$printer_platform_name <- factor(route5B$printer_platform_name)
 
 # COMMAND ----------
 
 # Step 61 - Calculating percentage of platform installed base across regions
 
-q6 <- ("SELECT distinct platform_subset AS printer_platform_name 
+new1 <- SparkR::collect(SparkR::sql("SELECT distinct platform_subset AS printer_platform_name 
                  , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H','SWT-L') then 'PRO'
-                      WHEN vc_category in ('SWT-H','SWT-H Pro','Dept','Dept-High','WG') then 'ENT'
+                      WHEN vc_category in ('SWT-H','SWT-H PRO','DEPT','DEPT-HIGH','WG') then 'ENT'
                       ELSE NULL
                       END AS EP
                  , substring(mono_color,1,1) AS CM
                  , CASE WHEN vc_category in ('ULE','PLE-L','PLE-H') THEN 'DSK'
                     WHEN vc_category in ('SWT-L') THEN 'SWL'
-                    WHEN vc_category in ('SWT-H','SWT-H Pro') THEN 'SWH'
-                    WHEN vc_category in ('Dept','Dept-High') THEN 'DPT'
+                    WHEN vc_category in ('SWT-H','SWT-H PRO') THEN 'SWH'
+                    WHEN vc_category in ('DEPT','DEPT-HIGH') THEN 'DPT'
                     WHEN vc_category in ('WG') THEN 'WGP'
                     ELSE NULL
                     END AS platform_market_code
-                 FROM ie2_Prod.dbo.hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
+                 FROM hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
                           or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')
                   --AND subbrand is not null
-       ")
-
-new1 <- dbGetQuery(cprod,q6)
+       "))
 
 new1b <- sqldf("SELECT a.*
             , c.market10
@@ -3389,7 +3315,7 @@ new1b <- sqldf("SELECT a.*
             INNER JOIN (select * from ibtable where ib IS NOT NULL) b 
               ON a.printer_platform_name=b.Platform_Subset
             LEFT JOIN country_info c
-              ON b.country=c.country_alpha2
+              ON b.country_alpha2=c.country_alpha2
               GROUP BY
                a.printer_platform_name, a.CM, a.EP, a.platform_market_code
              , c.market10, c.developed_emerging
@@ -3567,19 +3493,19 @@ new4$UK3 <- new4$UK2/((1+new4$UKd)^30)
 # Step 68 - Populating the route matrix of iMPV creations for Futre products
 
 route6 <- sqldf('select platform_market_code as platform_market_code, CM as CM, printer_platform_name
-                , case when NA3 is not null then "Future" else null end as NAs
-                , case when CED3 is not null then "Future" else null end as CEDs                
-                , case when CEE3 is not null then "Future" else null end as CEEs               
-                , case when GAD3 is not null then "Future" else null end as GADs               
-                , case when GAE3 is not null then "Future" else null end as GAEs  
-                , case when GCD3 is not null then "Future" else null end as GCDs  
-                , case when GCE3 is not null then "Future" else null end as GCEs
-                , case when IN3 is not null then "Future" else null end as INs
-                , case when IS3 is not null then "Future" else null end as ISs
-                , case when LA3 is not null then "Future" else null end as LAs
-                , case when NE3 is not null then "Future" else null end as NEs
-                , case when SE3 is not null then "Future" else null end as SEs
-                , case when UK3 is not null then "Future" else null end as UKs
+                , case when NA3 is not null then "FUTURE" else null end as NAs
+                , case when CED3 is not null then "FUTURE" else null end as CEDs                
+                , case when CEE3 is not null then "FUTURE" else null end as CEEs               
+                , case when GAD3 is not null then "FUTURE" else null end as GADs               
+                , case when GAE3 is not null then "FUTURE" else null end as GAEs  
+                , case when GCD3 is not null then "FUTURE" else null end as GCDs  
+                , case when GCE3 is not null then "FUTURE" else null end as GCEs
+                , case when IN3 is not null then "FUTURE" else null end as INs
+                , case when IS3 is not null then "FUTURE" else null end as ISs
+                , case when LA3 is not null then "FUTURE" else null end as LAs
+                , case when NE3 is not null then "FUTURE" else null end as NEs
+                , case when SE3 is not null then "FUTURE" else null end as SEs
+                , case when UK3 is not null then "FUTURE" else null end as UKs
                 from new4
 
                 ')
@@ -3608,27 +3534,27 @@ route1B <- sqldf("SELECT platform_market_code, CM, printer_platform_name
                  ")
 
 route <- rbind(route1B, route5B, route6B)
-#route$printer_region_code <- substr(route$printer_region_code, 1, 2)
+# route$printer_region_code <- substr(route$printer_region_code, 1, 2)
 
 routeT <- reshape2::dcast(route, platform_market_code + CM +printer_platform_name ~printer_region_code, value.var="Route")
 
   route <- sqldf("SELECT *,
-                  CASE WHEN Route = 'Self' THEN 'modelled: Self'
-                       WHEN Route = 'NA' THEN 'proxied: NA ;'||CM||platform_market_code
-                       WHEN Route = 'UK' THEN 'proxied: UK ;'||CM||platform_market_code
-                       WHEN Route = 'IS' THEN 'proxied: IS ;'||CM||platform_market_code
-                       WHEN Route = 'IN' THEN 'proxied: IN ;'||CM||platform_market_code
-                       WHEN Route = 'GAD' THEN 'proxied: GAD ;'||CM||platform_market_code
-                       WHEN Route = 'GAE' THEN 'proxied: GAE ;'||CM||platform_market_code
-                       WHEN Route = 'GCD' THEN 'proxied: GCD ;'||CM||platform_market_code
-                       WHEN Route = 'GCE' THEN 'proxied: GCE ;'||CM||platform_market_code
-                       WHEN Route = 'CED' THEN 'proxied: CED ;'||CM||platform_market_code
-                       WHEN Route = 'CEE' THEN 'proxied: CEE ;'||CM||platform_market_code
-                       WHEN Route = 'LA' THEN 'proxied: LA ;'||CM||platform_market_code
-                       WHEN Route = 'NE' THEN 'proxied: NE ;'||CM||platform_market_code
-                       WHEN Route = 'SE' THEN 'proxied: SE ;'||CM||platform_market_code
-                       WHEN Route = 'Modeled' THEN 'ML'
-                       WHEN Route = 'Future' THEN 'HW POR'
+                  CASE WHEN Route = 'SELF' THEN 'MODELLED: SELF'
+                       WHEN Route = 'NA' THEN 'PROXIED: NA ;'||CM||platform_market_code
+                       WHEN Route = 'UK' THEN 'PROXIED: UK ;'||CM||platform_market_code
+                       WHEN Route = 'IS' THEN 'PROXIED: IS ;'||CM||platform_market_code
+                       WHEN Route = 'IN' THEN 'PROXIED: IN ;'||CM||platform_market_code
+                       WHEN Route = 'GAD' THEN 'PROXIED: GAD ;'||CM||platform_market_code
+                       WHEN Route = 'GAE' THEN 'PROXIED: GAE ;'||CM||platform_market_code
+                       WHEN Route = 'GCD' THEN 'PROXIED: GCD ;'||CM||platform_market_code
+                       WHEN Route = 'GCE' THEN 'PROXIED: GCE ;'||CM||platform_market_code
+                       WHEN Route = 'CED' THEN 'PROXIED: CED ;'||CM||platform_market_code
+                       WHEN Route = 'CEE' THEN 'PROXIED: CEE ;'||CM||platform_market_code
+                       WHEN Route = 'LA' THEN 'PROXIED: LA ;'||CM||platform_market_code
+                       WHEN Route = 'NE' THEN 'PROXIED: NE ;'||CM||platform_market_code
+                       WHEN Route = 'SE' THEN 'PROXIED: SE ;'||CM||platform_market_code
+                       WHEN Route = 'MODLED' THEN 'ML'
+                       WHEN Route = 'FUTURE' THEN 'HW POR'
                   END AS label
                   FROM route 
                   
@@ -3787,16 +3713,16 @@ normdatadate2 <- reshape2::melt(normdatadate, id.vars = c("platform_market_code"
 # Step - 74 Combine Normalized introDate and iMPV data for each Platform
 ###HERE###  
 
-sourceRiMPV$mde <- ifelse(sourceRiMPV$market10=='Central Europe',paste0('CE',substr(sourceRiMPV$developed_emerging,1,1)),
-                   ifelse(sourceRiMPV$market10=='Greater Asia',paste0('GA',substr(sourceRiMPV$developed_emerging,1,1)), 
-                   ifelse(sourceRiMPV$market10=='Greater China',paste0('GC',substr(sourceRiMPV$developed_emerging,1,1)),
-                   ifelse(sourceRiMPV$market10=='North America','NA',
-                   ifelse(sourceRiMPV$market10=='Northern Europe','NE',
-                   ifelse(sourceRiMPV$market10=='Southern Europe','SE',
+sourceRiMPV$mde <- ifelse(sourceRiMPV$market10=='CENTRAL EUROPE',paste0('CE',substr(sourceRiMPV$developed_emerging,1,1)),
+                   ifelse(sourceRiMPV$market10=='GREATER ASIA',paste0('GA',substr(sourceRiMPV$developed_emerging,1,1)), 
+                   ifelse(sourceRiMPV$market10=='GREATER CHINA',paste0('GC',substr(sourceRiMPV$developed_emerging,1,1)),
+                   ifelse(sourceRiMPV$market10=='NORTH AMERICA','NA',
+                   ifelse(sourceRiMPV$market10=='NORTHERN EUROPE','NE',
+                   ifelse(sourceRiMPV$market10=='SOUTHERN EUROPE','SE',
                    ifelse(sourceRiMPV$market10=='UK&I','UK',
                    ifelse(sourceRiMPV$market10=='ISE','IS',
-                   ifelse(sourceRiMPV$market10=='India SL & BL','IN',
-                   ifelse(sourceRiMPV$market10=='Latin America','LA',
+                   ifelse(sourceRiMPV$market10=='INDIA SL & BL','IN',
+                   ifelse(sourceRiMPV$market10=='LATIN AMERICA','LA',
                    NA
                       ))))))))))
 normdataFinal0 <- sqldf("
@@ -3810,11 +3736,11 @@ normdataFinal0 <- sqldf("
                       END AS Route
                    , por.CM
                    , por.platform_market_code
-                   , CASE WHEN src.Route='country' THEN ctry.iMPV 
-                          WHEN src.Route='dev/em' THEN de.iMPV
-                          WHEN src.Route='market10' THEN mkt.iMPV
-                          WHEN src.Route='region5' THEN reg.iMPV
-                          WHEN src.Route='Self' THEN mkt.iMPV
+                   , CASE WHEN src.Route='COUNTRY' THEN ctry.iMPV 
+                          WHEN src.Route='DEV/EM' THEN de.iMPV
+                          WHEN src.Route='MARKET10' THEN mkt.iMPV
+                          WHEN src.Route='REGION5' THEN reg.iMPV
+                          WHEN src.Route='SELF' THEN mkt.iMPV
                           WHEN src.mde='LA' AND por.Latin_America3 IS NOT NULL THEN por.Latin_America3
                           WHEN src.mde='CEE' AND por.Central_Europe_E3 IS NOT NULL THEN por.Central_Europe_E3
                           WHEN src.mde='CED' AND por.Central_Europe_D3 IS NOT NULL THEN por.Central_Europe_D3
@@ -3834,25 +3760,25 @@ normdataFinal0 <- sqldf("
                           ELSE null
 
                       END AS iMPV
-                      ,CASE WHEN src.Route='country' THEN 'modelled: Self' 
-                            WHEN src.Route='dev/em' THEN 'modelled: Dev/EM'
-                            WHEN src.Route='market10' THEN 'modelled: Market10'
-                            WHEN src.Route='region5' THEN 'modelled: Region5'
-                            WHEN src.Route='Self' THEN 'modelled: Self'
-                            WHEN src.Route2='region5' THEN 'modelled: Region5'
-                            WHEN src.mde='LA' AND por.Latin_America3 IS NOT NULL THEN 'proxied: LA ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='CEE' AND por.Central_Europe_E3 IS NOT NULL THEN 'proxied: CED ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='CED' AND por.Central_Europe_D3 IS NOT NULL THEN 'proxied: CEE ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='GAD' AND por.Greater_Asia_D3 IS NOT NULL THEN'proxied: GAD ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='GAE' AND por.Greater_Asia_E3 IS NOT NULL THEN 'proxied: GAE ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='GCD' AND por.Greater_China_D3 IS NOT NULL THEN 'proxied: GCD ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='GCE' AND por.Greater_China_E3 IS NOT NULL THEN 'proxied: GCE ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='IN' AND por.India3 IS NOT NULL THEN 'proxied: ISB ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='IS' AND por.ISE3 IS NOT NULL THEN 'proxied: ISE ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='NA' AND por.North_America3 IS NOT NULL THEN 'proxied: NA ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='NE' AND por.Northern_Europe3 IS NOT NULL THEN 'proxied: NE ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='SE' AND por.Southern_Europe3 IS NOT NULL THEN 'proxied: SE ;'||por.CM||por.platform_market_code
-                            WHEN src.mde='UK' AND por.UKI3 IS NOT NULL THEN 'proxied: UK ;'||por.CM||por.platform_market_code
+                      ,CASE WHEN src.Route='COUNTRY' THEN upper('modelled: Self') 
+                            WHEN src.Route='DEV/EM' THEN upper('modelled: Dev/EM')
+                            WHEN src.Route='MARKET10' THEN upper('modelled: Market10')
+                            WHEN src.Route='REGION5' THEN upper('modelled: Region5')
+                            WHEN src.Route='SELF' THEN upper('modelled: Self')
+                            WHEN src.Route2='REGION5' THEN upper('modelled: Region5')
+                            WHEN src.mde='LA' AND por.Latin_America3 IS NOT NULL THEN upper('proxied: LA ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='CEE' AND por.Central_Europe_E3 IS NOT NULL THEN upper('proxied: CED ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='CED' AND por.Central_Europe_D3 IS NOT NULL THEN upper('proxied: CEE ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='GAD' AND por.Greater_Asia_D3 IS NOT NULL THEN upper('proxied: GAD ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='GAE' AND por.Greater_Asia_E3 IS NOT NULL THEN upper('proxied: GAE ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='GCD' AND por.Greater_China_D3 IS NOT NULL THEN upper('proxied: GCD ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='GCE' AND por.Greater_China_E3 IS NOT NULL THEN upper('proxied: GCE ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='IN' AND por.India3 IS NOT NULL THEN upper('proxied: ISB ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='IS' AND por.ISE3 IS NOT NULL THEN upper('proxied: ISE ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='NA' AND por.North_America3 IS NOT NULL THEN upper('proxied: NA ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='NE' AND por.Northern_Europe3 IS NOT NULL THEN upper('proxied: NE ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='SE' AND por.Southern_Europe3 IS NOT NULL THEN upper('proxied: SE ;'||por.CM||por.platform_market_code)
+                            WHEN src.mde='UK' AND por.UKI3 IS NOT NULL THEN upper('proxied: UK ;'||por.CM||por.platform_market_code)
                             WHEN por.product_usage_por_pages IS NOT NULL THEN 'HW POR'
                             WHEN por.rawMPV is not NULL THEN 'ML'
                           END as label
@@ -3913,14 +3839,11 @@ normdataFinal$strata2 <- apply( normdataFinal[ , cols ] , 1 , paste , collapse =
 s1 <- as.data.frame(seq(max(1990,firstAvaiableYear), lastAvaiableYear, 1))
 s2 <- as.data.frame(seq(1, 12, 1))
 s3 <- merge(s1,s2,all=TRUE)
-# names(s3)[names(s3)=="seq(1990, 2020, 1)"] <- "year"
-# names(s3)[names(s3)=="seq(1, 12, 1)"] <- "month"
 names(s3)[1] <- "year"
 names(s3)[2] <- "month"
 names(s2)[1] <- "month"
 tempdir(check=TRUE)
 
-#   rm(PoR, PoR_1, zeroi, usage2, usage3, usage4, usage5, zero, two, three, four, outcome0, sourceR, sourceRiMPV, introYear3, introYear, iblist )
 gc()
 
 # COMMAND ----------
@@ -4042,9 +3965,9 @@ createOrReplaceTempView(final4, "final4")
 
 ######Not keeping all IB######
 
-caldts <- dbGetQuery(cprod,"SELECT distinct Calendar_Yr_Mo, Fiscal_Year_Qtr FROM IE2_Prod.dbo.calendar WHERE Day_of_Month=1")
+caldts <- SparkR::sql("SELECT distinct Calendar_Yr_Mo, Fiscal_Year_Qtr FROM calendar WHERE Day_of_Month=1")
 
-createOrReplaceTempView(as.DataFrame(caldts), "caldts")
+createOrReplaceTempView(caldts, "caldts")
 
 createOrReplaceTempView(as.DataFrame(ibtable), "ibtable")
 
@@ -4055,7 +3978,7 @@ final4 <- SparkR::sql('select aa1.*
                 left outer join 
                 ibtable aa2
                 on 
-                aa1.printer_platform_name = aa2.platform_subset and aa1.country_alpha2 = aa2.country and aa1.yyyymm = aa2.month_begin
+                aa1.printer_platform_name = aa2.platform_subset and aa1.country_alpha2 = aa2.country_alpha2 and aa1.yyyymm = aa2.month_begin
                 left join caldts cd
                 on aa1.yyyymm=cd.Calendar_Yr_Mo
                 ')
@@ -4134,99 +4057,29 @@ createOrReplaceTempView(final9, "final9")
 
 # COMMAND ----------
 
-# Step 84B - creating ther POR_MPV column
-
-# newTable <- sqlQuery(ch,paste(
-#   "								
-#   select DISTINCT product_ref.platform_lab_name AS printer_platform_name
-#   , product_ref.product_chrome_code as CM
-#   , product_ref.product_business_code AS EP
-#   , product_ref.product_usage_por_pages AS PLAN_OF_RECORD
-#   from
-#   ref_enrich.product_ref
-#   
-#   "
-#   ,sep = "", collapse = NULL),na.strings = "")
-# newTable <- sqldf('
-#                   select distinct printer_platform_name as printer_platform_name
-#                   , CM
-#                   , EP
-#                   , product_usage_por_pages as PLAN_OF_RECORD
-#                   from PoR
-#                   ')
-# 
-# final10 <- sqldf('select distinct aa1.*
-#                   --, aa2.PLAN_OF_RECORD 
-#                  from final9 aa1
-#                  left join
-#                  newTable aa2 
-#                  on
-#                  aa1.Platform_Subset_Nm = aa2.printer_platform_name')
-
-#final10$POR_MPV <- final10$PLAN_OF_RECORD *((1+(final10$Decay/12))^(final10$MoSI - 30))
-
-#head(final10)
-# To check the outcome with Van's table. The calculation is correct. 
-# However, the decay rate used in Van's table is different than what is being created in UPM code
-
-#final10[which(final10$printer_platform_name == "ARGON MANAGED" & final10$printer_region_code == "EU"),c("printer_platform_name", "printer_region_code","FYearMo",	"MoSI",	"Decay", "POR_MPV")]
-
-#close(ch)
-decay_rates <- SparkR::sql("select distinct Platform_Subset_Nm, Market10, Region, Region_DE, avg(MPV_Init) as MPV_Init, avg(Decay) as Decay, avg(b1check) as b1check, '2021-11-02' as rundate  from final9
-                 Group by Platform_Subset_Nm, Market10, Region, Region_DE
-                 ")
-# s3write_using(x=decay_rates,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/toner_decay_75_",outnm_dt,"_(",Sys.Date(),").csv"), row.names=FALSE, na="")
-
-# COMMAND ----------
-
-# -------Can you create an Access database from server?  
-# Step 85 - exporting final10 Table into Access database
-
-start.time2 <- Sys.time()
-
-# odbcDataSources()
-# 
-# ch2 <- odbcConnect(db1)
-# sqlTables(ch2)
-# 
-# variableTypes = c(Color_Pct="number", K_EYR="number"
-#                   , KCYM_EYR="number", POR_ColorPct="number"
-#                   ,POR_KEYR="number", POR_KCYMEYR="number")
-# 
-# 
-# sqlSave(ch2, final10, tablename = tb1, append = FALSE,
-#         rownames = FALSE, colnames = FALSE, safer = FALSE 
-#         # If "safer" = false, allow sqlSave to attempt to delete all the rows of an existing table, or to drop it
-#         ,varTypes=variableTypes
-# )
-# 
-# close(ch2)  
-
-
-#s3write_using(x=final9,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",Sys.Date(),").csv"), row.names=FALSE, na="")
-# s3write_using(x=final9,FUN = write_parquet, object = paste0("s3://insights-environment-sandbox/BrentT/UPM_ctry(",Sys.Date(),").parquet"))
-
-output_file_name <- paste0("s3://", aws_bucket_name, "UPM_ctry(", todaysDate, ").parquet")
-
-SparkR::write.parquet(x=final9, path=output_file_name, mode="overwrite")
-
-print(output_file_name)
-
-end.time2 <- Sys.time()
-time.taken.accesssDB <- end.time2 - start.time2;time.taken.accesssDB
-
-# COMMAND ----------
-
-  # ---- Step 86 - exporting final10 Table into R database ----------------------------------#
-
-  #s3saveRDS(x=final10,object="BrentT/UPM_Data.RDS", bucket="s3://insights-environment-sandbox/")
-# Cannot add "subdirectories" in S3, subdirectory name is part of the filename.  
+# MAGIC %python
+# MAGIC # Step 85 - exporting final9 to S3
+# MAGIC 
+# MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_total"
+# MAGIC 
+# MAGIC check_dups = spark.sql("""
+# MAGIC                 WITH stp1 AS (SELECT Platform_Subset_Nm, Country_Cd, FYearMo, count(*) as numobs
+# MAGIC                   FROM final9
+# MAGIC                 Group by Platform_Subset_Nm, Country_Cd, FYearMo)
+# MAGIC                 SELECT *
+# MAGIC                  FROM stp1
+# MAGIC                  WHERE numobs !=1
+# MAGIC                  """)
+# MAGIC 
+# MAGIC if check_dups.count() == 0:
+# MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
+# MAGIC else:
+# MAGIC     print("Duplicates in data")
+# MAGIC     dbutils.notebook.exit("FAILED")
+# MAGIC 
+# MAGIC print(output_file_name)
 
 # COMMAND ----------
 
 notebook_end_time <- Sys.time()
 notebook_total_time <- notebook_end_time - notebook_start_time;notebook_total_time
-
-# COMMAND ----------
-
-
