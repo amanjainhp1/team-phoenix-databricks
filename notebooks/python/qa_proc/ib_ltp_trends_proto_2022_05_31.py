@@ -80,7 +80,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Compare IINK-STF to norm ships
+# MAGIC ## Compare IINK-STF to norm ships - iter1
 
 # COMMAND ----------
 
@@ -151,4 +151,182 @@ compare1_df.show()
 
 # MAGIC %md
 # MAGIC ### Results
-# MAGIC There are no I-INK combinations (platform_subset, country_alpha2) in normalized shipments that extend past 10-01-2022. INCORRECT - I AM WORKING IN THE WRONG ENVIRONMENT!
+# MAGIC 
+# MAGIC Some notes on iteration 1:
+# MAGIC + error records above highlight iink platform_subset/country combinations that do NOT exist in normalized shipments
+# MAGIC + update the script to get the max ship date by platform_subset and market10 so that we can add combinations to the different categories
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Compare IINK-STF to norm ships - iter2
+
+# COMMAND ----------
+
+compare2 = """
+WITH iink AS
+    (SELECT month_begin
+          , geography_grain
+          , geography
+          , country_alpha2
+          , split_name
+          , platform_subset
+          , p2_attach
+          , ib
+     FROM "stage"."ib_03_iink_complete"
+     WHERE 1 = 1
+       AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE))
+
+   , ns_country AS
+    (SELECT ns.country_alpha2
+          , ns.platform_subset
+          , MAX(ns.cal_date) AS max_cal_date
+     FROM prod.norm_shipments AS ns
+              JOIN mdm.hardware_xref AS hw
+                   ON UPPER(hw.platform_subset) = UPPER(ns.platform_subset)
+     WHERE ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND UPPER(hw.technology) IN ('INK')
+     GROUP BY ns.country_alpha2
+            , ns.platform_subset)
+
+   , ns_geo AS
+    (SELECT UPPER(iso.market10) AS market10
+          , ns.platform_subset
+          , MAX(ns.cal_date)    AS max_cal_date
+     FROM prod.norm_shipments AS ns
+              JOIN mdm.hardware_xref AS hw
+                   ON UPPER(hw.platform_subset) = UPPER(ns.platform_subset)
+              JOIN mdm.iso_country_code_xref AS iso
+                   ON UPPER(iso.country_alpha2) = UPPER(ns.country_alpha2)
+     WHERE ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND UPPER(hw.technology) IN ('INK')
+     GROUP BY UPPER(iso.market10)
+            , ns.platform_subset)
+
+   , ns_pfs AS
+    (SELECT ns.platform_subset
+          , MAX(ns.cal_date) AS max_cal_date
+     FROM prod.norm_shipments AS ns
+              JOIN mdm.hardware_xref AS hw
+                   ON UPPER(hw.platform_subset) = UPPER(ns.platform_subset)
+     WHERE ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND UPPER(hw.technology) IN ('INK')
+     GROUP BY ns.platform_subset)
+
+   , test AS
+    (SELECT DISTINCT iink.platform_subset
+                   , iink.country_alpha2
+                   , iink.split_name
+                   , ns.max_cal_date  AS country_max_cal_date
+                   , geo.max_cal_date AS geo_max_cal_date
+                   , pfs.max_cal_date AS pfs_max_cal_date
+     FROM iink
+              LEFT JOIN ns_country AS ns
+                        ON UPPER(ns.platform_subset) =
+                           UPPER(iink.platform_subset)
+                            AND
+                           UPPER(ns.country_alpha2) = UPPER(iink.country_alpha2)
+              LEFT JOIN ns_geo AS geo
+                        ON UPPER(geo.platform_subset) =
+                           UPPER(iink.platform_subset)
+                            AND UPPER(geo.market10) = UPPER(iink.geography)
+              LEFT JOIN ns_pfs AS pfs
+                        ON UPPER(pfs.platform_subset) =
+                           UPPER(iink.platform_subset)
+     WHERE 1 = 1
+       AND UPPER(iink.split_name) = 'I-INK')
+
+SELECT CASE
+           WHEN COALESCE(country_max_cal_date, geo_max_cal_date,
+                         pfs_max_cal_date) < CAST('2022-10-01' AS date)
+               THEN 'to-decay'
+           WHEN COALESCE(country_max_cal_date, geo_max_cal_date,
+                         pfs_max_cal_date) >= CAST('2022-10-01' AS date)
+               THEN 'to-allocate-ltp'
+           ELSE 'error' END AS test_column
+     , COUNT(1)             AS row_count
+FROM test
+GROUP BY CASE
+             WHEN COALESCE(country_max_cal_date, geo_max_cal_date,
+                           pfs_max_cal_date) < CAST('2022-10-01' AS date)
+                 THEN 'to-decay'
+             WHEN COALESCE(country_max_cal_date, geo_max_cal_date,
+                           pfs_max_cal_date) >= CAST('2022-10-01' AS date)
+                 THEN 'to-allocate-ltp'
+             ELSE 'error' END
+ORDER BY 1
+"""
+
+# COMMAND ----------
+
+compare2_df = read_redshift_to_df(configs) \
+  .option("query", compare2) \
+  .load()
+
+compare2_df.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Results
+# MAGIC 
+# MAGIC Some notes on iteration 2:
+# MAGIC + 266 platform_subsets/country/geo combinations in iink not in norm_ships
+# MAGIC + 7 platform_subsets
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## IINK platform_subsets not in norm_ships
+
+# COMMAND ----------
+
+compare3 = """
+WITH iink AS
+    (SELECT month_begin
+          , geography_grain
+          , geography
+          , country_alpha2
+          , split_name
+          , platform_subset
+          , p2_attach
+          , ib
+     FROM "stage"."ib_03_iink_complete"
+     WHERE 1 = 1
+       AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE))
+
+   , ns_pfs AS
+    (SELECT ns.platform_subset
+          , MAX(ns.cal_date) AS max_cal_date
+     FROM prod.norm_shipments AS ns
+              JOIN mdm.hardware_xref AS hw
+                   ON UPPER(hw.platform_subset) = UPPER(ns.platform_subset)
+     WHERE ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND UPPER(hw.technology) IN ('INK')
+     GROUP BY ns.platform_subset)
+
+   , test AS
+    (SELECT DISTINCT iink.platform_subset
+                   , iink.country_alpha2
+                   , iink.split_name
+                   , pfs.max_cal_date AS pfs_max_cal_date
+     FROM iink
+              LEFT JOIN ns_pfs AS pfs
+                        ON UPPER(pfs.platform_subset) =
+                           UPPER(iink.platform_subset)
+     WHERE 1 = 1
+       AND UPPER(iink.split_name) = 'I-INK')
+
+SELECT DISTINCT platform_subset
+FROM test
+WHERE pfs_max_cal_date IS NULL
+ORDER BY 1
+"""
+
+# COMMAND ----------
+
+compare3_df = read_redshift_to_df(configs) \
+  .option("query", compare3) \
+  .load()
+
+compare3_df.show()
