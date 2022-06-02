@@ -330,3 +330,8 @@ compare3_df = read_redshift_to_df(configs) \
   .load()
 
 compare3_df.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## trend out iink-stf w/o shipments past 2022-10-01
