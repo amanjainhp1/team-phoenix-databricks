@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # IB - February 2022 Initial QA For New Redshift Process
+# MAGIC # IB - June 2022 QC/QA
 # MAGIC 
 # MAGIC Mark Middendorf, Candace Cox
 # MAGIC 
@@ -308,7 +308,7 @@ LEFT JOIN mdm.hardware_xref AS hw
     ON hw.platform_subset = ns.platform_subset
 WHERE 1=1
     AND hw.technology IN ('INK', 'LASER', 'PWA')
-    AND ns.version = '2022.04.27.1'
+    AND ns.version = '2022.05.16.1'
     and ns.cal_date between '2019-03-01' and '2026-10-01'
 GROUP BY ns.cal_date
 ORDER BY 2
@@ -382,7 +382,7 @@ with prod as
         , ib.version
         , SUM(ib.units) AS units
     FROM prod.ib AS ib
-    WHERE ib.version IN ('2022.04.27.1')
+    WHERE ib.version IN ('2022.05.16.1')
         AND ib.measure = 'IB'
     GROUP BY ib.cal_date
         , ib.country_alpha2
@@ -492,7 +492,7 @@ with prod as
         , ib.version
         , SUM(ib.units) AS units
     FROM prod.ib AS ib
-    WHERE ib.version IN ('2022.04.27.1')
+    WHERE ib.version IN ('2022.05.16.1')
         AND ib.measure = 'IB'
     GROUP BY ib.cal_date
         , ib.country_alpha2
@@ -606,7 +606,7 @@ with prod as
     FROM prod.ib AS ib
     join mdm.hardware_xref as hw
         on hw.platform_subset = ib.platform_subset
-    WHERE ib.version IN ('2022.04.27.1')
+    WHERE ib.version IN ('2022.05.16.1')
         AND ib.measure = 'IB'
         AND ib.cal_date BETWEEN '2013-11-01' AND '2025-10-01'
         and hw.technology = 'INK'
@@ -702,7 +702,7 @@ with prod as
         , ib.version
         , SUM(ib.units) AS units
     FROM prod.ib AS ib
-    WHERE ib.version IN ('2022.04.27.1')
+    WHERE ib.version IN ('2022.05.16.1')
         AND ib.measure = 'IB'
         AND ib.customer_engagement = 'I-INK'
     GROUP BY ib.cal_date
@@ -807,7 +807,7 @@ with prod as
     FROM prod.ib AS ib
     join mdm.hardware_xref as hw
       on hw.platform_subset = ib.platform_subset
-    WHERE ib.version IN ('2022.04.27.1')
+    WHERE ib.version IN ('2022.05.16.1')
         AND ib.measure = 'IB'
         AND ib.customer_engagement = 'TRAD'
         AND ib.cal_date BETWEEN '2013-11-01' AND '2025-10-01'
