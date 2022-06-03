@@ -118,7 +118,7 @@ GROUP BY ib.cal_date
     , ib.version
     , ib.load_date;
     
-GRANT ALL ON prod.ib_datamart_source_vw to GROUP dev_arch_eng;
+GRANT ALL ON prod.ib_datamart_source_vw to GROUP phoenix_dev;
 """
 
 # COMMAND ----------

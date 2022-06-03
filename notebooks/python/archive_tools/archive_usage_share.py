@@ -27,8 +27,8 @@ select
 	version,
 	load_date
 from
-	archive.dbo.usage_share_archive
-where version = '2021.02.12.1'
+    ie2_prod.dbo.usage_share
+where version = '2022.04.25.1'
 
 """
 
@@ -52,5 +52,9 @@ version = redshift_usage_share_archive_records.select('version').distinct().head
 s3_usage_share_output_bucket = constants["S3_BASE_BUCKET"][stack] + "spectrum/usage_share/" + version
 
 write_df_to_s3(redshift_usage_share_archive_records, s3_usage_share_output_bucket, "parquet", "overwrite")
+
+
+
+# COMMAND ----------
 
 
