@@ -89,7 +89,7 @@ def read_sql_server_to_df(configs: dict) -> DataFrame:
 
 # COMMAND ----------
 
-def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", mode: str = "append") -> None:
+def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", mode: str = "append", postactions: str = "", preactions: str = "") -> None:
     try:
         df.write \
             .format("jdbc") \
@@ -98,6 +98,8 @@ def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", m
             .option("user", configs["sfai_username"]) \
             .option("password",  configs["sfai_password"]) \
             .option("dbtable", destination) \
+            .option("preactions", preactions) \
+            .option("postactions", postactions) \
             .mode(mode) \
             .save()
     except Exception as error:

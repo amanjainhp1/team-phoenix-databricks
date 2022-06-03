@@ -110,7 +110,7 @@ for table in tables.items():
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
     # else select latest version
-    elif "ib" in source:
+    elif table[0] == "ib":
         source_df = source_df.filter(f"version = '{max_version_ib}'") \
             .withColumnRenamed("country_alpha2", "country")
     
