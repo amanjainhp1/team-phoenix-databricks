@@ -99,6 +99,7 @@ write_df_to_sqlserver(configs, redshift_gpsy_prod_list_price_records, "ie2_landi
 
 # COMMAND ----------
 
+# ~ 7 mins to complete
 import pymssql
 
 def submit_remote_sqlserver_query(configs, db, query):
@@ -109,3 +110,7 @@ def submit_remote_sqlserver_query(configs, db, query):
     conn.close()
     
 submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC ie2_prod.dbo.p_load_list_price_gpsy;")
+
+# COMMAND ----------
+
+
