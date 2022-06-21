@@ -60,6 +60,7 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 # MAGIC # load parquet data and register views
 # MAGIC datestamp = dbutils.widgets.get('datestamp')
 # MAGIC timestamp = dbutils.widgets.get('timestamp')
+# MAGIC ibversion = dbutils.widgets.get('ib_version')
 # MAGIC 
 # MAGIC tables = ['bdtbl', 'calendar', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref', 'tri_printer_ref_landing']
 # MAGIC for table in tables:

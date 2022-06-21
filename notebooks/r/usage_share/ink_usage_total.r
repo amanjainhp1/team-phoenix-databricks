@@ -40,7 +40,7 @@ packages <- c("tidyverse", "lubridate", "SparkR", "zoo", "sqldf")
 # MAGIC 
 # MAGIC tables = ['bdtbl', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
 # MAGIC for table in tables:
-# MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
+# MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/ink/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
 
 # COMMAND ----------
 
@@ -74,10 +74,6 @@ oldNewDemarcation <- end1
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 # Step 1 - query for Normalized extract specific to PE and RM
 
 zero <- SparkR::collect(SparkR::sql("
@@ -103,11 +99,9 @@ SELECT
 	, reporting_printers
     , connected_ib
 FROM bdtbl
-")
+"))
 
 # COMMAND ----------
-
-ib_version <- dbutils.widgets.get("ib_version") #SELECT SPECIFIC VERSION
 
 ibtable <- SparkR::collect(SparkR::sql("
                    select  a.platform_subset
@@ -131,7 +125,7 @@ ibtable <- SparkR::collect(SparkR::sql("
                       and d.product_lifecycle_status not in ('E','M') 
                     group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.version, d.hw_product_family
                             , b.region_5, a.country
-                   "))
+"))
 
 # COMMAND ----------
 
@@ -144,33 +138,13 @@ hw_info <- SparkR::collect(SparkR::sql(
                     "
                     ))
 
-#Find how many are not matching in BD#
-nmlst <- sqldf("SELECT distinct printer_platform_name from zero")
-nmlst2 <- as.data.frame(unique(ibtable$platform_subset))
-colnames(nmlst2) <- "ib_name"
-hw_info2 <- SparkR::collect(SparkR::sql(
-                    "SELECT distinct platform_subset, product_lifecycle_status, successor, predecessor
-                    from hardware_xref
-                    "
-                    ))
-missing_name <- sqldf("select a.*, b.product_lifecycle_status, b.successor, b.predecessor
-                      from nmlst2 a 
-                      left join hw_info2 b on a.ib_name=b.platform_subset 
-                      where ib_name not in (select printer_platform_name from nmlst)
-                      ")
-table(missing_name$product_lifecycle_status)
-missing_name2 <- sqldf("select a.*, b.product_lifecycle_status, b.successor, b.predecessor 
-                       from nmlst a left join hw_info2 b on a.printer_platform_name=b.platform_subset where printer_platform_name not in (select ib_name from nmlst2)")
-print(missing_name)
-print(missing_name2)
-
 # COMMAND ----------
 
 ibintrodt <- SparkR::collect(SparkR::sql("
             SELECT  a.platform_subset
                     ,min(cal_date) AS intro_date
                     FROM ib a
-                    LEFT hardware_xref d
+                    LEFT JOIN hardware_xref d
                       ON (a.platform_subset=d.platform_subset)
                     WHERE a.measure='IB'
                       AND d.technology in ('INK','PWA')
@@ -185,7 +159,7 @@ country_info <- SparkR::collect(SparkR::sql("
                       WITH mkt10 AS (
                            SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
                            FROM iso_cc_rollup_xref
-                           WHERE country_scenario='Market10'
+                           WHERE country_scenario='MARKET10'
                       ),
                       rgn5 AS (
                             SELECT country_alpha2, region_5, developed_emerging, country 
@@ -767,7 +741,7 @@ sourceR <- sqldf("
                  when demN >= 200 then 'DEV/EM'
                  when mktN >= 200 then 'MARKET10'
                  when prcN >= 200 then 'REGION5'
-                 else 'None'
+                 else 'NONE'
                  end as Source_vlook
                  from iblist ib
                  left join u2
@@ -2593,8 +2567,7 @@ usagesummaryNAEUAP <- usageSummary2TE_D3
 # Step 49 - Extracting PoR informastion for all platforms from DIM_PLATFORM table
 
 #strata <- unique(usage[c("platform_division_code", "product_brand", "printer_platform_name")])
-PoRtst <- SparkR::collect(SparkR::sql(
-    "
+PoRtst <- SparkR::collect(SparkR::sql("
     SELECT DISTINCT platform_subset AS printer_platform_name
           , hw_product_family as platform_division_code
           , upper(brand) as product_brand
@@ -2658,7 +2631,7 @@ old <- SparkR::collect(SparkR::sql(paste("
         FROM ib ib
         LEFT JOIN iso_country_code_xref cr
         ON ib.country=cr.country_alpha2
-        LEFT JOIN (select * from IE2_Prod.dbo.iso_cc_rollup_xref where country_scenario='MARKET10') cc
+        LEFT JOIN (select * from iso_cc_rollup_xref where country_scenario='MARKET10') cc
         ON ib.country=cc.country_alpha2
    )
    , aa0 AS (
@@ -2687,19 +2660,19 @@ old <- SparkR::collect(SparkR::sql(paste("
   , aa1b as (
     SELECT
     product_brand ,platform_division_code,rtm, printer_platform_name, printer_region_code, INTRODATE
-    , CASE WHEN printer_region_code='North America' THEN  INTRODATE ELSE NULL END AS INTRODATE_NA
-    , CASE WHEN printer_region_code='Northern Europe' THEN INTRODATE ELSE NULL END AS INTRODATE_NE
-    , CASE WHEN printer_region_code='Southern Europe' THEN INTRODATE ELSE NULL END AS INTRODATE_SE
-    , CASE WHEN printer_region_code='Central Europe' AND developed_emerging='D' THEN INTRODATE ELSE NULL END AS INTRODATE_CED
-    , CASE WHEN printer_region_code='Central Europe' AND developed_emerging='E' THEN INTRODATE ELSE NULL END AS INTRODATE_CEE
+    , CASE WHEN printer_region_code='NORTH AMERICA' THEN  INTRODATE ELSE NULL END AS INTRODATE_NA
+    , CASE WHEN printer_region_code='NORTHERN EUROPE' THEN INTRODATE ELSE NULL END AS INTRODATE_NE
+    , CASE WHEN printer_region_code='SOUTHERN EUROPE' THEN INTRODATE ELSE NULL END AS INTRODATE_SE
+    , CASE WHEN printer_region_code='CENTRAL EUROPE' AND developed_emerging='D' THEN INTRODATE ELSE NULL END AS INTRODATE_CED
+    , CASE WHEN printer_region_code='CENTRAL EUROPE' AND developed_emerging='E' THEN INTRODATE ELSE NULL END AS INTRODATE_CEE
     , CASE WHEN printer_region_code='UK&I' THEN INTRODATE ELSE NULL END AS INTRODATE_UK
     , CASE WHEN printer_region_code='ISE' THEN INTRODATE ELSE NULL END AS INTRODATE_IS
-    , CASE WHEN printer_region_code='India SL & BL' THEN  INTRODATE ELSE NULL END AS INTRODATE_IN
-    , CASE WHEN printer_region_code='Greater Asia' AND developed_emerging='D' THEN INTRODATE ELSE NULL END AS INTRODATE_GAD
-    , CASE WHEN printer_region_code='Greater Asia' AND developed_emerging='E' THEN INTRODATE ELSE NULL END AS INTRODATE_GAE
-    , CASE WHEN printer_region_code='Greater China' AND developed_emerging='D' THEN INTRODATE ELSE NULL END AS INTRODATE_GCD
-    , CASE WHEN printer_region_code='Greater China' AND developed_emerging='E' THEN INTRODATE ELSE NULL END AS INTRODATE_GCE
-    , CASE WHEN printer_region_code='Latin America' THEN  INTRODATE ELSE NULL END AS INTRODATE_LA
+    , CASE WHEN printer_region_code='INDIA SL & BL' THEN  INTRODATE ELSE NULL END AS INTRODATE_IN
+    , CASE WHEN printer_region_code='GREATER ASIA' AND developed_emerging='D' THEN INTRODATE ELSE NULL END AS INTRODATE_GAD
+    , CASE WHEN printer_region_code='GREATER ASIA' AND developed_emerging='E' THEN INTRODATE ELSE NULL END AS INTRODATE_GAE
+    , CASE WHEN printer_region_code='GREATER CHINA' AND developed_emerging='D' THEN INTRODATE ELSE NULL END AS INTRODATE_GCD
+    , CASE WHEN printer_region_code='GREATER CHINA' AND developed_emerging='E' THEN INTRODATE ELSE NULL END AS INTRODATE_GCE
+    , CASE WHEN printer_region_code='LATIN AMERICA' THEN  INTRODATE ELSE NULL END AS INTRODATE_LA
     FROM
     aa0
     )
@@ -2740,7 +2713,7 @@ old <- SparkR::collect(SparkR::sql(paste("
     bb2
     ORDER BY product_brand, platform_division_code,rtm, printer_platform_name
     ",sep = " ", collapse = NULL
-))
+)))
 
   
   head(old)
@@ -3569,7 +3542,6 @@ normdataFinal0 <- sqldf("
                     and src.rtm=dt.rtm
                    ")
 
-
 normdataFinal <- sqldf('select aa1.*, aa2.minYear as introdate from normdataFinal0 aa1
                        inner join
                        introYear2a aa2
@@ -3747,12 +3719,3 @@ final9$FYearMo <- cast(final9$FYearMo, "string")
 
 notebook_end_time <- Sys.time()
 notebook_total_time <- notebook_end_time - notebook_start_time;notebook_total_time
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC DELETE FROM mdm.calendar where date < '1990-01-01'
-
-# COMMAND ----------
-
-
