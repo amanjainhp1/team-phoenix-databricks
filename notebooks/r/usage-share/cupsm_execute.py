@@ -156,7 +156,3 @@ def run_notebooks(notebooks: dict, technology: str):
             if "FAILED" in thread: return
 
 run_notebooks(notebooks, technology)
-
-# COMMAND ----------
-
-
