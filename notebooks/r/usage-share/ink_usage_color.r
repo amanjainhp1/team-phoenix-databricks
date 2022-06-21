@@ -11,49 +11,16 @@ notebook_start_time <- Sys.time()
 
 # COMMAND ----------
 
-dbutils.widgets.text("ib_version", "")
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", list("dev", "itg", "prd"))
-dbutils.widgets.text("aws_iam_role", "")
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../scala/common/Constants
-
-# COMMAND ----------
-
-# MAGIC %run ../../scala/common/DatabaseUtils
-
-# COMMAND ----------
-
-# MAGIC %run ../../python/common/secrets_manager_utils
-
-# COMMAND ----------
-
-# MAGIC %python
-# MAGIC # retrieve secrets based on incoming/inputted secrets name - variables will be accessible across languages
-# MAGIC 
-# MAGIC redshift_secrets = secrets_get(dbutils.widgets.get("redshift_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("redshift_username", redshift_secrets["username"])
-# MAGIC spark.conf.set("redshift_password", redshift_secrets["password"])
-# MAGIC 
-# MAGIC sqlserver_secrets = secrets_get(dbutils.widgets.get("sqlserver_secrets_name"), "us-west-2")
-# MAGIC spark.conf.set("sfai_username", sqlserver_secrets["username"])
-# MAGIC spark.conf.set("sfai_password", sqlserver_secrets["password"])
-
-# COMMAND ----------
-
-# MAGIC %sh
-# MAGIC ls -l /usr/bin/java
-# MAGIC ls -l /etc/alternatives/java
-# MAGIC ln -s /usr/lib/jvm/java-8-openjdk-amd64 /usr/lib/jvm/default-java
-# MAGIC R CMD javareconf
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 # load needed R packages
-packages <- c("rJava", "RJDBC", "tidyverse", "lubridate", "SparkR", "zoo", "sqldf")
+packages <- c("tidyverse", "lubridate", "SparkR", "zoo", "sqldf")
 
 # COMMAND ----------
 
@@ -69,27 +36,6 @@ tryCatch(dbutils.fs.mount(paste0("s3a://", aws_bucket_name), paste0("/mnt/", mou
  error = function(e)
  print("Mount does not exist or is already mounted to cluster"))
 
-
-# COMMAND ----------
-
-# MAGIC %scala
-# MAGIC var configs: Map[String, String] = Map()
-# MAGIC configs += ("stack" -> dbutils.widgets.get("stack"),
-# MAGIC             "sfaiUsername" -> spark.conf.get("sfai_username"),
-# MAGIC             "sfaiPassword" -> spark.conf.get("sfai_password"),
-# MAGIC             "sfaiUrl" -> SFAI_URL,
-# MAGIC             "sfaiDriver" -> SFAI_DRIVER,
-# MAGIC             "redshiftUsername" -> spark.conf.get("redshift_username"),
-# MAGIC             "redshiftPassword" -> spark.conf.get("redshift_password"),
-# MAGIC             "redshiftAwsRole" -> dbutils.widgets.get("aws_iam_role"),
-# MAGIC             "redshiftUrl" -> s"""jdbc:redshift://${REDSHIFT_URLS(dbutils.widgets.get("stack"))}:${REDSHIFT_PORTS(dbutils.widgets.get("stack"))}/${dbutils.widgets.get("stack")}?ssl_verify=None""",
-# MAGIC             "redshiftTempBucket" -> s"""${S3_BASE_BUCKETS(dbutils.widgets.get("stack"))}redshift_temp/""")
-
-# COMMAND ----------
-
-sqlserver_driver <- JDBC("com.microsoft.sqlserver.jdbc.SQLServerDriver", "/dbfs/FileStore/jars/801b0636_e136_471a_8bb4_498dc1f9c99b-mssql_jdbc_9_4_0_jre8-13bd8.jar")
-
-cprod <- dbConnect(sqlserver_driver, paste0("jdbc:sqlserver://sfai.corp.hpicloud.net:1433;database=IE2_Prod;user=", sparkR.conf("sfai_username"), ";password=", sparkR.conf("sfai_password")))
 
 # COMMAND ----------
 

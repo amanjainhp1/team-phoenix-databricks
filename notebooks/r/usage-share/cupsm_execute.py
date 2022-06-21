@@ -9,14 +9,15 @@ from time import time, sleep
 
 # COMMAND ----------
 
-# all toner_* parameters
+# all notebook parameters
 dbutils.widgets.text("datestamp", "")
 dbutils.widgets.text("timestamp", "")
 
-# toner_execute parameters
+# cuspm_execute parameters
 dbutils.widgets.text("tasks", "")
+dbutils.widgets.text("technology", "")
 
-# toner_retrieve_inputs parameters
+# cupsm_retrieve_inputs parameters
 dbutils.widgets.text("bdtbl", "")
 dbutils.widgets.text("ib_version", "")
 
@@ -47,32 +48,58 @@ date = Date()
 datestamp = date.getDatestamp() if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 timestamp = date.getTimestamp() if dbutils.widgets.get("timestamp") == "" else dbutils.widgets.get("timestamp")
 
-bdtbl = "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg" if dbutils.widgets.get("bdtbl") == "" else dbutils.widgets.get("bdtbl")
+# eligible values: ink, toner
+technology = dbutils.widgets.get("technology")
+
+if technology == 'toner':
+    bdtbl = "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg" if dbutils.widgets.get("bdtbl") == "" else dbutils.widgets.get("bdtbl")
+elif technology == 'ink':
+    bdtbl = "cumulus_prod02_biz_trans.biz_trans.v_print_share_usage_forecasting" if dbutils.widgets.get("bdtbl") == "" else dbutils.widgets.get("bdtbl")
 
 # COMMAND ----------
 
 # specify notebook/task and notebook path relative to this notebook
 notebooks = {
-    "retrieve_inputs": {
-        "precedence": 1,
-        "notebook": "./toner_retrieve_inputs"
+    "toner": {
+        "retrieve_inputs": {
+            "precedence": 1,
+            "notebook": "./cupsm_retrieve_inputs"
+        },
+        "usage_total": {
+            "precedence": 2,
+            "notebook": "./toner_usage_total"
+        },
+        "usage_color": {
+            "precedence": 3,
+            "notebook": "./toner_usage_color"
+        },
+        "share": {
+            "precedence": 4,
+            "notebook": "./toner_share"}
     },
-    "usage_total": {
-        "precedence": 2,
-        "notebook": "./toner_usage_total"
-    },
-    "usage_color": {
-        "precedence": 3,
-        "notebook": "./toner_usage_color"
-    },
-    "share": {
-        "precedence": 4,
-        "notebook": "./toner_share"}
+    "ink": {
+        "retrieve_inputs": {
+            "precedence": 1,
+            "notebook": "./cupsm_retrieve_inputs"
+        },
+        "usage_total": {
+            "precedence": 2,
+            "notebook": "./ink_usage_total"
+        },
+        "usage_color": {
+            "precedence": 2,
+            "notebook": "./ink_usage_color"
+        },
+        "share": {
+            "precedence": 3,
+            "notebook": "./ink_share"}
+    }
 }
 
 # create dict of args
 notebook_args = {
             "tasks": f"{dbutils.widgets.get('tasks')}",
+            "technology": f"{technology}",
             "datestamp": f"{datestamp}",
             "timestamp": f"{timestamp}",
             "bdtbl": f"{bdtbl}",
@@ -83,15 +110,15 @@ notebook_args = {
 
 # COMMAND ----------
 
-def get_precedences(notebooks: dict) -> set:
+def get_precedences(notebooks: dict, technology: str) -> set:
     precedences = set()
-    for key, value in notebooks.items():
-        precedences.add(value["precedence"])
+    for notebook_label, notebook_info in notebooks[technology].items():
+        precedences.add(notebook_info["precedence"])
     return precedences
 
-def filter_notebooks_by_precedence(precedence: int, notebooks: dict, notebook_args: dict) -> dict:
+def filter_notebooks_by_precedence(precedence: int, technology: str, notebooks: dict, notebook_args: dict) -> dict:
     filtered_notebooks = {}
-    for key, value in notebooks.items():
+    for key, value in notebooks[technology].items():
         if value["precedence"] == precedence:
             filtered_notebooks[key] = {"notebook_path": value["notebook"], "notebook_args": notebook_args}
     return(filtered_notebooks)
@@ -111,13 +138,13 @@ def run_notebook(notebook: list) -> None:
 
 # loop through each notebook in order and run
 # if a task fails, exit
-def run_notebooks(notebooks: dict):
-    precedences = get_precedences(notebooks)
+def run_notebooks(notebooks: dict, technology: str):
+    precedences = get_precedences(notebooks, technology)
     
     for precedence in precedences:
         print("LOG: running notebooks with precedence value: " + str(precedence))
         
-        filtered_notebooks = filter_notebooks_by_precedence(precedence, notebooks, notebook_args)
+        filtered_notebooks = filter_notebooks_by_precedence(precedence, technology, notebooks, notebook_args)
         
         if any(task in tasks for task in ["all"]+(list(filtered_notebooks.keys()))):
             
@@ -128,4 +155,8 @@ def run_notebooks(notebooks: dict):
             with ThreadPoolExecutor(max_workers = 4) as executor: thread = executor.map(run_notebook, filtered_notebook_list)
             if "FAILED" in thread: return
 
-run_notebooks(notebooks)
+run_notebooks(notebooks, technology)
+
+# COMMAND ----------
+
+
