@@ -1,7 +1,6 @@
 ---
 Jobs:
   - actuals-hw
-  - ce-split
   - flash-load
   - hardware-ltf
   - hardware-stf
@@ -13,6 +12,7 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
+  - odw-revenue-unit
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
@@ -20,9 +20,6 @@ Jobs:
 
 DeleteJobs:
   - table-creator
-  - installed-base-promo
-  - installed-base-scenario
-  - norm-ships
   - toner-share
   - toner-usage-color
   - toner-usage-total
