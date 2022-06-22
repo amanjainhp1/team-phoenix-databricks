@@ -1,0 +1,29 @@
+---
+Jobs:
+  - actuals-hw
+  - ce-split
+  - flash-load
+  - hardware-ltf
+  - hardware-stf
+  - ink-share
+  - ink-usage-color
+  - ink-usage-total
+  - installed-base
+  - lf-decay
+  - lf-ltf
+  - lf-ltf-splits
+  - mdm-nightly-load
+  - odw-revenue-unit
+  - rdma-full-load
+  - redshift-resource-creator
+  - toner-usage-share
+  - wd3-load
+
+DeleteJobs:
+  - table-creator
+  - installed-base-promo
+  - installed-base-scenario
+  - norm-ships
+  - toner-share
+  - toner-usage-color
+  - toner-usage-total
