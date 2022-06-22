@@ -1,4 +1,7 @@
 # ignore blue, green files
 dev-springboard.yml
+dev-jobs.yml
 itg-springboard.yml
+itg-jobs.yml
 prod-springboard.yml
+prod-jobs.yml
