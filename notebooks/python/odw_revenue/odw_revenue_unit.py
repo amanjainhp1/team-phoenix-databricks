@@ -20,11 +20,11 @@ from pyspark.sql.functions import regexp_extract, col,current_date
 
 files = dbutils.fs.ls('/mnt/odw-revenue-unit-sales/')
 SeriesAppend=[]
- 
+
 for f in files:
-  revenue_unit_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
-  SeriesAppend.append(revenue_unit_df)
-  
+    revenue_unit_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
+    SeriesAppend.append(revenue_unit_df)
+
 df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
@@ -115,10 +115,10 @@ LEFT JOIN mdm.product_line_xref plx
     ON w.profit_center_code = plx.profit_center_code
 WHERE 1=1
 GROUP BY cal_date
-     , pl
-     , segment
-     , material_number
-     , w.profit_center_code
+    , pl
+    , segment
+    , material_number
+    , w.profit_center_code
 ), add_seg_hierarchy as (
 
 SELECT
@@ -172,7 +172,7 @@ SELECT
 	, region_3
 	, region_5
 	, sales_product_number
- 	, sales_prod_nr as rdma_sales_product_number
+    , sales_prod_nr as rdma_sales_product_number
 	, SUM(units) as units
 FROM sales_material_number sp
 LEFT JOIN prod.rdma_sales_product rdma 
@@ -221,9 +221,9 @@ SELECT
     , region_5
 	, sales_product_number
 	, CASE
-		 WHEN base_product_line_code is null THEN 'UNKN' + pl
-		 ELSE base_product_number
-	  END AS base_product_number
+		WHEN base_product_line_code is null THEN 'UNKN' + pl
+		ELSE base_product_number
+      END AS base_product_number
 	, SUM(units) as units
 FROM base_product_number sp
 GROUP BY cal_date
