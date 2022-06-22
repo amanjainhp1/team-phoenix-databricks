@@ -1,6 +1,7 @@
 # Databricks notebook source
 from pyspark.sql.types import *
-import pyspark.sql.functions as F
+from functools import reduce
+from pyspark.sql import functions as F
 from pyspark.sql.functions import regexp_extract, col
 
 # COMMAND ----------
@@ -10,6 +11,22 @@ from pyspark.sql.functions import regexp_extract, col
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Complete Data
+
+# COMMAND ----------
+
+files = dbutils.fs.ls('/mnt/odw-revenue-unit-sales/')
+SeriesAppend=[]
+ 
+for f in files:
+  revenue_unit_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
+  SeriesAppend.append(revenue_unit_df)
+  
+df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -42,13 +59,13 @@ revenue_unit_df = spark.read \
     .option("inferSchema", "True") \
     .option("header","True") \
     .option("treatEmptyValuesAsNulls", "False")\
-    .load(f"s3a://{revenue_unit}/landing/ODW/{revenue_unit_latest_file}")
+    .load(f"s3a://{revenue_unit}/landing/ODW/odw_revenue_unit_sales_actuals/{revenue_unit_latest_file}")
 revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,6)))
 revenue_unit_df = revenue_unit_df.withColumn('unit quantity (sign-flip)', F.regexp_extract(F.col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
 revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
                                  .withColumn("load_date", F.current_date())
 revenue_unit_df = revenue_unit_df.select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
-write_df_to_redshift(configs, revenue_unit_df, "stage.revenue_unit_sales_actuals", "append")
+write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_unit_sales_actuals", "append")
 
 # COMMAND ----------
 
@@ -269,7 +286,7 @@ GROUP BY cal_date,
 FROM final
 """
 
-query_list.append(["stage.revenue_unit_base_actuals", revenue_unit_base_actuals , "append"])
+query_list.append(["fin_prod.odw_revenue_unit_base_actuals", revenue_unit_base_actuals , "append"])
 
 # COMMAND ----------
 
