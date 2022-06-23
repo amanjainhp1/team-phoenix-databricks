@@ -4,9 +4,7 @@ Jobs:
   - flash-load
   - hardware-ltf
   - hardware-stf
-  - ink-share
-  - ink-usage-color
-  - ink-usage-total
+  - ink-usage-share
   - installed-base
   - lf-decay
   - lf-ltf
@@ -19,6 +17,9 @@ Jobs:
   - wd3-load
 
 DeleteJobs:
+  - ink-share
+  - ink-usage-color
+  - ink-usage-total
   - table-creator
   - toner-share
   - toner-usage-color
