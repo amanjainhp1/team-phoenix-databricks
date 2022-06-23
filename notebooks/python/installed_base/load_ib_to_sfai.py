@@ -48,6 +48,11 @@ tables = {
         "source": "prod.scenario",
         "destination": "IE2_Prod.dbo.scenario",
         "action": "append"
+    },
+    "ib_datamart_source": {
+        "source": "prod.ib_datamart_source_vw",
+        "destination": "IE2_Prod.dbo.ib_datamart_source",
+        "action": "overwrite"
     }
 }
 
@@ -105,7 +110,7 @@ for table in tables.items():
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
     # else select latest version
-    elif "ib" in source:
+    elif table[0] == "ib":
         source_df = source_df.filter(f"version = '{max_version_ib}'") \
             .withColumnRenamed("country_alpha2", "country")
     
@@ -132,9 +137,9 @@ update_version_query = """
 update ie2_prod.dbo.version 
 set official = 0
 where 1=1
-   and record = 'norm_shipments'
-   and version <> (select max(version) from ie2_prod.dbo.version where record = 'norm_shipments')
-   and official = 1
+    and record = 'norm_shipments'
+    and version <> (select max(version) from ie2_prod.dbo.version where record = 'norm_shipments')
+    and official = 1
 """
 
 submit_remote_sfai_query(configs, "IE2_Prod", update_version_query)

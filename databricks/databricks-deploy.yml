@@ -13,7 +13,7 @@ variables:
 - group: databricks-cd
 - group: Defaults
 - name: jobs_file
-  value: springboard.yml
+  value: jobs.yml
 - name: stack
   value: dev
 
@@ -27,6 +27,9 @@ trigger:
       - databricks/internal/dev-springboard.yml
       - itg-databricks/internal/itg-springboard.yml
       - prod-databricks/internal/prod-springboard.yml
+      - databricks/internal/dev-jobs.yml
+      - itg-databricks/internal/itg-jobs.yml
+      - prod-databricks/internal/prod-jobs.yml
       - README.md
 
 pr: none

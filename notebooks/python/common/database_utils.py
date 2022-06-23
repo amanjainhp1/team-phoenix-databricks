@@ -5,7 +5,7 @@ import psycopg2
 
 from datetime import datetime
 from functools import singledispatch
-from pyspark.sql import functions as f
+from pyspark.sql.functions import col,upper
 from pyspark.sql.dataframe import DataFrame
 from sqlite3 import Timestamp
 from typing import Union
@@ -49,7 +49,7 @@ def read_redshift_to_df(configs: dict) -> DataFrame:
 def df_strings_to_upper(df: DataFrame) -> DataFrame:
     for column in df.dtypes:
         if column[1] == 'string':
-            df = df.withColumn(column[0], f.upper(f.col(column[0])))
+            df = df.withColumn(column[0], upper(col=(column[0])))
     return df
 
 # COMMAND ----------
@@ -89,7 +89,7 @@ def read_sql_server_to_df(configs: dict) -> DataFrame:
 
 # COMMAND ----------
 
-def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", mode: str = "append") -> None:
+def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", mode: str = "append", postactions: str = "", preactions: str = "") -> None:
     try:
         df.write \
             .format("jdbc") \
@@ -98,6 +98,8 @@ def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", m
             .option("user", configs["sfai_username"]) \
             .option("password",  configs["sfai_password"]) \
             .option("dbtable", destination) \
+            .option("preactions", preactions) \
+            .option("postactions", postactions) \
             .mode(mode) \
             .save()
     except Exception as error:
