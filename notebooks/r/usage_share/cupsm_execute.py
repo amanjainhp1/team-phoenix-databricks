@@ -21,10 +21,8 @@ dbutils.widgets.text("technology", "")
 dbutils.widgets.text("bdtbl", "")
 dbutils.widgets.text("ib_version", "")
 
-# toner_usage_total parameters
-# toner_usage_color parameters
-
-# toner_share parameters
+# *_share parameters
+dbutils.widgets.text("writeout", "")
 dbutils.widgets.text("cutoff_dt", "")
 dbutils.widgets.text("outnm_dt", "")
 
@@ -63,41 +61,51 @@ notebooks = {
     "toner": {
         "retrieve_inputs": {
             "precedence": 1,
-            "notebook": "./cupsm_retrieve_inputs"
+            "notebook": "./cupsm_retrieve_inputs",
+            "notebook_args": {}
         },
         "usage_total": {
             "precedence": 2,
-            "notebook": "./toner_usage_total"
+            "notebook": "./toner_usage_total",
+            "notebook_args": {}
         },
         "usage_color": {
             "precedence": 3,
-            "notebook": "./toner_usage_color"
+            "notebook": "./toner_usage_color",
+            "notebook_args": {}
         },
         "share": {
             "precedence": 4,
-            "notebook": "./toner_share"}
+            "notebook": "./toner_share",
+            "notebook_args": {}
+        }
     },
     "ink": {
         "retrieve_inputs": {
             "precedence": 1,
-            "notebook": "./cupsm_retrieve_inputs"
+            "notebook": "./cupsm_retrieve_inputs",
+            "notebook_args": {}
         },
         "usage_total": {
             "precedence": 2,
-            "notebook": "./ink_usage_total"
+            "notebook": "./ink_usage",
+            "notebook_args": {"usage_type": "total"}
         },
         "usage_color": {
             "precedence": 2,
-            "notebook": "./ink_usage_color"
+            "notebook": "./ink_usage",
+            "notebook_args": {"usage_type": "color"}
         },
         "share": {
             "precedence": 3,
-            "notebook": "./ink_share"}
+            "notebook": "./ink_share",
+            "notebook_args": {}
+        }
     }
 }
 
 # create dict of args
-notebook_args = {
+common_notebook_args = {
             "tasks": f"{dbutils.widgets.get('tasks')}",
             "technology": f"{technology}",
             "datestamp": f"{datestamp}",
@@ -105,7 +113,8 @@ notebook_args = {
             "bdtbl": f"{bdtbl}",
             "ib_version": f"{dbutils.widgets.get('ib_version')}",
             "cutoff_dt": f"{dbutils.widgets.get('cutoff_dt')}",
-            "outnm_dt": f"{dbutils.widgets.get('outnm_dt')}"
+            "outnm_dt": f"{dbutils.widgets.get('outnm_dt')}",
+            "writeout": f"{dbutils.widgets.get('writeout')}"
 }
 
 # COMMAND ----------
@@ -120,7 +129,7 @@ def filter_notebooks_by_precedence(precedence: int, technology: str, notebooks: 
     filtered_notebooks = {}
     for key, value in notebooks[technology].items():
         if value["precedence"] == precedence:
-            filtered_notebooks[key] = {"notebook_path": value["notebook"], "notebook_args": notebook_args}
+            filtered_notebooks[key] = {"notebook_path": value["notebook"], "notebook_args": {**common_notebook_args, **value["notebook_args"]}}
     return(filtered_notebooks)
 
 def run_notebook(notebook: list) -> None:
@@ -144,14 +153,14 @@ def run_notebooks(notebooks: dict, technology: str):
     for precedence in precedences:
         print("LOG: running notebooks with precedence value: " + str(precedence))
         
-        filtered_notebooks = filter_notebooks_by_precedence(precedence, technology, notebooks, notebook_args)
+        filtered_notebooks = filter_notebooks_by_precedence(precedence, technology, notebooks, common_notebook_args)
         
         if any(task in tasks for task in ["all"]+(list(filtered_notebooks.keys()))):
             
             filtered_notebook_list = []
             for key, value in filtered_notebooks.items():
                 filtered_notebook_list.append([value['notebook_path'], 0, value['notebook_args'], key])
-            
+
             with ThreadPoolExecutor(max_workers = 4) as executor: thread = executor.map(run_notebook, filtered_notebook_list)
             if "FAILED" in thread: return
 

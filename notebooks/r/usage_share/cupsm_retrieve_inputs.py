@@ -90,8 +90,6 @@ for key, value in all_tables[dbutils.widgets.get("technology")].items():
               .option("query", value['query']) \
               .load()
                     
-            for column in df.dtypes:
-                if column[1] == 'string':
-                    df = df.withColumn(column[0], f.upper(f.col(column[0])))
+            df = df_strings_to_upper(df)
             
-            df.write.parquet("{}cupsm_inputs/{}/{}//{}/{}/".format(constants["S3_BASE_BUCKET"][stack], "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), key), mode = "overwrite")
+            df.write.parquet("{}cupsm_inputs/{}/{}//{}/{}/".format(constants["S3_BASE_BUCKET"][stack], dbutils.widgets.get("technology"), dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), key), mode = "overwrite")

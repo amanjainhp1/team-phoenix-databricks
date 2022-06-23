@@ -15,7 +15,6 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("writeout", "")
 dbutils.widgets.text("outnm_dt", "")
-
 dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("datestamp", "")
 dbutils.widgets.text("timestamp", "")
@@ -109,13 +108,13 @@ table_month$rtm <- table_month$printer_managed
                           ,d.technology AS hw_type
                           ,a.customer_engagement  AS RTM
                           ,b.region_5
-                          ,a.country
+                          ,a.country_alpha2
                           ,sum(a.units) as ib
                           ,a.version
                           ,d.hw_product_family as platform_division_code
                     from ib a
                     left join iso_country_code_xref b
-                      on (a.country=b.country_alpha2)
+                      on (a.country_alpha2=b.country_alpha2)
                     left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
                     where a.measure='IB'
@@ -123,7 +122,7 @@ table_month$rtm <- table_month$printer_managed
                           and a.platform_subset not like 'PANTHER%' and a.platform_subset not like 'JAGUAR%'))
                       and product_lifecycle_status not in ('E','M')
                     group by a.platform_subset, a.cal_date, d.technology, a.customer_engagement,a.version
-                            , b.region_5, a.country,d.hw_product_family
+                            , b.region_5, a.country_alpha2,d.hw_product_family
 "))
 
 # COMMAND ----------
@@ -143,17 +142,17 @@ country_info <- SparkR::collect(SparkR::sql("
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
-                           ")
+                           "))
 
 # COMMAND ----------
 
-country_info <- sqldf("SELECT * from country_info where country_alpha2 in (select distinct country from ibtable)")
+country_info <- sqldf("SELECT * from country_info where country_alpha2 in (select distinct country_alpha2 from ibtable)")
 hw_info <- SparkR::collect(SparkR::sql(
                     "SELECT distinct platform_subset, pl as  product_line_code, epa_family as platform_division_code, sf_mf as platform_function_code
                     , SUBSTRING(mono_color,1,1) as cm, UPPER(brand) as product_brand
                     , mono_ppm as print_mono_speed_pages, color_ppm as print_color_speed_pages
                     , intro_price, intro_date, vc_category as market_group
-                    , predecessor_proxy as predecessor
+                    , predecessor
                     , hw_product_family as supplies_family
                     from hardware_xref
                     "
@@ -1692,7 +1691,7 @@ final_list2 <- SparkR::sql("
                         ON (b.printer_platform_name=bb.printer_platform_name and b.Country_Cd=bb.Country_Cd 
                             and b.FYearMo=bb.FYearMo and b.rtm=bb.rtm)
                       LEFT JOIN ibtable c
-                        ON (a.printer_platform_name=c.platform_subset and a.Country_alpha2=c.country
+                        ON (a.printer_platform_name=c.platform_subset and a.Country_alpha2=c.country_alpha2
                               and a.rtm=c.RTM and b.FYearMo=c.month_begin)
                       LEFT JOIN page_share_ctr d
                         ON (b.printer_platform_name=d.platform_name AND b.Country_Cd=d.country_alpha2
@@ -2089,26 +2088,7 @@ final_list8 <- filter(final_list7, !isNull(final_list7$Page_Share))  #missing in
 final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
-#month(final_list8$year_month_float) <- month(final_list8$year_month_float)-2
-#test3 <- subset(final_list8,Platform_Subset_Nm=="MALBEC I-INK"  & FYearMo < 202701)
 
-#test data
-# final_list9 <- sqldf("
-#                      select a.Selectability, a.Platform_Subset_Nm as platform_subset, a.rtm, h.platform_division_code, a.Country_Cd, c.region_5, c.market10, a.Region_DE, 
-#                       i.ib, a.FYearMo, a.MPV_UPM, a.MPV_TS, a.MPV_Raw, a.MPV_n, a.Usage, a.Page_Share, h.product_line_code, h.supplies_family
-#                      from final_list8 a
-#                      left join country_info c
-#                       on a.Country_Cd=c.country_alpha2
-#                      left join ibtable i
-#                       on a.Platform_Subset_Nm=i.platform_subset and a.FYearMo=i.month_begin and a.rtm=i.RTM and a.Country_cd=i.country
-#                      left join hw_info h
-#                       on a.Platform_Subset_Nm=h.platform_subset
-#                      where a.FYearMo between '201511' and '202611'
-#                       --and Platform_Subset_Nm='WEBER MID I-INK'
-#                      ")
-# s3write_using(x=final_list8,FUN = write.csv, object = paste0("s3://insights-environment-sandbox/BrentT/ink_100pct_test",Sys.Date(),".csv"), row.names=FALSE, na="")
-
-#ibversion <- unique(ibtable$version)
 today <- Sys.Date()
 version <- paste0(gsub("-",".",Sys.Date()),".1")
 vsn <- 'NoProxy-2021.11.15.1'
@@ -2526,15 +2506,16 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC     .withColumn("version", lit(version[0])) \
 # MAGIC     .withColumn("forecast_process_note", lit(forecast_process_note))
 # MAGIC 
-# MAGIC write_df_to_s3(df=mdm_tbl, destination=f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{version[0]}/{re.sub(' ','_',forecast_process_note.lower())}", format="parquet", mode="overwrite", upper_strings=True)
+# MAGIC s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{version[0]}/{re.sub(' ','_',forecast_process_note.lower())}"
+# MAGIC 
+# MAGIC write_df_to_s3(df=mdm_tbl, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
 
 # COMMAND ----------
 
 # MAGIC %python
 # MAGIC 
-# MAGIC if (dbutils.widgets.get("writeout") == "YES") {
-# MAGIC     write_df_to_redshift(configs=configs, df=mdm_tbl, destination="stage.usage_share_ink_landing", mode="append", preactions="TRUNCATE stage.usage_share_ink_landing")
-# MAGIC }
+# MAGIC if dbutils.widgets.get("writeout").upper() == "YES":
+# MAGIC     write_df_to_redshift(configs=configs, df=spark.read.parquet(s3_destination).load(), destination="stage.usage_share_ink_landing", mode="append", preactions="TRUNCATE stage.usage_share_ink_landing")
 
 # COMMAND ----------
 

@@ -1,7 +1,7 @@
 # Databricks notebook source
 # ---
 # Version 2022.04.05.1  
-# title: "UPM Color ink at country level"  
+# title: "UPM ink at country level"  
 # output: html_notebook  
 # ---
 
@@ -13,6 +13,7 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("datestamp", "")
 dbutils.widgets.text("timestamp", "")
+dbutils.widgets.text("usage_type", "")
 
 # COMMAND ----------
 
@@ -110,119 +111,133 @@ ibtable <- SparkR::collect(SparkR::sql("
                           ,d.technology AS hw_type
                           ,UPPER(a.customer_engagement)  AS RTM
                           ,b.region_5
-                          ,a.country
+                          ,a.country_alpha2
                           ,sum(a.units) as ib
                           ,a.version
                           ,d.hw_product_family as platform_division_code
                     from ib a
                     left join iso_country_code_xref b
-                      on (a.country=b.country_alpha2)
+                      on (a.country_alpha2=b.country_alpha2)
                     left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
                     where a.measure='IB'
                       and (upper(d.technology)='INK' or (d.technology='PWA' and (upper(d.hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
                           and a.platform_subset not like 'PANTHER%' and a.platform_subset not like 'JAGUAR%'))
-                          and d.product_lifecycle_status not in ('E','M') 
+                      and d.product_lifecycle_status not in ('E','M') 
                     group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.version, d.hw_product_family
-                            , b.region_5, a.country
+                            , b.region_5, a.country_alpha2
 "))
 
 # COMMAND ----------
 
 hw_info <- SparkR::collect(SparkR::sql(
-                      "SELECT distinct platform_subset, pl as  product_line_code, hw_product_family as platform_division_code, sf_mf as platform_function_code
-                      , SUBSTRING(mono_color,1,1) as cm, UPPER(brand) as product_brand
-                      , mono_ppm as print_mono_speed_pages, color_ppm as print_color_speed_pages
-                      , intro_price, intro_date, vc_category as market_group
-                      from hardware_xref
-                      "
-                      ))
+                    "SELECT distinct platform_subset, pl as  product_line_code, hw_product_family as platform_division_code, sf_mf as platform_function_code
+                    , SUBSTRING(mono_color,1,1) as cm, UPPER(brand) as product_brand
+                    , mono_ppm as print_mono_speed_pages, color_ppm as print_color_speed_pages
+                    , intro_price, intro_date, vc_category as market_group
+                    from hardware_xref
+                    "
+                    ))
 
 # COMMAND ----------
 
 ibintrodt <- SparkR::collect(SparkR::sql("
-              SELECT  a.platform_subset
-                      ,min(cal_date) AS intro_date
-                      FROM ib a
-                      LEFT JOIN hardware_xref d
-                        ON (a.platform_subset=d.platform_subset)
-                      WHERE a.measure='IB'
-                        AND d.technology in ('INK','PWA')
-                      GROUP BY a.platform_subset
-                     "))
+            SELECT  a.platform_subset
+                    ,min(cal_date) AS intro_date
+                    FROM ib a
+                    LEFT JOIN hardware_xref d
+                      ON (a.platform_subset=d.platform_subset)
+                    WHERE a.measure='IB'
+                      AND d.technology in ('INK','PWA')
+                    GROUP BY a.platform_subset
+                   "))
 ibintrodt$intro_yyyymm <- paste0(substr(ibintrodt$intro_date,1,4),substr(ibintrodt$intro_date,6,7))
 
 # COMMAND ----------
 
 #Get Market10 Information
 country_info <- SparkR::collect(SparkR::sql("
-                    WITH mkt10 AS (
-                            SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                            FROM iso_cc_rollup_xref
-                            WHERE country_scenario='MARKET10'
-                    ),
-                    rgn5 AS (
+                      WITH mkt10 AS (
+                           SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
+                           FROM iso_cc_rollup_xref
+                           WHERE country_scenario='MARKET10'
+                      ),
+                      rgn5 AS (
                             SELECT country_alpha2, region_5, developed_emerging, country 
                             FROM iso_country_code_xref
-                    )
-                    SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
+                      )
+                      SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
-                            "))
+                           "))
 
 # COMMAND ----------
 
-zero <- sqldf("
-              with sub1 as (
-                select a.printer_platform_name
-                , a.printer_region_code
-                , a.country_alpha2
-                , ci.market10
-                , SUBSTR(ci.developed_emerging,1,1) as developed_emerging
-                , hw.platform_function_code
-                , hw.cm
-                , a.year
-                , a.quarter
-                , a.date_month_dim_ky as fyearmo
-                , a.printer_managed
-                , hw.market_group as platform_market_code
-                , hw.platform_division_code
-                , hw.product_brand
-                , hw.intro_price as product_intro_price
-                , id.intro_date as product_introduction_date
-                , hw.print_mono_speed_pages
-                , hw.print_color_speed_pages
-                , hw.product_line_code
-                , a.tot_cc_ib_wtd_avg as total_cc                                
-                , a.tot_cc_ib_wtd_avg as usage
-                , a.color_cc_ib_wtd_avg as MPVa  --Consumed color Ink
-                , a.reporting_printers as sumn
-               from zero a
-               LEFT JOIN hw_info hw
-                on a.printer_platform_name=hw.platform_subset
-               LEFT JOIN country_info ci 
-                ON a.country_alpha2=ci.country_alpha2 
-               LEFT JOIN ibintrodt id
-                ON a.printer_platform_name=id.platform_subset
-               WHERE hw.cm='C'
-              )
-              select * from sub1
-              ")
+usage_type <- dbutils.widgets.get("usage_type")
+
+if (usage_type == 'total') {
+    zero_mpva <- 'tot_cc_ib_wtd_avg'
+    zero_filter <- ''
+} else if (usage_type == 'color') {
+    zero_mpva <- 'color_cc_ib_wtd_avg'
+    zero_filter <- "WHERE hw.cm = 'C'"
+}
+
+zero <- sqldf(paste0("
+            with sub1 as (
+              select a.printer_platform_name
+              , a.printer_region_code
+              , a.country_alpha2
+              , ci.market10
+              , SUBSTR(ci.developed_emerging,1,1) as developed_emerging
+              , hw.platform_function_code
+              , hw.cm
+              , a.year
+              , a.quarter
+              , a.date_month_dim_ky as fyearmo
+              , a.printer_managed
+              , hw.market_group as platform_market_code
+              , hw.platform_division_code
+              , hw.product_brand
+              , hw.intro_price as product_intro_price
+              , id.intro_date as product_introduction_date
+              , hw.print_mono_speed_pages
+              , hw.print_color_speed_pages
+              , hw.product_line_code
+              , a.tot_cc_ib_wtd_avg as total_cc                                
+              , a.tot_cc_ib_wtd_avg as usage
+              , a.",zero_mpva," as MPVa  --Consumed Ink
+              , a.reporting_printers as sumn
+             from zero a
+             LEFT JOIN hw_info hw
+              on a.printer_platform_name=hw.platform_subset
+             LEFT JOIN country_info ci 
+              ON a.country_alpha2=ci.country_alpha2 
+             LEFT JOIN ibintrodt id
+              ON a.printer_platform_name=id.platform_subset
+             ",zero_filter,"
+            )
+            select * from sub1
+            "))
 
 zero$pMPV <- ifelse(((zero$fyearmo) >= start1 & (zero$fyearmo <=end1)), zero$MPVa,NA)
 zero$pN <- ifelse(((zero$fyearmo) >= start1 & (zero$fyearmo <=end1)), zero$sumn, NA)
 zero$pMPVN <- zero$pMPV*zero$pN
 zero$rtm <- zero$printer_managed
-                   
+
 zero_platform <- sqldf('select distinct printer_platform_name, printer_region_code from zero order by printer_platform_name, printer_region_code')
 zero_platform$source1 <-"TRI_PRINTER_USAGE_SN"
 zero_platformList <- reshape2::dcast(zero_platform, printer_platform_name ~printer_region_code, value.var="source1")
 
 countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("AP","EU", "JP","LA","NA")])) 
 paste("The total numbers of platform - region combinations that could be retrieved from the FACT PRINTER LASER MONTH table =", countFACT_LP_MONTH)
-  
+
 head(zero)
+
+# COMMAND ----------
+
+str(zero)
 
 # COMMAND ----------
 
@@ -232,21 +247,21 @@ head(zero)
 # following variables; Sum of pMPVN as SUMpMPVN, Sum of pN as SUMpN	and SUMpMPVN/SUMpN as NormMPV
 
 one <- sqldf(paste("								
-                    SELECT *, SUMpMPVN/SUMpN AS NormMPV	
-                    , 'AVAIABLE' as dummy
-                    FROM										
-                    (										
-                    SELECT printer_platform_name, market10, developed_emerging
-                    , SUM(pMPVN) AS SUMpMPVN										
-                    , SUM(pN) AS SUMpN										
-                    FROM										
-                    zero										
-                    GROUP BY printer_platform_name, market10, developed_emerging
-                    )AA0	
-                    where SUMpN >=", MUTminSize, "
-                    and SUMpMPVN is not null
-                    ORDER BY printer_platform_name, market10, developed_emerging
-                    ", sep = " "))
+                   SELECT *, SUMpMPVN/SUMpN AS NormMPV	
+                   , 'AVAIABLE' as dummy
+                   FROM										
+                   (										
+                   SELECT printer_platform_name, market10, developed_emerging
+                   , SUM(pMPVN) AS SUMpMPVN										
+                   , SUM(pN) AS SUMpN										
+                   FROM										
+                   zero										
+                   GROUP BY printer_platform_name, market10, developed_emerging
+                   )AA0	
+                   where SUMpN >=", MUTminSize, "
+                   and SUMpMPVN is not null
+                   ORDER BY printer_platform_name, market10, developed_emerging
+                   ", sep = " "))
 
 head(one)
 colnames(one)
@@ -365,77 +380,77 @@ data <- list()
 for (cat in unique(four$strata))
 {
 
-#print(cat)
+  #print(cat)
 
-d <- subset(four, strata==cat)
-d <- d[d$fyearmo >= startMUT & d$fyearmo < endMUT,]
+  d <- subset(four, strata==cat)
+  d <- d[d$fyearmo >= startMUT & d$fyearmo < endMUT,]
 
-if (nrow(d) <4) next
+  if (nrow(d) <4) next
 
-yyyy <- as.numeric(substr(d$fyearmo, 1,4))
-mm <- as.numeric(substr(d$fyearmo, 5,6))
+  yyyy <- as.numeric(substr(d$fyearmo, 1,4))
+  mm <- as.numeric(substr(d$fyearmo, 5,6))
 
-d$J90Mo <- (yyyy - 1990)*12 + (mm-1)
+  d$J90Mo <- (yyyy - 1990)*12 + (mm-1)
 
-d$x <- yyyy + (mm-1)/12
+  d$x <- yyyy + (mm-1)/12
 
-d$y <- log(d$MUT)
+  d$y <- log(d$MUT)
 
-fit <- lm(y ~ x, data=d)
-#abline(fit)
-#summary(fit)
-d$a0 <- fit$coefficients[[1]]
-d$b1 <- fit$coefficients[[2]]
-d$yhat <- d$a0 + d$b1*d$x
+  fit <- lm(y ~ x, data=d)
+  #abline(fit)
+  #summary(fit)
+  d$a0 <- fit$coefficients[[1]]
+  d$b1 <- fit$coefficients[[2]]
+  d$yhat <- d$a0 + d$b1*d$x
 
-d$Detrend <- d$y - d$yhat
-d$month <- mm
+  d$Detrend <- d$y - d$yhat
+  d$month <- mm
 
-temp <- sqldf('select month, avg(Detrend) as avgtr from d group by month order by month')
-sumtemp <- sum(temp$avgtr)
-temp$avgtr2 <- temp$avgtr-(sumtemp/12)
+  temp <- sqldf('select month, avg(Detrend) as avgtr from d group by month order by month')
+  sumtemp <- sum(temp$avgtr)
+  temp$avgtr2 <- temp$avgtr-(sumtemp/12)
 
-d2 <- sqldf('select aa1.*, aa2.avgtr2 as seasonality from d aa1 left join temp aa2 on aa1.month=aa2.month
-            order by FYearMo')
+  d2 <- sqldf('select aa1.*, aa2.avgtr2 as seasonality from d aa1 left join temp aa2 on aa1.month=aa2.month
+              order by FYearMo')
 
-d2$DTDS <- d2$Detrend - d2$seasonality
-d2$mo_Smooth <-rollmean(d2$DTDS, 5,fill = NA)
-d2$Irregular <- d2$y-d2$yhat-d2$seasonality-d2$mo_Smooth
+  d2$DTDS <- d2$Detrend - d2$seasonality
+  d2$mo_Smooth <-rollmean(d2$DTDS, 5,fill = NA)
+  d2$Irregular <- d2$y-d2$yhat-d2$seasonality-d2$mo_Smooth
 
-d2$Eyhat <- exp(d2$yhat)
-d2$EDetrend <- exp(d2$Detrend)
-d2$Eseasonality <- exp(d2$seasonality)
-d2$Emo_Smooth <- exp(d2$mo_Smooth)
-d2$EIrregular <- exp(d2$Irregular)
+  d2$Eyhat <- exp(d2$yhat)
+  d2$EDetrend <- exp(d2$Detrend)
+  d2$Eseasonality <- exp(d2$seasonality)
+  d2$Emo_Smooth <- exp(d2$mo_Smooth)
+  d2$EIrregular <- exp(d2$Irregular)
 
-ymin <- min(d2$MUT,d2$Eyhat, d2$EIrregular, d2$Eseasonality, d2$Emo_Smooth, na.rm=TRUE )
-ymax <- max(d2$MUT,d2$Eyhat, d2$EIrregular, d2$Eseasonality, d2$Emo_Smooth, na.rm=TRUE )
-xmin <- min(d2$x)
-xmax <- max(d2$x)
+  ymin <- min(d2$MUT,d2$Eyhat, d2$EIrregular, d2$Eseasonality, d2$Emo_Smooth, na.rm=TRUE )
+  ymax <- max(d2$MUT,d2$Eyhat, d2$EIrregular, d2$Eseasonality, d2$Emo_Smooth, na.rm=TRUE )
+  xmin <- min(d2$x)
+  xmax <- max(d2$x)
 
 
-# plot(d2$x, d2$MUT, typ='l', col = "#0096d6", main=paste("Decomposition for",cat),
-#      xlab="Year", ylab="MUT and Other Series", xlim=c(2011, 2019), ylim=c(ymin, ymax)
-#      , lwd = 1, frame.plot=FALSE, las=1, xaxt='n'
-# )#Blue, las=0: parallel to the axis, 1: always horizontal, 2: perpendicular to the axis, 3: always vertical
-# axis(side=1,seq(2011,2019, by=1)) #increase number of years on x axis
-# lines(d2$x, d2$Eyhat,col="#822980",lwd=1) #purple
-# lines(d2$x, d2$EIrregular,col="#838B8B",lwd = 1)
-# lines(d2$x, d2$Eseasonality,col="#fdc643",lwd = 1) #yellow
-# lines(d2$x, d2$Emo_Smooth,col="#de2e43",lwd=1) #red
-# box(bty="l") #puts x and y axis lines back in
-# grid(nx=NULL, ny=NULL, col="cornsilk2", lty="dotted", lwd=par("lwd"))
-# #grid(nx=96, ny=NULL, col="cornsilk2", lty="dotted", lwd=par("lwd"))
-# 
-# legend("bottom", bty="n", # places a legend at the appropriate place 
-#        c("Original", "Trend", "Irregular", "Seasonality", "Cyclical"), # puts text in the legend
-#        xpd = TRUE, horiz = TRUE,
-#        lty=c(1,1,1,1,1), # gives the legend appropriate symbols (lines)
-#        lwd=c(1,1,1,1,1),col=c("#0096d6", "#822980", "#838B8B", "#fdc643", "#de2e43"))
+  # plot(d2$x, d2$MUT, typ='l', col = "#0096d6", main=paste("Decomposition for",cat),
+  #      xlab="Year", ylab="MUT and Other Series", xlim=c(2011, 2019), ylim=c(ymin, ymax)
+  #      , lwd = 1, frame.plot=FALSE, las=1, xaxt='n'
+  # )#Blue, las=0: parallel to the axis, 1: always horizontal, 2: perpendicular to the axis, 3: always vertical
+  # axis(side=1,seq(2011,2019, by=1)) #increase number of years on x axis
+  # lines(d2$x, d2$Eyhat,col="#822980",lwd=1) #purple
+  # lines(d2$x, d2$EIrregular,col="#838B8B",lwd = 1)
+  # lines(d2$x, d2$Eseasonality,col="#fdc643",lwd = 1) #yellow
+  # lines(d2$x, d2$Emo_Smooth,col="#de2e43",lwd=1) #red
+  # box(bty="l") #puts x and y axis lines back in
+  # grid(nx=NULL, ny=NULL, col="cornsilk2", lty="dotted", lwd=par("lwd"))
+  # #grid(nx=96, ny=NULL, col="cornsilk2", lty="dotted", lwd=par("lwd"))
+  # 
+  # legend("bottom", bty="n", # places a legend at the appropriate place 
+  #        c("Original", "Trend", "Irregular", "Seasonality", "Cyclical"), # puts text in the legend
+  #        xpd = TRUE, horiz = TRUE,
+  #        lty=c(1,1,1,1,1), # gives the legend appropriate symbols (lines)
+  #        lwd=c(1,1,1,1,1),col=c("#0096d6", "#822980", "#838B8B", "#fdc643", "#de2e43"))
 
-data[[cat]] <- d2
+  data[[cat]] <- d2
 
-#print(cat)
+  #print(cat)
 
 }
 
@@ -457,79 +472,79 @@ stratrm <- sqldf("SELECT distinct rtm from outcome0")
 stratmk <- sqldf("SELECT distinct market10, developed_emerging from outcome0")
 stratmn <- sqldf("SELECT distinct month from outcome0")
 stratjn <- sqldf("SELECT a.*, b.*, c.*, d.*, e.*
-                from stratpl a , stratcs b , stratrm c, stratmk d, stratmn e")
+                 from stratpl a , stratcs b , stratrm c, stratmk d, stratmn e")
 stratjn <- sqldf("SELECT a.*, b.region_5
-                from stratjn a
-                left join (select distinct region_5, market10 from country_info) b
-                on a.market10=b.market10")
+                 from stratjn a
+                 left join (select distinct region_5, market10 from country_info) b
+                 on a.market10=b.market10")
 outcome0 <- sqldf("SELECT a.*, b.region_5
-                from outcome0 a
-                left join (select distinct region_5, market10 from country_info) b
-                on a.market10=b.market10")
+                 from outcome0 a
+                 left join (select distinct region_5, market10 from country_info) b
+                 on a.market10=b.market10")
 #Add region, get regional estimates...what else is missing for C4010 E0--India missing
 outcome_o <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, month, market10, region_5, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome0
-                    group by platform_division_code, product_brand, developed_emerging, month, market10, region_5, rtm")
+                   from outcome0
+                   group by platform_division_code, product_brand, developed_emerging, month, market10, region_5, rtm")
 outcome_r <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, month, region_5, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by platform_division_code, product_brand, developed_emerging, month, region_5, rtm")
+                   from outcome_o
+                   group by platform_division_code, product_brand, developed_emerging, month, region_5, rtm")
 
 outcome_a <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by platform_division_code, product_brand, developed_emerging, month, rtm")
+                   from outcome_o
+                   group by platform_division_code, product_brand, developed_emerging, month, rtm")
 
 outcome_b <- sqldf("SELECT platform_division_code, market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by platform_division_code, market10, developed_emerging, month, rtm")
+                   from outcome_o
+                   group by platform_division_code, market10, developed_emerging, month, rtm")
 outcome_c <- sqldf("SELECT product_brand, market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by product_brand, market10, developed_emerging, month, rtm")
+                   from outcome_o
+                   group by product_brand, market10, developed_emerging, month, rtm")
 outcome_d <- sqldf("SELECT product_brand, market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by product_brand, market10, developed_emerging, month, rtm")
+                   from outcome_o
+                   group by product_brand, market10, developed_emerging, month, rtm")
 outcome_e <- sqldf("SELECT  platform_division_code, product_brand,  market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by  platform_division_code, product_brand,  market10, developed_emerging, month, rtm")
+                   from outcome_o
+                   group by  platform_division_code, product_brand,  market10, developed_emerging, month, rtm")
 outcome_f <- sqldf("SELECT product_brand,  developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by product_brand, developed_emerging, month, rtm")
+                   from outcome_o
+                   group by product_brand, developed_emerging, month, rtm")
 outcome_w <- sqldf("SELECT product_brand, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                    from outcome_o
-                    group by product_brand, month, rtm")
+                   from outcome_o
+                   group by product_brand, month, rtm")
 
 outcome <- sqldf(" SELECT distinct s.platform_division_code, s.product_brand, s.market10, s.developed_emerging, s.rtm, s.month
                 , CASE WHEN o.b1 is not null then o.b1
-                        WHEN r.b1 is not null then r.b1
-                        WHEN a.b1 is not null then a.b1
-                        WHEN b.b1 is not null then b.b1
-                        WHEN c.b1 is not null then c.b1
-                        WHEN d.b1 is not null then d.b1
-                        WHEN e.b1 is not null then e.b1
-                        WHEN f.b1 is not null then f.b1
-                        WHEN w.b1 is not null then w.b1
-                        ELSE NULL
-                END AS b1
+                       WHEN r.b1 is not null then r.b1
+                       WHEN a.b1 is not null then a.b1
+                       WHEN b.b1 is not null then b.b1
+                       WHEN c.b1 is not null then c.b1
+                       WHEN d.b1 is not null then d.b1
+                       WHEN e.b1 is not null then e.b1
+                       WHEN f.b1 is not null then f.b1
+                       WHEN w.b1 is not null then w.b1
+                       ELSE NULL
+                  END AS b1
                 , CASE WHEN o.seasonality is not null then o.seasonality
-                        WHEN r.seasonality is not null then r.seasonality
-                        WHEN a.seasonality is not null then a.seasonality
-                        WHEN b.seasonality is not null then b.seasonality
-                        WHEN c.seasonality is not null then c.seasonality
-                        WHEN d.seasonality is not null then d.seasonality
-                        WHEN e.seasonality is not null then e.seasonality
-                        WHEN f.seasonality is not null then f.seasonality
-                        WHEN w.seasonality is not null then w.seasonality
-                        ELSE NULL
-                        END as seasonality
-                --, CASE --WHEN o.mo_Smooth is not null then o.mo_Smooth
-                        --WHEN r.mo_Smooth is not null then r.mo_Smooth
-                        --WHEN a.mo_Smooth is not null then a.mo_Smooth
-                        --WHEN b.mo_Smooth is not null then b.mo_Smooth
-                        --WHEN c.mo_Smooth is not null then c.mo_Smooth
-                        --WHEN d.mo_Smooth is not null then d.mo_Smooth
-                        --WHEN e.mo_Smooth is not null then e.mo_Smooth
-                        --WHEN f.mo_Smooth is not null then f.mo_Smooth
-                        --ELSE NULL
-                    -- END as mo_Smooth
+                       WHEN r.seasonality is not null then r.seasonality
+                       WHEN a.seasonality is not null then a.seasonality
+                       WHEN b.seasonality is not null then b.seasonality
+                       WHEN c.seasonality is not null then c.seasonality
+                       WHEN d.seasonality is not null then d.seasonality
+                       WHEN e.seasonality is not null then e.seasonality
+                       WHEN f.seasonality is not null then f.seasonality
+                       WHEN w.seasonality is not null then w.seasonality
+                       ELSE NULL
+                       END as seasonality
+               --, CASE --WHEN o.mo_Smooth is not null then o.mo_Smooth
+                       --WHEN r.mo_Smooth is not null then r.mo_Smooth
+                       --WHEN a.mo_Smooth is not null then a.mo_Smooth
+                       --WHEN b.mo_Smooth is not null then b.mo_Smooth
+                       --WHEN c.mo_Smooth is not null then c.mo_Smooth
+                       --WHEN d.mo_Smooth is not null then d.mo_Smooth
+                       --WHEN e.mo_Smooth is not null then e.mo_Smooth
+                       --WHEN f.mo_Smooth is not null then f.mo_Smooth
+                       --ELSE NULL
+                      -- END as mo_Smooth
                 , CASE WHEN o.b1 is not null then 'SELF'
                        WHEN r.b1 is not null then 'REG5'
                        WHEN a.b1 is not null then 'NOMKT'
@@ -540,43 +555,43 @@ outcome <- sqldf(" SELECT distinct s.platform_division_code, s.product_brand, s.
                        WHEN f.b1 is not null then 'NOPLMKT'
                        WHEN w.b1 is not null then 'NODE'
                        ELSE NULL
-                END AS src
-            
+                  END AS src
+
                 from stratjn s
-                
+
                 left join outcome_o o
                 on s.platform_division_code=o.platform_division_code and s.product_brand=o.product_brand  
-                and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month and s.rtm=o.rtm
+                  and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month and s.rtm=o.rtm
                 left join outcome_r r
                 on s.platform_division_code=r.platform_division_code and s.product_brand=r.product_brand  
-                and s.developed_emerging=r.developed_emerging and s.month=r.month and s.region_5=r.region_5 and s.rtm=r.rtm
+                  and s.developed_emerging=r.developed_emerging and s.month=r.month and s.region_5=r.region_5 and s.rtm=r.rtm
                 left join outcome_a a
                 on s.platform_division_code=a.platform_division_code and s.product_brand=a.product_brand 
-                and s.developed_emerging=a.developed_emerging and s.month=a.month and s.rtm=a.rtm
+                  and s.developed_emerging=a.developed_emerging and s.month=a.month and s.rtm=a.rtm
                 left join outcome_b b
                 on s.platform_division_code=b.platform_division_code 
-                and s.market10=b.market10 and s.developed_emerging=b.developed_emerging and s.month=b.month and s.rtm=b.rtm
+                  and s.market10=b.market10 and s.developed_emerging=b.developed_emerging and s.month=b.month and s.rtm=b.rtm
                 left join outcome_c c
                 on s.product_brand=c.product_brand 
-                and s.market10=c.market10 and s.developed_emerging=c.developed_emerging and s.month=c.month and s.rtm=c.rtm
+                  and s.market10=c.market10 and s.developed_emerging=c.developed_emerging and s.month=c.month and s.rtm=c.rtm
                 left join outcome_d d
                 on s.product_brand=d.product_brand  
-                and s.market10=d.market10 and s.developed_emerging=d.developed_emerging and s.month=d.month and s.rtm=d.rtm
+                  and s.market10=d.market10 and s.developed_emerging=d.developed_emerging and s.month=d.month and s.rtm=d.rtm
                 left join outcome_e e
                 on s.platform_division_code=e.platform_division_code and s.product_brand=e.product_brand 
-                and s.market10=e.market10 and s.developed_emerging=e.developed_emerging and s.month=e.month and s.rtm=e.rtm
+                  and s.market10=e.market10 and s.developed_emerging=e.developed_emerging and s.month=e.month and s.rtm=e.rtm
                 left join outcome_f f
                 on s.product_brand=f.product_brand 
-                and s.developed_emerging=f.developed_emerging and s.month=f.month and s.rtm=f.rtm
+                  and s.developed_emerging=f.developed_emerging and s.month=f.month and s.rtm=f.rtm
                 left join outcome_w w
                 on s.product_brand=w.product_brand 
-                and s.month=w.month and s.rtm=w.rtm
-                ")
+                  and s.month=w.month and s.rtm=w.rtm
+                 ")
 outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
 
-## What to do when decay is not negative ###  
+  ## What to do when decay is not negative ###  
 # plot(outcome$b1)
-## What to do when decay is not negative ###
+  ## What to do when decay is not negative ###
 
 # COMMAND ----------
 
@@ -586,9 +601,9 @@ outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
 # of EP, CM, and Region_Cd), from the extended MUT dataset.
 
 decay <- sqldf('
-                select platform_division_code, product_brand, market10, developed_emerging, rtm, strata, avg(b1) as b1 from outcome 
-                group by platform_division_code, product_brand, market10, developed_emerging, rtm, strata
-                ')
+               select platform_division_code, product_brand, market10, developed_emerging, rtm, strata, avg(b1) as b1 from outcome 
+               group by platform_division_code, product_brand, market10, developed_emerging, rtm, strata
+               ')
 
 mkt10lst <- sqldf("SELECT distinct market10,SUBSTR(developed_emerging,1,1) as developed_emerging from decay where market10 is not null")
 pltbrlst <- sqldf("SELECT distinct platform_division_code,product_brand,rtm from decay")
@@ -598,9 +613,9 @@ decay2 <- sqldf('select a.platform_division_code, a.product_brand, a.market10, a
                 from lstjn a
                 left join decay b
                 on a.market10=b.market10 and a.developed_emerging=b.developed_emerging and a.platform_division_code=b.platform_division_code
-                and a.product_brand=b.product_brand and a.rtm=b.rtm
-                order by a.platform_division_code, a.product_brand, a.market10, a.developed_emerging, a.rtm
-                ')
+                  and a.product_brand=b.product_brand and a.rtm=b.rtm
+               order by a.platform_division_code, a.product_brand, a.market10, a.developed_emerging, a.rtm
+               ')
 cols <- c( 'platform_division_code', 'product_brand', 'market10' ,'developed_emerging', 'rtm')
 
 # create a new column `x` with the four columns collapsed together
@@ -625,7 +640,7 @@ str(decay)
 #zeroa$product_brand <- ifelse(zeroa$printer_platform_name %in% c('MALBEC','MANHATTAN','WEBER BASE'),"OJP",zeroa$product_brand)  #These are listed as both OJ and OJP
 
 usage <- sqldf("select
-printer_platform_name
+  printer_platform_name
 , printer_region_code, market10, developed_emerging, country_alpha2,rtm, FYearMo, platform_division_code, product_brand
 , MAX(MPVa) AS MPVa
 , SUM(sumn) AS Na
@@ -658,7 +673,7 @@ usage_platformList <- reshape2::dcast(usage_platform, printer_platform_name~prin
 # the 5 Sources for all groups defined by Plat_Nm and Region_Cd.
 iblist <- sqldf("select distinct ib.platform_subset as printer_platform_name, ib.rtm, ci.country_alpha2, ci.region_5 as printer_region_code, ci.market10, substr(ci.developed_emerging,1,1) as developed_emerging, platform_division_code
                 from ibtable ib left join country_info ci
-                on ib.country=ci.country_alpha2")
+                on ib.country_alpha2=ci.country_alpha2")
 
 u2 <- sqldf('with prc as (select printer_platform_name, printer_region_code, platform_division_code, developed_emerging, rtm, FYearMo
             , sum(Na) as SNA
@@ -747,7 +762,7 @@ sourceR <- sqldf("
                  from iblist ib
                  left join u2
                  on ib.printer_platform_name=u2.printer_platform_name and ib.printer_region_code=u2.printer_region_code and ib.market10=u2.market10 and ib.country_alpha2=u2.country_alpha2 and UPPER(ib.rtm)=UPPER(u2.rtm)
-                  and ib.platform_division_code=u2.platform_division_code
+                 and ib.platform_division_code=u2.platform_division_code
                  order by ib.printer_platform_name, ib.printer_region_code
                  ")
 
@@ -838,7 +853,7 @@ usage3 <- sqldf("with reg as (
 # Combine Usage (outcome of Step 14) and Decay (outcome of Step 9) matrices by using Region_Cd, VV, CM and SM.
 
 usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.country_alpha2, aa1.market10, aa1.developed_emerging, aa1.rtm, aa1.product_brand, aa1.fyearmo, aa1.MPV, aa1.N
-                , aa2.b1, aa1.platform_division_code
+  , aa2.b1, aa1.platform_division_code
               from 
               usage3 aa1 
               inner join
@@ -862,21 +877,21 @@ usage4<-sqldf('select aa1.printer_platform_name, aa1.printer_region_code, aa1.co
 
 # Step 16 - extracting Intro year for a given Platform n region
 
-introYear <- sqldf(" SELECT a.platform_subset as printer_platform_name, a.rtm 
-                        , a.Region_5 AS printer_region_code
-                        , b.country_alpha2
-                        , b.market10
-                        , SUBSTR(b.developed_emerging,1,1) as developed_emerging
-                        , min(a.month_begin) as Intro_FYearMo
+introYear <- sqldf(" SELECT a.platform_subset as printer_platform_name, a.rtm
+                          , a.Region_5 AS printer_region_code
+                          , b.country_alpha2
+                          , b.market10
+                          , SUBSTR(b.developed_emerging,1,1) as developed_emerging
+                          , min(a.month_begin) as Intro_FYearMo
                     FROM ibtable a
                     left join country_info b
-                    on a.country=b.country_alpha2
-                    GROUP BY a.platform_subset, a.rtm 
-                        , a.Region_5
-                        , b.country_alpha2
-                        , b.market10
-                        , b.developed_emerging
-                    ")
+                      on a.country_alpha2=b.country_alpha2
+                    GROUP BY a.platform_subset, a.rtm
+                          , a.Region_5
+                          , b.country_alpha2
+                          , b.market10
+                          , b.developed_emerging
+                   ")
 
 introYear$Source <- "FL_Installed_Base"
 head(introYear)
@@ -910,13 +925,13 @@ introYear3 <- sqldf('select aa1.printer_platform_name, UPPER(aa1.rtm) as rtm
                     from
                     introYear aa1
                     left join introYear2a aa2
-                    on aa1.printer_platform_name = aa2.printer_platform_name and aa1.rtm=aa2.rtm
+                      on aa1.printer_platform_name = aa2.printer_platform_name and aa1.rtm=aa2.rtm
                     left join introYear2b aa3
-                    on aa1.printer_platform_name = aa3.printer_platform_name and aa1.printer_region_code=aa3.printer_region_code and aa1.rtm=aa3.rtm
+                      on aa1.printer_platform_name = aa3.printer_platform_name and aa1.printer_region_code=aa3.printer_region_code and aa1.rtm=aa3.rtm
                     left join introYear2c aa4
-                    on aa1.printer_platform_name = aa4.printer_platform_name and aa1.market10=aa4.market10 and aa1.rtm=aa4.rtm
+                      on aa1.printer_platform_name = aa4.printer_platform_name and aa1.market10=aa4.market10 and aa1.rtm=aa4.rtm
                     left join introYear2d aa5
-                    on aa1.printer_platform_name = aa5.printer_platform_name and aa1.market10=aa5.market10 and aa1.developed_emerging=aa5.developed_emerging and aa1.rtm=aa5.rtm
+                      on aa1.printer_platform_name = aa5.printer_platform_name and aa1.market10=aa5.market10 and aa1.developed_emerging=aa5.developed_emerging and aa1.rtm=aa5.rtm
                     ')
 
 # COMMAND ----------
@@ -924,31 +939,31 @@ introYear3 <- sqldf('select aa1.printer_platform_name, UPPER(aa1.rtm) as rtm
 # Step 17 -  Creation of Extended Usage Matrix
 
 usage5 <- sqldf('select aa1.*, 
-                CASE WHEN aa2.minYear is not null THEN aa2.minYear
-                ELSE null
-                END AS Intro_FYearMo 
-                FROM usage4 aa1 
-                LEFT JOIN introYear2a aa2
-                ON aa1.printer_platform_name=aa2.printer_platform_name and upper(aa1.rtm)=upper(aa2.rtm)
-                
-                order by aa1.printer_platform_name, aa1.country_alpha2, aa1.product_brand, aa1.FYearMo, aa1.rtm
-                ')
+                  CASE WHEN aa2.minYear is not null THEN aa2.minYear
+                    ELSE null
+                    END AS Intro_FYearMo 
+                  FROM usage4 aa1 
+                  LEFT JOIN introYear2a aa2
+                  ON aa1.printer_platform_name=aa2.printer_platform_name and upper(aa1.rtm)=upper(aa2.rtm)
+                  
+                  order by aa1.printer_platform_name, aa1.country_alpha2, aa1.product_brand, aa1.FYearMo, aa1.rtm
+                  ')
 
-nodt <- subset(usage5,is.na(Intro_FYearMo))
-usage5 <- subset(usage5,!is.na(Intro_FYearMo))
-
-usage5 <- subset(usage5,MPV>0)
-
-str(usage5)
-usage5$printer_platform_name <- factor(usage5$printer_platform_name)
-str(usage5)
-
-usage5$RFYearMo <- (as.numeric(substr(usage5$fyearmo, 1,4)))*1 + (as.numeric(substr(usage5$fyearmo, 5,6))-1)/12
-usage5$RFIntroYear <- (as.numeric(substr(usage5$Intro_FYearMo, 1,4)))*1 + (as.numeric(substr(usage5$Intro_FYearMo, 5,6))-1)/12
-usage5$MoSI <- (usage5$RFYearMo-usage5$RFIntroYear)*12
-usage5$NMoSI	<- usage5$N*usage5$MoSI
-usage5$LnMPV	<- log(usage5$MPV)
-usage5$NLnMPV <- usage5$N*usage5$LnMPV
+  nodt <- subset(usage5,is.na(Intro_FYearMo))
+  usage5 <- subset(usage5,!is.na(Intro_FYearMo))
+  
+  usage5 <- subset(usage5,MPV>0)
+  
+  str(usage5)
+  usage5$printer_platform_name <- factor(usage5$printer_platform_name)
+  str(usage5)
+  
+  usage5$RFYearMo <- (as.numeric(substr(usage5$fyearmo, 1,4)))*1 + (as.numeric(substr(usage5$fyearmo, 5,6))-1)/12
+  usage5$RFIntroYear <- (as.numeric(substr(usage5$Intro_FYearMo, 1,4)))*1 + (as.numeric(substr(usage5$Intro_FYearMo, 5,6))-1)/12
+  usage5$MoSI <- (usage5$RFYearMo-usage5$RFIntroYear)*12
+  usage5$NMoSI	<- usage5$N*usage5$MoSI
+  usage5$LnMPV	<- log(usage5$MPV)
+  usage5$NLnMPV <- usage5$N*usage5$LnMPV
 
 # COMMAND ----------
 
@@ -958,50 +973,50 @@ usage5$NLnMPV <- usage5$N*usage5$LnMPV
 # the following variables will be created;
 
 usageSummary <- sqldf('select printer_platform_name, rtm, product_brand, country_alpha2
-                    , sum(NMoSI) as SumNMOSI
-                    , sum(N) as SumN
-                    , sum(NLnMPV) as SumNLNMPV
-                    from usage5
-                    group by printer_platform_name, rtm, product_brand, country_alpha2
-                    order by printer_platform_name, rtm, product_brand, country_alpha2
-                    ')
+                      , sum(NMoSI) as SumNMOSI
+                      , sum(N) as SumN
+                      , sum(NLnMPV) as SumNLNMPV
+                      from usage5
+                      group by printer_platform_name, rtm, product_brand, country_alpha2
+                      order by printer_platform_name, rtm, product_brand, country_alpha2
+                      ')
 
 usageSummary$x <- usageSummary$SumNMOSI/usageSummary$SumN
 usageSummary$y <- usageSummary$SumNLNMPV/usageSummary$SumN
 
 
 usageSummaryMkt <- sqldf('select printer_platform_name, rtm, product_brand, market10
-                    , sum(NMoSI) as SumNMOSI
-                    , sum(N) as SumN
-                    , sum(NLnMPV) as SumNLNMPV
-                    from usage5
-                    group by printer_platform_name, rtm, product_brand, market10
-                    order by printer_platform_name, rtm, product_brand, market10
-                    ')
+                      , sum(NMoSI) as SumNMOSI
+                      , sum(N) as SumN
+                      , sum(NLnMPV) as SumNLNMPV
+                      from usage5
+                      group by printer_platform_name, rtm, product_brand, market10
+                      order by printer_platform_name, rtm, product_brand, market10
+                      ')
 
 usageSummaryMkt$x <- usageSummaryMkt$SumNMOSI/usageSummaryMkt$SumN
 usageSummaryMkt$y <- usageSummaryMkt$SumNLNMPV/usageSummaryMkt$SumN
 
 usageSummaryDE <- sqldf('select printer_platform_name, rtm, product_brand, market10, developed_emerging
-                    , sum(NMoSI) as SumNMOSI
-                    , sum(N) as SumN
-                    , sum(NLnMPV) as SumNLNMPV
-                    from usage5
-                    group by printer_platform_name, rtm, product_brand, market10, developed_emerging
-                    order by printer_platform_name, rtm, product_brand, market10, developed_emerging
-                    ')
+                      , sum(NMoSI) as SumNMOSI
+                      , sum(N) as SumN
+                      , sum(NLnMPV) as SumNLNMPV
+                      from usage5
+                      group by printer_platform_name, rtm, product_brand, market10, developed_emerging
+                      order by printer_platform_name, rtm, product_brand, market10, developed_emerging
+                      ')
 
 usageSummaryDE$x <- usageSummaryDE$SumNMOSI/usageSummaryDE$SumN
 usageSummaryDE$y <- usageSummaryDE$SumNLNMPV/usageSummaryDE$SumN
 
 usageSummaryR5 <- sqldf('select printer_platform_name, rtm, product_brand, printer_region_code
-                    , sum(NMoSI) as SumNMOSI
-                    , sum(N) as SumN
-                    , sum(NLnMPV) as SumNLNMPV
-                    from usage5
-                    group by printer_platform_name, rtm, product_brand, printer_region_code
-                    order by printer_platform_name, rtm, product_brand, printer_region_code
-                    ')
+                      , sum(NMoSI) as SumNMOSI
+                      , sum(N) as SumN
+                      , sum(NLnMPV) as SumNLNMPV
+                      from usage5
+                      group by printer_platform_name, rtm, product_brand, printer_region_code
+                      order by printer_platform_name, rtm, product_brand, printer_region_code
+                      ')
 
 usageSummaryR5$x <- usageSummaryR5$SumNMOSI/usageSummaryR5$SumN
 usageSummaryR5$y <- usageSummaryR5$SumNLNMPV/usageSummaryR5$SumN
@@ -1026,63 +1041,63 @@ decay2R5 <- sqldf('select printer_platform_name, printer_region_code, product_br
 # Create initial MPV (iMPV) = exp(y -(x*b1/12))
 
 usageSummary2 <- sqldf('select aa1.*, aa2.b1 from 
-                        usageSummary aa1 
-                        inner join 
-                        decay2 aa2
-                        on
-                        aa1.printer_platform_name = aa2.printer_platform_name
-                        and
-                        aa1.country_alpha2 = aa2.country_alpha2
-                        and 
-                        aa1.product_brand=aa2.product_brand
-                        and
-                        aa1.rtm=aa2.rtm
-                        order by printer_platform_name, country_alpha2
-                        ')
+                       usageSummary aa1 
+                       inner join 
+                       decay2 aa2
+                       on
+                       aa1.printer_platform_name = aa2.printer_platform_name
+                       and
+                       aa1.country_alpha2 = aa2.country_alpha2
+                       and 
+                       aa1.product_brand=aa2.product_brand
+                       and
+                       aa1.rtm=aa2.rtm
+                       order by printer_platform_name, country_alpha2
+                       ')
 usageSummary2Mkt <- sqldf('select aa1.*, aa2.b1 from 
-                        usageSummaryMkt aa1 
-                        inner join 
-                        decay2Mkt aa2
-                        on
-                        aa1.printer_platform_name = aa2.printer_platform_name
-                        and
-                        aa1.market10 = aa2.market10
-                        and 
-                        aa1.product_brand=aa2.product_brand
-                        and
-                        aa1.rtm=aa2.rtm
-                        order by printer_platform_name, market10
-                        ')
-usageSummary2DE <- sqldf('select aa1.*, aa2.b1 from 
-                        usageSummaryDE aa1 
-                        inner join 
-                        decay2DE aa2
-                        on
-                        aa1.printer_platform_name = aa2.printer_platform_name
-                        and
-                        aa1.market10 = aa2.market10
-                        and 
-                        aa1.developed_emerging=aa2.developed_emerging
-                        and 
-                        aa1.product_brand=aa2.product_brand
-                        and
-                        aa1.rtm=aa2.rtm
-                        order by printer_platform_name, market10, developed_emerging
-                        ')
+                       usageSummaryMkt aa1 
+                       inner join 
+                       decay2Mkt aa2
+                       on
+                       aa1.printer_platform_name = aa2.printer_platform_name
+                       and
+                       aa1.market10 = aa2.market10
+                       and 
+                       aa1.product_brand=aa2.product_brand
+                       and
+                       aa1.rtm=aa2.rtm
+                       order by printer_platform_name, market10
+                       ')
+  usageSummary2DE <- sqldf('select aa1.*, aa2.b1 from 
+                       usageSummaryDE aa1 
+                       inner join 
+                       decay2DE aa2
+                       on
+                       aa1.printer_platform_name = aa2.printer_platform_name
+                       and
+                       aa1.market10 = aa2.market10
+                       and 
+                       aa1.developed_emerging=aa2.developed_emerging
+                       and 
+                       aa1.product_brand=aa2.product_brand
+                       and
+                       aa1.rtm=aa2.rtm
+                       order by printer_platform_name, market10, developed_emerging
+                       ')
     usageSummary2R5 <- sqldf('select aa1.*, aa2.b1 from 
-                        usageSummaryR5 aa1 
-                        inner join 
-                        decay2R5 aa2
-                        on
-                        aa1.printer_platform_name = aa2.printer_platform_name
-                        and
-                        aa1.printer_region_code = aa2.printer_region_code
-                        and 
-                        aa1.product_brand=aa2.product_brand
-                        and
-                        aa1.rtm=aa2.rtm
-                        order by printer_platform_name, printer_region_code
-                        ')
+                       usageSummaryR5 aa1 
+                       inner join 
+                       decay2R5 aa2
+                       on
+                       aa1.printer_platform_name = aa2.printer_platform_name
+                       and
+                       aa1.printer_region_code = aa2.printer_region_code
+                       and 
+                       aa1.product_brand=aa2.product_brand
+                       and
+                       aa1.rtm=aa2.rtm
+                       order by printer_platform_name, printer_region_code
+                       ')
 
 usageSummary2$iMPV <- exp(usageSummary2$y -(usageSummary2$x*usageSummary2$b1/12))
 usageSummary2Mkt$iMPV <- exp(usageSummary2Mkt$y -(usageSummary2Mkt$x*usageSummary2Mkt$b1/12))
@@ -1138,336 +1153,336 @@ usageSummary2Tr5 <- reshape2::dcast(usageSummary2R5Keep, printer_platform_name+p
 # (i.e. EU, AP, LA and JP) by the iMPV of NA.
 strata <- unique(usage[c("platform_division_code", "product_brand", "printer_platform_name", "rtm")])
 
-usageSummary2TEr5 <- sqldf('select aa1.printer_platform_name, aa1.product_brand, aa2.platform_division_code, aa1.rtm, aa1.NA, aa1.EU, aa1.AP, aa1.LA
-                        , COALESCE(aa1.NA/aa1.NA,0) as NA_wt
-                        , COALESCE(aa1.EU/aa1.NA,0) as EU_wt
-                        , COALESCE(aa1.AP/aa1.NA,0) as AP_wt
-                        , COALESCE(aa1.LA/aa1.NA,0) as LA_wt
-                        , COALESCE(aa1.NA/aa1.EU,0) as NA_wt2
-                        , COALESCE(aa1.EU/aa1.EU,0) as EU_wt2
-                        , COALESCE(aa1.AP/aa1.EU,0) as AP_wt2
-                        , COALESCE(aa1.LA/aa1.EU,0) as LA_wt2
-                        , COALESCE(aa1.NA/aa1.AP,0) as NA_wt3
-                        , COALESCE(aa1.EU/aa1.AP,0) as EU_wt3
-                        , COALESCE(aa1.AP/aa1.AP,0) as AP_wt3
-                        , COALESCE(aa1.LA/aa1.AP,0) as LA_wt3
-                        from  usageSummary2Tr5 aa1
-                        left join strata aa2
-                            on 
-                            aa1.printer_platform_name = aa2.printer_platform_name
-                        order by NA desc, EU desc, AP desc, LA desc
-                        ')
-usageSummary2TEr5[usageSummary2TEr5 == 0] <- NA
+  usageSummary2TEr5 <- sqldf('select aa1.printer_platform_name, aa1.product_brand, aa2.platform_division_code, aa1.rtm, aa1.NA, aa1.EU, aa1.AP, aa1.LA
+                         , COALESCE(aa1.NA/aa1.NA,0) as NA_wt
+                         , COALESCE(aa1.EU/aa1.NA,0) as EU_wt
+                         , COALESCE(aa1.AP/aa1.NA,0) as AP_wt
+                         , COALESCE(aa1.LA/aa1.NA,0) as LA_wt
+                         , COALESCE(aa1.NA/aa1.EU,0) as NA_wt2
+                         , COALESCE(aa1.EU/aa1.EU,0) as EU_wt2
+                         , COALESCE(aa1.AP/aa1.EU,0) as AP_wt2
+                         , COALESCE(aa1.LA/aa1.EU,0) as LA_wt2
+                         , COALESCE(aa1.NA/aa1.AP,0) as NA_wt3
+                         , COALESCE(aa1.EU/aa1.AP,0) as EU_wt3
+                         , COALESCE(aa1.AP/aa1.AP,0) as AP_wt3
+                         , COALESCE(aa1.LA/aa1.AP,0) as LA_wt3
+                         from  usageSummary2Tr5 aa1
+                         left join strata aa2
+                           on 
+                           aa1.printer_platform_name = aa2.printer_platform_name
+                         order by NA desc, EU desc, AP desc, LA desc
+                         ')
+  usageSummary2TEr5[usageSummary2TEr5 == 0] <- NA
 
 usageSummary2TEmkt10 <- sqldf('select aa1.printer_platform_name, aa1.product_brand, aa2.platform_division_code, aa1.rtm, aa1.[Central Europe], aa1.[Greater Asia], aa1.[Greater China], aa1.[India SL & BL], aa1.[ISE], aa1.[Latin America], aa1.[North America], aa1.[Northern Europe], aa1.[Southern Europe], aa1.[UK&I]
-                        --North America
-                        , COALESCE(aa1.[North America]/aa1.[North America],0) as [North America_wt]
-                        , COALESCE(aa1.[Central Europe]/aa1.[North America],0) as [Central Europe_wt]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[North America],0) as [Greater Asia_wt]
-                        , COALESCE(aa1.[Greater China]/aa1.[North America],0) as [Greater China_wt]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[North America],0) as [India_wt]
-                        , COALESCE(aa1.[ISE]/aa1.[North America],0) as [ISE_wt]
-                        , COALESCE(aa1.[Latin America]/aa1.[North America],0) as [Latin America_wt]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[North America],0) as [Northern Europe_wt]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[North America],0) as [Southern Europe_wt]
-                        , COALESCE(aa1.[UK&I]/aa1.[North America],0) as [UK&I_wt]
-                        --Central Europe
-                        , COALESCE(aa1.[North America]/aa1.[Central Europe],0) as [North America_wt2]
-                        , COALESCE(aa1.[Central Europe]/aa1.[Central Europe],0) as [Central Europe_wt2]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[Central Europe],0) as [Greater Asia_wt2]
-                        , COALESCE(aa1.[Greater China]/aa1.[Central Europe],0) as [Greater China_wt2]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[Central Europe],0) as [India_wt2]
-                        , COALESCE(aa1.[ISE]/aa1.[Central Europe],0) as [ISE_wt2]
-                        , COALESCE(aa1.[Latin America]/aa1.[Central Europe],0) as [Latin America_wt2]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[Central Europe],0) as [Northern Europe_wt2]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[Central Europe],0) as [Southern Europe_wt2]
-                        , COALESCE(aa1.[UK&I]/aa1.[Central Europe],0) as [UK&I_wt2]
-                        --Greater Asia
-                        , COALESCE(aa1.[North America]/aa1.[Greater Asia],0) as [North America_wt3]
-                        , COALESCE(aa1.[Central Europe]/aa1.[Greater Asia],0) as [Central Europe_wt3]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[Greater Asia],0) as [Greater Asia_wt3]
-                        , COALESCE(aa1.[Greater China]/aa1.[Greater Asia],0) as [Greater China_wt3]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[Greater Asia],0) as [India_wt3]
-                        , COALESCE(aa1.[ISE]/aa1.[Greater Asia],0) as [ISE_wt3]
-                        , COALESCE(aa1.[Latin America]/aa1.[Greater Asia],0) as [Latin America_wt3]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[Greater Asia],0) as [Northern Europe_wt3]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[Greater Asia],0) as [Southern Europe_wt3]
-                        , COALESCE(aa1.[UK&I]/aa1.[Greater Asia],0) as [UK&I_wt3]
-                        --Greater China
-                        , COALESCE(aa1.[North America]/aa1.[Greater China],0) as [North America_wt4]
-                        , COALESCE(aa1.[Central Europe]/aa1.[Greater China],0) as [Central Europe_wt4]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[Greater China],0) as [Greater Asia_wt4]
-                        , COALESCE(aa1.[Greater China]/aa1.[Greater China],0) as [Greater China_wt4]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[Greater China],0) as [India_wt4]
-                        , COALESCE(aa1.[ISE]/aa1.[Greater China],0) as [ISE_wt4]
-                        , COALESCE(aa1.[Latin America]/aa1.[Greater China],0) as [Latin America_wt4]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[Greater China],0) as [Northern Europe_wt4]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[Greater China],0) as [Southern Europe_wt4]
-                        , COALESCE(aa1.[UK&I]/aa1.[Greater China],0) as [UK&I_wt4]
-                        --India SL & BL
-                        , COALESCE(aa1.[North America]/aa1.[India SL & BL],0) as [North America_wt5]
-                        , COALESCE(aa1.[Central Europe]/aa1.[India SL & BL],0) as [Central Europe_wt5]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[India SL & BL],0) as [Greater Asia_wt5]
-                        , COALESCE(aa1.[Greater China]/aa1.[India SL & BL],0) as [Greater China_wt5]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[India SL & BL],0) as [India_wt5]
-                        , COALESCE(aa1.[ISE]/aa1.[India SL & BL],0) as [ISE_wt5]
-                        , COALESCE(aa1.[Latin America]/aa1.[India SL & BL],0) as [Latin America_wt5]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[India SL & BL],0) as [Northern Europe_wt5]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[India SL & BL],0) as [Southern Europe_wt5]
-                        , COALESCE(aa1.[UK&I]/aa1.[India SL & BL],0) as [UK&I_wt5]
-                        --ISE
-                        , COALESCE(aa1.[North America]/aa1.[ISE],0) as [North America_wt6]
-                        , COALESCE(aa1.[Central Europe]/aa1.[ISE],0) as [Central Europe_wt6]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[ISE],0) as [Greater Asia_wt6]
-                        , COALESCE(aa1.[Greater China]/aa1.[ISE],0) as [Greater China_wt6]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[ISE],0) as [India_wt6]
-                        , COALESCE(aa1.[ISE]/aa1.[ISE],0) as [ISE_wt6]
-                        , COALESCE(aa1.[Latin America]/aa1.[ISE],0) as [Latin America_wt6]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[ISE],0) as [Northern Europe_wt6]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[ISE],0) as [Southern Europe_wt6]
-                        , COALESCE(aa1.[UK&I]/aa1.[ISE],0) as [UK&I_wt6]
-                        --Latin America
-                        , COALESCE(aa1.[North America]/aa1.[Latin America],0) as [North America_wt7]
-                        , COALESCE(aa1.[Central Europe]/aa1.[Latin America],0) as [Central Europe_wt7]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[Latin America],0) as [Greater Asia_wt7]
-                        , COALESCE(aa1.[Greater China]/aa1.[Latin America],0) as [Greater China_wt7]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[Latin America],0) as [India_wt7]
-                        , COALESCE(aa1.[ISE]/aa1.[Latin America],0) as [ISE_wt7]
-                        , COALESCE(aa1.[Latin America]/aa1.[Latin America],0) as [Latin America_wt7]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[Latin America],0) as [Northern Europe_wt7]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[Latin America],0) as [Southern Europe_wt7]
-                        , COALESCE(aa1.[UK&I]/aa1.[Latin America],0) as [UK&I_wt7]
-                        --Northern Europe
-                        , COALESCE(aa1.[North America]/aa1.[Northern Europe],0) as [North America_wt8]
-                        , COALESCE(aa1.[Central Europe]/aa1.[Northern Europe],0) as [Central Europe_wt8]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[Northern Europe],0) as [Greater Asia_wt8]
-                        , COALESCE(aa1.[Greater China]/aa1.[Northern Europe],0) as [Greater China_wt8]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[Northern Europe],0) as [India_wt8]
-                        , COALESCE(aa1.[ISE]/aa1.[Northern Europe],0) as [ISE_wt8]
-                        , COALESCE(aa1.[Latin America]/aa1.[Northern Europe],0) as [Latin America_wt8]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[Northern Europe],0) as [Northern Europe_wt8]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[Northern Europe],0) as [Southern Europe_wt8]
-                        , COALESCE(aa1.[UK&I]/aa1.[Northern Europe],0) as [UK&I_wt8]
-                        --Southern Europe
-                        , COALESCE(aa1.[North America]/aa1.[Southern Europe],0) as [North America_wt9]
-                        , COALESCE(aa1.[Central Europe]/aa1.[Southern Europe],0) as [Central Europe_wt9]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[Southern Europe],0) as [Greater Asia_wt9]
-                        , COALESCE(aa1.[Greater China]/aa1.[Southern Europe],0) as [Greater China_wt9]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[Southern Europe],0) as [India_wt9]
-                        , COALESCE(aa1.[ISE]/aa1.[Southern Europe],0) as [ISE_wt9]
-                        , COALESCE(aa1.[Latin America]/aa1.[Southern Europe],0) as [Latin America_wt9]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[Southern Europe],0) as [Northern Europe_wt9]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[Southern Europe],0) as [Southern Europe_wt9]
-                        , COALESCE(aa1.[UK&I]/aa1.[Southern Europe],0) as [UK&I_wt9]
-                        --UK&I
-                        , COALESCE(aa1.[North America]/aa1.[UK&I],0) as [North America_wt10]
-                        , COALESCE(aa1.[Central Europe]/aa1.[UK&I],0) as [Central Europe_wt10]
-                        , COALESCE(aa1.[Greater Asia]/aa1.[UK&I],0) as [Greater Asia_wt10]
-                        , COALESCE(aa1.[Greater China]/aa1.[UK&I],0) as [Greater China_wt10]
-                        , COALESCE(aa1.[India SL & BL]/aa1.[UK&I],0) as [India_wt10]
-                        , COALESCE(aa1.[ISE]/aa1.[UK&I],0) as [ISE_wt10]
-                        , COALESCE(aa1.[Latin America]/aa1.[UK&I],0) as [Latin America_wt10]
-                        , COALESCE(aa1.[Northern Europe]/aa1.[UK&I],0) as [Northern Europe_wt10]
-                        , COALESCE(aa1.[Southern Europe]/aa1.[UK&I],0) as [Southern Europe_wt10]
-                        , COALESCE(aa1.[UK&I]/aa1.[UK&I],0) as [UK&I_wt10]
-                        from  usageSummary2Tmkt10 aa1
-                        left join strata aa2
-                            on 
-                            aa1.printer_platform_name = aa2.printer_platform_name
-                        ')
+                         --North America
+                         , COALESCE(aa1.[North America]/aa1.[North America],0) as [North America_wt]
+                         , COALESCE(aa1.[Central Europe]/aa1.[North America],0) as [Central Europe_wt]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[North America],0) as [Greater Asia_wt]
+                         , COALESCE(aa1.[Greater China]/aa1.[North America],0) as [Greater China_wt]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[North America],0) as [India_wt]
+                         , COALESCE(aa1.[ISE]/aa1.[North America],0) as [ISE_wt]
+                         , COALESCE(aa1.[Latin America]/aa1.[North America],0) as [Latin America_wt]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[North America],0) as [Northern Europe_wt]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[North America],0) as [Southern Europe_wt]
+                         , COALESCE(aa1.[UK&I]/aa1.[North America],0) as [UK&I_wt]
+                         --Central Europe
+                         , COALESCE(aa1.[North America]/aa1.[Central Europe],0) as [North America_wt2]
+                         , COALESCE(aa1.[Central Europe]/aa1.[Central Europe],0) as [Central Europe_wt2]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[Central Europe],0) as [Greater Asia_wt2]
+                         , COALESCE(aa1.[Greater China]/aa1.[Central Europe],0) as [Greater China_wt2]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[Central Europe],0) as [India_wt2]
+                         , COALESCE(aa1.[ISE]/aa1.[Central Europe],0) as [ISE_wt2]
+                         , COALESCE(aa1.[Latin America]/aa1.[Central Europe],0) as [Latin America_wt2]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[Central Europe],0) as [Northern Europe_wt2]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[Central Europe],0) as [Southern Europe_wt2]
+                         , COALESCE(aa1.[UK&I]/aa1.[Central Europe],0) as [UK&I_wt2]
+                         --Greater Asia
+                         , COALESCE(aa1.[North America]/aa1.[Greater Asia],0) as [North America_wt3]
+                         , COALESCE(aa1.[Central Europe]/aa1.[Greater Asia],0) as [Central Europe_wt3]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[Greater Asia],0) as [Greater Asia_wt3]
+                         , COALESCE(aa1.[Greater China]/aa1.[Greater Asia],0) as [Greater China_wt3]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[Greater Asia],0) as [India_wt3]
+                         , COALESCE(aa1.[ISE]/aa1.[Greater Asia],0) as [ISE_wt3]
+                         , COALESCE(aa1.[Latin America]/aa1.[Greater Asia],0) as [Latin America_wt3]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[Greater Asia],0) as [Northern Europe_wt3]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[Greater Asia],0) as [Southern Europe_wt3]
+                         , COALESCE(aa1.[UK&I]/aa1.[Greater Asia],0) as [UK&I_wt3]
+                         --Greater China
+                         , COALESCE(aa1.[North America]/aa1.[Greater China],0) as [North America_wt4]
+                         , COALESCE(aa1.[Central Europe]/aa1.[Greater China],0) as [Central Europe_wt4]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[Greater China],0) as [Greater Asia_wt4]
+                         , COALESCE(aa1.[Greater China]/aa1.[Greater China],0) as [Greater China_wt4]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[Greater China],0) as [India_wt4]
+                         , COALESCE(aa1.[ISE]/aa1.[Greater China],0) as [ISE_wt4]
+                         , COALESCE(aa1.[Latin America]/aa1.[Greater China],0) as [Latin America_wt4]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[Greater China],0) as [Northern Europe_wt4]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[Greater China],0) as [Southern Europe_wt4]
+                         , COALESCE(aa1.[UK&I]/aa1.[Greater China],0) as [UK&I_wt4]
+                         --India SL & BL
+                         , COALESCE(aa1.[North America]/aa1.[India SL & BL],0) as [North America_wt5]
+                         , COALESCE(aa1.[Central Europe]/aa1.[India SL & BL],0) as [Central Europe_wt5]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[India SL & BL],0) as [Greater Asia_wt5]
+                         , COALESCE(aa1.[Greater China]/aa1.[India SL & BL],0) as [Greater China_wt5]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[India SL & BL],0) as [India_wt5]
+                         , COALESCE(aa1.[ISE]/aa1.[India SL & BL],0) as [ISE_wt5]
+                         , COALESCE(aa1.[Latin America]/aa1.[India SL & BL],0) as [Latin America_wt5]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[India SL & BL],0) as [Northern Europe_wt5]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[India SL & BL],0) as [Southern Europe_wt5]
+                         , COALESCE(aa1.[UK&I]/aa1.[India SL & BL],0) as [UK&I_wt5]
+                         --ISE
+                         , COALESCE(aa1.[North America]/aa1.[ISE],0) as [North America_wt6]
+                         , COALESCE(aa1.[Central Europe]/aa1.[ISE],0) as [Central Europe_wt6]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[ISE],0) as [Greater Asia_wt6]
+                         , COALESCE(aa1.[Greater China]/aa1.[ISE],0) as [Greater China_wt6]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[ISE],0) as [India_wt6]
+                         , COALESCE(aa1.[ISE]/aa1.[ISE],0) as [ISE_wt6]
+                         , COALESCE(aa1.[Latin America]/aa1.[ISE],0) as [Latin America_wt6]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[ISE],0) as [Northern Europe_wt6]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[ISE],0) as [Southern Europe_wt6]
+                         , COALESCE(aa1.[UK&I]/aa1.[ISE],0) as [UK&I_wt6]
+                         --Latin America
+                         , COALESCE(aa1.[North America]/aa1.[Latin America],0) as [North America_wt7]
+                         , COALESCE(aa1.[Central Europe]/aa1.[Latin America],0) as [Central Europe_wt7]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[Latin America],0) as [Greater Asia_wt7]
+                         , COALESCE(aa1.[Greater China]/aa1.[Latin America],0) as [Greater China_wt7]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[Latin America],0) as [India_wt7]
+                         , COALESCE(aa1.[ISE]/aa1.[Latin America],0) as [ISE_wt7]
+                         , COALESCE(aa1.[Latin America]/aa1.[Latin America],0) as [Latin America_wt7]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[Latin America],0) as [Northern Europe_wt7]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[Latin America],0) as [Southern Europe_wt7]
+                         , COALESCE(aa1.[UK&I]/aa1.[Latin America],0) as [UK&I_wt7]
+                         --Northern Europe
+                         , COALESCE(aa1.[North America]/aa1.[Northern Europe],0) as [North America_wt8]
+                         , COALESCE(aa1.[Central Europe]/aa1.[Northern Europe],0) as [Central Europe_wt8]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[Northern Europe],0) as [Greater Asia_wt8]
+                         , COALESCE(aa1.[Greater China]/aa1.[Northern Europe],0) as [Greater China_wt8]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[Northern Europe],0) as [India_wt8]
+                         , COALESCE(aa1.[ISE]/aa1.[Northern Europe],0) as [ISE_wt8]
+                         , COALESCE(aa1.[Latin America]/aa1.[Northern Europe],0) as [Latin America_wt8]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[Northern Europe],0) as [Northern Europe_wt8]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[Northern Europe],0) as [Southern Europe_wt8]
+                         , COALESCE(aa1.[UK&I]/aa1.[Northern Europe],0) as [UK&I_wt8]
+                         --Southern Europe
+                         , COALESCE(aa1.[North America]/aa1.[Southern Europe],0) as [North America_wt9]
+                         , COALESCE(aa1.[Central Europe]/aa1.[Southern Europe],0) as [Central Europe_wt9]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[Southern Europe],0) as [Greater Asia_wt9]
+                         , COALESCE(aa1.[Greater China]/aa1.[Southern Europe],0) as [Greater China_wt9]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[Southern Europe],0) as [India_wt9]
+                         , COALESCE(aa1.[ISE]/aa1.[Southern Europe],0) as [ISE_wt9]
+                         , COALESCE(aa1.[Latin America]/aa1.[Southern Europe],0) as [Latin America_wt9]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[Southern Europe],0) as [Northern Europe_wt9]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[Southern Europe],0) as [Southern Europe_wt9]
+                         , COALESCE(aa1.[UK&I]/aa1.[Southern Europe],0) as [UK&I_wt9]
+                         --UK&I
+                         , COALESCE(aa1.[North America]/aa1.[UK&I],0) as [North America_wt10]
+                         , COALESCE(aa1.[Central Europe]/aa1.[UK&I],0) as [Central Europe_wt10]
+                         , COALESCE(aa1.[Greater Asia]/aa1.[UK&I],0) as [Greater Asia_wt10]
+                         , COALESCE(aa1.[Greater China]/aa1.[UK&I],0) as [Greater China_wt10]
+                         , COALESCE(aa1.[India SL & BL]/aa1.[UK&I],0) as [India_wt10]
+                         , COALESCE(aa1.[ISE]/aa1.[UK&I],0) as [ISE_wt10]
+                         , COALESCE(aa1.[Latin America]/aa1.[UK&I],0) as [Latin America_wt10]
+                         , COALESCE(aa1.[Northern Europe]/aa1.[UK&I],0) as [Northern Europe_wt10]
+                         , COALESCE(aa1.[Southern Europe]/aa1.[UK&I],0) as [Southern Europe_wt10]
+                         , COALESCE(aa1.[UK&I]/aa1.[UK&I],0) as [UK&I_wt10]
+                         from  usageSummary2Tmkt10 aa1
+                         left join strata aa2
+                           on 
+                           aa1.printer_platform_name = aa2.printer_platform_name
+                         ')
 usageSummary2TEmkt10[usageSummary2TEmkt10 == 0] <- NA
 
 usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa1.product_brand, aa2.platform_division_code, aa1.rtm,aa1.[Central Europe_D],aa1.[Central Europe_E]
                 ,aa1.[Greater Asia_D],aa1.[Greater Asia_E],aa1.[Greater China_D],aa1.[Greater China_E]
                 ,aa1.[India SL & BL_E],aa1.[ISE_E],aa1.[Latin America_E],aa1.[North America_D]
                 ,aa1.[Northern Europe_D],aa1.[Southern Europe_D],aa1.[UK&I_D]
-                        --North America_D
-                        , COALESCE(aa1.[North America_D]/aa1.[North America_D],0) as [North America_D_wt]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[North America_D],0) as [Central Europe_D_wt]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[North America_D],0) as [Central Europe_E_wt]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[North America_D],0) as [Greater Asia_D_wt]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[North America_D],0) as [Greater Asia_E_wt]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[North America_D],0) as [Greater China_D_wt]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[North America_D],0) as [Greater China_E_wt]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[North America_D],0) as [India SL & BL_E_wt]
-                        , COALESCE(aa1.[ISE_E]/aa1.[North America_D],0) as [ISE_E_wt]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[North America_D],0) as [Latin America_E_wt]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[North America_D],0) as [Northern Europe_D_wt]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[North America_D],0) as [Southern Europe_D_wt]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[North America_D],0) as [UK&I_D_wt]
-                        --Central Europe_D
-                        , COALESCE(aa1.[North America_D]/aa1.[Central Europe_D],0) as [North America_D_wt2]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Central Europe_D],0) as [Central Europe_D_wt2]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Central Europe_D],0) as [Central Europe_E_wt2]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Central Europe_D],0) as [Greater Asia_D_wt2]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Central Europe_D],0) as [Greater Asia_E_wt2]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Central Europe_D],0) as [Greater China_D_wt2]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Central Europe_D],0) as [Greater China_E_wt2]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Central Europe_D],0) as [India SL & BL_E_wt2]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Central Europe_D],0) as [ISE_E_wt2]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Central Europe_D],0) as [Latin America_E_wt2]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Central Europe_D],0) as [Northern Europe_D_wt2]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Central Europe_D],0) as [Southern Europe_D_wt2]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Central Europe_D],0) as [UK&I_D_wt2]
-                        --Central Europe_E
-                        , COALESCE(aa1.[North America_D]/aa1.[Central Europe_E],0) as [North America_D_wt3]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Central Europe_E],0) as [Central Europe_D_wt3]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Central Europe_E],0) as [Central Europe_E_wt3]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Central Europe_E],0) as [Greater Asia_D_wt3]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Central Europe_E],0) as [Greater Asia_E_wt3]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Central Europe_E],0) as [Greater China_D_wt3]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Central Europe_E],0) as [Greater China_E_wt3]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Central Europe_E],0) as [India SL & BL_E_wt3]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Central Europe_E],0) as [ISE_E_wt3]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Central Europe_E],0) as [Latin America_E_wt3]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Central Europe_E],0) as [Northern Europe_D_wt3]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Central Europe_E],0) as [Southern Europe_D_wt3]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Central Europe_E],0) as [UK&I_D_wt3]
-                        --Greater Asia_D
-                        , COALESCE(aa1.[North America_D]/aa1.[Greater Asia_D],0) as [North America_D_wt4]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Greater Asia_D],0) as [Central Europe_D_wt4]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Greater Asia_D],0) as [Central Europe_E_wt4]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater Asia_D],0) as [Greater Asia_D_wt4]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater Asia_D],0) as [Greater Asia_E_wt4]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Greater Asia_D],0) as [Greater China_D_wt4]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Greater Asia_D],0) as [Greater China_E_wt4]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater Asia_D],0) as [India SL & BL_E_wt4]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Greater Asia_D],0) as [ISE_E_wt4]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Greater Asia_D],0) as [Latin America_E_wt4]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater Asia_D],0) as [Northern Europe_D_wt4]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater Asia_D],0) as [Southern Europe_D_wt4]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Greater Asia_D],0) as [UK&I_D_wt4]
-                        --Greater Asia_E
-                        , COALESCE(aa1.[North America_D]/aa1.[Greater Asia_E],0) as [North America_D_wt5]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Greater Asia_E],0) as [Central Europe_D_wt5]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Greater Asia_E],0) as [Central Europe_E_wt5]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater Asia_E],0) as [Greater Asia_D_wt5]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater Asia_E],0) as [Greater Asia_E_wt5]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Greater Asia_E],0) as [Greater China_D_wt5]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Greater Asia_E],0) as [Greater China_E_wt5]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater Asia_E],0) as [India SL & BL_E_wt5]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Greater Asia_E],0) as [ISE_E_wt5]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Greater Asia_E],0) as [Latin America_E_wt5]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater Asia_E],0) as [Northern Europe_D_wt5]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater Asia_E],0) as [Southern Europe_D_wt5]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Greater Asia_E],0) as [UK&I_D_wt5]
-                        --Greater China_D
-                        , COALESCE(aa1.[North America_D]/aa1.[Greater China_D],0) as [North America_D_wt6]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Greater China_D],0) as [Central Europe_D_wt6]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Greater China_D],0) as [Central Europe_E_wt6]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater China_D],0) as [Greater Asia_D_wt6]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater China_D],0) as [Greater Asia_E_wt6]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Greater China_D],0) as [Greater China_D_wt6]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Greater China_D],0) as [Greater China_E_wt6]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater China_D],0) as [India SL & BL_E_wt6]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Greater China_D],0) as [ISE_E_wt6]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Greater China_D],0) as [Latin America_E_wt6]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater China_D],0) as [Northern Europe_D_wt6]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater China_D],0) as [Southern Europe_D_wt6]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Greater China_D],0) as [UK&I_D_wt6]
-                        --Greater China_E
-                        , COALESCE(aa1.[North America_D]/aa1.[Greater China_E],0) as [North America_D_wt7]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Greater China_E],0) as [Central Europe_D_wt7]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Greater China_E],0) as [Central Europe_E_wt7]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater China_E],0) as [Greater Asia_D_wt7]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater China_E],0) as [Greater Asia_E_wt7]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Greater China_E],0) as [Greater China_D_wt7]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Greater China_E],0) as [Greater China_E_wt7]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater China_E],0) as [India SL & BL_E_wt7]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Greater China_E],0) as [ISE_E_wt7]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Greater China_E],0) as [Latin America_E_wt7]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater China_E],0) as [Northern Europe_D_wt7]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater China_E],0) as [Southern Europe_D_wt7]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Greater China_E],0) as [UK&I_D_wt7]
-                        --India SL & BL_E
-                        , COALESCE(aa1.[North America_D]/aa1.[India SL & BL_E],0) as [North America_D_wt8]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[India SL & BL_E],0) as [Central Europe_D_wt8]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[India SL & BL_E],0) as [Central Europe_E_wt8]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[India SL & BL_E],0) as [Greater Asia_D_wt8]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[India SL & BL_E],0) as [Greater Asia_E_wt8]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[India SL & BL_E],0) as [Greater China_D_wt8]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[India SL & BL_E],0) as [Greater China_E_wt8]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[India SL & BL_E],0) as [India SL & BL_E_wt8]
-                        , COALESCE(aa1.[ISE_E]/aa1.[India SL & BL_E],0) as [ISE_E_wt8]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[India SL & BL_E],0) as [Latin America_E_wt8]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[India SL & BL_E],0) as [Northern Europe_D_wt8]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[India SL & BL_E],0) as [Southern Europe_D_wt8]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[India SL & BL_E],0) as [UK&I_D_wt8]
-                        --ISE_E
-                        , COALESCE(aa1.[North America_D]/aa1.[ISE_E],0) as [North America_D_wt9]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[ISE_E],0) as [Central Europe_D_wt9]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[ISE_E],0) as [Central Europe_E_wt9]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[ISE_E],0) as [Greater Asia_D_wt9]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[ISE_E],0) as [Greater Asia_E_wt9]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[ISE_E],0) as [Greater China_D_wt9]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[ISE_E],0) as [Greater China_E_wt9]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[ISE_E],0) as [India SL & BL_E_wt9]
-                        , COALESCE(aa1.[ISE_E]/aa1.[ISE_E],0) as [ISE_E_wt9]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[ISE_E],0) as [Latin America_E_wt9]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[ISE_E],0) as [Northern Europe_D_wt9]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[ISE_E],0) as [Southern Europe_D_wt9]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[ISE_E],0) as [UK&I_D_wt9]
-                        --Latin America_E
-                        , COALESCE(aa1.[North America_D]/aa1.[Latin America_E],0) as [North America_D_wt10]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Latin America_E],0) as [Central Europe_D_wt10]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Latin America_E],0) as [Central Europe_E_wt10]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Latin America_E],0) as [Greater Asia_D_wt10]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Latin America_E],0) as [Greater Asia_E_wt10]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Latin America_E],0) as [Greater China_D_wt10]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Latin America_E],0) as [Greater China_E_wt10]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Latin America_E],0) as [India SL & BL_E_wt10]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Latin America_E],0) as [ISE_E_wt10]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Latin America_E],0) as [Latin America_E_wt10]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Latin America_E],0) as [Northern Europe_D_wt10]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Latin America_E],0) as [Southern Europe_D_wt10]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Latin America_E],0) as [UK&I_D_wt10]
-                        --Northern Europe_D
-                        , COALESCE(aa1.[North America_D]/aa1.[Northern Europe_D],0) as [North America_D_wt11]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Northern Europe_D],0) as [Central Europe_D_wt11]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Northern Europe_D],0) as [Central Europe_E_wt11]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Northern Europe_D],0) as [Greater Asia_D_wt11]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Northern Europe_D],0) as [Greater Asia_E_wt11]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Northern Europe_D],0) as [Greater China_D_wt11]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Northern Europe_D],0) as [Greater China_E_wt11]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Northern Europe_D],0) as [India SL & BL_E_wt11]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Northern Europe_D],0) as [ISE_E_wt11]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Northern Europe_D],0) as [Latin America_E_wt11]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Northern Europe_D],0) as [Northern Europe_D_wt11]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Northern Europe_D],0) as [Southern Europe_D_wt11]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Northern Europe_D],0) as [UK&I_D_wt11]
-                        --Southern Europe_D
-                        , COALESCE(aa1.[North America_D]/aa1.[Southern Europe_D],0) as [North America_D_wt12]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[Southern Europe_D],0) as [Central Europe_D_wt12]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[Southern Europe_D],0) as [Central Europe_E_wt12]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[Southern Europe_D],0) as [Greater Asia_D_wt12]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[Southern Europe_D],0) as [Greater Asia_E_wt12]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[Southern Europe_D],0) as [Greater China_D_wt12]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[Southern Europe_D],0) as [Greater China_E_wt12]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[Southern Europe_D],0) as [India SL & BL_E_wt12]
-                        , COALESCE(aa1.[ISE_E]/aa1.[Southern Europe_D],0) as [ISE_E_wt12]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[Southern Europe_D],0) as [Latin America_E_wt12]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[Southern Europe_D],0) as [Northern Europe_D_wt12]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[Southern Europe_D],0) as [Southern Europe_D_wt12]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[Southern Europe_D],0) as [UK&I_D_wt12]
-                        --UK&I_D
-                        , COALESCE(aa1.[North America_D]/aa1.[UK&I_D],0) as [North America_D_wt13]
-                        , COALESCE(aa1.[Central Europe_D]/aa1.[UK&I_D],0) as [Central Europe_D_wt13]
-                        , COALESCE(aa1.[Central Europe_E]/aa1.[UK&I_D],0) as [Central Europe_E_wt13]
-                        , COALESCE(aa1.[Greater Asia_D]/aa1.[UK&I_D],0) as [Greater Asia_D_wt13]
-                        , COALESCE(aa1.[Greater Asia_E]/aa1.[UK&I_D],0) as [Greater Asia_E_wt13]
-                        , COALESCE(aa1.[Greater China_D]/aa1.[UK&I_D],0) as [Greater China_D_wt13]
-                        , COALESCE(aa1.[Greater China_E]/aa1.[UK&I_D],0) as [Greater China_E_wt13]
-                        , COALESCE(aa1.[India SL & BL_E]/aa1.[UK&I_D],0) as [India SL & BL_E_wt13]
-                        , COALESCE(aa1.[ISE_E]/aa1.[UK&I_D],0) as [ISE_E_wt13]
-                        , COALESCE(aa1.[Latin America_E]/aa1.[UK&I_D],0) as [Latin America_E_wt13]
-                        , COALESCE(aa1.[Northern Europe_D]/aa1.[UK&I_D],0) as [Northern Europe_D_wt13]
-                        , COALESCE(aa1.[Southern Europe_D]/aa1.[UK&I_D],0) as [Southern Europe_D_wt13]
-                        , COALESCE(aa1.[UK&I_D]/aa1.[UK&I_D],0) as [UK&I_D_wt13]
-                        from  usageSummary2Tde aa1
-                        left join strata aa2
-                            on 
-                            aa1.printer_platform_name = aa2.printer_platform_name
-                        ")
+                         --North America_D
+                         , COALESCE(aa1.[North America_D]/aa1.[North America_D],0) as [North America_D_wt]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[North America_D],0) as [Central Europe_D_wt]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[North America_D],0) as [Central Europe_E_wt]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[North America_D],0) as [Greater Asia_D_wt]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[North America_D],0) as [Greater Asia_E_wt]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[North America_D],0) as [Greater China_D_wt]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[North America_D],0) as [Greater China_E_wt]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[North America_D],0) as [India SL & BL_E_wt]
+                         , COALESCE(aa1.[ISE_E]/aa1.[North America_D],0) as [ISE_E_wt]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[North America_D],0) as [Latin America_E_wt]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[North America_D],0) as [Northern Europe_D_wt]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[North America_D],0) as [Southern Europe_D_wt]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[North America_D],0) as [UK&I_D_wt]
+                         --Central Europe_D
+                         , COALESCE(aa1.[North America_D]/aa1.[Central Europe_D],0) as [North America_D_wt2]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Central Europe_D],0) as [Central Europe_D_wt2]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Central Europe_D],0) as [Central Europe_E_wt2]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Central Europe_D],0) as [Greater Asia_D_wt2]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Central Europe_D],0) as [Greater Asia_E_wt2]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Central Europe_D],0) as [Greater China_D_wt2]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Central Europe_D],0) as [Greater China_E_wt2]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Central Europe_D],0) as [India SL & BL_E_wt2]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Central Europe_D],0) as [ISE_E_wt2]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Central Europe_D],0) as [Latin America_E_wt2]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Central Europe_D],0) as [Northern Europe_D_wt2]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Central Europe_D],0) as [Southern Europe_D_wt2]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Central Europe_D],0) as [UK&I_D_wt2]
+                         --Central Europe_E
+                         , COALESCE(aa1.[North America_D]/aa1.[Central Europe_E],0) as [North America_D_wt3]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Central Europe_E],0) as [Central Europe_D_wt3]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Central Europe_E],0) as [Central Europe_E_wt3]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Central Europe_E],0) as [Greater Asia_D_wt3]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Central Europe_E],0) as [Greater Asia_E_wt3]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Central Europe_E],0) as [Greater China_D_wt3]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Central Europe_E],0) as [Greater China_E_wt3]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Central Europe_E],0) as [India SL & BL_E_wt3]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Central Europe_E],0) as [ISE_E_wt3]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Central Europe_E],0) as [Latin America_E_wt3]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Central Europe_E],0) as [Northern Europe_D_wt3]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Central Europe_E],0) as [Southern Europe_D_wt3]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Central Europe_E],0) as [UK&I_D_wt3]
+                         --Greater Asia_D
+                         , COALESCE(aa1.[North America_D]/aa1.[Greater Asia_D],0) as [North America_D_wt4]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Greater Asia_D],0) as [Central Europe_D_wt4]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Greater Asia_D],0) as [Central Europe_E_wt4]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater Asia_D],0) as [Greater Asia_D_wt4]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater Asia_D],0) as [Greater Asia_E_wt4]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Greater Asia_D],0) as [Greater China_D_wt4]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Greater Asia_D],0) as [Greater China_E_wt4]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater Asia_D],0) as [India SL & BL_E_wt4]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Greater Asia_D],0) as [ISE_E_wt4]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Greater Asia_D],0) as [Latin America_E_wt4]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater Asia_D],0) as [Northern Europe_D_wt4]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater Asia_D],0) as [Southern Europe_D_wt4]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Greater Asia_D],0) as [UK&I_D_wt4]
+                         --Greater Asia_E
+                         , COALESCE(aa1.[North America_D]/aa1.[Greater Asia_E],0) as [North America_D_wt5]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Greater Asia_E],0) as [Central Europe_D_wt5]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Greater Asia_E],0) as [Central Europe_E_wt5]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater Asia_E],0) as [Greater Asia_D_wt5]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater Asia_E],0) as [Greater Asia_E_wt5]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Greater Asia_E],0) as [Greater China_D_wt5]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Greater Asia_E],0) as [Greater China_E_wt5]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater Asia_E],0) as [India SL & BL_E_wt5]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Greater Asia_E],0) as [ISE_E_wt5]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Greater Asia_E],0) as [Latin America_E_wt5]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater Asia_E],0) as [Northern Europe_D_wt5]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater Asia_E],0) as [Southern Europe_D_wt5]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Greater Asia_E],0) as [UK&I_D_wt5]
+                         --Greater China_D
+                         , COALESCE(aa1.[North America_D]/aa1.[Greater China_D],0) as [North America_D_wt6]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Greater China_D],0) as [Central Europe_D_wt6]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Greater China_D],0) as [Central Europe_E_wt6]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater China_D],0) as [Greater Asia_D_wt6]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater China_D],0) as [Greater Asia_E_wt6]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Greater China_D],0) as [Greater China_D_wt6]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Greater China_D],0) as [Greater China_E_wt6]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater China_D],0) as [India SL & BL_E_wt6]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Greater China_D],0) as [ISE_E_wt6]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Greater China_D],0) as [Latin America_E_wt6]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater China_D],0) as [Northern Europe_D_wt6]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater China_D],0) as [Southern Europe_D_wt6]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Greater China_D],0) as [UK&I_D_wt6]
+                         --Greater China_E
+                         , COALESCE(aa1.[North America_D]/aa1.[Greater China_E],0) as [North America_D_wt7]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Greater China_E],0) as [Central Europe_D_wt7]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Greater China_E],0) as [Central Europe_E_wt7]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Greater China_E],0) as [Greater Asia_D_wt7]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Greater China_E],0) as [Greater Asia_E_wt7]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Greater China_E],0) as [Greater China_D_wt7]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Greater China_E],0) as [Greater China_E_wt7]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Greater China_E],0) as [India SL & BL_E_wt7]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Greater China_E],0) as [ISE_E_wt7]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Greater China_E],0) as [Latin America_E_wt7]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Greater China_E],0) as [Northern Europe_D_wt7]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Greater China_E],0) as [Southern Europe_D_wt7]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Greater China_E],0) as [UK&I_D_wt7]
+                         --India SL & BL_E
+                         , COALESCE(aa1.[North America_D]/aa1.[India SL & BL_E],0) as [North America_D_wt8]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[India SL & BL_E],0) as [Central Europe_D_wt8]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[India SL & BL_E],0) as [Central Europe_E_wt8]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[India SL & BL_E],0) as [Greater Asia_D_wt8]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[India SL & BL_E],0) as [Greater Asia_E_wt8]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[India SL & BL_E],0) as [Greater China_D_wt8]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[India SL & BL_E],0) as [Greater China_E_wt8]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[India SL & BL_E],0) as [India SL & BL_E_wt8]
+                         , COALESCE(aa1.[ISE_E]/aa1.[India SL & BL_E],0) as [ISE_E_wt8]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[India SL & BL_E],0) as [Latin America_E_wt8]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[India SL & BL_E],0) as [Northern Europe_D_wt8]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[India SL & BL_E],0) as [Southern Europe_D_wt8]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[India SL & BL_E],0) as [UK&I_D_wt8]
+                         --ISE_E
+                         , COALESCE(aa1.[North America_D]/aa1.[ISE_E],0) as [North America_D_wt9]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[ISE_E],0) as [Central Europe_D_wt9]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[ISE_E],0) as [Central Europe_E_wt9]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[ISE_E],0) as [Greater Asia_D_wt9]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[ISE_E],0) as [Greater Asia_E_wt9]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[ISE_E],0) as [Greater China_D_wt9]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[ISE_E],0) as [Greater China_E_wt9]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[ISE_E],0) as [India SL & BL_E_wt9]
+                         , COALESCE(aa1.[ISE_E]/aa1.[ISE_E],0) as [ISE_E_wt9]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[ISE_E],0) as [Latin America_E_wt9]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[ISE_E],0) as [Northern Europe_D_wt9]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[ISE_E],0) as [Southern Europe_D_wt9]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[ISE_E],0) as [UK&I_D_wt9]
+                         --Latin America_E
+                         , COALESCE(aa1.[North America_D]/aa1.[Latin America_E],0) as [North America_D_wt10]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Latin America_E],0) as [Central Europe_D_wt10]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Latin America_E],0) as [Central Europe_E_wt10]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Latin America_E],0) as [Greater Asia_D_wt10]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Latin America_E],0) as [Greater Asia_E_wt10]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Latin America_E],0) as [Greater China_D_wt10]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Latin America_E],0) as [Greater China_E_wt10]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Latin America_E],0) as [India SL & BL_E_wt10]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Latin America_E],0) as [ISE_E_wt10]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Latin America_E],0) as [Latin America_E_wt10]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Latin America_E],0) as [Northern Europe_D_wt10]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Latin America_E],0) as [Southern Europe_D_wt10]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Latin America_E],0) as [UK&I_D_wt10]
+                         --Northern Europe_D
+                         , COALESCE(aa1.[North America_D]/aa1.[Northern Europe_D],0) as [North America_D_wt11]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Northern Europe_D],0) as [Central Europe_D_wt11]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Northern Europe_D],0) as [Central Europe_E_wt11]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Northern Europe_D],0) as [Greater Asia_D_wt11]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Northern Europe_D],0) as [Greater Asia_E_wt11]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Northern Europe_D],0) as [Greater China_D_wt11]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Northern Europe_D],0) as [Greater China_E_wt11]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Northern Europe_D],0) as [India SL & BL_E_wt11]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Northern Europe_D],0) as [ISE_E_wt11]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Northern Europe_D],0) as [Latin America_E_wt11]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Northern Europe_D],0) as [Northern Europe_D_wt11]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Northern Europe_D],0) as [Southern Europe_D_wt11]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Northern Europe_D],0) as [UK&I_D_wt11]
+                         --Southern Europe_D
+                         , COALESCE(aa1.[North America_D]/aa1.[Southern Europe_D],0) as [North America_D_wt12]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[Southern Europe_D],0) as [Central Europe_D_wt12]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[Southern Europe_D],0) as [Central Europe_E_wt12]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[Southern Europe_D],0) as [Greater Asia_D_wt12]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[Southern Europe_D],0) as [Greater Asia_E_wt12]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[Southern Europe_D],0) as [Greater China_D_wt12]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[Southern Europe_D],0) as [Greater China_E_wt12]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[Southern Europe_D],0) as [India SL & BL_E_wt12]
+                         , COALESCE(aa1.[ISE_E]/aa1.[Southern Europe_D],0) as [ISE_E_wt12]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[Southern Europe_D],0) as [Latin America_E_wt12]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[Southern Europe_D],0) as [Northern Europe_D_wt12]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[Southern Europe_D],0) as [Southern Europe_D_wt12]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[Southern Europe_D],0) as [UK&I_D_wt12]
+                         --UK&I_D
+                         , COALESCE(aa1.[North America_D]/aa1.[UK&I_D],0) as [North America_D_wt13]
+                         , COALESCE(aa1.[Central Europe_D]/aa1.[UK&I_D],0) as [Central Europe_D_wt13]
+                         , COALESCE(aa1.[Central Europe_E]/aa1.[UK&I_D],0) as [Central Europe_E_wt13]
+                         , COALESCE(aa1.[Greater Asia_D]/aa1.[UK&I_D],0) as [Greater Asia_D_wt13]
+                         , COALESCE(aa1.[Greater Asia_E]/aa1.[UK&I_D],0) as [Greater Asia_E_wt13]
+                         , COALESCE(aa1.[Greater China_D]/aa1.[UK&I_D],0) as [Greater China_D_wt13]
+                         , COALESCE(aa1.[Greater China_E]/aa1.[UK&I_D],0) as [Greater China_E_wt13]
+                         , COALESCE(aa1.[India SL & BL_E]/aa1.[UK&I_D],0) as [India SL & BL_E_wt13]
+                         , COALESCE(aa1.[ISE_E]/aa1.[UK&I_D],0) as [ISE_E_wt13]
+                         , COALESCE(aa1.[Latin America_E]/aa1.[UK&I_D],0) as [Latin America_E_wt13]
+                         , COALESCE(aa1.[Northern Europe_D]/aa1.[UK&I_D],0) as [Northern Europe_D_wt13]
+                         , COALESCE(aa1.[Southern Europe_D]/aa1.[UK&I_D],0) as [Southern Europe_D_wt13]
+                         , COALESCE(aa1.[UK&I_D]/aa1.[UK&I_D],0) as [UK&I_D_wt13]
+                         from  usageSummary2Tde aa1
+                         left join strata aa2
+                           on 
+                           aa1.printer_platform_name = aa2.printer_platform_name
+                         ")
 usageSummary2TEde[usageSummary2TEde == 0] <- NA
 
 usageSummary2TE <- sqldf("select a.[printer_platform_name], a.product_brand, a.platform_division_code, a.rtm
@@ -1515,199 +1530,199 @@ usageSummary2TE <- sqldf("select a.[printer_platform_name], a.product_brand, a.p
 ,c.[Central Europe_E_wt13],c.[Greater Asia_D_wt13],c.[Greater Asia_E_wt13],c.[Greater China_D_wt13],c.[Greater China_E_wt13]
 ,c.[India SL & BL_E_wt13],c.[ISE_E_wt13],c.[Latin America_E_wt13],c.[Northern Europe_D_wt13],c.[Southern Europe_D_wt13]
 ,c.[UK&I_D_wt13]
-                        from usageSummary2TEr5 a 
-                        left join usageSummary2TEmkt10 b
+                       from usageSummary2TEr5 a 
+                       left join usageSummary2TEmkt10 b
                         on a.printer_platform_name=b.printer_platform_name and a.product_brand=b.product_brand and a.rtm=b.rtm
-                        left join usageSummary2TEde c
+                       left join usageSummary2TEde c
                         on a.printer_platform_name=c.printer_platform_name and a.product_brand=c.product_brand and a.rtm=c.rtm
-                        
+
 ")
 
 # COMMAND ----------
 
 wtaverage <- sqldf('select platform_division_code, rtm, product_brand
-                    , avg(EU_wt) as EUa
-                    , avg([Central Europe_wt]) as Central_Europena
-                    , avg([Central Europe_D_wt]) as Central_Europe_Dna
-                    , avg([Central Europe_E_wt]) as Central_Europe_Ena
-                    , avg([Northern Europe_wt]) as Northern_Europena   --dont need to split as only D
-                    , avg([Southern Europe_wt]) as Southern_Europena
-                    , avg([ISE_wt]) as ISEna
-                    , avg([UK&I_wt]) as UKIna
-                    , avg([Greater Asia_wt]) as Greater_Asiana
-                    , avg([Greater Asia_D_wt]) as Greater_Asia_Dna
-                    , avg([Greater Asia_E_wt]) as Greater_Asia_Ena
-                    , avg([Greater China_wt]) as Greater_Chinana
-                    , avg([Greater China_D_wt]) as Greater_China_Dna
-                    , avg([Greater China_E_wt]) as Greater_China_Ena
-                    , avg([India_wt]) as Indiana
-                    , avg([Latin America_wt]) as Latin_Americana
-                    --
-                    , avg([North America_wt2]) as North_Americace
-                    , avg([Central Europe_E_wt2]) as Central_Europe_Eced
-                    , avg([Central Europe_D_wt3]) as Central_Europe_Dcee
-                    , avg([Northern Europe_wt2]) as Northern_Europece
-                    , avg([Southern Europe_wt2]) as Southern_Europece
-                    , avg([ISE_wt2]) as ISEce
-                    , avg([UK&I_wt2]) as UKIce
-                    , avg([Greater Asia_wt2]) as Greater_Asiace
-                    , avg([Greater Asia_D_wt2]) as Greater_Asia_Dced
-                    , avg([Greater Asia_E_wt2]) as Greater_Asia_Eced
-                    , avg([Greater Asia_D_wt3]) as Greater_Asia_Dcee
-                    , avg([Greater Asia_E_wt3]) as Greater_Asia_Ecee
-                    , avg([Greater China_wt2]) as Greater_Chinace
-                    , avg([Greater China_D_wt2]) as Greater_China_Dced
-                    , avg([Greater China_E_wt2]) as Greater_China_Eced
-                    , avg([Greater China_D_wt3]) as Greater_China_Dcee
-                    , avg([Greater China_E_wt3]) as Greater_China_Ecee
-                    , avg([India_wt2]) as Indiace
-                    , avg([Latin America_wt2]) as Latin_Americace
-                    --
-                    , avg([Central Europe_wt3]) as Central_Europega
-                    , avg([Central Europe_E_wt4]) as Central_Europe_Egad
-                    , avg([Central Europe_D_wt4]) as Central_Europe_Dgad
-                    , avg([Central Europe_E_wt5]) as Central_Europe_Egae
-                    , avg([Central Europe_D_wt5]) as Central_Europe_Dgae
-                    , avg([Northern Europe_wt3]) as Northern_Europega
-                    , avg([Southern Europe_wt3]) as Southern_Europega
-                    , avg([ISE_wt3]) as ISEga
-                    , avg([UK&I_wt3]) as UKIga
-                    , avg([North America_wt3]) as North_Americaga
-                    , avg([Greater Asia_D_wt5]) as Greater_Asia_Dgae
-                    , avg([Greater Asia_E_wt4]) as Greater_Asia_Egad
-                    , avg([Greater China_wt3]) as Greater_Chinaga
-                    , avg([Greater China_D_wt4]) as Greater_China_Dgad
-                    , avg([Greater China_E_wt4]) as Greater_China_Egad
-                    , avg([Greater China_D_wt5]) as Greater_China_Dgae
-                    , avg([Greater China_E_wt5]) as Greater_China_Egae
-                    , avg([India_wt3]) as Indiaga
-                    , avg([Latin America_wt3]) as Latin_Americaga
-                    --
-                    , avg([Central Europe_wt4]) as Central_Europegc
-                    , avg([Central Europe_E_wt6]) as Central_Europe_Egcd
-                    , avg([Central Europe_D_wt6]) as Central_Europe_Dgcd
-                    , avg([Central Europe_E_wt7]) as Central_Europe_Egce
-                    , avg([Central Europe_D_wt7]) as Central_Europe_Dgce
-                    , avg([Northern Europe_wt4]) as Northern_Europegc
-                    , avg([Southern Europe_wt4]) as Southern_Europegc
-                    , avg([ISE_wt4]) as ISEgc
-                    , avg([UK&I_wt4]) as UKIgc
-                    , avg([Greater Asia_wt4]) as Greater_Asiagc
-                    , avg([Greater Asia_D_wt6]) as Greater_Asia_Dgcd
-                    , avg([Greater Asia_E_wt6]) as Greater_Asia_Egcd
-                    , avg([Greater Asia_D_wt7]) as Greater_Asia_Dgce
-                    , avg([Greater Asia_E_wt7]) as Greater_Asia_Egce
-                    , avg([Greater China_D_wt7]) as Greater_China_Dgce
-                    , avg([Greater China_E_wt6]) as Greater_China_Egcd
-                    , avg([North America_wt4]) as North_Americagc
-                    , avg([India_wt4]) as Indiagc
-                    , avg([Latin America_wt4]) as Latin_Americagc
-                    --
-                    , avg([Central Europe_wt5]) as Central_Europeia
-                    , avg([Central Europe_E_wt8]) as Central_Europe_Eia
-                    , avg([Central Europe_D_wt8]) as Central_Europe_Dia
-                    , avg([Northern Europe_wt5]) as Northern_Europeia
-                    , avg([Southern Europe_wt5]) as Southern_Europeia
-                    , avg([ISE_wt5]) as ISEia
-                    , avg([UK&I_wt5]) as UKIia
-                    , avg([Greater Asia_wt5]) as Greater_Asiaia
-                    , avg([Greater Asia_D_wt8]) as Greater_Asia_Dia
-                    , avg([Greater Asia_E_wt8]) as Greater_Asia_Eia
-                    , avg([Greater China_wt5]) as Greater_Chinaia
-                    , avg([Greater China_D_wt8]) as Greater_China_Dia
-                    , avg([Greater China_E_wt8]) as Greater_China_Eia
-                    , avg([North America_wt5]) as North_Americaia
-                    , avg([Latin America_wt5]) as Latin_Americaia
-                    --
-                    , avg([Central Europe_wt6]) as Central_Europeis
-                    , avg([Central Europe_E_wt9]) as Central_Europe_Eis
-                    , avg([Central Europe_D_wt9]) as Central_Europe_Dis
-                    , avg([Northern Europe_wt6]) as Northern_Europeis
-                    , avg([Southern Europe_wt6]) as Southern_Europeis
-                    , avg([North America_wt6]) as North_Americais
-                    , avg([UK&I_wt6]) as UKIis
-                    , avg([Greater Asia_wt6]) as Greater_Asiais
-                    , avg([Greater Asia_D_wt9]) as Greater_Asia_Dis
-                    , avg([Greater Asia_E_wt9]) as Greater_Asia_Eis
-                    , avg([Greater China_wt6]) as Greater_Chinais
-                    , avg([Greater China_D_wt9]) as Greater_China_Dis
-                    , avg([Greater China_E_wt9]) as Greater_China_Eis
-                    , avg([India_wt6]) as Indiais
-                    , avg([Latin America_wt6]) as Latin_Americais
-                    --
-                    , avg([Central Europe_wt7]) as Central_Europela
-                    , avg([Central Europe_E_wt10]) as Central_Europe_Ela
-                    , avg([Central Europe_D_wt10]) as Central_Europe_Dla
-                    , avg([Northern Europe_wt7]) as Northern_Europela
-                    , avg([Southern Europe_wt7]) as Southern_Europela
-                    , avg([ISE_wt7]) as ISEla
-                    , avg([UK&I_wt7]) as UKIla
-                    , avg([Greater Asia_wt7]) as Greater_Asiala
-                    , avg([Greater Asia_D_wt10]) as Greater_Asia_Dla
-                    , avg([Greater Asia_E_wt10]) as Greater_Asia_Ela
-                    , avg([Greater China_wt7]) as Greater_Chinala
-                    , avg([Greater China_D_wt10]) as Greater_China_Dla
-                    , avg([Greater China_E_wt10]) as Greater_China_Ela
-                    , avg([India_wt7]) as Indiala
-                    , avg([North America_wt7]) as North_Americala
-                    --
-                    , avg([Central Europe_wt8]) as Central_Europene
-                    , avg([Central Europe_E_wt11]) as Central_Europe_Ene
-                    , avg([Central Europe_D_wt11]) as Central_Europe_Dne
-                    , avg([North America_wt8]) as Nort_Americane
-                    , avg([Southern Europe_wt8]) as Southern_Europene
-                    , avg([ISE_wt8]) as ISEne
-                    , avg([UK&I_wt8]) as UKIne
-                    , avg([Greater Asia_wt8]) as Greater_Asiane
-                    , avg([Greater Asia_D_wt11]) as Greater_Asia_Dne
-                    , avg([Greater Asia_E_wt11]) as Greater_Asia_Ene
-                    , avg([Greater China_wt8]) as Greater_Chinane
-                    , avg([Greater China_D_wt11]) as Greater_China_Dne
-                    , avg([Greater China_E_wt11]) as Greater_China_Ene
-                    , avg([India_wt8]) as Indiane
-                    , avg([Latin America_wt8]) as Latin_Americane
-                    --
-                    , avg([Central Europe_wt9]) as Central_Europese
-                    , avg([Central Europe_E_wt12]) as Central_Europe_Ese
-                    , avg([Central Europe_D_wt12]) as Central_Europe_Dse
-                    , avg([Northern Europe_wt9]) as Northern_Europese
-                    , avg([North America_wt9]) as North_Americase
-                    , avg([ISE_wt9]) as ISEse
-                    , avg([UK&I_wt9]) as UKIse
-                    , avg([Greater Asia_wt9]) as Greater_Asiase
-                    , avg([Greater Asia_D_wt12]) as Greater_Asia_Dse
-                    , avg([Greater Asia_E_wt12]) as Greater_Asia_Ese
-                    , avg([Greater China_wt9]) as Greater_Chinase
-                    , avg([Greater China_D_wt12]) as Greater_China_Dse
-                    , avg([Greater China_E_wt12]) as Greater_China_Ese
-                    , avg([India_wt9]) as Indiase
-                    , avg([Latin America_wt9]) as Latin_Americase
-                    --
-                    , avg([Central Europe_wt10]) as Central_Europeuk
-                    , avg([Central Europe_E_wt13]) as Central_Europe_Euk
-                    , avg([Central Europe_D_wt13]) as Central_Europe_Duk
-                    , avg([Northern Europe_wt10]) as Northern_Europeuk
-                    , avg([Southern Europe_wt10]) as Southern_Europeuk
-                    , avg([ISE_wt10]) as ISEuk
-                    , avg([North America_wt10]) as North_Americauk
-                    , avg([Greater Asia_wt10]) as Greater_Asiauk
-                    , avg([Greater Asia_D_wt13]) as Greater_Asia_Duk
-                    , avg([Greater Asia_E_wt13]) as Greater_Asia_Euk
-                    , avg([Greater China_wt10]) as Greater_Chinauk
-                    , avg([Greater China_D_wt13]) as Greater_China_Duk
-                    , avg([Greater China_E_wt13]) as Greater_China_Euk
-                    , avg([India_wt10]) as Indiauk
-                    , avg([Latin America_wt10]) as Latin_Americauk
-                    --
-                    , avg(LA_wt) as LAa 
-                    , avg(AP_wt) as APa 
-                    , avg(AP_wt2) as APa2 
-                    , avg(LA_wt2) as LAa2
-                    , avg(LA_wt3) as LAa3
-                    from usageSummary2TE 
-                    where 
-                    product_brand is not null 
-                    group by platform_division_code,rtm, product_brand')
+                   , avg(EU_wt) as EUa
+                   , avg([Central Europe_wt]) as Central_Europena
+                   , avg([Central Europe_D_wt]) as Central_Europe_Dna
+                   , avg([Central Europe_E_wt]) as Central_Europe_Ena
+                   , avg([Northern Europe_wt]) as Northern_Europena   --dont need to split as only D
+                   , avg([Southern Europe_wt]) as Southern_Europena
+                   , avg([ISE_wt]) as ISEna
+                   , avg([UK&I_wt]) as UKIna
+                   , avg([Greater Asia_wt]) as Greater_Asiana
+                   , avg([Greater Asia_D_wt]) as Greater_Asia_Dna
+                   , avg([Greater Asia_E_wt]) as Greater_Asia_Ena
+                   , avg([Greater China_wt]) as Greater_Chinana
+                   , avg([Greater China_D_wt]) as Greater_China_Dna
+                   , avg([Greater China_E_wt]) as Greater_China_Ena
+                   , avg([India_wt]) as Indiana
+                   , avg([Latin America_wt]) as Latin_Americana
+                   --
+                   , avg([North America_wt2]) as North_Americace
+                   , avg([Central Europe_E_wt2]) as Central_Europe_Eced
+                   , avg([Central Europe_D_wt3]) as Central_Europe_Dcee
+                   , avg([Northern Europe_wt2]) as Northern_Europece
+                   , avg([Southern Europe_wt2]) as Southern_Europece
+                   , avg([ISE_wt2]) as ISEce
+                   , avg([UK&I_wt2]) as UKIce
+                   , avg([Greater Asia_wt2]) as Greater_Asiace
+                   , avg([Greater Asia_D_wt2]) as Greater_Asia_Dced
+                   , avg([Greater Asia_E_wt2]) as Greater_Asia_Eced
+                   , avg([Greater Asia_D_wt3]) as Greater_Asia_Dcee
+                   , avg([Greater Asia_E_wt3]) as Greater_Asia_Ecee
+                   , avg([Greater China_wt2]) as Greater_Chinace
+                   , avg([Greater China_D_wt2]) as Greater_China_Dced
+                   , avg([Greater China_E_wt2]) as Greater_China_Eced
+                   , avg([Greater China_D_wt3]) as Greater_China_Dcee
+                   , avg([Greater China_E_wt3]) as Greater_China_Ecee
+                   , avg([India_wt2]) as Indiace
+                   , avg([Latin America_wt2]) as Latin_Americace
+                   --
+                   , avg([Central Europe_wt3]) as Central_Europega
+                   , avg([Central Europe_E_wt4]) as Central_Europe_Egad
+                   , avg([Central Europe_D_wt4]) as Central_Europe_Dgad
+                   , avg([Central Europe_E_wt5]) as Central_Europe_Egae
+                   , avg([Central Europe_D_wt5]) as Central_Europe_Dgae
+                   , avg([Northern Europe_wt3]) as Northern_Europega
+                   , avg([Southern Europe_wt3]) as Southern_Europega
+                   , avg([ISE_wt3]) as ISEga
+                   , avg([UK&I_wt3]) as UKIga
+                   , avg([North America_wt3]) as North_Americaga
+                   , avg([Greater Asia_D_wt5]) as Greater_Asia_Dgae
+                   , avg([Greater Asia_E_wt4]) as Greater_Asia_Egad
+                   , avg([Greater China_wt3]) as Greater_Chinaga
+                   , avg([Greater China_D_wt4]) as Greater_China_Dgad
+                   , avg([Greater China_E_wt4]) as Greater_China_Egad
+                   , avg([Greater China_D_wt5]) as Greater_China_Dgae
+                   , avg([Greater China_E_wt5]) as Greater_China_Egae
+                   , avg([India_wt3]) as Indiaga
+                   , avg([Latin America_wt3]) as Latin_Americaga
+                   --
+                   , avg([Central Europe_wt4]) as Central_Europegc
+                   , avg([Central Europe_E_wt6]) as Central_Europe_Egcd
+                   , avg([Central Europe_D_wt6]) as Central_Europe_Dgcd
+                   , avg([Central Europe_E_wt7]) as Central_Europe_Egce
+                   , avg([Central Europe_D_wt7]) as Central_Europe_Dgce
+                   , avg([Northern Europe_wt4]) as Northern_Europegc
+                   , avg([Southern Europe_wt4]) as Southern_Europegc
+                   , avg([ISE_wt4]) as ISEgc
+                   , avg([UK&I_wt4]) as UKIgc
+                   , avg([Greater Asia_wt4]) as Greater_Asiagc
+                   , avg([Greater Asia_D_wt6]) as Greater_Asia_Dgcd
+                   , avg([Greater Asia_E_wt6]) as Greater_Asia_Egcd
+                   , avg([Greater Asia_D_wt7]) as Greater_Asia_Dgce
+                   , avg([Greater Asia_E_wt7]) as Greater_Asia_Egce
+                   , avg([Greater China_D_wt7]) as Greater_China_Dgce
+                   , avg([Greater China_E_wt6]) as Greater_China_Egcd
+                   , avg([North America_wt4]) as North_Americagc
+                   , avg([India_wt4]) as Indiagc
+                   , avg([Latin America_wt4]) as Latin_Americagc
+                   --
+                   , avg([Central Europe_wt5]) as Central_Europeia
+                   , avg([Central Europe_E_wt8]) as Central_Europe_Eia
+                   , avg([Central Europe_D_wt8]) as Central_Europe_Dia
+                   , avg([Northern Europe_wt5]) as Northern_Europeia
+                   , avg([Southern Europe_wt5]) as Southern_Europeia
+                   , avg([ISE_wt5]) as ISEia
+                   , avg([UK&I_wt5]) as UKIia
+                   , avg([Greater Asia_wt5]) as Greater_Asiaia
+                   , avg([Greater Asia_D_wt8]) as Greater_Asia_Dia
+                   , avg([Greater Asia_E_wt8]) as Greater_Asia_Eia
+                   , avg([Greater China_wt5]) as Greater_Chinaia
+                   , avg([Greater China_D_wt8]) as Greater_China_Dia
+                   , avg([Greater China_E_wt8]) as Greater_China_Eia
+                   , avg([North America_wt5]) as North_Americaia
+                   , avg([Latin America_wt5]) as Latin_Americaia
+                   --
+                   , avg([Central Europe_wt6]) as Central_Europeis
+                   , avg([Central Europe_E_wt9]) as Central_Europe_Eis
+                   , avg([Central Europe_D_wt9]) as Central_Europe_Dis
+                   , avg([Northern Europe_wt6]) as Northern_Europeis
+                   , avg([Southern Europe_wt6]) as Southern_Europeis
+                   , avg([North America_wt6]) as North_Americais
+                   , avg([UK&I_wt6]) as UKIis
+                   , avg([Greater Asia_wt6]) as Greater_Asiais
+                   , avg([Greater Asia_D_wt9]) as Greater_Asia_Dis
+                   , avg([Greater Asia_E_wt9]) as Greater_Asia_Eis
+                   , avg([Greater China_wt6]) as Greater_Chinais
+                   , avg([Greater China_D_wt9]) as Greater_China_Dis
+                   , avg([Greater China_E_wt9]) as Greater_China_Eis
+                   , avg([India_wt6]) as Indiais
+                   , avg([Latin America_wt6]) as Latin_Americais
+                   --
+                   , avg([Central Europe_wt7]) as Central_Europela
+                   , avg([Central Europe_E_wt10]) as Central_Europe_Ela
+                   , avg([Central Europe_D_wt10]) as Central_Europe_Dla
+                   , avg([Northern Europe_wt7]) as Northern_Europela
+                   , avg([Southern Europe_wt7]) as Southern_Europela
+                   , avg([ISE_wt7]) as ISEla
+                   , avg([UK&I_wt7]) as UKIla
+                   , avg([Greater Asia_wt7]) as Greater_Asiala
+                   , avg([Greater Asia_D_wt10]) as Greater_Asia_Dla
+                   , avg([Greater Asia_E_wt10]) as Greater_Asia_Ela
+                   , avg([Greater China_wt7]) as Greater_Chinala
+                   , avg([Greater China_D_wt10]) as Greater_China_Dla
+                   , avg([Greater China_E_wt10]) as Greater_China_Ela
+                   , avg([India_wt7]) as Indiala
+                   , avg([North America_wt7]) as North_Americala
+                   --
+                   , avg([Central Europe_wt8]) as Central_Europene
+                   , avg([Central Europe_E_wt11]) as Central_Europe_Ene
+                   , avg([Central Europe_D_wt11]) as Central_Europe_Dne
+                   , avg([North America_wt8]) as Nort_Americane
+                   , avg([Southern Europe_wt8]) as Southern_Europene
+                   , avg([ISE_wt8]) as ISEne
+                   , avg([UK&I_wt8]) as UKIne
+                   , avg([Greater Asia_wt8]) as Greater_Asiane
+                   , avg([Greater Asia_D_wt11]) as Greater_Asia_Dne
+                   , avg([Greater Asia_E_wt11]) as Greater_Asia_Ene
+                   , avg([Greater China_wt8]) as Greater_Chinane
+                   , avg([Greater China_D_wt11]) as Greater_China_Dne
+                   , avg([Greater China_E_wt11]) as Greater_China_Ene
+                   , avg([India_wt8]) as Indiane
+                   , avg([Latin America_wt8]) as Latin_Americane
+                   --
+                   , avg([Central Europe_wt9]) as Central_Europese
+                   , avg([Central Europe_E_wt12]) as Central_Europe_Ese
+                   , avg([Central Europe_D_wt12]) as Central_Europe_Dse
+                   , avg([Northern Europe_wt9]) as Northern_Europese
+                   , avg([North America_wt9]) as North_Americase
+                   , avg([ISE_wt9]) as ISEse
+                   , avg([UK&I_wt9]) as UKIse
+                   , avg([Greater Asia_wt9]) as Greater_Asiase
+                   , avg([Greater Asia_D_wt12]) as Greater_Asia_Dse
+                   , avg([Greater Asia_E_wt12]) as Greater_Asia_Ese
+                   , avg([Greater China_wt9]) as Greater_Chinase
+                   , avg([Greater China_D_wt12]) as Greater_China_Dse
+                   , avg([Greater China_E_wt12]) as Greater_China_Ese
+                   , avg([India_wt9]) as Indiase
+                   , avg([Latin America_wt9]) as Latin_Americase
+                   --
+                   , avg([Central Europe_wt10]) as Central_Europeuk
+                   , avg([Central Europe_E_wt13]) as Central_Europe_Euk
+                   , avg([Central Europe_D_wt13]) as Central_Europe_Duk
+                   , avg([Northern Europe_wt10]) as Northern_Europeuk
+                   , avg([Southern Europe_wt10]) as Southern_Europeuk
+                   , avg([ISE_wt10]) as ISEuk
+                   , avg([North America_wt10]) as North_Americauk
+                   , avg([Greater Asia_wt10]) as Greater_Asiauk
+                   , avg([Greater Asia_D_wt13]) as Greater_Asia_Duk
+                   , avg([Greater Asia_E_wt13]) as Greater_Asia_Euk
+                   , avg([Greater China_wt10]) as Greater_Chinauk
+                   , avg([Greater China_D_wt13]) as Greater_China_Duk
+                   , avg([Greater China_E_wt13]) as Greater_China_Euk
+                   , avg([India_wt10]) as Indiauk
+                   , avg([Latin America_wt10]) as Latin_Americauk
+                   --
+                   , avg(LA_wt) as LAa 
+                   , avg(AP_wt) as APa 
+                   , avg(AP_wt2) as APa2 
+                   , avg(LA_wt2) as LAa2
+                   , avg(LA_wt3) as LAa3
+                   from usageSummary2TE 
+                   where 
+                   product_brand is not null 
+                   group by platform_division_code,rtm, product_brand')
 wtaverage[is.na(wtaverage)] <- 1
 
 # COMMAND ----------
@@ -2569,53 +2584,53 @@ usagesummaryNAEUAP <- usageSummary2TE_D3
 
 #strata <- unique(usage[c("platform_division_code", "product_brand", "printer_platform_name")])
 PoRtst <- SparkR::collect(SparkR::sql("
-  SELECT DISTINCT platform_subset AS printer_platform_name
-        , hw_product_family as platform_division_code
-        , upper(brand) as product_brand
-        , intro_price as product_intro_price
-        , mono_ppm AS print_mono_speed_pages
-        , color_ppm AS print_color_speed_pages
-        , vc_category AS platform_finance_market_category_code
-        , pl as product_line_code
-        , CASE WHEN por_ampv > 0 THEN por_ampv 
-                    ELSE NULL
-              END AS product_usage_por_pages
-      FROM
-        hardware_xref
-      WHERE (upper(technology)='INK' or (technology='PWA' and (upper(hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
-                          and platform_subset not like 'PANTHER%' and platform_subset not like 'JAGUAR%'))
-      AND product_lifecycle_status in ('C','N')
-  "
-))
+    SELECT DISTINCT platform_subset AS printer_platform_name
+          , hw_product_family as platform_division_code
+          , upper(brand) as product_brand
+          , intro_price as product_intro_price
+          , mono_ppm AS print_mono_speed_pages
+          , color_ppm AS print_color_speed_pages
+          , vc_category AS platform_finance_market_category_code
+          , pl as product_line_code
+          , CASE WHEN por_ampv > 0 THEN por_ampv 
+			          ELSE NULL
+                END AS product_usage_por_pages
+        FROM
+          hardware_xref
+        WHERE (upper(technology)='INK' or (technology='PWA' and (upper(hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
+                            and platform_subset not like 'PANTHER%' and platform_subset not like 'JAGUAR%'))
+        AND product_lifecycle_status in ('C','N')
+    "
+  ))
 
-PoRtst$product_usage_por_pages <- as.numeric(PoRtst$product_usage_por_pages)  
-PoRtst$print_mono_speed_pages <- as.numeric(PoRtst$print_mono_speed_pages)  
-PoRtst$print_color_speed_pages <- as.numeric(PoRtst$print_color_speed_pages)  
-POR_porest <- aggregate(zero$usage,by=list(zero$product_line_code),FUN=mean)
-PoR <- sqldf("
-             select a.printer_platform_name
-             ,a.platform_division_code
-             ,a.product_brand
-             ,a.product_intro_price
-             ,a.print_mono_speed_pages
-             ,a.print_color_speed_pages
-             ,a.platform_finance_market_category_code
-             ,a.product_line_code
-             ,CASE WHEN a.product_usage_por_pages is not null then a.product_usage_por_pages
-              ELSE b.x
-              END AS product_usage_por_pages
-             --,c.rtm
-             from PoRtst a 
-             left join POR_porest b on a.product_line_code=b.[Group.1]
-             --left join PoRprice c on a.printer_platform_name=c.printer_platform_name
-             ")
-PoR$platform_division_code <- ifelse(PoR$printer_platform_name=="THINKJET","TIJ_1.0",ifelse(PoR$printer_platform_name=="SQUIRT 5M","TIJ_1.0",
-                                    ifelse(PoR$printer_platform_name=="DAKOTA CISJAP","TIJ_2.XG2 MATURE",
-                                    ifelse(PoR$printer_platform_name=="VOYAGER AND DINO","TIJ_2.XG2 MATURE",
-                                    ifelse(PoR$printer_platform_name=="CARNIVAL CR","TIJ_2.XG2 MATURE",PoR$platform_division_code)))))
-
-
-PoR_platformLIST <- sqldf('select distinct printer_platform_name,product_brand,"product_ref" as Source from PoR')
+  PoRtst$product_usage_por_pages <- as.numeric(PoRtst$product_usage_por_pages)  
+  PoRtst$print_mono_speed_pages <- as.numeric(PoRtst$print_mono_speed_pages)  
+  PoRtst$print_color_speed_pages <- as.numeric(PoRtst$print_color_speed_pages)  
+  POR_porest <- aggregate(zero$usage,by=list(zero$product_line_code),FUN=mean)
+  PoR <- sqldf("
+               select a.printer_platform_name
+               ,a.platform_division_code
+               ,a.product_brand
+               ,a.product_intro_price
+               ,a.print_mono_speed_pages
+               ,a.print_color_speed_pages
+               ,a.platform_finance_market_category_code
+               ,a.product_line_code
+               ,CASE WHEN a.product_usage_por_pages is not null then a.product_usage_por_pages
+                ELSE b.x
+                END AS product_usage_por_pages
+               --,c.rtm
+               from PoRtst a 
+               left join POR_porest b on a.product_line_code=b.[Group.1]
+               --left join PoRprice c on a.printer_platform_name=c.printer_platform_name
+               ")
+  PoR$platform_division_code <- ifelse(PoR$printer_platform_name=="THINKJET","TIJ_1.0",ifelse(PoR$printer_platform_name=="SQUIRT 5M","TIJ_1.0",
+                                      ifelse(PoR$printer_platform_name=="DAKOTA CISJAP","TIJ_2.XG2 MATURE",
+                                      ifelse(PoR$printer_platform_name=="VOYAGER AND DINO","TIJ_2.XG2 MATURE",
+                                      ifelse(PoR$printer_platform_name=="CARNIVAL CR","TIJ_2.XG2 MATURE",PoR$platform_division_code)))))
+  
+  
+  PoR_platformLIST <- sqldf('select distinct printer_platform_name,product_brand,"product_ref" as Source from PoR')
 
 # COMMAND ----------
 
@@ -2631,9 +2646,9 @@ old <- SparkR::collect(SparkR::sql(paste("
           END as fyearmo
         FROM ib ib
         LEFT JOIN iso_country_code_xref cr
-        ON ib.country=cr.country_alpha2
+        ON ib.country_alpha2=cr.country_alpha2
         LEFT JOIN (select * from iso_cc_rollup_xref where country_scenario='MARKET10') cc
-        ON ib.country=cc.country_alpha2
+        ON ib.country_alpha2=cc.country_alpha2
    )
    , aa0 AS (
       SELECT UPPER(ref.brand) as product_brand
@@ -2716,31 +2731,31 @@ old <- SparkR::collect(SparkR::sql(paste("
     ",sep = " ", collapse = NULL
 )))
 
-
-head(old)
-colnames(old)
-dim(old)
-str(old)
-
-# "dropList" is the list of platforms which are recorded both as Old and Future
-
-dropList <- old[old$platform_type=="FUTURE",]$printer_platform_name[old[old$platform_type=="FUTURE",]$printer_platform_name %in% (usagesummaryNAEUAP$printer_platform_name)]; dropList
+  
+  head(old)
+  colnames(old)
+  dim(old)
+  str(old)
+  
+  # "dropList" is the list of platforms which are recorded both as Old and Future
+  
+  dropList <- old[old$platform_type=="FUTURE",]$printer_platform_name[old[old$platform_type=="FUTURE",]$printer_platform_name %in% (usagesummaryNAEUAP$printer_platform_name)]; dropList
 
 # COMMAND ----------
 
 # Step - 51 attaching introdate, platform type with PoR table
 
 PoR2 <- sqldf('select aa1.*, aa2.rtm , aa2.INTRODATE_NA, aa2.INTRODATE_NE, aa2.INTRODATE_SE, aa2.INTRODATE_CED, aa2.INTRODATE_CEE, aa2.INTRODATE_UK
-, aa2.INTRODATE_IS, aa2.INTRODATE_IN, aa2.INTRODATE_GAD, aa2.INTRODATE_GAE, aa2.INTRODATE_GCD, aa2.INTRODATE_GCE, aa2.INTRODATE_LA
-, aa2.INTRODATE as Intro_FYearMo, aa2.platform_type
-            from PoR aa1
-            inner join
-            old aa2
-            on
-            aa1.printer_platform_name=aa2.printer_platform_name
-            and aa1.platform_division_code=aa2.platform_division_code
-            --and aa1.rtm=aa2.rtm
-            ')
+  , aa2.INTRODATE_IS, aa2.INTRODATE_IN, aa2.INTRODATE_GAD, aa2.INTRODATE_GAE, aa2.INTRODATE_GCD, aa2.INTRODATE_GCE, aa2.INTRODATE_LA
+  , aa2.INTRODATE as Intro_FYearMo, aa2.platform_type
+              from PoR aa1
+              inner join
+              old aa2
+              on
+              aa1.printer_platform_name=aa2.printer_platform_name
+              and aa1.platform_division_code=aa2.platform_division_code
+              --and aa1.rtm=aa2.rtm
+              ')
 
 PoR2$J90Mo <- (as.numeric(substr(PoR2$Intro_FYearMo, 1,4)) - 1990)*12 + (as.numeric(substr(PoR2$Intro_FYearMo, 5,6))-1)
 str(PoR2)
@@ -2818,62 +2833,62 @@ avgRatio3 <- sqldf('select platform_division_code, product_brand, rtm, avg(ratio
 # Step - 56 attaching the average iMPV ratio
 
 PoR2model_iMPV2 <- sqldf(' select aa1.*, aa2.avgratio1, aa3.avgratio2, aa4.avgratio3
-                        from 
-                        PoR2model_iMPV aa1
-                        inner join 
-                        avgRatio1 aa2
-                        on 
-                        aa1.platform_division_code = aa2.platform_division_code
-                        and
-                        aa1.product_brand = aa2.product_brand
-                        and aa1.rtm = aa2.rtm
-                        inner join 
-                        avgRatio2 aa3
-                        on 
-                        aa1.platform_division_code = aa3.platform_division_code
-                        and
-                        aa1.product_brand = aa3.product_brand
-                        and aa1.rtm = aa3.rtm
-                        inner join 
-                        avgRatio3 aa4
-                        on 
-                        aa1.platform_division_code = aa4.platform_division_code
-                        and
-                        aa1.product_brand = aa4.product_brand
-                        and aa1.rtm = aa4.rtm
-                        order by platform_division_code, product_brand
-                        ')
+                         from 
+                         PoR2model_iMPV aa1
+                         inner join 
+                         avgRatio1 aa2
+                         on 
+                         aa1.platform_division_code = aa2.platform_division_code
+                         and
+                         aa1.product_brand = aa2.product_brand
+                         and aa1.rtm = aa2.rtm
+                         inner join 
+                         avgRatio2 aa3
+                         on 
+                         aa1.platform_division_code = aa3.platform_division_code
+                         and
+                         aa1.product_brand = aa3.product_brand
+                         and aa1.rtm = aa3.rtm
+                         inner join 
+                         avgRatio3 aa4
+                         on 
+                         aa1.platform_division_code = aa4.platform_division_code
+                         and
+                         aa1.product_brand = aa4.product_brand
+                         and aa1.rtm = aa4.rtm
+                         order by platform_division_code, product_brand
+                         ')
 
 PoR2model_iMPV3 <- sqldf('select *
-                        , case
-                        when NA2 is not null then NA2
-                        when avgratio2 is not null then rawMPV*avgratio2
-                        else rawMPV 
-                        end as NA3
-                        , case
-                        when North_America2 is not null then North_America2
-                        when avgratio2 is not null then rawMPV*avgratio2
-                        else rawMPV
-                        end as North_America3
-                        from
-                        PoR2model_iMPV2
-                        order by  product_brand
-                        ')
+                         , case
+                         when NA2 is not null then NA2
+                         when avgratio2 is not null then rawMPV*avgratio2
+                         else rawMPV 
+                         end as NA3
+                          , case
+                         when North_America2 is not null then North_America2
+                         when avgratio2 is not null then rawMPV*avgratio2
+                         else rawMPV
+                         end as North_America3
+                         from
+                         PoR2model_iMPV2
+                         order by  product_brand
+                         ')
 
 # COMMAND ----------
 
 # ---- Step - 58 attaching regional coefficients -------------------------------------------#
 
 PoR2model_iMPV4 <- sqldf('select aa1.*, 1 as NAa, aa2.EUa, aa2.APa, aa2.LAa, 1 as North_Americana, aa2.UKIna, aa2.Northern_Europena, aa2.Southern_Europena, aa2.ISEna, aa2.Central_Europena, aa2.Indiana, aa2.Greater_Asiana, aa2.Greater_Chinana,aa2.Latin_Americana, aa2.Greater_Asia_Dna, aa2.Greater_Asia_Ena, aa2.Greater_China_Dna, aa2.Greater_China_Ena, aa2.Central_Europe_Dna, aa2.Central_Europe_Ena
-                        from PoR2model_iMPV3 aa1
-                        left join 
-                        wtaverage aa2
-                        on 
-                        aa1.platform_division_code =aa2.platform_division_code
-                        and
-                        aa1.product_brand = aa2.product_brand
-                        and aa1.rtm=aa2.rtm
-                        order by platform_division_code, product_brand')
+                         from PoR2model_iMPV3 aa1
+                         left join 
+                         wtaverage aa2
+                         on 
+                         aa1.platform_division_code =aa2.platform_division_code
+                         and
+                         aa1.product_brand = aa2.product_brand
+                         and aa1.rtm=aa2.rtm
+                         order by platform_division_code, product_brand')
 
 PoR2model_iMPV4a <- sqldf("SELECT product_brand, UPPER(rtm) as rtm, avg(NAa) as NAa, avg(EUa) as EUa, avg(APa) as APa, avg(LAa) as LAa, avg(North_Americana) as North_Americana
     , avg(UKIna) as UKIna, avg(Northern_Europena) as Northern_Europena, avg(Southern_Europena) as Southern_Europena, avg(ISEna) as ISEna, avg(Central_Europena) as Central_Europena
@@ -2882,18 +2897,18 @@ PoR2model_iMPV4a <- sqldf("SELECT product_brand, UPPER(rtm) as rtm, avg(NAa) as 
     , avg(Greater_China_Ena) as Greater_China_Ena, avg(Central_Europe_Dna) as Central_Europe_Dna, avg(Central_Europe_Ena) as Central_Europe_Ena
     FROM PoR2model_iMPV4
     GROUP BY product_brand, UPPER(rtm)
-                        ")
+                          ")
 
 PoR2model_iMPV4 <- sqldf("select aa1.*
                 , 1 as NAa, CASE WHEN aa2.EUa is not null THEN aa2.EUa ELSE aa3.EUa END as EUa, CASE WHEN aa2.APa is not null THEN aa2.APa ELSE aa3.APa END AS APa
                 , CASE WHEN aa2.LAa is not null THEN aa2.LAa ELSE aa3.LAa END as LAa
                 , 1 as North_Americana, CASE WHEN aa2.UKIna is not null THEN aa2.UKIna ELSE aa3.UKIna END AS UKIna, CASE WHEN aa2.Northern_Europena is not null THEN aa2.Northern_Europena ELSE aa3.Northern_Europena END as Northern_Europena, CASE WHEN aa2.Southern_Europena is not null THEN aa2.Southern_Europena ELSE aa3.Southern_Europena END AS Southern_Europena, CASE WHEN aa2.ISEna is not null THEN aa2.ISEna ELSE aa3.ISEna END AS ISEna, CASE WHEN aa2.Central_Europena is not null THEN aa2.Central_Europena ELSE aa3.Central_Europena END AS Central_Europena, CASE WHEN aa2.Indiana is not null THEN aa2.Indiana ELSE aa3.Indiana END AS Indiana, CASE WHEN aa2.Greater_Asiana is not null THEN aa2.Greater_Asiana ELSE aa3.Greater_Asiana END AS Greater_Asiana, CASE WHEN aa2.Greater_Chinana is not null THEN aa2.Greater_Chinana ELSE aa3.Greater_Chinana END AS Greater_Chinana, CASE WHEN aa2.Latin_Americana is not null THEN aa2.Latin_Americana ELSE aa3.Latin_Americana END AS Latin_Americana, CASE WHEN aa2.Greater_Asia_Dna is not null THEN aa2.Greater_Asia_Dna ELSE aa3.Greater_Asia_Dna END AS Greater_Asia_Dna, CASE WHEN aa2.Greater_Asia_Ena is not null THEN aa2.Greater_Asia_Ena ELSE aa3.Greater_Asia_Ena END AS Greater_Asia_Ena, CASE WHEN aa2.Greater_China_Dna THEN aa2.Greater_China_Dna ELSE aa3.Greater_China_Dna END AS Greater_China_Dna, CASE WHEN aa2.Greater_China_Ena is not null THEN aa2.Greater_China_Ena ELSE aa3.Greater_China_Ena END AS Greater_China_Ena, CASE WHEN aa2.Central_Europe_Dna is not null THEN aa2.Central_Europe_Dna ELSE aa3.Central_Europe_Dna END AS Central_Europe_Dna, CASE WHEN aa2.Central_Europe_Ena is not null THEN aa2.Central_Europe_Ena ELSE aa3.Central_Europe_Ena END AS Central_Europe_Ena
-                FROM PoR2model_iMPV3 aa1
-                        LEFT JOIN wtaverage aa2
-                        on aa1.platform_division_code =aa2.platform_division_code and aa1.product_brand = aa2.product_brand and aa1.rtm=aa2.rtm
-                        LEFT JOIN PoR2model_iMPV4a aa3 
-                        on aa1.product_brand = aa3.product_brand and aa1.rtm=aa3.rtm
-                        ")
+                 FROM PoR2model_iMPV3 aa1
+                         LEFT JOIN wtaverage aa2
+                         on aa1.platform_division_code =aa2.platform_division_code and aa1.product_brand = aa2.product_brand and aa1.rtm=aa2.rtm
+                         LEFT JOIN PoR2model_iMPV4a aa3 
+                         on aa1.product_brand = aa3.product_brand and aa1.rtm=aa3.rtm
+                         ")
 
 # COMMAND ----------
 
@@ -2901,63 +2916,63 @@ PoR2model_iMPV4 <- sqldf("select aa1.*
 #         iMPV NA with the respective regional coefficients
 
 PoR2model_iMPV5 <- sqldf('select *
-                        , case when EU2 is null then NA3*EUa
-                        else EU2
-                        end as EU3
-                        , case when AP2 is null then NA3*APa
-                        else AP2
-                        end as AP3
-                        , case when LA2 is null then NA3*LAa
-                        else LA2
-                        end as LA3
-                        , case when UKI2 is null then North_America3*UKIna
-                        else UKI2
-                        end as UKI3
-                        , case when Northern_Europe2 is null then North_America3*Northern_Europena
-                        else Northern_Europe2
-                        end as Northern_Europe3
-                        , case when Southern_Europe2 is null then North_America3*Southern_Europena
-                        else Southern_Europe2
-                        end as Southern_Europe3
-                        , case when ISE2 is null then North_America3*ISEna
-                        else ISE2
-                        end as ISE3
-                        , case when Central_Europe2 is null then North_America3*Central_Europena
-                        else Central_Europe2
-                        end as Central_Europe3
-                        , case when Central_Europe2 is null then North_America3*Central_Europe_Dna
-                        else Central_Europe2
-                        end as Central_Europe_D3
-                        , case when Central_Europe2 is null then North_America3*Central_Europe_Ena
-                        else Central_Europe2
-                        end as Central_Europe_E3
-                        , case when India2 is null then North_America3*Indiana
-                        else India2
-                        end as India3
-                        , case when Greater_Asia2 is null then North_America3*Greater_Asiana
-                        else Greater_Asia2
-                        end as Greater_Asia3
-                        , case when Greater_Asia2 is null then North_America3*Greater_Asia_Dna
-                        else Greater_Asia2
-                        end as Greater_Asia_D3
-                        , case when Greater_Asia2 is null then North_America3*Greater_Asia_Ena
-                        else Greater_Asia2
-                        end as Greater_Asia_E3
-                        , case when Greater_China2 is null then North_America3*Greater_Chinana
-                        else Greater_China2
-                        end as Greater_China3
-                        , case when Greater_China2 is null then North_America3*Greater_China_Dna
-                        else Greater_China2
-                        end as Greater_China_D3
-                        , case when Greater_China2 is null then North_America3*Greater_China_Ena
-                        else Greater_China2
-                        end as Greater_China_E3
-                        , case when Latin_America2 is null then North_America3*Latin_Americana
-                        else Latin_America2
-                        end as Latin_America3
-                        from PoR2model_iMPV4
-                        order by platform_division_code, product_brand
-                        ')
+                         , case when EU2 is null then NA3*EUa
+                          else EU2
+                          end as EU3
+                         , case when AP2 is null then NA3*APa
+                          else AP2
+                          end as AP3
+                         , case when LA2 is null then NA3*LAa
+                          else LA2
+                          end as LA3
+                         , case when UKI2 is null then North_America3*UKIna
+                          else UKI2
+                          end as UKI3
+                         , case when Northern_Europe2 is null then North_America3*Northern_Europena
+                          else Northern_Europe2
+                          end as Northern_Europe3
+                         , case when Southern_Europe2 is null then North_America3*Southern_Europena
+                          else Southern_Europe2
+                          end as Southern_Europe3
+                         , case when ISE2 is null then North_America3*ISEna
+                          else ISE2
+                          end as ISE3
+                         , case when Central_Europe2 is null then North_America3*Central_Europena
+                          else Central_Europe2
+                          end as Central_Europe3
+                          , case when Central_Europe2 is null then North_America3*Central_Europe_Dna
+                          else Central_Europe2
+                          end as Central_Europe_D3
+                          , case when Central_Europe2 is null then North_America3*Central_Europe_Ena
+                          else Central_Europe2
+                          end as Central_Europe_E3
+                         , case when India2 is null then North_America3*Indiana
+                          else India2
+                          end as India3
+                         , case when Greater_Asia2 is null then North_America3*Greater_Asiana
+                          else Greater_Asia2
+                          end as Greater_Asia3
+                          , case when Greater_Asia2 is null then North_America3*Greater_Asia_Dna
+                          else Greater_Asia2
+                          end as Greater_Asia_D3
+                          , case when Greater_Asia2 is null then North_America3*Greater_Asia_Ena
+                          else Greater_Asia2
+                          end as Greater_Asia_E3
+                         , case when Greater_China2 is null then North_America3*Greater_Chinana
+                          else Greater_China2
+                          end as Greater_China3
+                          , case when Greater_China2 is null then North_America3*Greater_China_Dna
+                          else Greater_China2
+                          end as Greater_China_D3
+                          , case when Greater_China2 is null then North_America3*Greater_China_Ena
+                          else Greater_China2
+                          end as Greater_China_E3
+                         , case when Latin_America2 is null then North_America3*Latin_Americana
+                          else Latin_America2
+                          end as Latin_America3
+                         from PoR2model_iMPV4
+                         order by platform_division_code, product_brand
+                         ')
 
 #test2 <- subset(PoR2model_iMPV5,!is.na(EU3))
 #write.csv('C:/UPM/iMPV_OLD_complete.csv', x=PoR2model_iMPV5,row.names=FALSE, na="")
@@ -3080,13 +3095,13 @@ route5B$printer_platform_name <- factor(route5B$printer_platform_name)
 # Step 61 - Calculating percentage of platform installed base across regions
 
 q6 <- ("SELECT distinct platform_subset AS printer_platform_name 
-                , platform_division_code
-                , product_brand
-                FROM hw_info
-                ")
+                 , platform_division_code
+                 , product_brand
+                 FROM hw_info
+                  ")
 
 new1 <- sqldf(q6)
-new1b <- sqldf("SELECT a.*
+  new1b <- sqldf("SELECT a.*
             , c.market10
             , c.developed_emerging
             , b.rtm
@@ -3094,54 +3109,54 @@ new1b <- sqldf("SELECT a.*
             , SUM(b.ib) AS printer_installed_base_month 
             FROM new1 a 
             INNER JOIN (select * from ibtable where ib IS NOT NULL) b 
-            ON a.printer_platform_name=b.platform_subset
+              ON a.printer_platform_name=b.platform_subset
             LEFT JOIN country_info c
-            ON b.country=c.country_alpha2
-            GROUP BY
-                a.printer_platform_name, a.platform_division_code, a.product_brand
-                , b.rtm
-            , c.market10, c.developed_emerging
-            , b.month_begin")
+              ON b.country_alpha2=c.country_alpha2
+              GROUP BY
+               a.printer_platform_name, a.platform_division_code, a.product_brand
+              , b.rtm
+              , c.market10, c.developed_emerging
+              , b.month_begin")
 new1b <- subset(new1b,!is.na(market10))
 new1c <- sqldf("SELECT platform_division_code, product_brand, printer_platform_name, rtm as rtm, market10, SUBSTR(developed_emerging,1,1) as developed_emerging
                 , sum(printer_installed_base_month) as sumINSTALLED_BASE_COUNT
-            FROM
-            new1b
-            where printer_installed_base_month IS NOT NULL
-            group by platform_division_code, product_brand, printer_platform_name, rtm, market10
-            order by platform_division_code, product_brand, printer_platform_name, rtm, market10")
+             FROM
+             new1b
+              where printer_installed_base_month IS NOT NULL
+             group by platform_division_code, product_brand, printer_platform_name, rtm, market10
+             order by platform_division_code, product_brand, printer_platform_name, rtm, market10")
 new1c$sumINSTALLED_BASE_COUNT <- as.numeric(new1c$sumINSTALLED_BASE_COUNT)
 new1cc <- sqldf("SELECT platform_division_code, product_brand, printer_platform_name, rtm as rtm
                 , sum(printer_installed_base_month) as sumINSTALLED_BASE_COUNT
-            FROM
-            new1b
-            where printer_installed_base_month IS NOT NULL
-            group by platform_division_code, product_brand, printer_platform_name, rtm
-            order by platform_division_code, product_brand, printer_platform_name, rtm")
+             FROM
+             new1b
+              where printer_installed_base_month IS NOT NULL
+             group by platform_division_code, product_brand, printer_platform_name, rtm
+             order by platform_division_code, product_brand, printer_platform_name, rtm")
 
 new1cc$sumINSTALLED_BASE_COUNT <- as.numeric(new1cc$sumINSTALLED_BASE_COUNT)
 new1d <- reshape2::dcast(new1c, platform_division_code+product_brand+printer_platform_name+rtm ~ market10+developed_emerging, value.var = "sumINSTALLED_BASE_COUNT", fun.aggregate=sum)
 new <- sqldf("SELECT a.* ,b.sumINSTALLED_BASE_COUNT 
-            , COALESCE(a.[North America_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBNorth_America
-            , COALESCE(a.[Latin America_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBLatin_America
-            , COALESCE(a.[Northern Europe_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBNorthern_Europe
-            , COALESCE(a.[UK&I_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBUKI
-            , COALESCE(a.[Southern Europe_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBSouthern_Europe
-            , COALESCE(a.[Central Europe_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBCentral_EuropeD
-            , COALESCE(a.[Central Europe_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBCentral_EuropeE
-            , COALESCE(a.[ISE_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBISE
-            , COALESCE(a.[India SL & BL_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBIndia
-            , COALESCE(a.[Greater China_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_ChinaD
-            , COALESCE(a.[Greater China_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_ChinaE
-            , COALESCE(a.[Greater Asia_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_AsiaD
-            , COALESCE(a.[Greater Asia_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_AsiaE
-            FROM
+             , COALESCE(a.[North America_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBNorth_America
+             , COALESCE(a.[Latin America_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBLatin_America
+             , COALESCE(a.[Northern Europe_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBNorthern_Europe
+             , COALESCE(a.[UK&I_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBUKI
+             , COALESCE(a.[Southern Europe_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBSouthern_Europe
+             , COALESCE(a.[Central Europe_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBCentral_EuropeD
+             , COALESCE(a.[Central Europe_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBCentral_EuropeE
+             , COALESCE(a.[ISE_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBISE
+             , COALESCE(a.[India SL & BL_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBIndia
+             , COALESCE(a.[Greater China_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_ChinaD
+             , COALESCE(a.[Greater China_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_ChinaE
+             , COALESCE(a.[Greater Asia_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_AsiaD
+             , COALESCE(a.[Greater Asia_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_AsiaE
+             FROM
             new1d a
             left join
             new1cc b
             on a.printer_platform_name=b.printer_platform_name and a.rtm=b.rtm
             ORDER BY platform_division_code, product_brand, printer_platform_name, rtm
-        ")
+       ")
 
 head(new)
 colnames(new)
@@ -3153,13 +3168,13 @@ str(new)
 # Step 62 - Attaching PoR with the percent installed base for OLD platforms
 
 new2 <- sqldf('select aa1.*, aa2.product_usage_por_pages, aa2.platform_type
-            from new aa1
-            inner join 
-            PoR2model aa2
-            on
-            aa1.printer_platform_name =aa2.printer_platform_name 
-            where aa2.platform_type = "FUTURE"
-            ')
+              from new aa1
+              inner join 
+              PoR2model aa2
+              on
+              aa1.printer_platform_name =aa2.printer_platform_name 
+              where aa2.platform_type = "FUTURE"
+              ')
 
 # COMMAND ----------
 
@@ -3174,18 +3189,18 @@ wtaverage2 <- sqldf("select product_brand, platform_division_code, rtm, avg(EUa)
                     group by product_brand, platform_division_code, rtm")
 
 new3 <- sqldf('select distinct aa1.*, aa2.[Central_Europena],aa2.[Central_Europe_Dna],aa2.[Central_Europe_Ena],aa2.[Northern_Europena],aa2.[Southern_Europena],aa2.[ISEna]
-,aa2.[UKIna],aa2.[Greater_Asiana],aa2.[Greater_Asia_Dna],aa2.[Greater_Asia_Ena],aa2.[Greater_Chinana],aa2.[Greater_China_Dna],aa2.[Greater_China_Ena]
-,aa2.[Indiana],aa2.[Latin_Americana]
-            from new2 aa1
-            inner join 
-            wtaverage2 aa2
-            on 
-            aa1.platform_division_code = aa2.platform_division_code
-            and
-            aa1.product_brand = aa2.product_brand
-            and
-            aa1.rtm = aa2.rtm
-            order by platform_division_code, product_brand')
+  ,aa2.[UKIna],aa2.[Greater_Asiana],aa2.[Greater_Asia_Dna],aa2.[Greater_Asia_Ena],aa2.[Greater_Chinana],aa2.[Greater_China_Dna],aa2.[Greater_China_Ena]
+  ,aa2.[Indiana],aa2.[Latin_Americana]
+              from new2 aa1
+              inner join 
+              wtaverage2 aa2
+              on 
+              aa1.platform_division_code = aa2.platform_division_code
+              and
+              aa1.product_brand = aa2.product_brand
+              and
+              aa1.rtm = aa2.rtm
+              order by platform_division_code, product_brand')
 
 # COMMAND ----------
 
@@ -3298,22 +3313,22 @@ route1 <- usagesummaryNAEUAP[c(2,4,3,1, 510, 513, 515, 517, 519, 521, 522, 525, 
 route1B <- reshape2::melt(route1 , id.vars = c("platform_division_code", "product_brand","printer_platform_name","rtm"),variable.name = "printer_region_code", value.name = "Route")
 route1B <- sqldf("SELECT distinct platform_division_code, product_brand, printer_platform_name, rtm
                 ,CASE WHEN printer_region_code='Central_Europe_DRoute' THEN 'CEDs'
-                    WHEN printer_region_code='Central_Europe_ERoute' THEN 'CEEs'
-                    WHEN printer_region_code='Greater_Asia_DRoute' THEN 'GADs'
-                    WHEN printer_region_code='Greater_Asia_ERoute' THEN 'GAEs'
-                    WHEN printer_region_code='Greater_China_DRoute' THEN 'GCDs'
-                    WHEN printer_region_code='Greater_China_ERoute' THEN 'GCEs'
-                    WHEN printer_region_code='India_ERoute' THEN 'INs'
-                    WHEN printer_region_code='ISE_ERoute' THEN 'ISs'
-                    WHEN printer_region_code='Latin_America_ERoute' THEN 'LAs'
-                    WHEN printer_region_code='North_America_DRoute' THEN 'NAs'
-                    WHEN printer_region_code='Northern_Europe_DRoute' THEN 'NEs'
-                    WHEN printer_region_code='Southern_Europe_DRoute' THEN 'SEs'
-                    WHEN printer_region_code='UKI_DRoute' THEN 'UKs'
-                    END AS printer_region_code
-                    ,Route
-                    FROM route1B
-                ")
+                     WHEN printer_region_code='Central_Europe_ERoute' THEN 'CEEs'
+                     WHEN printer_region_code='Greater_Asia_DRoute' THEN 'GADs'
+                     WHEN printer_region_code='Greater_Asia_ERoute' THEN 'GAEs'
+                     WHEN printer_region_code='Greater_China_DRoute' THEN 'GCDs'
+                     WHEN printer_region_code='Greater_China_ERoute' THEN 'GCEs'
+                     WHEN printer_region_code='India_ERoute' THEN 'INs'
+                     WHEN printer_region_code='ISE_ERoute' THEN 'ISs'
+                     WHEN printer_region_code='Latin_America_ERoute' THEN 'LAs'
+                     WHEN printer_region_code='North_America_DRoute' THEN 'NAs'
+                     WHEN printer_region_code='Northern_Europe_DRoute' THEN 'NEs'
+                     WHEN printer_region_code='Southern_Europe_DRoute' THEN 'SEs'
+                     WHEN printer_region_code='UKI_DRoute' THEN 'UKs'
+                     END AS printer_region_code
+                     ,Route
+                     FROM route1B
+                 ")
 
 route <- rbind(route1B, route5B, route6B)
 
@@ -3367,104 +3382,104 @@ normdata <- rbind(normdataOLD, normdataNew)
 # COMMAND ----------
 
 # Step - 70 Normalize complete iMPV matrix with respect to VV, CM, SM and Plat_Nm
-
+ 
 normdata2 <- reshape2::melt(normdata, id.vars = c("platform_division_code", "product_brand", "printer_platform_name","rtm"),
-                    variable.name = "printer_region_code", 
-                    value.name = "iMPV")
+                  variable.name = "printer_region_code", 
+                  value.name = "iMPV")
 
 # COMMAND ----------
 
 # Step - 71 Extracting region specific introDate for each of the platforms
- 
+
 normdatadate <- sqldf('select platform_division_code, product_brand, rtm
-                        , printer_platform_name
-                        , INTRODATE_NA AS NA, INTRODATE_NE AS NE, INTRODATE_SE AS SE, INTRODATE_CED AS CED, INTRODATE_CEE AS CEE, INTRODATE_UK AS UK, INTRODATE_IS AS [IS], INTRODATE_IN AS [IN]
-                        , INTRODATE_GAD AS GAD, INTRODATE_GAE AS GAE, INTRODATE_GCD AS GCD, INTRODATE_GCE AS GCE, INTRODATE_LA AS LA
-                        FROM PoR2model
-                        ')
+                      , printer_platform_name
+                      , INTRODATE_NA AS NA, INTRODATE_NE AS NE, INTRODATE_SE AS SE, INTRODATE_CED AS CED, INTRODATE_CEE AS CEE, INTRODATE_UK AS UK, INTRODATE_IS AS [IS], INTRODATE_IN AS [IN]
+                      , INTRODATE_GAD AS GAD, INTRODATE_GAE AS GAE, INTRODATE_GCD AS GCD, INTRODATE_GCE AS GCE, INTRODATE_LA AS LA
+                      FROM PoR2model
+                      ')
 
 # COMMAND ----------
 
 # Step - 72 creating detailed iMPV matrix for all platforms
 
 combined <- sqldf('select aa1.PLATFORM_TYPE
-                , aa2.platform_division_code
-                , aa2.product_brand
-                , aa2.printer_platform_name
-                , aa2.rtm
-                , aa2.NAs as NA_route
-                , aa2.CEDs as CED_route
-                , aa2.CEEs as CEE_route
-                , aa2.GADs as GAD_route
-                , aa2.GAEs as GAE_route
-                , aa2.GCDs as GCD_route
-                , aa2.GCEs as GCE_route
-                , aa2.INs as IN_route
-                , aa2.ISs as IS_route
-                , aa2.LAs as LA_route
-                , aa2.NEs as NE_route
-                , aa2.SEs as SE_route
-                , aa2.UKs as UK_route
-                , aa1.INTRODATE_NA
-                , aa1.INTRODATE_CED
-                , aa1.INTRODATE_CEE
-                , aa1.INTRODATE_GAD
-                , aa1.INTRODATE_GAE
-                , aa1.INTRODATE_GCD
-                , aa1.INTRODATE_GCE
-                , aa1.INTRODATE_IN
-                , aa1.INTRODATE_IS
-                , aa1.INTRODATE_LA
-                , aa1.INTRODATE_NE
-                , aa1.INTRODATE_SE
-                , aa1.INTRODATE_UK
-                from
-                routeT aa2
-                inner join
-                old aa1
-                on
-                --aa1.platform_division_code = aa2.platform_division_code
-                --and
-                --aa1.product_brand = aa2.product_brand
-                --and
-                aa1.printer_platform_name = aa2.printer_platform_name
-                and aa1.rtm = aa2.rtm
-                ')
+                  , aa2.platform_division_code
+                  , aa2.product_brand
+                  , aa2.printer_platform_name
+                  , aa2.rtm
+                  , aa2.NAs as NA_route
+                  , aa2.CEDs as CED_route
+                  , aa2.CEEs as CEE_route
+                  , aa2.GADs as GAD_route
+                  , aa2.GAEs as GAE_route
+                  , aa2.GCDs as GCD_route
+                  , aa2.GCEs as GCE_route
+                  , aa2.INs as IN_route
+                  , aa2.ISs as IS_route
+                  , aa2.LAs as LA_route
+                  , aa2.NEs as NE_route
+                  , aa2.SEs as SE_route
+                  , aa2.UKs as UK_route
+                  , aa1.INTRODATE_NA
+                  , aa1.INTRODATE_CED
+                  , aa1.INTRODATE_CEE
+                  , aa1.INTRODATE_GAD
+                  , aa1.INTRODATE_GAE
+                  , aa1.INTRODATE_GCD
+                  , aa1.INTRODATE_GCE
+                  , aa1.INTRODATE_IN
+                  , aa1.INTRODATE_IS
+                  , aa1.INTRODATE_LA
+                  , aa1.INTRODATE_NE
+                  , aa1.INTRODATE_SE
+                  , aa1.INTRODATE_UK
+                  from
+                  routeT aa2
+                  inner join
+                  old aa1
+                  on
+                  --aa1.platform_division_code = aa2.platform_division_code
+                  --and
+                  --aa1.product_brand = aa2.product_brand
+                  --and
+                  aa1.printer_platform_name = aa2.printer_platform_name
+                  and aa1.rtm = aa2.rtm
+                  ')
 
 combined2 <- sqldf('select aa2.*
-                    , aa1.NA as NA_iMPV
-                    , aa1.NE as NE_iMPV
-                    , aa1.SE as SE_iMPV
-                    , aa1.CED as CED_iMPV
-                    , aa1.CEE as CEE_iMPV
-                    , aa1.ISE as ISE_iMPV
-                    , aa1.UK as UK_iMPV
-                    , aa1.INE as IN_iMPV
-                    , aa1.GAD as GAD_iMPV
-                    , aa1.GAE as GAE_iMPV
-                    , aa1.GCD as GCD_iMPV
-                    , aa1.GCE as GCE_iMPV
-                    , aa1.LA as LA_iMPV
-                    from
-                    combined aa2
-                    inner join
-                    normdata aa1
-                    on
-                    aa1.platform_division_code = aa2.platform_division_code
-                    and
-                    aa1.product_brand = aa2.product_brand
-                    and
-                    aa1.printer_platform_name = aa2.printer_platform_name
-                    and aa1.rtm=aa2.rtm
-                    ')
+                   , aa1.NA as NA_iMPV
+                   , aa1.NE as NE_iMPV
+                   , aa1.SE as SE_iMPV
+                   , aa1.CED as CED_iMPV
+                   , aa1.CEE as CEE_iMPV
+                   , aa1.ISE as ISE_iMPV
+                   , aa1.UK as UK_iMPV
+                   , aa1.INE as IN_iMPV
+                   , aa1.GAD as GAD_iMPV
+                   , aa1.GAE as GAE_iMPV
+                   , aa1.GCD as GCD_iMPV
+                   , aa1.GCE as GCE_iMPV
+                   , aa1.LA as LA_iMPV
+                   from
+                   combined aa2
+                   inner join
+                   normdata aa1
+                   on
+                   aa1.platform_division_code = aa2.platform_division_code
+                   and
+                   aa1.product_brand = aa2.product_brand
+                   and
+                   aa1.printer_platform_name = aa2.printer_platform_name
+                   and aa1.rtm=aa2.rtm
+                   ')
 
 # COMMAND ----------
 
 # Step - 73 Normalize introDate data with respect to VV, CM, SM and Plat_Nm
 
 normdatadate2 <- reshape2::melt(normdatadate, id.vars = c("platform_division_code", "product_brand", "printer_platform_name", "rtm"),
-                        variable.name = "printer_region_code", 
-                        value.name = "introdate")
+                      variable.name = "printer_region_code", 
+                      value.name = "introdate")
 
 # COMMAND ----------
 
@@ -3636,24 +3651,24 @@ createOrReplaceTempView(d4, "final1")
 createOrReplaceTempView(as.DataFrame(usage), "usage")
 
 final1 <- SparkR::sql("SELECT DISTINCT aa1.*
-                  , aa2.mpva
-                  , aa2.na
-                  FROM final1 aa1
-                  LEFT JOIN
-                  usage aa2
-                  ON
-                  aa1.printer_platform_name = aa2.printer_platform_name
-                  AND
-                  aa1.country_alpha2 = aa2.country_alpha2
-                  AND
-                  aa1.yyyymm = aa2.FYearMo
-                  AND
-                  aa1.platform_division_code = aa2.platform_division_code
-                  AND
-                  aa1.product_brand = aa2.product_brand
-                  AND
-                  aa1.rtm=aa2.rtm
-                  ")
+                , aa2.mpva
+                , aa2.na
+                FROM final1 aa1
+                LEFT JOIN
+                usage aa2
+                ON
+                aa1.printer_platform_name = aa2.printer_platform_name
+                AND
+                aa1.country_alpha2 = aa2.country_alpha2
+                AND
+                aa1.yyyymm = aa2.FYearMo
+                AND
+                aa1.platform_division_code = aa2.platform_division_code
+                AND
+                aa1.product_brand = aa2.product_brand
+                AND
+                aa1.rtm=aa2.rtm
+                ")
 
 createOrReplaceTempView(final1, "final1")
 
@@ -3662,55 +3677,57 @@ createOrReplaceTempView(final1, "final1")
 # Step 84 - Renaming and aligning Variables
 
 final9 <- SparkR::sql('
-                  SELECT DISTINCT 
-                  printer_platform_name AS Platform_Subset_Nm
-                  , CASE 
-                      WHEN SUBSTR(printer_region_code,1,2) = "AP" THEN "APJ"
-                      WHEN SUBSTR(printer_region_code,1,2) = "JP" THEN "APJ"
-                      WHEN SUBSTR(printer_region_code,1,2) = "EU" THEN "EMEA"
-                      ELSE "AMS"
-                    END AS Region_3
-                  , printer_region_code AS Region
-                  , developed_emerging AS Region_DE
-                  , market10 AS market10
-                  , country_alpha2 AS Country_Cd
-                  , CAST(null AS STRING) AS Country_Nm
-                  , yyyymm AS FYearMo
-                  --, rFYearMo_Ad AS rFYearMo
-                  --, FYearQtr
-                  --, rFYearQtr
-                  --, year AS FYear
-                  --, month AS FMo
-                  --, MoSI
-                  , UPM_MPV AS MPV_UPM
-                  , TS_MPV AS MPV_TS
-                  , TD_MPV AS MPV_TD
-                  , MPVA AS MPV_Raw
-                  , NA AS MPV_N
-                  --, IB
-                  --, introdate AS FIntroDt
-                  , platform_division_code
-                  , product_brand
-                  , rtm
-                  , iMPV AS MPV_Init
-                  , Decay
-                  , Seasonality
-                  --, Cyclical
-                  --, MUT
-                  , Trend
-                  , Route AS IMPV_Route
-                  FROM final1  
-                  --where IB is not null --and intro_price != 0
-                  ')
+                SELECT DISTINCT 
+                printer_platform_name AS Platform_Subset_Nm
+                , CASE 
+                    WHEN SUBSTR(printer_region_code,1,2) = "AP" THEN "APJ"
+                    WHEN SUBSTR(printer_region_code,1,2) = "JP" THEN "APJ"
+                    WHEN SUBSTR(printer_region_code,1,2) = "EU" THEN "EMEA"
+                    ELSE "AMS"
+                  END AS Region_3
+                , printer_region_code AS Region
+                , developed_emerging AS Region_DE
+                , market10 AS market10
+                , country_alpha2 AS Country_Cd
+                , CAST(null AS STRING) AS Country_Nm
+                , yyyymm AS FYearMo
+                --, rFYearMo_Ad AS rFYearMo
+                --, FYearQtr
+                --, rFYearQtr
+                --, year AS FYear
+                --, month AS FMo
+                --, MoSI
+                , UPM_MPV AS MPV_UPM
+                , TS_MPV AS MPV_TS
+                , TD_MPV AS MPV_TD
+                , MPVA AS MPV_Raw
+                , NA AS MPV_N
+                --, IB
+                --, introdate AS FIntroDt
+                , platform_division_code
+                , product_brand
+                , rtm
+                , iMPV AS MPV_Init
+                , Decay
+                , Seasonality
+                --, Cyclical
+                --, MUT
+                , Trend
+                , Route AS IMPV_Route
+                FROM final1  
+                --where IB is not null --and intro_price != 0
+                ')
 
 final9$FYearMo <- cast(final9$FYearMo, "string")
+
+createOrReplaceTempView(final9, "final9")
 
 # COMMAND ----------
 
 # MAGIC %python
 # MAGIC # Step 85 - exporting final9 to S3
 # MAGIC 
-# MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/ink/{datestamp}/{timestamp}/usage_color"
+# MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/ink/{datestamp}/{timestamp}/usage_{dbutils.widgets.get('usage_type')}"
 # MAGIC 
 # MAGIC write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
 # MAGIC 
