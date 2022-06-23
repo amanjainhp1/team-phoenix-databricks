@@ -49,7 +49,7 @@ def read_redshift_to_df(configs: dict) -> DataFrame:
 def df_strings_to_upper(df: DataFrame) -> DataFrame:
     for column in df.dtypes:
         if column[1] == 'string':
-            df = df.withColumn(column[0], upper(col(column[0])))
+            df = df.withColumn(column[0], upper(col=(column[0])))
     return df
 
 # COMMAND ----------
