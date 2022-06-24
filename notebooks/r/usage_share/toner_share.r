@@ -15,6 +15,7 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("cutoff_dt", "")
 dbutils.widgets.text("outnm_dt", "")
+dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("datestamp","")
 dbutils.widgets.text("timestamp","")
 

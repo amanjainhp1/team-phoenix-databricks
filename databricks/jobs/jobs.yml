@@ -6,9 +6,7 @@ Jobs:
   - flash-load
   - hardware-ltf
   - hardware-stf
-  - ink-share
-  - ink-usage-color
-  - ink-usage-total
+  - ink-usage-share
   - installed-base
   - lf-decay
   - lf-ltf
@@ -22,6 +20,9 @@ Jobs:
 
 DeleteJobs:
   - table-creator
+  - ink-share
+  - ink-usage-color
+  - ink-usage-total
   - installed-base-promo
   - installed-base-scenario
   - norm-ships
