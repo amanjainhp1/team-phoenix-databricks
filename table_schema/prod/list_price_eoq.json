@@ -22,11 +22,11 @@
             "encode": "lzo"
         },
         {
-            "description": "eoq_discount_%",
-            "name": "eoq_discount_%",
+            "description": "eoq_discount_pct",
+            "name": "eoq_discount_pct",
             "type": "DOUBLE PRECISION",
             "nullable": true,
-            "encode": "az64"
+            "encode": "raw"
         },
         {
             "description": "load_date",
