@@ -88,6 +88,8 @@ for col in output_table_cols:
                         query = query + """CAST("{}" AS TIMESTAMP) AS load_date""".format(configs["timestamp"])
                     if col == "record" and configs["destination_table"] == "instant_ink_enrollees_ltf":
                         query = query + "'iink_enrollees_ltf' AS record"
+                    if col == 'eoq_discount_pct':
+                        query = query + "`EOQ Discount %` AS eoq_discount_pct"
 
                 if col in output_table_cols[0:len(output_table_cols)-1]:
                     query = query + ","
@@ -127,9 +129,7 @@ if configs["destination_table"] not in ['working_forecast_country', 'working_for
 
     # truncate existing redshift data and
     # write data to redshift
-    submit_remote_query(stack, configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], "TRUNCATE " + destination)
-
-    write_df_to_redshift(configs, final_table_df, destination, "append")
+    write_df_to_redshift(configs=configs, df=final_table_df, destination=destination, mode="append", preactions="TRUNCATE " + destination)
 
 # COMMAND ----------
 
