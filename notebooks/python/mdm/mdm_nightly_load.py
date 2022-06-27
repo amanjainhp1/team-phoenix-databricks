@@ -168,6 +168,16 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "list_price_term_codes"
             },
+            "list_price_term_codes": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Landing",
+                "source_schema": "ms4",
+                "source_table": "ms4_profit_center_hierarchy_staging",
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "prod", 
+                "destination_table": "ms4_profit_center_hierarchy"
+            },
             "odw_document_currency": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Financials",
