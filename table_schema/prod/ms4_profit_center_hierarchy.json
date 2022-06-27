@@ -1,0 +1,123 @@
+{
+    "fields": [
+        {
+            "description": "profit_center_code",
+            "name": "profit_center_code",
+            "type": "VARCHAR(6)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "pl",
+            "name": "pl",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "plxx",
+            "name": "plxx",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "business_division",
+            "name": "business_division",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "pl_category",
+            "name": "pl_category",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "technology",
+            "name": "technology",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "l1_description",
+            "name": "l1_description",
+            "type": "VARCHAR(200)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "l2_description",
+            "name": "l2_description",
+            "type": "VARCHAR(200)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "l3_description",
+            "name": "l3_description",
+            "type": "VARCHAR(200)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "l4_description",
+            "name": "l4_description",
+            "type": "VARCHAR(200)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "l5_description",
+            "name": "l5_description",
+            "type": "VARCHAR(200)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "l6_description",
+            "name": "l6_description",
+            "type": "VARCHAR(200)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "active_at",
+            "name": "active_at",
+            "type": "DATE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "inactive_at",
+            "name": "inactive_at",
+            "type": "DATE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(64)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
