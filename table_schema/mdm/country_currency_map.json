@@ -36,8 +36,8 @@
             "encode": "lzo"
         },
         {
-            "description": "country_name",
-            "name": "country_name",
+            "description": "currency_name",
+            "name": "currency_name",
             "type": "VARCHAR(100)",
             "nullable": true,
             "encode": "lzo"
