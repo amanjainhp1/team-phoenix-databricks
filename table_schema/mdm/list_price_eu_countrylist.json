@@ -12,14 +12,14 @@
             "name": "country_alpha2",
             "type": "VARCHAR(255)",
             "nullable": true,
-            "encode": "az64"
+            "encode": "lzo"
         },
         {
             "description": "country",
             "name": "country",
             "type": "VARCHAR(255)",
             "nullable": true,
-            "encode": "raw"
+            "encode": "lzo"
         },
         {
             "description": "currency",
