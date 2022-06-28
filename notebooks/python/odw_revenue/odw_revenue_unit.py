@@ -1,7 +1,7 @@
 # Databricks notebook source
 from pyspark.sql.types import DecimalType
 from functools import reduce
-from pyspark.sql.functions import regexp_extract, col,current_date
+from pyspark.sql.functions import regexp_extract,col,current_date
 
 # COMMAND ----------
 
@@ -14,18 +14,42 @@ from pyspark.sql.functions import regexp_extract, col,current_date
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC Initial SFAI Data Load
+
+# COMMAND ----------
+
+redshift_row_count = 0
+try:
+    redshift_row_count = read_redshift_to_df(configs) \
+        .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
+        .load() \
+        .count()
+except:
+    None
+
+if redshift_row_count == 0:
+    revenue_unit_df = read_sql_server_to_df(configs) \
+        .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
+        .load()
+    
+    write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC Complete Data
 
 # COMMAND ----------
 
-files = dbutils.fs.ls('/mnt/odw-revenue-unit-sales/')
-SeriesAppend=[]
+# files = dbutils.fs.ls('/mnt/odw-revenue-unit-sales/')
+# SeriesAppend=[]
 
-for f in files:
-    revenue_unit_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
-    SeriesAppend.append(revenue_unit_df)
+# for f in files:
+#     revenue_unit_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
+#     SeriesAppend.append(revenue_unit_df)
 
-df_series = reduce(DataFrame.unionAll, SeriesAppend)
+# df_series = reduce(DataFrame.unionAll, SeriesAppend)
+# write_df_to_redshift(configs, df_series, "fin_prod.odw_revenue_units_sales_actuals", "overwrite")
 
 # COMMAND ----------
 
@@ -53,18 +77,19 @@ print(revenue_unit_latest_file)
 
 # COMMAND ----------
 
-revenue_unit_df = spark.read \
-    .format("com.crealytics.spark.excel") \
-    .option("inferSchema", "True") \
-    .option("header","True") \
-    .option("treatEmptyValuesAsNulls", "False")\
-    .load(f"s3a://{revenue_unit}/landing/ODW/odw_revenue_unit_sales_actuals/{revenue_unit_latest_file}")
-revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,6)))
-revenue_unit_df = revenue_unit_df.withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
-revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
-                                 .withColumn("load_date", current_date())
-revenue_unit_df = revenue_unit_df.select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
-write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+if redshift_row_count > 0:
+    revenue_unit_df = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{revenue_unit}/landing/ODW/odw_revenue_unit_sales_actuals/{revenue_unit_latest_file}")
+    revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,6)))
+    revenue_unit_df = revenue_unit_df.withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
+    revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
+                                     .withColumn("load_date", current_date())
+    revenue_unit_df = revenue_unit_df.select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
+    write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
 
 # COMMAND ----------
 
@@ -88,7 +113,7 @@ SELECT
     , "Material Number" as material_number
     , "Segment Code" as segment
     , SUM("Unit Quantity (Sign-Flip)") as units
-FROM "stage"."revenue_unit_sales_actuals" w
+FROM "fin_prod"."odw_revenue_units_sales_actuals" w
 LEFT JOIN "mdm"."calendar" cal 
     ON ms4_Fiscal_Year_Period = "Fiscal Year/Period"
 WHERE 1=1
@@ -96,7 +121,7 @@ WHERE 1=1
     AND "Unit Quantity (Sign-Flip)" <> 0
     AND "Unit Quantity (Sign-Flip)" is not null
     AND Day_of_Month = 1
-    AND  "Fiscal Year/Period" = ( SELECT MAX("Fiscal Year/Period") FROM "stage"."revenue_unit_sales_actuals" )
+    AND  "Fiscal Year/Period" = ( SELECT MAX("Fiscal Year/Period") FROM "fin_prod"."odw_revenue_units_sales_actuals" )
 GROUP BY cal.Date
     , "Profit Center Code"
     , "Material Number"
@@ -175,7 +200,7 @@ SELECT
     , sales_prod_nr as rdma_sales_product_number
 	, SUM(units) as units
 FROM sales_material_number sp
-LEFT JOIN prod.rdma_sales_product rdma 
+LEFT JOIN mdm.rdma_sales_product rdma 
     ON sales_product_number = sales_prod_nr
 GROUP BY cal_date
 	, pl
@@ -198,7 +223,7 @@ SELECT
 	, base_product_number
 	, SUM(units * isnull(base_prod_per_sales_prod_qty, 1)) as units
 FROM sales_product_number sp
-LEFT JOIN prod.rdma_base_to_sales_product_map rdma 
+LEFT JOIN mdm.rdma_base_to_sales_product_map rdma 
     ON sp.sales_product_number = rdma.sales_product_number
 GROUP BY cal_date
 	, pl
