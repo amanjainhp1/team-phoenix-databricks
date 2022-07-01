@@ -15,6 +15,7 @@ Jobs:
   - lf-ltf-splits
   - mdm-nightly-load
   - odw-revenue-unit
+  - odw-document-currency
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
