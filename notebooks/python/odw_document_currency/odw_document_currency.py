@@ -32,11 +32,11 @@ except:
     None
 
 if redshift_row_count == 0:
-    revenue_unit_df = read_sql_server_to_df(configs) \
+    document_currency_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.ms4.odw_document_currency_report_landing") \
         .load()
     
-    write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_document_currency", "append")
+    write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
 
 # COMMAND ----------
 
