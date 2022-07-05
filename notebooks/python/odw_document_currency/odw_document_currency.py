@@ -1,7 +1,7 @@
 # Databricks notebook source
 from functools import reduce
-from pyspark.sql.types import StringType,IntegerType
 from pyspark.sql.functions import current_date
+from pyspark.sql.types import IntegerType, StringType
 
 # COMMAND ----------
 
@@ -13,19 +13,63 @@ from pyspark.sql.functions import current_date
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Initial SFAI Data Load
+
+# COMMAND ----------
+
+redshift_row_count = 0
+try:
+    redshift_row_count = read_redshift_to_df(configs) \
+        .option("dbtable", "fin_prod.odw_document_currency") \
+        .load() \
+        .count()
+except:
+    None
+
+if redshift_row_count == 0:
+    revenue_unit_df = read_sql_server_to_df(configs) \
+        .option("dbtable", "IE2_Landing.ms4.odw_document_currency_report_landing") \
+        .load()
+    
+    write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_document_currency", "append")
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC Complete Data
 
 # COMMAND ----------
 
-files = dbutils.fs.ls('/mnt/odw_document_currency/')
-SeriesAppend=[]
+# mount S3 bucket
+bucket = f"dataos-core-{stack}-team-phoenix"
+bucket_prefix = "landing/odw/odw_document_currency"
+dbfs_mount = '/mnt/odw_document_currency/'
 
-for f in files:
-    document_currency_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
-    SeriesAppend.append(document_currency_df)
+s3_mount(bucket, dbfs_mount)
+
+# COMMAND ----------
+
+files = dbutils.fs.ls(dbfs_mount)
+
+if len(files) >= 1:
+    SeriesAppend=[]
     
-df_series = reduce(DataFrame.unionAll, SeriesAppend)
+    for f in files:
+        document_currency_df = spark.read \
+            .format("com.crealytics.spark.excel") \
+            .option("inferSchema", "True") \
+            .option("header","True") \
+            .option("treatEmptyValuesAsNulls", "False") \
+            .load(f.path)
+
+        SeriesAppend.append(document_currency_df)
+
+    df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -34,30 +78,28 @@ df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
-def retrieve_latest_s3_object_by_prefix(bucket, prefix):
-    s3 = boto3.resource('s3')
-    objects = list(s3.Bucket(bucket).objects.filter(Prefix=prefix))
-    objects.sort(key=lambda o: o.last_modified)
-    return objects[-1].key
+document_currency_latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucket_prefix)
 
-bucket = f"dataos-core-{stack}-team-phoenix"
-
-document_currency_latest_file = retrieve_latest_s3_object_by_prefix(bucket, "landing/ODW/odw_document_currency")
 document_currency_latest_file = document_currency_latest_file.split("/")[len(document_currency_latest_file.split("/"))-1]
+
 print(document_currency_latest_file)
 
 # COMMAND ----------
 
-document_currency_df = spark.read \
-    .format("com.crealytics.spark.excel") \
-    .option("inferSchema", "True") \
-    .option("header","True") \
-    .option("treatEmptyValuesAsNulls", "False")\
-    .load(f"s3a://{bucket}/landing/ODW/odw_document_currency/{document_currency_latest_file}")
-document_currency_df = document_currency_df.withColumn("load_date", current_date())
-document_currency_df = document_currency_df.withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(IntegerType()))
-document_currency_df = document_currency_df.withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(StringType()))
-write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency_report", "append")
+if redshift_row_count > 0:
+    document_currency_df = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{bucket}/{bucket_prefix}/{document_currency_latest_file}")
+
+    document_currency_df = document_currency_df
+        .withColumn("load_date", current_date()) \
+        .withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(IntegerType())) \
+        .withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(StringType())) \
+
+    write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency_report", "append")
 
 # COMMAND ----------
 
