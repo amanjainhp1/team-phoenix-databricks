@@ -33,7 +33,7 @@ except:
 
 if redshift_row_count == 0:
     document_currency_df = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.ms4.odw_document_currency_report_landing") \
+        .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
         .load()
     
     write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
