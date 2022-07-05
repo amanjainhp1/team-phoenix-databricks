@@ -178,16 +178,6 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "ms4_profit_center_hierarchy"
             },
-            "odw_document_currency": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Financials",
-                "source_schema": "ms4", 
-                "source_table": "odw_document_currency", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "fin_prod", 
-                "destination_table": "odw_document_currency"
-            },
             "odw_sacp_actuals": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Financials",
