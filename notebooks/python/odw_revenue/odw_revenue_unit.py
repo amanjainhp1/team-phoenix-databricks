@@ -1,7 +1,7 @@
 # Databricks notebook source
-from pyspark.sql.types import DecimalType
 from functools import reduce
-from pyspark.sql.functions import regexp_extract,col,current_date
+from pyspark.sql.functions import col, current_date, regexp_extract
+from pyspark.sql.types import DecimalType
 
 # COMMAND ----------
 
@@ -10,6 +10,10 @@ from pyspark.sql.functions import regexp_extract,col,current_date
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %run ../common/s3_utils
 
 # COMMAND ----------
 
@@ -41,15 +45,31 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-# files = dbutils.fs.ls('/mnt/odw-revenue-unit-sales/')
-# SeriesAppend=[]
+# mount S3 bucket
+bucket = f"dataos-core-{stack}-team-phoenix" 
+bucket_prefix = "landing/odw/odw_revenue_unit_sales"
+dbfs_mount = '/mnt/odw_revenue_unit_sales/'
 
-# for f in files:
-#     revenue_unit_df = spark.read.format("com.crealytics.spark.excel").option("inferSchema", "True").option("header","True").option("treatEmptyValuesAsNulls", "False").load(f.path)
-#     SeriesAppend.append(revenue_unit_df)
+s3_mount(bucket, dbfs_mount)
 
-# df_series = reduce(DataFrame.unionAll, SeriesAppend)
-# write_df_to_redshift(configs, df_series, "fin_prod.odw_revenue_units_sales_actuals", "overwrite")
+# COMMAND ----------
+
+files = dbutils.fs.ls(dbfs_mount)
+
+if len(files) >= 1:
+    SeriesAppend=[]
+    
+    for f in files:
+        revenue_unit_df = spark.read \
+            .format("com.crealytics.spark.excel") \
+            .option("inferSchema", "True") \
+            .option("header","True") \
+            .option("treatEmptyValuesAsNulls", "False")\
+            .load(f.path) \
+
+        SeriesAppend.append(revenue_unit_df)
+
+    df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -58,16 +78,10 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-def retrieve_latest_s3_object_by_prefix(bucket, prefix):
-    s3 = boto3.resource('s3')
-    objects = list(s3.Bucket(bucket).objects.filter(Prefix=prefix))
-    objects.sort(key=lambda o: o.last_modified)
-    return objects[-1].key
+revenue_unit_latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucket_prefix)
 
-revenue_unit = f"dataos-core-{stack}-team-phoenix"
-
-revenue_unit_latest_file = retrieve_latest_s3_object_by_prefix(revenue_unit, "landing/ODW")
 revenue_unit_latest_file = revenue_unit_latest_file.split("/")[len(revenue_unit_latest_file.split("/"))-1]
+
 print(revenue_unit_latest_file)
 
 # COMMAND ----------
@@ -83,12 +97,15 @@ if redshift_row_count > 0:
         .option("inferSchema", "True") \
         .option("header","True") \
         .option("treatEmptyValuesAsNulls", "False")\
-        .load(f"s3a://{revenue_unit}/landing/ODW/odw_revenue_unit_sales_actuals/{revenue_unit_latest_file}")
-    revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,6)))
-    revenue_unit_df = revenue_unit_df.withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
-    revenue_unit_df = revenue_unit_df.withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
-                                     .withColumn("load_date", current_date())
-    revenue_unit_df = revenue_unit_df.select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
+        .load(f"s3a://{bucket}/{bucket_prefix}/{revenue_unit_latest_file}")
+    
+    revenue_unit_df = revenue_unit_df \
+        .withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,6))) \
+        .withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0)) \
+        .withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
+        .withColumn("load_date", current_date()) \
+        .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
+    
     write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
 
 # COMMAND ----------
