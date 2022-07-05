@@ -51,6 +51,13 @@
       "encode": "lzo"
     },
     {
+      "description": "predecessor_proxy",
+      "name": "predecessor_proxy",
+      "type": "VARCHAR(100)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
       "description": "successor",
       "name": "successor",
       "type": "VARCHAR(100)",
@@ -107,8 +114,22 @@
       "encode": "lzo"
     },
     {
+      "description": "business_segment",
+      "name": "business_segment",
+      "type": "VARCHAR(100)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
       "description": "category_feature",
       "name": "category_feature",
+      "type": "VARCHAR(100)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "category_plus",
+      "name": "category_plus",
       "type": "VARCHAR(100)",
       "nullable": true,
       "encode": "lzo"
@@ -165,6 +186,20 @@
     {
       "description": "product_lifecycle_status",
       "name": "product_lifecycle_status",
+      "type": "VARCHAR(15)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "product_lifecycle_status_usage",
+      "name": "product_lifecycle_status_usage",
+      "type": "VARCHAR(15)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "product_lifecycle_status_share",
+      "name": "product_lifecycle_status_share",
       "type": "VARCHAR(15)",
       "nullable": true,
       "encode": "lzo"
