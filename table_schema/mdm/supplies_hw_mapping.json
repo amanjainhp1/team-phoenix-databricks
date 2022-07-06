@@ -1,14 +1,6 @@
 {
     "fields": [
         {
-            "description": "sup_hw_id",
-            "name": "sup_hw_id",
-            "type": "IDENTITY",
-            "nullable": false,
-            "encode": "raw",
-            "sort_key": true
-        },
-        {
             "description": "record",
             "name": "record",
             "type": "VARCHAR(256)",

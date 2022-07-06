@@ -2,12 +2,7 @@ CREATE OR REPLACE PROCEDURE prod.yield_sproc()
     LANGUAGE plpgsql
 AS $$
 
-DECLARE
-current_date TIMESTAMP;
-
 BEGIN
-
-SELECT GETDATE() INTO current_date;
 
 --------------------------RUN SPROC TO UPDATE VERSION AND LOAD DATE IN PROD TABLE--------------------------------------
 
@@ -39,28 +34,31 @@ INSERT INTO mdm.yield (
     , load_date
     , version
 )
-SELECT ytm.record
+SELECT 
+    'YIELD' AS record
     , geography_grain 
-    , ytm.geography
-    , ytm.base_product_number
-    , ytm.value
-    , ytm.effective_date
+    , geography
+    , base_product_number
+    , value
+    , TO_DATE(ytm.effective_date, 'YYYY-MM-DD')
     , NULL AS active_at
     , NULL AS inactive_at
     , 1 AS official
-    , current_date AS last_modified_date
-    , current_date AS load_date
+    , NULL AS last_modified_date
+    , NULL AS load_date
     , 'NEW DATA' AS version
-FROM stage.yield_temp_landing ytm;	
+FROM stage.yield_temp_landing;	
 
 ----------------------------------------UPDATE LANDING WITH PROD VERSION AND LOAD DATE---------------------------------
 
 UPDATE mdm.yield
 SET 
+    last_modified_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'YIELD'),
     load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'YIELD'),
     version = (SELECT MAX(version) FROM prod.version WHERE record = 'YIELD')
 WHERE version = 'NEW DATA'; 
 
+DROP TABLE stage.yield_temp_landing;
 
 END;
 

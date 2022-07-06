@@ -1,14 +1,6 @@
 {
     "fields": [
         {
-            "description": "sup_xref_id",
-            "name": "sup_xref_id",
-            "type": "IDENTITY",
-            "nullable": false,
-            "encode": "raw",
-            "sort_key": true
-        },
-        {
             "description": "record",
             "name": "record",
             "type": "VARCHAR(256)",

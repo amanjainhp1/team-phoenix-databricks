@@ -61,6 +61,8 @@ SELECT record
     , current_date AS load_date
 FROM stage.supplies_xref_temp_landing;
 
+DROP TABLE stage.supplies_xref_temp_landing;
+
 END;
 
 $$
