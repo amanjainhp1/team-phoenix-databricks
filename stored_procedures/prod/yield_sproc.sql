@@ -36,10 +36,10 @@ INSERT INTO mdm.yield (
 )
 SELECT 
     'YIELD' AS record
-    , geography_grain 
-    , geography
-    , base_product_number
-    , value
+    , ytm.geography_grain 
+    , ytm.geography
+    , ytm.base_product_number
+    , ytm.value
     , TO_DATE(ytm.effective_date, 'YYYY-MM-DD')
     , NULL AS active_at
     , NULL AS inactive_at
@@ -47,7 +47,7 @@ SELECT
     , NULL AS last_modified_date
     , NULL AS load_date
     , 'NEW DATA' AS version
-FROM stage.yield_temp_landing;	
+FROM stage.yield_temp_landing ytm;	
 
 ----------------------------------------UPDATE LANDING WITH PROD VERSION AND LOAD DATE---------------------------------
 
