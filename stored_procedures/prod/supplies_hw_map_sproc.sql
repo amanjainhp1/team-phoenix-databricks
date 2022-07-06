@@ -36,7 +36,8 @@ INSERT INTO mdm.supplies_hw_mapping
     , last_modified_date
     , load_date
 )
-SELECT 'SUPPLIES_HW_MAP' AS record
+SELECT
+    'SUPPLIES_HW_MAP' AS record
     , geography_grain
     , geography
     , base_product_number
@@ -50,6 +51,8 @@ SELECT 'SUPPLIES_HW_MAP' AS record
     , sm.load_date
 FROM stage.supplies_hw_mapping_temp_landing sm
 WHERE is_delete != 1; 
+
+DROP TABLE stage.supplies_hw_mapping_temp_landing;
 
 END;
 
