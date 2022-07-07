@@ -1225,6 +1225,12 @@ WITH crg_months AS
                    ON y.effective_date <= m.cal_date
                        AND y.next_effective_date > m.cal_date)
 
+    , c2c_vtc_02_forecast_months AS
+    (SELECT DATEADD(MONTH, 1, MAX(sup.cal_date)) AS supplies_forecast_start
+     FROM prod.actuals_supplies AS sup
+     WHERE 1 = 1
+       AND sup.official = 1)
+
    , prod_crg_mix_region5 AS
     (SELECT cmo.cal_date
           , map.market_10               AS market10
@@ -1378,20 +1384,232 @@ WITH crg_months AS
                        AND cmo.cal_date = pf.cal_date
      WHERE 1 = 1)
 
-SELECT cal_date
-     , market10
-     , platform_subset
-     , base_product_number
-     , customer_engagement
-     , k_color
-     , Crg_Chrome
-     , consumable_type
-     , product_count
-     , mix_pct                                         AS mix_pct
-     , yield
-     , CAST(cal_date AS VARCHAR) + ' ' + market10 + ' ' + platform_subset + ' ' +
-       base_product_number + ' ' + customer_engagement AS composite_key
-FROM add_type_and_yield
+   , transform_pages_ccs AS
+    (SELECT cmo.cal_date
+          , cmo.geography_grain
+          , cmo.geography
+          , cmo.platform_subset
+          , cmo.base_product_number
+          , CASE WHEN s.single_multi = 'TRI-PACK' THEN 'MULTI'
+                                                  ELSE 'SINGLE' END AS single_multi
+          , UPPER(cmo.k_color)                                      AS k_color
+          , cmo.crg_chrome
+          , cmo.consumable_type
+          , cmo.customer_engagement
+          , cmo.cartridge_mix
+          , pf.yield
+          , cmo.cartridge_mix * pf.yield                            AS pages_ccs
+     FROM prod.cartridge_mix_override_transform AS cmo
+     JOIN mdm.supplies_xref AS s
+         ON s.base_product_number = cmo.base_product_number
+     JOIN pen_fills AS pf
+         ON pf.base_product_number = cmo.base_product_number
+         AND pf.cal_date = cmo.cal_date
+         AND pf.market_10 = cmo.geography)
+
+   , transform_mix_step_1_k AS
+    (SELECT t.cal_date
+          , t.geography_grain
+          , t.geography
+          , t.platform_subset
+          , t.base_product_number
+          , t.customer_engagement
+          , t.single_multi
+          , t.k_color
+          , t.crg_chrome
+          , t.consumable_type
+          , t.yield
+          , t.pages_ccs
+          , t.pages_ccs / NULLIF(SUM(pages_ccs)
+                                 OVER (PARTITION BY t.cal_date, t.geography, t.platform_subset, t.customer_engagement, t.crg_chrome),
+                                 0) AS mix_step_1
+     FROM transform_pages_ccs AS t
+     WHERE 1 = 1
+       AND t.k_color = 'BLACK')
+
+   , transform_mix_step_2_color_single AS
+    (SELECT t.cal_date
+          , t.geography_grain
+          , t.geography
+          , t.platform_subset
+          , t.base_product_number
+          , t.customer_engagement
+          , t.single_multi
+          , t.k_color
+          , t.crg_chrome
+          , t.consumable_type
+          , t.yield
+          , t.pages_ccs
+          , t.pages_ccs / NULLIF(SUM(pages_ccs)
+                                 OVER (PARTITION BY t.cal_date, t.geography, t.platform_subset, t.customer_engagement, t.crg_chrome),
+                                 0) AS mix_step_1
+     FROM transform_pages_ccs AS t
+     WHERE 1 = 1
+       AND t.k_color = 'COLOR'
+       AND t.single_multi = 'SINGLE')
+
+   , transform_mix_step_3_color_multi  AS
+    (SELECT t.cal_date
+          , t.geography_grain
+          , t.geography
+          , t.platform_subset
+          , t.base_product_number
+          , t.customer_engagement
+          , t.single_multi
+          , t.k_color
+          , t.crg_chrome
+          , t.consumable_type
+          , t.yield
+          , t.pages_ccs
+          -- individual tri-pack ... pcm_20
+          , SUM(t.pages_ccs)
+            OVER (PARTITION BY t.cal_date, t.geography, t.platform_subset) *
+            1.0 /
+            NULLIF(SUM(pages_ccs)
+                   OVER (PARTITION BY t.cal_date, t.geography, t.platform_subset),
+                   0) AS mix_step_1
+          -- more than 1 tri-pack per pfs ... pcm_19
+          , SUM(t.pages_ccs)
+            OVER (PARTITION BY t.cal_date, t.geography, t.platform_subset, t.single_multi) *
+            1.0 /
+            NULLIF(SUM(pages_ccs)
+                   OVER (PARTITION BY t.cal_date, t.geography, t.platform_subset),
+                   0) AS mix_step_1_all
+     FROM transform_pages_ccs AS t
+     WHERE 1 = 1
+       AND t.k_color = 'COLOR') -- need all color crgs in the denominator
+
+   , transform_mix_step_4_multi_fix AS
+    (SELECT t1.cal_date
+          , t1.geography_grain
+          , t1.geography
+          , t1.platform_subset
+          , t1.base_product_number
+          , t1.customer_engagement
+          , t1.single_multi
+          , t1.k_color
+          , t1.crg_chrome
+          , t1.consumable_type
+          , t1.yield
+          , t1.pages_ccs
+          , t1.mix_step_1
+          -- CKs w/o a multipack have to be accounted for
+          , CASE WHEN NOT t2.platform_subset IS NULL
+                     THEN t1.mix_step_1 * -1.0 * t2.mix_step_1_all
+                     ELSE 0.0 END AS mix_step_2
+     FROM transform_mix_step_2_color_single AS t1
+     LEFT JOIN transform_mix_step_3_color_multi AS t2
+         ON t2.cal_date = t1.cal_date
+         AND t2.geography = t1.geography
+         AND t2.platform_subset = t1.platform_subset
+         AND t2.single_multi <> 'SINGLE'
+     WHERE 1 = 1)
+
+   , transform_combined AS
+    (SELECT t1.cal_date
+          , t1.geography_grain
+          , t1.geography
+          , t1.platform_subset
+          , t1.base_product_number
+          , t1.customer_engagement
+          , t1.single_multi
+          , t1.k_color
+          , t1.crg_chrome
+          , t1.consumable_type
+          , t1.yield
+          , t1.pages_ccs
+          , t1.mix_step_1
+          , NULL          AS mix_step_2
+          , t1.mix_step_1 AS pgs_ccs_mix
+     FROM transform_mix_step_1_k AS t1
+     CROSS JOIN c2c_vtc_02_forecast_months AS fm
+     WHERE 1 = 1
+       AND t1.cal_date >= fm.supplies_forecast_start
+
+     UNION ALL
+
+     SELECT t4.cal_date
+          , t4.geography_grain
+          , t4.geography
+          , t4.platform_subset
+          , t4.base_product_number
+          , t4.customer_engagement
+          , t4.single_multi
+          , t4.k_color
+          , t4.crg_chrome
+          , t4.consumable_type
+          , t4.yield
+          , t4.pages_ccs
+          , t4.mix_step_1
+          , t4.mix_step_2
+          , t4.mix_step_1 + t4.mix_step_2 AS pgs_ccs_mix
+     FROM transform_mix_step_4_multi_fix AS t4 -- singles only
+     CROSS JOIN c2c_vtc_02_forecast_months AS fm
+     WHERE 1 = 1
+       AND t4.cal_date >= fm.supplies_forecast_start
+
+     UNION ALL
+
+     SELECT t3.cal_date
+          , t3.geography_grain
+          , t3.geography
+          , t3.platform_subset
+          , t3.base_product_number
+          , t3.customer_engagement
+          , t3.single_multi
+          , t3.k_color
+          , t3.crg_chrome
+          , t3.consumable_type
+          , t3.yield
+          , t3.pages_ccs
+          , t3.mix_step_1
+          , NULL          AS mix_step_2
+          , t3.mix_step_1 AS pgs_ccs_mix
+     FROM transform_mix_step_3_color_multi AS t3
+     CROSS JOIN c2c_vtc_02_forecast_months AS fm
+     WHERE 1 = 1
+       AND t3.cal_date >= fm.supplies_forecast_start
+       AND t3.single_multi <> 'SINGLE')
+
+   , output AS
+    (SELECT 'UPLOADS' AS type
+          , cal_date
+          , market10
+          , platform_subset
+          , base_product_number
+          , customer_engagement
+          , mix_pct   AS mix_pct
+     FROM add_type_and_yield
+
+     UNION ALL
+
+     SELECT 'TRANSFORMED_UPLOADS' AS type
+          , t.cal_date
+          , t.geography           AS market10
+          , t.platform_subset
+          , t.base_product_number
+          , t.customer_engagement
+          , t.pgs_ccs_mix         AS mix_pct
+     FROM transform_combined AS t
+     LEFT JOIN stage.page_cc_mix_override AS p
+         ON p.cal_date = t.cal_date
+         AND p.market10 = t.geography
+         AND p.platform_subset = t.platform_subset
+         AND p.customer_engagement = t.customer_engagement
+     WHERE 1 = 1
+       AND p.cal_date IS NULL
+       AND p.market10 IS NULL
+       AND p.platform_subset IS NULL
+       AND p.customer_engagement IS NULL)
+
+SELECT type
+    , cal_date
+    , market10
+    , platform_subset
+    , base_product_number
+    , customer_engagement
+    , mix_pct
+FROM output
 """
 
 query_list.append(["stage.page_cc_mix_override", page_cc_mix_override, "overwrite"])
@@ -1429,7 +1647,7 @@ WITH pcm_27_pages_mix_prep AS
 
         UNION ALL
 
-        -- page mix uploads
+        -- page mix uploads and transforms
         SELECT 'PCM_FORECASTER_OVERRIDE' AS type
              , m26.cal_date
              , 'MARKET10' AS geography_grain
@@ -1438,7 +1656,11 @@ WITH pcm_27_pages_mix_prep AS
              , m26.base_product_number
              , m26.customer_engagement
              , m26.mix_pct AS page_mix
-        FROM stage.page_cc_mix_override AS m26)
+        FROM stage.page_cc_mix_override AS m26
+        JOIN mdm.hardware_xref AS hw
+            ON hw.platform_subset = m26.platform_subset
+        WHERE 1=1
+          AND hw.technology = 'LASER')
 
    , pcm_28_pages_ccs_mix_filter AS
     (SELECT m27.type
@@ -1550,7 +1772,12 @@ WITH pcm_27_pages_ccs_mix_prep AS
              , m26.base_product_number
              , m26.customer_engagement
              , m26.mix_pct AS cc_mix
-        FROM stage.page_cc_mix_override AS m26)
+        FROM stage.page_cc_mix_override AS m26
+        JOIN mdm.hardware_xref AS hw
+            ON hw.platform_subset = m26.platform_subset
+        WHERE 1=1
+          AND m26.type = 'UPLOADS'  -- no transformed mix required for ink
+          AND hw.technology IN ('INK', 'PWA'))
 
    , pcm_28_pages_ccs_mix_filter AS
     (SELECT m27.type
