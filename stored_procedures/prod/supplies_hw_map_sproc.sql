@@ -52,7 +52,7 @@ SELECT
 FROM stage.supplies_hw_mapping_temp_landing sm
 WHERE is_delete != 1; 
 
-DROP TABLE stage.supplies_hw_mapping_temp_landing;
+DROP TABLE IF EXISTS stage.supplies_hw_mapping_temp_landing;
 
 END;
 
