@@ -11,7 +11,7 @@ BEGIN
 
 -------------------------------RUN SPROC TO UPDATE VERSION AND LOAD DATE IN PROD TABLE-------------------------------------------
 
-CALL prod.addversion_sproc('SCENARIO_YIELD', 'FORECASTER INPUT')
+CALL prod.addversion_sproc('SCENARIO_YIELD', 'FORECASTER INPUT');
 
 ---------------------------------LOAD DATA IN LANDING TABLE------------------------------------
 
@@ -44,7 +44,7 @@ SELECT user_name
       ,min_sys_date
       ,month_num
       ,value
-  FROM stage.scenario_yield_temp_landing
+  FROM stage.scenario_yield_temp_landing;
 
 ----------------------------TRUNCATE STAGING---------------------------------
 
@@ -99,7 +99,7 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_yield_landing
-  WHERE load_date = (SELECT MAX(load_date) FROM stage.scenario_yield_landing)
+  WHERE load_date = (SELECT MAX(load_date) FROM stage.scenario_yield_landing);
 
 ------------------------------LOAD SCENARIO DATA TO PROD------------------------------------------
 
@@ -133,7 +133,7 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_yield_staging
-  WHERE upload_type = 'FORECAST-SCENARIO'
+  WHERE upload_type = 'FORECAST-SCENARIO';
 
   ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
@@ -167,7 +167,7 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_yield_staging
-  WHERE upload_type = 'WORKING-FORECAST'
+  WHERE upload_type = 'WORKING-FORECAST';
 
 
   ------------------------------------LOAD EPA DRIVERS TO PROD--------------------------------
@@ -202,11 +202,11 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_yield_staging
-  WHERE upload_type = 'EPA-DRIVERS'
+  WHERE upload_type = 'EPA-DRIVERS';
 
 ------------------DROP TEMP LANDING--------------------------------
 
-DROP TABLE IF EXISTS stage.scenario_yield_temp_landing
+DROP TABLE IF EXISTS stage.scenario_yield_temp_landing;
 
 ----------------------------------------------xxxx-------------------------------
 

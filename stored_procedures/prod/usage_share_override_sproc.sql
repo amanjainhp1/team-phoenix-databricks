@@ -16,7 +16,7 @@ JOIN stage.usage_share_override_landing_temp b
 ON a.geography = b.geography
     AND a.platform_subset = b.platform_subset
     AND a.customer_engagement = b.customer_engagement
-    AND a.measure = b.measure
+    AND a.measure = b.measure;
 --might need to add month_num = month_num here to avoid partial loads like Cherry STND DM1 on 5/18/21
 
 --insert records from the temp table
@@ -84,7 +84,7 @@ SELECT
     ,proxy_used
     ,ib_version
     ,current_date AS load_date
-FROM stage.usage_share_override_landing_temp
+FROM stage.usage_share_override_landing_temp;
 
 --drop the temp table
 DROP TABLE IF EXISTS stage.usage_share_override_landing_temp;

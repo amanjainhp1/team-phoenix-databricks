@@ -13,7 +13,7 @@ BEGIN
 -------------------------------RUN SPROC TO UPDATE VERSION AND LOAD DATE IN PROD TABLE-------------------------------------------
 
 
-EXEC prod.addversion_sproc('SCENARIO_MIX_RATE', 'FORECASTER INPUT')
+EXEC prod.addversion_sproc('SCENARIO_MIX_RATE', 'FORECASTER INPUT');
 
 
 
@@ -48,12 +48,12 @@ SELECT user_name
       ,min_sys_date
       ,month_num
       ,value
-  FROM stage.scenario_mix_rate_temp_landing
+  FROM stage.scenario_mix_rate_temp_landing;
 
 
 ----------------------------TRUNCATE STAGING---------------------------------
 
-DROP TABLE IF EXISTS stage.scenario_mix_rate_staging
+DROP TABLE IF EXISTS stage.scenario_mix_rate_staging;
 
 CREATE TABLE stage.scenario_mix_rate_staging(
     user_name VARCHAR(256) NOT NULL
@@ -105,7 +105,7 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_mix_rate_landing
-  WHERE load_date = (SELECT MAX(load_date) FROM stage.scenario_mix_rate_landing)
+  WHERE load_date = (SELECT MAX(load_date) FROM stage.scenario_mix_rate_landing);
 
 ------------------------------LOAD SCENARIO DATA TO PROD------------------------------------------
 
@@ -139,7 +139,7 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_mix_rate_staging
-  WHERE upload_type = 'FORECAST-SCENARIO'
+  WHERE upload_type = 'FORECAST-SCENARIO';
 
 ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
@@ -173,7 +173,7 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_mix_rate_staging
-  WHERE upload_type = 'WORKING-FORECAST'
+  WHERE upload_type = 'WORKING-FORECAST';
 
 ------------------------------------LOAD EPA DRIVERS TO PROD--------------------------------
 
@@ -208,11 +208,11 @@ SELECT user_name
       ,month_num
       ,value
   FROM stage.scenario_mix_rate_staging
-  WHERE upload_type = 'EPA-DRIVERS'
+  WHERE upload_type = 'EPA-DRIVERS';
 ------------------TRUNCATE TEMP LANDING--------------------------------
 
 
-DROP TABLE IF EXISTS stage.scenario_mix_rate_temp_landing
+DROP TABLE IF EXISTS stage.scenario_mix_rate_temp_landing;
 
 ----------------------------------------------xxxx-------------------------------
 

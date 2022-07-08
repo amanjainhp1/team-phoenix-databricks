@@ -11,44 +11,44 @@ BEGIN
 
 -------------------------------RUN SPROC TO UPDATE VERSION AND LOAD DATE IN PROD TABLE-------------------------------------------
 
-CALL prod.addversion_sproc('SCENARIO_SUPPLIES_SPARES', 'FORECASTER INPUT')
+CALL prod.addversion_sproc('SCENARIO_SUPPLIES_SPARES', 'FORECASTER INPUT');
 
 ---------------------------------LOAD DATA IN LANDING TABLE------------------------------------
 
-INSERT INTO stage.[scenario_supplies_spares_landing]
+INSERT INTO stage.scenario_supplies_spares_landing
 (
-       [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
+       user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
 )
-SELECT [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
-  FROM stage.[scenario_supplies_spares_temp_landing]
+SELECT user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
+  FROM stage.scenario_supplies_spares_temp_landing;
 
 ----------------------------TRUNCATE STAGING---------------------------------
 
-DROP TABLE IF EXISTS stage.[scenario_supplies_spares_staging]
+DROP TABLE IF EXISTS stage.scenario_supplies_spares_staging;
 
 CREATE TABLE stage.scenario_supplies_spares_staging(
     user_name VARCHAR(256) NOT NULL
@@ -70,144 +70,143 @@ GRANT ALL ON TABLE stage.scenario_supplies_spares_staging TO auto_glue;
 ---------LOAD STAGING TABLE----------------------------------------------------------
 
 
-INSERT INTO stage.[scenario_supplies_spares_staging]
+INSERT INTO stage.scenario_supplies_spares_staging
 (
-       [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
+       user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
 )
-SELECT [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
-  FROM stage.[scenario_supplies_spares_landing]
-  WHERE load_date = (SELECT MAX(load_date) FROM stage.[scenario_supplies_spares_landing])
-  
+SELECT user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
+  FROM stage.scenario_supplies_spares_landing
+  WHERE load_date = (SELECT MAX(load_date) FROM stage.scenario_supplies_spares_landing);
 
 ------------------------------LOAD SCENARIO DATA TO PROD------------------------------------------
 
-INSERT INTO prod.[scenario_supplies_spares]
+INSERT INTO prod.scenario_supplies_spares
 (
-       [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
+       user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
 )
-SELECT [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
-  FROM stage.[scenario_supplies_spares_staging]
-   WHERE upload_type = 'FORECAST-SCENARIO'
+SELECT user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
+  FROM stage.scenario_supplies_spares_staging
+   WHERE upload_type = 'FORECAST-SCENARIO';
 
 ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
-INSERT INTO prod.[working_forecast_supplies_spares]
+INSERT INTO prod.working_forecast_supplies_spares
 (
-       [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
+       user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
 )
-SELECT [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
-  FROM stage.[scenario_supplies_spares_staging]
- WHERE upload_type = 'WORKING-FORECAST'
+SELECT user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
+  FROM stage.scenario_supplies_spares_staging
+ WHERE upload_type = 'WORKING-FORECAST';
 
 ------------------------------------LOAD EPA DRIVERS TO PROD--------------------------------
 
-INSERT INTO prod.[epa_drivers_supplies_spares]
+INSERT INTO prod.epa_drivers_supplies_spares
 (
-       [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
+       user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
 )
-SELECT [user_name]
-      ,[load_date]
-      ,[upload_type]
-      ,[scenario_name]
-      ,[geography_grain]
-      ,[geography]
-      ,[platform_subset]
-      ,[customer_engagement]
-      ,[base_product_number]
-      ,[measure]
-      ,[min_sys_date]
-      ,[month_num]
-      ,[value]
-  FROM stage.[scenario_supplies_spares_staging]
- WHERE upload_type = 'EPA-DRIVERS'
+SELECT user_name
+      ,load_date
+      ,upload_type
+      ,scenario_name
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,base_product_number
+      ,measure
+      ,min_sys_date
+      ,month_num
+      ,value
+  FROM stage.scenario_supplies_spares_staging
+ WHERE upload_type = 'EPA-DRIVERS';
 
 ------------------DROP TEMP LANDING--------------------------------
 
-DROP TABLE IF EXISTS stage.[scenario_supplies_spares_temp_landing]
+DROP TABLE IF EXISTS stage.scenario_supplies_spares_temp_landing;
 
 ----------------------------------------------xxxx-------------------------------
 
