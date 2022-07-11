@@ -48,7 +48,7 @@ SELECT user_name
 
 ----------------------------TRUNCATE STAGING---------------------------------
 
-DROP TABLE IF EXISTS stage.scenario_yield_staging
+DROP TABLE IF EXISTS stage.scenario_yield_staging;
 
 CREATE TABLE stage.scenario_yield_staging(
     user_name VARCHAR(256) NOT NULL
