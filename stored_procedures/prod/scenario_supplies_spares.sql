@@ -15,6 +15,23 @@ CALL prod.addversion_sproc('SCENARIO_SUPPLIES_SPARES', 'FORECASTER INPUT');
 
 ---------------------------------LOAD DATA IN LANDING TABLE------------------------------------
 
+CREATE TABLE IF NOT EXISTS stage.scenario_supplies_spares_landing(
+    user_name VARCHAR(256) NOT NULL
+    ,load_date TIMESTAMP WITH TIME ZONE NOT NULL
+    ,upload_type VARCHAR(512) NOT NULL
+    ,scenario_name VARCHAR(512)
+    ,geography_grain VARCHAR(256) NOT NULL
+    ,geography VARCHAR(256) NOT NULL
+    ,platform_subset VARCHAR(256) NOT NULL
+    ,customer_engagement VARCHAR(20) NOT NULL
+    ,base_product_number VARCHAR(50) NOT NULL
+    ,measure VARCHAR(128) NOT NULL
+    ,min_sys_date DATE
+    ,month_num INTEGER NOT NULL
+    ,value DOUBLE PRECISION NOT NULL
+);
+GRANT ALL ON TABLE stage.scenario_supplies_spares_landing TO auto_glue;
+
 INSERT INTO stage.scenario_supplies_spares_landing
 (
        user_name

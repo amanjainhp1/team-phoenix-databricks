@@ -9,6 +9,27 @@ BEGIN
 
 SELECT GETDATE() INTO current_date;
 
+CREATE TABLE IF NOT EXISTS stage.usage_share_override_landing(
+    record VARCHAR(25) NOT NULL
+    ,min_sys_date DATE NOT NULL
+    ,month_num INTEGER NOT NULL
+    ,geography_grain VARCHAR(25) NOT NULL
+    ,geography VARCHAR(25) NOT NULL
+    ,platform_subset VARCHAR(150) NOT NULL
+    ,customer_engagement VARCHAR(10) NOT NULL
+    ,forecast_process_note VARCHAR(512)
+    ,post_processing_note VARCHAR(512)
+    ,forecast_created_date DATE
+    ,data_source VARCHAR(255)
+    ,version VARCHAR(25) NOT NULL
+    ,measure VARCHAR(25) NOT NULL
+    ,units DOUBLE PRECISION NOT NULL
+    ,proxy_used VARCHAR(255)
+    ,ib_version VARCHAR(20)
+    ,load_date TIMESTAMP WITH TIME ZONE NOT NULL
+);
+GRANT ALL ON TABLE stage.usage_share_override_landing TO auto_glue;
+
 --remove any records that overlap from the temp table
 DELETE a
 FROM stage.usage_share_override_landing a
