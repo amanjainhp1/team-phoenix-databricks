@@ -51,6 +51,7 @@ INSERT INTO stage.scenario_vtc_override_landing
 )
 SELECT user_name
       ,load_date
+      ,TO_TIMESTAMP(load_date, 'YYYY-MM-DD HH24:MI:SS')
       ,upload_type
       ,scenario_name
       ,geography_grain
@@ -59,7 +60,7 @@ SELECT user_name
       ,customer_engagement
       ,base_product_number
       ,measure
-      ,min_sys_date
+      ,TO_DATE(min_sys_date, 'YYYY-MM-DD')
       ,month_num
       ,value
   FROM stage.scenario_vtc_override_temp_landing;
