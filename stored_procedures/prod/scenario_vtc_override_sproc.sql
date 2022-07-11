@@ -53,7 +53,7 @@ DROP TABLE IF EXISTS stage.scenario_vtc_override_staging;
 
 CREATE TABLE stage.scenario_vtc_override_staging(
     user_name VARCHAR(256) NOT NULL
-    ,load_date TIMESTAMP WITH ZONE NOT NULL
+    ,load_date TIMESTAMP WITH TIME ZONE NOT NULL
     ,upload_type VARCHAR(512) NOT NULL
     ,scenario_name VARCHAR(512)
     ,geography_grain VARCHAR(256) NOT NULL
