@@ -1402,10 +1402,14 @@ WITH crg_months AS
      FROM prod.cartridge_mix_override_transform AS cmo
      JOIN mdm.supplies_xref AS s
          ON s.base_product_number = cmo.base_product_number
+     JOIN mdm.hardware_xref AS hw
+         ON hw.platform_subset = cmo.platform_subset
      JOIN pen_fills AS pf
          ON pf.base_product_number = cmo.base_product_number
          AND pf.cal_date = cmo.cal_date
-         AND pf.market_10 = cmo.geography)
+         AND pf.market_10 = cmo.geography
+     WHERE 1=1
+       AND hw.technology IN ('LASER'))
 
    , transform_mix_step_1_k AS
     (SELECT t.cal_date
@@ -1591,7 +1595,7 @@ WITH crg_months AS
           , t.customer_engagement
           , t.pgs_ccs_mix         AS mix_pct
      FROM transform_combined AS t
-     LEFT JOIN stage.page_cc_mix_override AS p
+     LEFT JOIN add_type_and_yield AS p
          ON p.cal_date = t.cal_date
          AND p.market10 = t.geography
          AND p.platform_subset = t.platform_subset
@@ -1623,44 +1627,62 @@ query_list.append(["stage.page_cc_mix_override", page_cc_mix_override, "overwrit
 
 page_mix_complete = """
 WITH pcm_27_pages_mix_prep AS
-    (
-        -- engine mix; precedence to pcm_26 (forecaster overrides)
-        SELECT m19.type
-             , m19.cal_date
-             , m19.geography_grain
-             , m19.geography
-             , m19.platform_subset
-             , m19.base_product_number
-             , m19.customer_engagement
-             , m19.page_mix
-        FROM stage.page_mix_engine AS m19
-                 LEFT OUTER JOIN stage.page_cc_mix_override AS m26
-                                 ON m26.cal_date = m19.cal_date
-                                     AND UPPER(m26.market10) = UPPER(m19.geography)
-                                     AND UPPER(m26.platform_subset) = UPPER(m19.platform_subset)
-                                     AND UPPER(m26.customer_engagement) = UPPER(m19.customer_engagement)
-        WHERE 1 = 1
-          AND m26.cal_date IS NULL
-          AND m26.market10 IS NULL
-          AND m26.platform_subset IS NULL
-          AND m26.customer_engagement IS NULL
+    (SELECT m19.type
+          , m19.cal_date
+          , m19.geography_grain
+          , m19.geography
+          , m19.platform_subset
+          , m19.base_product_number
+          , m19.customer_engagement
+          , m19.page_mix
+     FROM stage.page_mix_engine AS m19
+     LEFT OUTER JOIN stage.page_cc_mix_override AS m26
+         ON m26.cal_date = m19.cal_date
+         AND UPPER(m26.market10) = UPPER(m19.geography)
+         AND UPPER(m26.platform_subset) = UPPER(m19.platform_subset)
+         AND UPPER(m26.customer_engagement) = UPPER(m19.customer_engagement)
+         AND m26.type = 'UPLOADS' -- engine mix; precedence to pcm_26 (forecaster overrides)
+     WHERE 1 = 1
+       AND m26.cal_date IS NULL
+       AND m26.market10 IS NULL
+       AND m26.platform_subset IS NULL
+       AND m26.customer_engagement IS NULL
 
-        UNION ALL
+     UNION ALL
 
-        -- page mix uploads and transforms
-        SELECT 'PCM_FORECASTER_OVERRIDE' AS type
-             , m26.cal_date
-             , 'MARKET10' AS geography_grain
-             , m26.market10 AS geography
-             , m26.platform_subset
-             , m26.base_product_number
-             , m26.customer_engagement
-             , m26.mix_pct AS page_mix
-        FROM stage.page_cc_mix_override AS m26
-        JOIN mdm.hardware_xref AS hw
-            ON hw.platform_subset = m26.platform_subset
-        WHERE 1=1
-          AND hw.technology = 'LASER')
+     -- page mix uploads
+     SELECT 'PCM_FORECASTER_OVERRIDE' AS type
+          , m26.cal_date
+          , 'MARKET10'                AS geography_grain
+          , m26.market10              AS geography
+          , m26.platform_subset
+          , m26.base_product_number
+          , m26.customer_engagement
+          , m26.mix_pct               AS page_mix
+     FROM stage.page_cc_mix_override AS m26
+     JOIN mdm.hardware_xref AS hw
+         ON hw.platform_subset = m26.platform_subset
+     WHERE 1 = 1
+       AND m26.type = 'UPLOADS'
+       AND hw.technology = 'LASER'
+
+     UNION ALL
+
+     -- page mix transforms
+     SELECT 'PCM_FORECASTER_OVERRIDE' AS type
+          , m26.cal_date
+          , 'MARKET10'                AS geography_grain
+          , m26.market10              AS geography
+          , m26.platform_subset
+          , m26.base_product_number
+          , m26.customer_engagement
+          , m26.mix_pct               AS page_mix
+     FROM stage.page_cc_mix_override AS m26
+     JOIN mdm.hardware_xref AS hw
+         ON hw.platform_subset = m26.platform_subset
+     WHERE 1 = 1
+       AND m26.type = 'TRANSFORMED_UPLOADS'
+       AND hw.technology = 'LASER')
 
    , pcm_28_pages_ccs_mix_filter AS
     (SELECT m27.type
