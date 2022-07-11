@@ -50,7 +50,7 @@ bucket = f"dataos-core-{stack}-team-phoenix"
 bucket_prefix = "landing/ODW/odw_document_currency"
 dbfs_mount = '/mnt/odw_document_currency/'
 
-s3_mount(bucket, dbfs_mount)
+s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
 
 # COMMAND ----------
 
