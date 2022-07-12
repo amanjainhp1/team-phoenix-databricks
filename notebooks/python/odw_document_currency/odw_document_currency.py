@@ -47,10 +47,10 @@ if redshift_row_count == 0:
 
 # mount S3 bucket
 bucket = f"dataos-core-{stack}-team-phoenix"
-bucket_prefix = "landing/odw/odw_document_currency"
+bucket_prefix = "landing/ODW/odw_document_currency"
 dbfs_mount = '/mnt/odw_document_currency/'
 
-s3_mount(bucket, dbfs_mount)
+s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
 
 # COMMAND ----------
 
@@ -94,10 +94,8 @@ if redshift_row_count > 0:
         .option("treatEmptyValuesAsNulls", "False")\
         .load(f"s3a://{bucket}/{bucket_prefix}/{document_currency_latest_file}")
 
-    document_currency_df = document_currency_df
-        .withColumn("load_date", current_date()) \
-        .withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(IntegerType())) \
-        .withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(StringType())) \
+    document_currency_df = document_currency_df.withColumn("load_date", current_date()) \
+        .withColumn("Fiscal Year/Period", (document_currency_df["Fiscal Year/Period"].cast(IntegerType())).cast(StringType()))
 
     write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency_report", "append")
 
