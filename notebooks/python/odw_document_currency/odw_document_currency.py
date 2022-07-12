@@ -95,8 +95,7 @@ if redshift_row_count > 0:
         .load(f"s3a://{bucket}/{bucket_prefix}/{document_currency_latest_file}")
 
     document_currency_df = document_currency_df.withColumn("load_date", current_date()) \
-        .withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(IntegerType())) 
-    document_currency_df = document_currency_df.withColumn("Fiscal Year/Period", document_currency_df["Fiscal Year/Period"].cast(StringType()))
+        .withColumn("Fiscal Year/Period", (document_currency_df["Fiscal Year/Period"].cast(IntegerType())).cast(StringType()))
 
     write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency_report", "append")
 
