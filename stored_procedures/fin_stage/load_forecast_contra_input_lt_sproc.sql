@@ -36,7 +36,7 @@ FROM fin_stage.forecast_contra_input_lt_landing;
 
 ------------------------------------------RUN PROC--------------------------------------
 
-CALL fin_prod.load_forecast_contra_input_lt_sproc;
+CALL fin_prod.load_forecast_contra_input_lt_sproc();
 
 --------------------------------DROP LANDING TABLE-------------------------------------
 DROP TABLE fin_stage.forecast_contra_input_lt_landing;

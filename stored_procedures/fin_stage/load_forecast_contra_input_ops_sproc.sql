@@ -39,7 +39,7 @@ FROM fin_stage.forecast_contra_input_ops_landing;
 
 ---------------------------------------------------------MOVE DATA TO OFFICIAL FINANCIAL TABLE-------------------------------------
 
-CALL fin_prod.load_forecast_contra_input_ops_sproc;
+CALL fin_prod.load_forecast_contra_input_ops_sproc();
 
 --------------------------------------------DROP TABLE------------------------------------------------------
 
