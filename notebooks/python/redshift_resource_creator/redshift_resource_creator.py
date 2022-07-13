@@ -115,9 +115,11 @@ for input_json_file in input_json_files:
     drop_table_query = ""
     if dbutils.widgets.get("drop_tables").lower() == "true":
         drop_table_query = "DROP TABLE IF EXISTS {}.{};".format(input_schema, input_table_name)
+        print("dropping table (if exists) {}.{}".format(input_schema, input_table_name))
     
+    print("creating table {}.{}...".format(input_schema, input_table_name))
     submit_remote_query(configs, drop_table_query + sql_query)
-
+    print("table {}.{} created!".format(input_schema, input_table_name))
 # COMMAND ----------
 
 # stored_procedures
@@ -136,4 +138,7 @@ for input_file in input_files:
     GRANT ALL ON PROCEDURE {sproc} TO {configs["redshift_username"]};
     GRANT ALL ON PROCEDURE {sproc} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
+
+    print("creating stored procedure {}.{}...".format(input_schema, input_table_name))
     submit_remote_query(configs, sql_query + "\n" + permissions_query)
+    print("stored procedure {}.{} created!".format(input_schema, input_table_name))

@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE PROCEDURE stage.supplies_stf_update_sproc()
     LANGUAGE plpgsql
 AS $$
