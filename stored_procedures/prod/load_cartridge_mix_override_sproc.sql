@@ -89,7 +89,7 @@ GRANT ALL ON TABLE stage.cartridge_mix_override_staging TO auto_glue;
 
 ------------------------------LOAD DATA TO STAGING-------------------------
 
-INSERT INTO IE2_Staging.dbo.cartridge_mix_override_staging
+INSERT INTO stage.cartridge_mix_override_staging
 (
  record
 ,platform_subset
@@ -123,7 +123,7 @@ WHERE load_date = (SELECT MAX(load_date) FROM stage.cartridge_mix_override_landi
 UPDATE TGT
 SET TGT.official = 0
 FROM prod.cartridge_mix_override TGT
-INNER JOIN  IE2_Staging.dbo.cartridge_mix_override_staging SRC
+INNER JOIN  stage.cartridge_mix_override_staging SRC
 ON  SRC.platform_subset = TGT.platform_subset
     AND SRC.crg_Base_Prod_Number =  TGT.crg_base_prod_number
     AND SRC.geography = TGT.geography 
