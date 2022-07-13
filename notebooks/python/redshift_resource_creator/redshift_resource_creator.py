@@ -131,7 +131,8 @@ input_files = get_file_list("/stored_procedures/", ".sql")
 for input_file in input_files:
     
     sql_query = open(input_file).read()
-    sproc = re.sub('CREATE OR REPLACE PROCEDURE', '', sql_query.split("\n")[0])
+    sproc_name = sql_query.split("\n")[0]
+    sproc = re.sub('CREATE OR REPLACE PROCEDURE', '', sproc_name)
     
     permissions_query = f"""
     -- Permissions
@@ -139,6 +140,6 @@ for input_file in input_files:
     GRANT ALL ON PROCEDURE {sproc} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
 
-    print("creating stored procedure {}.{}...".format(input_schema, input_table_name))
+    print("creating stored procedure {}...".format(sproc_name))
     submit_remote_query(configs, sql_query + "\n" + permissions_query)
-    print("stored procedure {}.{} created!".format(input_schema, input_table_name))
+    print("stored procedure {} created!".format(sproc_name))
