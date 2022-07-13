@@ -39,7 +39,7 @@ SELECT 'GRU_OVERRIDE' as record
 				AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as version
       ,(SELECT load_date from prod.version WHERE record = 'GRU_OVERRIDE' 
 				AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as load_date
-FROM fin_stage.forecast_gru_override_ops_temp_landing
+FROM fin_stage.forecast_gru_override_ops_temp_landing;
 
 END;
 
