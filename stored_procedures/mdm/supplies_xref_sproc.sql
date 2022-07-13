@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE prod.supplies_xref_sproc()
+CREATE OR REPLACE PROCEDURE mdm.supplies_xref_sproc()
     LANGUAGE plpgsql
 AS $$
 

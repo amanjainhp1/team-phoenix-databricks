@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE prod.yield_sproc()
+CREATE OR REPLACE PROCEDURE mdm.yield_sproc()
     LANGUAGE plpgsql
 AS $$
 
