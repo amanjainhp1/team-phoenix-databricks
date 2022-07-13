@@ -313,7 +313,7 @@ zero <- sqldf("SELECT distinct --a.SKU,
               
               , SUM(MonthlyUsage*1000) AS SumMPVwtN
               , SUM(IB) AS SumibWt
-              , AVG(MonthlyUsage*1000) AS meansummpvwtn
+              , SUM(MonthlyUsage*1000*IB) AS meansummpvwtn
               , SUM(MonthlyCount) AS SumN
               , SUM(IB) AS IB
                       
@@ -344,7 +344,7 @@ zero <- sqldf("SELECT distinct --a.SKU,
                 where z.platform_subset is not null
                 ")
  
-zero$pMPV <- ifelse(((zero$YearMonth) >= start1 & (zero$YearMonth <=end1)), as.numeric(zero$SumMPVwtN),NA)
+zero$pMPV <- ifelse(((zero$YearMonth) >= start1 & (zero$YearMonth <=end1)), as.numeric(zero$meansummpvwtn)/as.numeric(zero$IB),NA)
 zero$pN <- ifelse(((zero$YearMonth) >= start1 & (zero$YearMonth <=end1)), zero$SumN, NA)
 zero$pMPVN <- zero$pMPV*zero$pN
 #zero$financial_prod_category <- ifelse(zero$financial_prod_category=="Graphics Production","GPA",zero$financial_prod_category)
@@ -781,7 +781,7 @@ outcome2 <- dplyr::bind_rows(outcome2,outcome3)
   #since changing to Cumulus, and sources are no longer separate, zero is not limited to time (just the values zero$pMPV and zero$pN are), so is not different anymore
 usage <- sqldf("with sub0 as (select a.platform_subset as printer_platform_name,c.region_5 as printer_region_code, c.country_alpha2, c.market10, c.developed_emerging, a.YearMonth as FYearMo, a.biz
                   , a.segment
-                  , sum(SumMPVwtN) AS SumMPV, sum(a.SumN) as SumN, sum(a.SumibWt) as SUMib
+                  , avg(meansummpvwtn/IB) AS SumMPV, sum(a.SumN) as SumN, sum(a.SumibWt) as SUMib
               from zero a
               left join geomap c
               on a.geography=c.LF_geography

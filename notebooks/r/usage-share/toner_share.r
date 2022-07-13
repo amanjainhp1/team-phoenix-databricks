@@ -21,6 +21,8 @@ dbutils.widgets.text("aws_iam_role", "")
 dbutils.widgets.text("bdtbl", "cumulus_prod04_dashboard.dashboard.print_share_usage_agg_stg")
 dbutils.widgets.text("upm_date", "")
 dbutils.widgets.text("writeout", "")
+dbutils.widgets.text("cutoff_dt", "")
+dbutils.widgets.text("upm_date_color", "")
 
 # COMMAND ----------
 
@@ -2888,6 +2890,7 @@ UPM2 <- SparkR::sql('
               , avg(b.Seasonality) as Seasonality
               --, avg(b.Cyclical) as Cyclical
               , avg(b.Decay) as Decay
+              , a.label  
               FROM UPM a 
               LEFT JOIN 
                 (SELECT Mkt, CM, FYearQtr --, avg(MUT) as MUT
@@ -3165,6 +3168,7 @@ final_list2 <- SparkR::sql("
                       , d.value AS Share_Raw_PS
                       , d.printer_count_month_ps AS Share_Raw_N_PS
                       , e.usage_n
+                      , b.label
                       --, a.cu_proxy AS Proxy_CU
                       --, f.share_region_incl_flag AS BD_Share_Flag_CU
                       --, a.cu_min AS Model_Min_CU
