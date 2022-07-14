@@ -82,11 +82,14 @@ print("wd3_max_cal_date: " + wd3_max_cal_date)
 flash_version = spark.sql("""SELECT MAX(version) AS version FROM flash""").head()[0]
 print("flash_version: " + flash_version)
 
-flash_record = "flash"
-print("flash_record: " + flash_record)
+flash_load_date = spark.sql("""SELECT MAX(load_date) AS load_date FROM flash""").head()[0]
+print("flash_load_date: " + str(flash_load_date))
+
+wd3_version = spark.sql("""SELECT MAX(version) AS version FROM wd3 WHERE record LIKE ('WD3%')""").head()[0]
+print("wd3_version: " + wd3_version)
 
 wd3_load_date = str(spark.sql("""SELECT MAX(load_date) AS load_date FROM wd3 WHERE record LIKE ('WD3%')""").head()[0])
-print("wd3_load_date: " + wd3_load_date)
+print("wd3_load_date: " + str(wd3_load_date))
 
 flash_forecast_name = spark.sql(f"""SELECT DISTINCT source_name FROM flash WHERE version = '{flash_version}'""").head()[0]
 print("flash_forecast_name: " + flash_forecast_name)
@@ -538,3 +541,16 @@ wd3_allocated_ltf_wd3_pct.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite")
 
 write_df_to_redshift(configs, hardware_ltf, "prod.hardware_ltf", "append")
+
+# COMMAND ----------
+
+# insert input info into scenario table
+scenario_name = 'HW_STF_FCST - ' + max_forecast_version
+
+scenario_query = f"""
+INSERT INTO prod.scenario VALUES
+('{scenario_name}', 'FLASH', '{flash_version}', '{flash_load_date}'),
+('{scenario_name}', 'WD3', '{wd3_version}', '{wd3_load_date}');
+"""
+
+submit_remote_query(configs, scenario_query)
