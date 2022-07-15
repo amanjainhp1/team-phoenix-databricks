@@ -49,7 +49,7 @@ SELECT record
     , single_multi
     , crg_chrome
     , k_color
-    , crg_intro_dt
+    , TO_TIMESTAMP(crg_intro_dt, 'YYYY-MM-DD HH24:MI:SS')
     , "size"
     , technology
     , supplies_family

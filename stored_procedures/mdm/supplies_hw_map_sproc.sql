@@ -43,12 +43,12 @@ SELECT
     , base_product_number
     , sm.customer_engagement
     , sm.platform_subset
-    , sm.eol
-    , sm.eol_date
+    , CAST(CAST(sm.eol AS INTEGER) AS BOOLEAN)
+    , TO_DATE(sm.eol_date, 'YYYY-MM-DD')
     , sm.host_multiplier
     , 1 AS official
-    , sm.load_date AS last_modified_date
-    , sm.load_date
+    , TO_TIMESTAMP(sm.load_date, 'YYYY-MM-DD HH24:MI:SS') AS last_modified_date
+    , TO_TIMESTAMP(sm.load_date, 'YYYY-MM-DD HH24:MI:SS')
 FROM stage.supplies_hw_mapping_temp_landing sm
 WHERE is_delete != 1; 
 
