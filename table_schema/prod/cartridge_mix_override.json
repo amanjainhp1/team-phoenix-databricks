@@ -1,0 +1,95 @@
+{
+    "fields": [
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(25)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "platform_subset",
+            "name": "platform_subset",
+            "type": "VARCHAR(100)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "crg_base_prod_number",
+            "name": "crg_base_prod_number",
+            "type": "VARCHAR(25)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography",
+            "name": "geography",
+            "type": "VARCHAR(256)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography_grain",
+            "name": "geography_grain",
+            "type": "VARCHAR(256)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "mix_pct",
+            "name": "mix_pct",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "product_lifecycle_status",
+            "name": "product_lifecycle_status",
+            "type": "VARCHAR(5)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "customer_engagement",
+            "name": "customer_engagement",
+            "type": "VARCHAR(25)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        }
+        {
+            "description": "official",
+            "name": "official",
+            "type": "BOOLEAN",
+            "nullable": true,
+            "encode": "raw"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
