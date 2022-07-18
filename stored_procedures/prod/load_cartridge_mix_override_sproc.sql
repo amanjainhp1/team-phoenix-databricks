@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE PROCEDURE prod.load_cartridge_mix_override_sproc()
     LANGUAGE plpgsql
 AS $$
