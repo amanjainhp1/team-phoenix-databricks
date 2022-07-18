@@ -26,19 +26,20 @@ INSERT INTO fin_prod.forecast_gru_override
            ,country_code
            ,gru
            ,official
+           ,load_date
            ,version
-           ,load_date)
+           )
 SELECT 'GRU_OVERRIDE' as record
-	  ,pl
+      ,pl
       ,base_product_number
       ,region_5
       ,country_code
       ,gru
       ,1 as official
-	  ,(SELECT version from prod.version WHERE record = 'GRU_OVERRIDE' 
-				AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as version
       ,(SELECT load_date from prod.version WHERE record = 'GRU_OVERRIDE' 
-				AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as load_date
+                AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as load_date
+      ,(SELECT version from prod.version WHERE record = 'GRU_OVERRIDE' 
+                AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as version
 FROM fin_stage.forecast_gru_override_ops_temp_landing;
 
 END;
