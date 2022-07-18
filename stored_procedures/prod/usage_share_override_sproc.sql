@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE prod.usage_share_override()
+CREATE OR REPLACE PROCEDURE prod.usage_share_override_sproc()
     LANGUAGE plpgsql
 AS $$
 
