@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE fin_prod.load_forecast_contra_sproc()
+CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_sproc()
     LANGUAGE plpgsql
 AS $$
 
