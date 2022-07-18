@@ -75,7 +75,7 @@ SELECT UPPER(geography_grain)
   WHERE units <> 0;
 
 --clear out the temp table
-DELETE TABLE stage.supplies_stf_temp_landing;
+DROP TABLE stage.supplies_stf_temp_landing;
 
 END;
 
