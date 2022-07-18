@@ -33,6 +33,7 @@
 # MAGIC     + mdm.supplies_xref
 # MAGIC     + prod.actual_supplies 
 # MAGIC     + stage.shm_base_helper
+# MAGIC + demand
 # MAGIC + page_mix_engine - toner
 # MAGIC   + historical/actuals time period + projection through forecast time period
 # MAGIC   + aggregate page_mix to 1 across crg_chrome (K, C, M, Y)
@@ -222,6 +223,168 @@ query_list.append(["stage.cartridge_units", cartridge_units, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## demand
+
+# COMMAND ----------
+
+demand = """
+WITH dbd_01_ib_load AS
+    (SELECT ib.cal_date
+          , ib.platform_subset
+          , ib.customer_engagement
+          , ccx.market10 AS geography
+          , ib.measure
+          , ib.units
+     FROM prod.ib AS ib
+              JOIN mdm.iso_country_code_xref AS ccx
+                   ON ccx.country_alpha2 = ib.country_alpha2
+              JOIN mdm.hardware_xref AS hw
+                   ON hw.platform_subset = ib.platform_subset
+     WHERE 1 = 1
+       AND ib.version = (SELECT MAX(version) FROM prod.ib)
+       AND NOT UPPER(hw.product_lifecycle_status) = 'E'
+       AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+       AND ib.cal_date > CAST('2015-10-01' AS DATE))
+
+   , dmd_02_ib AS
+    (SELECT ib.cal_date
+          , ib.platform_subset
+          , ib.customer_engagement
+          , ib.geography
+          , SUM(CASE WHEN UPPER(ib.measure) = 'IB' THEN ib.units END) AS ib
+     FROM dbd_01_ib_load AS ib
+     GROUP BY ib.cal_date
+            , ib.platform_subset
+            , ib.customer_engagement
+            , ib.geography)
+
+   , dmd_03_us_load AS
+    (SELECT us.geography
+          , us.cal_date                         AS year_month_start
+          , CASE
+                WHEN hw.technology = 'LASER' AND
+                     us.platform_subset LIKE '%STND%'
+                    THEN 'STD'
+                WHEN hw.technology = 'LASER' AND
+                     us.platform_subset LIKE '%YET2%'
+                    THEN 'HP+'
+                ELSE us.customer_engagement END AS customer_engagement
+          , us.platform_subset
+          , us.measure
+          , us.units
+     FROM phoenix_spectrum_itg.usage_share AS us
+              JOIN mdm.hardware_xref AS hw
+                   ON hw.platform_subset = us.platform_subset
+     WHERE 1 = 1
+       AND us.version = (SELECT MAX(version) FROM phoenix_spectrum_itg.usage_share)
+       AND UPPER(us.measure) IN
+           ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
+       AND UPPER(us.geography_grain) = 'MARKET10'
+       AND NOT UPPER(hw.product_lifecycle_status) = 'E'
+       AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+       AND us.cal_date > CAST('2015-10-01' AS DATE))
+
+   , dmd_04_us_agg AS
+    (SELECT us.geography
+          , us.year_month_start
+          , us.customer_engagement
+          , us.platform_subset
+          , MAX(CASE
+                    WHEN UPPER(us.measure) = 'USAGE' THEN us.units
+                    ELSE NULL END) AS usage
+          , MAX(CASE
+                    WHEN UPPER(us.measure) = 'COLOR_USAGE' THEN us.units
+                    ELSE NULL END) AS color_usage
+          , MAX(CASE
+                    WHEN UPPER(us.measure) = 'K_USAGE' THEN us.units
+                    ELSE NULL END) AS k_usage
+          , MAX(CASE
+                    WHEN UPPER(us.measure) = 'HP_SHARE' THEN us.units
+                    ELSE NULL END) AS hp_share
+     FROM dmd_03_us_load AS us
+     GROUP BY us.geography
+            , us.year_month_start
+            , us.customer_engagement
+            , us.platform_subset)
+
+   , dmd_05_us AS
+    (SELECT us.geography
+          , us.year_month_start
+          , us.customer_engagement
+          , us.platform_subset
+          , CASE
+                WHEN us.color_usage IS NULL AND us.k_usage IS NULL
+                    THEN usage
+                ELSE us.k_usage END AS k_usage
+          , us.color_usage
+          , us.hp_share
+          , 0                       AS fraction_host
+     FROM dmd_04_us_agg AS us)
+
+   , dmd_06_us_ib AS
+    (SELECT ib.cal_date
+          , ib.platform_subset
+          , ib.customer_engagement
+          , ib.geography
+          , ib.ib
+          , us.color_usage
+          , us.k_usage
+          , us.hp_share
+          , us.fraction_host
+     FROM dmd_05_us AS us
+              JOIN dmd_02_ib AS ib
+                   ON us.geography = ib.geography
+                       AND us.year_month_start = ib.cal_date
+                       AND
+                      us.platform_subset = ib.platform_subset
+                       AND us.customer_engagement =
+                           ib.customer_engagement)
+
+   , dmd_07_calcs AS
+    (SELECT cal_date
+          , geography
+          , platform_subset
+          , customer_engagement
+          , SUM(ib)                            AS IB
+          , SUM(k_usage * hp_share * ib)       AS HP_K_PAGES
+          , SUM(k_usage * (1 - hp_share) * ib) AS NON_HP_K_PAGES
+          , SUM(color_usage * hp_share * ib)   AS HP_C_PAGES
+          , SUM(color_usage *
+                (1 - hp_share) *
+                ib)                            AS NON_HP_C_PAGES
+          , SUM(color_usage * ib)              AS TOTAL_C_PAGES
+          , SUM(k_usage * ib)                  AS TOTAL_K_PAGES
+     FROM dmd_06_us_ib
+     GROUP BY cal_date
+            , geography
+            , platform_subset
+            , customer_engagement)
+
+   , dmd_09_unpivot_measure AS
+    (SELECT cal_date
+          , geography
+          , platform_subset
+          , customer_engagement
+          , measure
+          , units
+     FROM dmd_07_calcs UNPIVOT (
+                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_C_PAGES, NON_HP_C_PAGES, TOTAL_C_PAGES, TOTAL_K_PAGES)
+         ) AS final_unpivot)
+
+SELECT dmd.cal_date
+      , dmd.geography
+      , dmd.platform_subset
+      , dmd.customer_engagement
+      , dmd.measure
+      , dmd.units
+ FROM dmd_09_unpivot_measure AS dmd
+"""
+
+query_list.append(["stage.demand", demand, "overwrite"])
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## page_mix_engine - toner
 
 # COMMAND ----------
@@ -240,7 +403,7 @@ WITH pcm_02_hp_demand AS
                         THEN units END)                                       AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END *
                 3)                                                            AS cmy_demand
-     FROM stage.usage_share_staging AS d
+     FROM stage.demand AS d
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = d.platform_subset
      WHERE 1 = 1
@@ -804,7 +967,7 @@ WITH pcm_02_hp_demand AS
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END)     AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
-     FROM stage.usage_share_staging AS d
+     FROM stage.demand AS d
      JOIN mdm.hardware_xref AS hw
         ON hw.platform_subset = d.platform_subset
      WHERE 1 = 1

@@ -80,7 +80,7 @@ WITH crg_months AS
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END)     AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
-     FROM stage.usage_share_staging AS d
+     FROM stage.demand AS d
      JOIN mdm.hardware_xref AS hw
         ON UPPER(hw.platform_subset) = UPPER(d.platform_subset)
      WHERE 1 = 1
