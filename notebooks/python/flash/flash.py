@@ -19,7 +19,7 @@ redshift_flash_record = read_redshift_to_df(configs) \
     .count()
 
 if redshift_flash_record > 0:
-    dbutils.notebook.exit(archer_flash_record_str + " is already contained in Redshift prod.flash_wd3 table")
+    raise Exception(archer_flash_record_str + " is already contained in Redshift prod.flash_wd3 table")
 
 # COMMAND ----------
 
