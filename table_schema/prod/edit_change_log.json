@@ -1,8 +1,8 @@
 {
     "fields": [
         {
-            "description": "table",
-            "name": "table",
+            "description": "table_name",
+            "name": "table_name",
             "type": "VARCHAR(255)",
             "nullable": true,
             "encode": "lzo"
@@ -22,8 +22,8 @@
             "encode": "lzo"
         },
         {
-            "description": "column",
-            "name": "column",
+            "description": "column_name",
+            "name": "column_name",
             "type": "VARCHAR(255)",
             "nullable": true,
             "encode": "lzo"
