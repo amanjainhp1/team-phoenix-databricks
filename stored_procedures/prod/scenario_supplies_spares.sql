@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE prod.scenario_supplies_spares_sproc()
+CREATE OR REPLACE PROCEDURE prod.scenario_supplies_spares_sproc(group_param varchar)
     LANGUAGE plpgsql
 AS $$
 
@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS stage.scenario_supplies_spares_landing(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_supplies_spares_landing TO auto_glue;
+GRANT ALL ON TABLE stage.scenario_supplies_spares_landing TO GROUP group_param;
 
 INSERT INTO stage.scenario_supplies_spares_landing
 (
@@ -83,6 +84,7 @@ CREATE TABLE stage.scenario_supplies_spares_staging(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_supplies_spares_staging TO auto_glue;
+GRANT ALL ON TABLE stage.scenario_supplies_spares_staging TO GROUP group_param;
 
 ---------LOAD STAGING TABLE----------------------------------------------------------
 
