@@ -500,4 +500,4 @@ matures_norm_final_landing \
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-
+write_df_to_s3(df=matures_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
