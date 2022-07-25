@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE fin_stage.load_npi_base_gru_ops_sproc()
+CREATE OR REPLACE PROCEDURE fin_stage.load_npi_base_gru_ops_sproc(group_param varchar)
     LANGUAGE plpgsql
 AS $$
 
@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS fin_stage.npi_base_gru_ops_staging(
     ,gru DOUBLE PRECISION
 );
 GRANT ALL ON TABLE fin_stage.npi_base_gru_ops_staging TO auto_glue;
+GRANT ALL ON TABLE fin_stage.npi_base_gru_ops_staging TO GROUP group_param;
 
 ---------------------TRUNCATE NPI BASE TABLE IN fin_stage----------------------------------
 

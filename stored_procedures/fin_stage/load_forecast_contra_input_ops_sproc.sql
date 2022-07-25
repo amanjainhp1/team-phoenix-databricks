@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_sproc()
+CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_sproc(group_param varchar)
     LANGUAGE plpgsql
 AS $$
 
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS fin_stage.forecast_contra_input_ops_staging(
     ,base_product_number VARCHAR(50)
 );
 GRANT ALL ON TABLE fin_stage.forecast_contra_input_ops_staging TO auto_glue;
+GRANT ALL ON TABLE fin_stage.forecast_contra_input_ops_staging TO GROUP group_param;
 
 ---------------------TRUNCATE FORECAST CONTRA TABLE IN fin_prod----------------------------------
 
