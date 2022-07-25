@@ -103,7 +103,9 @@ for table in tables.items():
     # for prod.scenario, select all records grouped by latest load_date
     elif "scenario" in source:
         w = Window.partitionBy('record')
-        source_df = source_df.withColumn('max_load_date', f.max('load_date').over(w)) \
+        source_df = source_df \
+            .filter((col("record") != "ALLOCATED FLASH PLUS LTF")) \
+            .withColumn('max_load_date', f.max('load_date').over(w)) \
             .where(f.col('load_date') == f.col('max_load_date')) \
             .drop('max_load_date') \
     # else if norm_ships, filter to latest version
