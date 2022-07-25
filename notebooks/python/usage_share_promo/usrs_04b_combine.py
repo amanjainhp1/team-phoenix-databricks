@@ -1,8 +1,8 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # Usage Share Refactor Step 04
-# MAGIC - Combine data
-# MAGIC - This portion will be run only when there is a new usage/share run (ie Quarter End)
+# MAGIC - Add NPIs into data
+# MAGIC - This portion will be run each time an update is required
 
 # COMMAND ----------
 
@@ -31,14 +31,14 @@ import psycopg2 as ps
 # COMMAND ----------
 
 # Read in Current data
-#current_table=need to get step 01 results
-#current_table.createOrReplaceTempView("current_table")
+current_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing")
+current_table.createOrReplaceTempView("current_table")
 
 # COMMAND ----------
 
-# Read in Mature data
-matures_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_norm_final_landing")
-matures_table.createOrReplaceTempView("matures_table")
+# Read in NPI data
+npi_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/npi_norm_final_landing")
+npi_table.createOrReplaceTempView("npi_table")
 
 # COMMAND ----------
 
@@ -73,7 +73,6 @@ SELECT c.record
       ,h.product_lifecycle_status
       ,h.product_lifecycle_status_usage
       ,h.product_lifecycle_status_share
-      ,h.epa_family
       ,CONCAT(c.platform_subset,c.customer_engagement,c.geography,c.cal_date) as grp_id
 FROM current_table c
 LEFT JOIN hardware_info h
@@ -85,7 +84,7 @@ current_1.createOrReplaceTempView("current_1")
 
 # COMMAND ----------
 
-mature_1 = """
+npi_1 = """
 
 SELECT c.record
       ,c.cal_date
@@ -104,21 +103,20 @@ SELECT c.record
       ,h.product_lifecycle_status
       ,h.product_lifecycle_status_usage
       ,h.product_lifecycle_status_share
-      ,h.epa_family
       ,CONCAT(c.platform_subset,c.customer_engagement,c.geography,c.cal_date) as grp_id
-FROM matures_table c
+FROM npi_table c
 LEFT JOIN hardware_info h
     ON c.platform_subset=h.platform_subset
 WHERE c.units >0 
-    AND h.product_lifecycle_status != 'E'
+    AND h.product_lifecycle_status = 'N' or h.product_lifecycle_status_usage='N' or product_lifecycle_status_share='N'
 """
 
-mature_1=spark.sql(mature_1)
-mature_1.createOrReplaceTempView("mature_1")
+npi_1=spark.sql(npi_1)
+npi_1.createOrReplaceTempView("npi_1")
 
 # COMMAND ----------
 
-display(mature_1)
+display(npi_1)
 
 # COMMAND ----------
 
@@ -133,14 +131,14 @@ SELECT c.record
       ,c.customer_engagement
       ,c.forecast_process_note
       ,c.post_processing_note
-      ,CASE WHEN c.product_lifecycle_status_share='M' AND c.measure='HP_SHARE' THEN m.data_source
-            WHEN c.product_lifecycle_status_usage='M' AND c.measure like '%USAGE%' THEN m.data_source
+      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' THEN m.data_source
+            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' THEN m.data_source
             ELSE c.data_source
             END AS data_source
       ,c.version
       ,c.measure
-      ,CASE WHEN c.product_lifecycle_status_share='M' AND c.measure='HP_SHARE' THEN m.units
-            WHEN c.product_lifecycle_status_usage='M' AND c.measure like '%USAGE%' THEN m.units
+      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' THEN m.units
+            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' THEN m.units
             ELSE c.units
             END AS units
       ,c.proxy_used
@@ -148,7 +146,7 @@ SELECT c.record
       ,c.load_date
       ,c.grp_id
 FROM current_1 c
-INNER JOIN mature_1 m
+INNER JOIN npi_1 m
     ON 1=1
     AND c.platform_subset=m.platform_subset
     AND c.customer_engagement=m.customer_engagement
@@ -195,7 +193,7 @@ FROM current_1
       ,ib_version
       ,load_date
 FROM overlap_1)
-, mat_1 as (SELECT record
+, npi_1 as (SELECT record
       ,cal_date
       ,geography_grain
       ,geography
@@ -210,14 +208,14 @@ FROM overlap_1)
       ,proxy_used
       ,ib_version
       ,load_date
-FROM matures_1
+FROM npi_1
 WHERE grp_id not in (select distinct grp_id from overlap_1))
 , combine as (
 SELECT * FROM mat_1
 UNION ALL
 SELECT * FROM ovr_1
 UNION ALL
-SELECT * FROM mat_1
+SELECT * FROM npi_1
 )
 
 
@@ -225,8 +223,3 @@ SELECT * FROM mat_1
 
 combine_1=spark.sql(combine_1)
 combine_1.createOrReplaceTempView("combine_1")
-
-# COMMAND ----------
-
-#write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-#write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing", format="parquet", mode="overwrite", upper_strings=True)
