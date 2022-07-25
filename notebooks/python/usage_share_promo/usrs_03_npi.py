@@ -39,6 +39,15 @@ npi_in.createOrReplaceTempView("npi_in")
 
 # COMMAND ----------
 
+mature_tst=spark.sql("""select * from npi_in where platform_subset ='EUTHENIA STND DM1' AND (geography='AP' or upper(geography)='GREATER ASIA') order by customer_engagement, measure, month_num""")
+mature_tst.createOrReplaceTempView("mature_tst")
+
+# COMMAND ----------
+
+display(mature_tst)
+
+# COMMAND ----------
+
 npi_in_r5 = spark.sql("""select * from npi_in where upper(geography_grain) ='REGION_5' """)
 npi_in_r5.createOrReplaceTempView("npi_in_r5")
 npi_in_m10 = spark.sql("""select * from npi_in where upper(geography_grain) ='MARKET10' """)
@@ -83,12 +92,33 @@ ib_info_r5 = read_redshift_to_df(configs) \
  .load()
 ib_info_r5.createOrReplaceTempView("ib_info_r5")
 
-npi_helper_1 = """
+npi_helper_1 = f"""
  with stp1 as (SELECT npi.record
       ,npi.min_sys_dt
       ,ibdt.ib_strt_dt
       ,npi.month_num
       ,'Country' as geography_grain
+      ,npi.geography
+      ,upper(npi.platform_subset) as platform_subset
+      ,upper(npi.customer_engagement) as customer_engagement
+      ,upper(npi.forecast_process_note) as forecast_process_note
+      ,upper(npi.post_processing_note) as post_processing_note
+      ,upper(npi.data_source) as data_source
+      ,npi.version
+      ,upper(npi.measure) as measure
+      ,npi.units
+      ,npi.proxy_used
+      ,ib_version
+      ,CAST(current_date() AS DATE) AS load_date
+FROM npi_in_r5 npi
+LEFT JOIN ib_info_r5 ibdt
+  ON upper(npi.geography)=upper(ibdt.region_5) and npi.platform_subset=ibdt.platform_subset and npi.customer_engagement=ibdt.customer_engagement
+  ), 
+ stp2 as (SELECT npi.record
+      ,npi.min_sys_dt
+      ,npi.ib_strt_dt
+      ,npi.month_num
+      ,npi.geography_grain
       ,cc.country_alpha2
       ,upper(npi.platform_subset) as platform_subset
       ,upper(npi.customer_engagement) as customer_engagement
@@ -101,18 +131,16 @@ npi_helper_1 = """
       ,npi.proxy_used
       ,npi.ib_version
       ,npi.load_date
-FROM npi_in_r5 npi
-LEFT JOIN  country_info cc
+     FROM stp1 npi
+ LEFT JOIN  country_info cc
   ON upper(npi.geography)=upper(cc.region_5)
-LEFT JOIN ib_info_r5 ibdt
-  ON upper(npi.geography)=upper(ibdt.region_5)
   ),
-stp2 as (select stp1.*
-FROM stp1 
+stp3 as (SELECT stp2.*
+FROM stp2 
 INNER JOIN ib_info ib
-  ON stp1.country_alpha2=ib.country_alpha2 and stp1.platform_subset=ib.platform_subset and stp1.customer_engagement=ib.customer_engagement
+  ON stp2.country_alpha2=ib.country_alpha2 and stp2.platform_subset=ib.platform_subset and stp2.customer_engagement=ib.customer_engagement
   )
-  select * from stp2
+  select * from stp3
 """
 
 npi_helper_1=spark.sql(npi_helper_1)
@@ -120,7 +148,11 @@ npi_helper_1.createOrReplaceTempView("npi_helper_1")
 
 # COMMAND ----------
 
-display(country_info)
+display(ib_info_r5)
+
+# COMMAND ----------
+
+display(npi_helper_1)
 
 # COMMAND ----------
 
@@ -144,7 +176,7 @@ ib_info_m10 = read_redshift_to_df(configs) \
 ib_info_m10.createOrReplaceTempView("ib_info_m10")
 
 
-npi_helper_2 ="""
+npi_helper_2 =f"""
  with stp1 as (SELECT npi.record
       ,npi.min_sys_dt
       ,ibdt.ib_strt_dt
@@ -160,13 +192,13 @@ npi_helper_2 ="""
       ,upper(npi.measure) as measure
       ,npi.units
       ,npi.proxy_used
-      ,npi.ib_version
-      ,npi.load_date
+      ,ib_version
+      ,CAST(current_date() AS DATE) AS load_date
 FROM npi_in_m10 npi
 LEFT JOIN  country_info cc
   ON upper(npi.geography)=upper(cc.market10)
 LEFT JOIN ib_info_m10 ibdt
-  ON upper(npi.geography)=upper(ibdt.market10)
+  ON upper(npi.geography)=upper(ibdt.market10) and npi.platform_subset=ibdt.platform_subset and npi.customer_engagement=ibdt.customer_engagement
   ),
 stp2 as (select stp1.*
 FROM stp1 
@@ -186,13 +218,55 @@ display(npi_helper_2)
 # COMMAND ----------
 
 npi_helper_3 = """
-SELECT * FROM npi_helper_2
-UNION
-SELECT * FROM npi_helper_1
+with step1 as (
+SELECT *, concat(country_alpha2,month_num,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
+step2 as (SELECT *, concat(country_alpha2,month_num,platform_subset,customer_engagement) as gpid FROM npi_helper_1)
+SELECT record
+        ,min_sys_dt
+        ,ib_strt_dt
+        ,month_num
+        ,geography_grain
+        ,country_alpha2
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+FROM step1
+UNION ALL
+SELECT record
+        ,min_sys_dt
+        ,ib_strt_dt
+        ,month_num
+        ,geography_grain
+        ,country_alpha2
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+FROM step2
+WHERE gpid not in (select distinct gpid from step1)
 """
 
 npi_helper_3=spark.sql(npi_helper_3)
 npi_helper_3.createOrReplaceTempView("npi_helper_3")
+
+# COMMAND ----------
+
+display(npi_helper_3)
 
 # COMMAND ----------
 
@@ -223,8 +297,13 @@ FROM npi_helper_3
 """
 
 npi_helper_4=spark.sql(overrides_norm_landing)
+npi_helper_4=npi_helper_4.distinct()
 npi_helper_4.createOrReplaceTempView("npi_helper_4")
 
+
+# COMMAND ----------
+
+display(npi_helper_4)
 
 # COMMAND ----------
 
@@ -338,6 +417,10 @@ npi_dates_fill.createOrReplaceTempView("npi_dates_fill")
 
 # COMMAND ----------
 
+display(npi_dates_fill)
+
+# COMMAND ----------
+
 fill_forecast = """
 --get last value for flatlining forecast
 SELECT a.platform_subset
@@ -355,6 +438,10 @@ WHERE b.max_us_date < b.max_ib_date
 """
 fill_forecast=spark.sql(fill_forecast)
 fill_forecast.createOrReplaceTempView("fill_forecast")
+
+# COMMAND ----------
+
+display(fill_forecast)
 
 # COMMAND ----------
 
@@ -428,7 +515,21 @@ FROM combine_data fl
 
 """
 npi_norm_final_landing=spark.sql(npi_norm_final_landing)
+npi_norm_final_landing=npi_norm_final_landing.distinct()
 npi_norm_final_landing.createOrReplaceTempView("npi_norm_final_landing")
+
+# COMMAND ----------
+
+display(npi_norm_final_landing)
+
+# COMMAND ----------
+
+npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='EUTHENIA STND DM1' AND geography='NZ' and measure='HP_SHARE' order by cal_date""")
+npi_tst.createOrReplaceTempView("npi_tst")
+
+# COMMAND ----------
+
+display(npi_tst)
 
 # COMMAND ----------
 
@@ -437,10 +538,10 @@ npi_norm_final_landing \
     .groupby(['cal_date', 'platform_subset', 'customer_engagement', 'geography', 'measure']) \
     .count() \
     .where('count > 1') \
-    .sort('count', ascending=False) \
+    .sort('platform_subset', ascending=True) \
     .show()
 
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: npi_norm_final_landing, destination: "stage"."usrs_npi_norm_final_landing", mode: str = "overwrite")
-
+write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
