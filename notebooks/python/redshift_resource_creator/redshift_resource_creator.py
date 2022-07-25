@@ -140,6 +140,6 @@ for input_file in input_files:
     GRANT ALL ON PROCEDURE {sproc} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
 
-    print("creating stored procedure {}...".format(sproc_name))
+    print("creating stored procedure {}...".format(sproc))
     submit_remote_query(configs, sql_query + "\n" + permissions_query)
-    print("stored procedure {} created!".format(sproc_name))
+    print("stored procedure {} created!".format(sproc))
