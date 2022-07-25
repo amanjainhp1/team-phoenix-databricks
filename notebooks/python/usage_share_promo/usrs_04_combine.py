@@ -224,7 +224,7 @@ SELECT * FROM mat_1
 """
 
 combine_1=spark.sql(combine_1)
-combine_1.createOrReplaceTempView("combine_1")
+combine_1.createOrReplaceTempView("overlap_1")
 
 # COMMAND ----------
 

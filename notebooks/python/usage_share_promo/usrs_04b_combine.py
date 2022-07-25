@@ -223,3 +223,8 @@ SELECT * FROM npi_1
 
 combine_1=spark.sql(combine_1)
 combine_1.createOrReplaceTempView("combine_1")
+
+# COMMAND ----------
+
+#write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
+#write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)
