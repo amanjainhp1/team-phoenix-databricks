@@ -211,8 +211,6 @@ WHERE p.base_prod_number IS NULL;
 
 ---------------------------------------CAPTURE CHANGED PLATFORM_SUBSETS--------------------------------------------
 
-SELECT getdate() into load_date;
-
 INSERT INTO mdm.rdma_changelog (base_prod_number 
 	,pl 
 	,base_prod_name 
