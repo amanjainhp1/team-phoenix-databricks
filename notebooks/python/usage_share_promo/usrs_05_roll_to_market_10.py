@@ -48,7 +48,7 @@ ib = read_redshift_to_df(configs) \
     WHERE version='{version}'
     """) \
   .load()
-ib.createOrReplaceTempView("ib)
+ib.createOrReplaceTempView("ib")
 
 # COMMAND ----------
 
@@ -65,21 +65,20 @@ with step1 as (
 	, us.platform_subset
 	, us.customer_engagement
 	, AVG(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='DASHBOARD' THEN 1
-		WHEN us.data_source LIKE 'UPM%' THEN 0 END
+		CASE WHEN us.data_source='TELEMETRY' THEN 1
+		WHEN us.data_source LIKE 'MODELED' THEN 0 END
 		ELSE NULL END) AS data_source_u
 	, AVG(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='Dashboard' THEN 1
-		WHEN us.data_source LIKE 'UPM%' THEN 0 END
+		CASE WHEN us.data_source='TELEMETRY' THEN 1
+		WHEN us.data_source LIKE 'MODELED' THEN 0 END
 		ELSE NULL END) AS data_source_c
 	, AVG(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='DASHBOARD' THEN 1
-		WHEN us.data_source LIKE 'UPM%' THEN 0 END
+		CASE WHEN us.data_source='TELEMETRY' THEN 1
+		WHEN us.data_source LIKE 'MODELED' THEN 0 END
 		ELSE NULL END) AS data_source_k
 	, AVG(CASE WHEN us.measure='HP_SHARE' THEN
-		CASE WHEN us.data_source='HAVE DATA' THEN 1
-		WHEN us.data_source LIKE 'MODEL%' THEN 0
-		WHEN us.data_source LIKE 'PROXIED%' THEN 0 END
+		CASE WHEN us.data_source='TELEMETRY' THEN 1
+		WHEN us.data_source LIKE 'MODELED' THEN 0
 		ELSE NULL END) AS data_source_s
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share

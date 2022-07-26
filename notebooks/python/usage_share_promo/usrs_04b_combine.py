@@ -62,7 +62,6 @@ SELECT c.record
       ,c.platform_subset
       ,c.customer_engagement
       ,c.forecast_process_note
-      ,c.post_processing_note
       ,c.data_source
       ,c.version
       ,c.measure
@@ -130,15 +129,18 @@ SELECT c.record
       ,c.platform_subset
       ,c.customer_engagement
       ,c.forecast_process_note
-      ,c.post_processing_note
-      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' THEN m.data_source
-            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' THEN m.data_source
-            ELSE c.data_source
+      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' THEN 'NPI'
+            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN 'NPI'
+            WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN 'TELEMETRY'
+            WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN 'TELEMETRY'
+            ELSE 'MODELED'
             END AS data_source
       ,c.version
       ,c.measure
-      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' THEN m.units
-            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' THEN m.units
+      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' THEN m.units
+            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN m.units
+            WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
+            WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN c.units
             ELSE c.units
             END AS units
       ,c.proxy_used
@@ -167,8 +169,11 @@ with cur_1 as (SELECT record
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,post_processing_note
-      ,data_source
+      ,CASE WHEN measure='HP_SHARE' AND data_source = 'HAVE DATA' THEN 'TELEMETRY'
+            WHEN measure like '%USAGE%' AND data_source = 'DASHBOARD' THEN 'TELEMETRY'
+            WHEN data_source = 'OVERRIDE' THEN 'MATURE'
+            ELSE 'MODELED'
+            END AS data_source
       ,version
       ,measure
       ,units
@@ -184,7 +189,6 @@ FROM current_1
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,post_processing_note
       ,data_source
       ,version
       ,measure
@@ -200,8 +204,7 @@ FROM overlap_1)
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,post_processing_note
-      ,data_source
+      ,'NPI' as data_source
       ,version
       ,measure
       ,units
@@ -211,13 +214,13 @@ FROM overlap_1)
 FROM npi_1
 WHERE grp_id not in (select distinct grp_id from overlap_1))
 , combine as (
-SELECT * FROM mat_1
+SELECT * FROM cur_1
 UNION ALL
 SELECT * FROM ovr_1
 UNION ALL
 SELECT * FROM npi_1
 )
-
+SELECT * FROM combine
 
 """
 
@@ -226,5 +229,9 @@ combine_1.createOrReplaceTempView("combine_1")
 
 # COMMAND ----------
 
+display(combine_1)
+
+# COMMAND ----------
+
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-#write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)
