@@ -13,6 +13,10 @@ import numpy as mp
 
 # COMMAND ----------
 
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
 # (Country Usage-Page Share Monthly) CUPSM Processing
 
 #This portion of the code tried to quantify changes in incoming raw, CUPSM data and the cause of those changes i.e. BD, modeling changes, or proxying changes. 
@@ -277,5 +281,5 @@ output = spark.sql("""
 
 #usage_share_proxy
 
-output.write.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/cupsm_outputs/toner/{datestamp}/{timestamp}/final_with_proxy", mode="overwrite")
+write_df_to_s3(df=output, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/toner_locked", format="parquet", mode="overwrite", upper_strings=True)
 
