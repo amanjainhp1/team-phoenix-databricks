@@ -557,7 +557,7 @@ SELECT DISTINCT
     , a.units
     , CAST('true' AS BOOLEAN) AS official
     , CAST('{max_forecast_load_date}' AS date) AS load_date
-	, '{max_forecast_version}' AS version
+    , '{max_forecast_version}' AS version
 FROM hardware_stf_staging a 
     LEFT JOIN rdma b ON UPPER(a.platform_subset)=UPPER(b.platform_subset)
     LEFT JOIN product_line_xref c ON UPPER(b.pl) = UPPER(c.PL)
