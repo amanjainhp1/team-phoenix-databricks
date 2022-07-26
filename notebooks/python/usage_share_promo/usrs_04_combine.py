@@ -32,7 +32,25 @@ import psycopg2 as ps
 
 # Read in Current data
 #current_table=need to get step 01 results
-#current_table.createOrReplaceTempView("current_table")
+toner_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/toner_locked")
+toner_table.createOrReplaceTempView("toner_table")
+
+#ink_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}cupsm/toner_locked")
+ink_table = spark.read.parquet("s3://insights-environment-sandbox/BrentT/ink_q3_pulse_2022.1")
+ink_table.createOrReplaceTempView("ink_table")
+
+
+
+# COMMAND ----------
+
+current_table = """
+SELECT * FROM toner_table
+UNION ALL
+SELECT * FROM ink_table
+"""
+
+current_table=spark.sql(current_table)
+current_table.createOrReplaceTempView("current_table")
 
 # COMMAND ----------
 
@@ -62,7 +80,6 @@ SELECT c.record
       ,c.platform_subset
       ,c.customer_engagement
       ,c.forecast_process_note
-      ,c.post_processing_note
       ,c.data_source
       ,c.version
       ,c.measure
@@ -82,6 +99,10 @@ LEFT JOIN hardware_info h
 
 current_1=spark.sql(current_1)
 current_1.createOrReplaceTempView("current_1")
+
+# COMMAND ----------
+
+display(current_1)
 
 # COMMAND ----------
 
@@ -132,7 +153,6 @@ SELECT c.record
       ,c.platform_subset
       ,c.customer_engagement
       ,c.forecast_process_note
-      ,c.post_processing_note
       ,CASE WHEN c.product_lifecycle_status_share='M' AND c.measure='HP_SHARE' THEN m.data_source
             WHEN c.product_lifecycle_status_usage='M' AND c.measure like '%USAGE%' THEN m.data_source
             ELSE c.data_source
@@ -161,6 +181,10 @@ overlap_1.createOrReplaceTempView("overlap_1")
 
 # COMMAND ----------
 
+display(overlap_1)
+
+# COMMAND ----------
+
 combine_1 = """
 with cur_1 as (SELECT record
       ,cal_date
@@ -169,7 +193,6 @@ with cur_1 as (SELECT record
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,post_processing_note
       ,data_source
       ,version
       ,measure
@@ -186,7 +209,6 @@ FROM current_1
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,post_processing_note
       ,data_source
       ,version
       ,measure
@@ -202,7 +224,6 @@ FROM overlap_1)
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,post_processing_note
       ,data_source
       ,version
       ,measure
@@ -210,16 +231,16 @@ FROM overlap_1)
       ,proxy_used
       ,ib_version
       ,load_date
-FROM matures_1
+FROM mature_1
 WHERE grp_id not in (select distinct grp_id from overlap_1))
 , combine as (
 SELECT * FROM mat_1
 UNION ALL
 SELECT * FROM ovr_1
 UNION ALL
-SELECT * FROM mat_1
+SELECT * FROM cur_1
 )
-
+SELECT * FROM combine
 
 """
 
@@ -228,5 +249,9 @@ combine_1.createOrReplaceTempView("overlap_1")
 
 # COMMAND ----------
 
+display(combine_1)
+
+# COMMAND ----------
+
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-#write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing", format="parquet", mode="overwrite", upper_strings=True)
