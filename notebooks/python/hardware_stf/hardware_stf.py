@@ -1,12 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", ["dev", "itg", "prod"])
-dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("job_dbfs_path", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -42,7 +34,7 @@ rdma = read_redshift_to_df(configs) \
 hardware_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.hardware_xref") \
     .load() \
-    .select("platform_subset", "category_feature", "technology") \
+    .select("platform_subset", "category_feature", "technology", "pl") \
     .distinct()
 
 iso_country_code_xref = read_redshift_to_df(configs) \
@@ -485,22 +477,29 @@ hardware_stf_staging.createOrReplaceTempView("hardware_stf_staging")
 
 # COMMAND ----------
 
+wd3_allocated_ltf_ltf_units.cache()
+wd3_allocated_ltf_flash_units.cache()
+wd3_allocated_ltf_wd3_units.cache()
+wd3_allocated_ltf_wd3_pct.cache()
+
+# COMMAND ----------
+
 mdm_check = spark.sql("""
     WITH wd3_records AS
     (
-    SELECT DISTINCT
-        b.platform_subset,
-        a.base_product_number,
-        a.units 
-    FROM wd3 a
-    LEFT JOIN rdma b
-    ON a.base_product_number = b.base_prod_number 
+        SELECT DISTINCT
+            b.platform_subset,
+            a.base_product_number,
+            a.units 
+        FROM wd3 a
+        LEFT JOIN rdma b
+        ON a.base_product_number = b.base_prod_number 
     ),
     --stf
     stf_records AS 
     (
-    SELECT DISTINCT platform_subset 
-    FROM hardware_stf_staging
+        SELECT DISTINCT platform_subset 
+        FROM hardware_stf_staging
     )
     SELECT DISTINCT
         a.platform_subset AS wd3_platform, 
@@ -541,10 +540,6 @@ submit_remote_query(configs, "UPDATE prod.hardware_ltf SET official = 0 WHERE UP
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 # --move to prod
 hardware_ltf = spark.sql(f"""
 SELECT DISTINCT
@@ -570,16 +565,12 @@ WHERE UPPER(c.Technology) IN ('INK','LASER','PWA') AND UPPER(c.pl_category) = 'H
 
 # COMMAND ----------
 
-wd3_allocated_ltf_ltf_units.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_ltf_units, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
 
-wd3_allocated_ltf_flash_units.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite")
 
-wd3_allocated_ltf_wd3_units.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite")
 
-wd3_allocated_ltf_wd3_pct.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite")
 
 write_df_to_redshift(configs, hardware_ltf, "prod.hardware_ltf", "append")
