@@ -1,5 +1,6 @@
 # Databricks notebook source
 import boto3
+from datetime import datetime
 from pyspark.sql.functions import *
 from pyspark.sql.types import IntegerType
 from pyspark.sql import functions as func
@@ -133,9 +134,15 @@ write_df_to_redshift(configs, rdma_base_to_sales_df, "mdm.rdma_base_to_sales_pro
 
 # COMMAND ----------
 
+# get the current date and time
+current_date = datetime.now()
+print("current_date:", current_date)
+
+# COMMAND ----------
+
 # write data to redshift
 
-rdma_sproc = """
+rdma_sproc = f"""
 --------------------------------------CAPTURE NEW BASE_PROD_NUMBERS-----------------------------------------------
 	
 INSERT INTO mdm.rdma_changelog (base_prod_number 
@@ -196,7 +203,7 @@ INSERT INTO mdm.rdma_changelog (base_prod_number
 SELECT 
     stg.*
     , 'NEW BPN' AS item_changed
-    , load_date
+    , '{current_date}'
 FROM stage.rdma_staging stg
 LEFT JOIN mdm.rdma p
 	ON stg.base_prod_number=p.base_prod_number
@@ -264,7 +271,7 @@ INSERT INTO mdm.rdma_changelog (base_prod_number
 SELECT
     stg.*
     ,'CHANGED PLATFORM SUBSET' AS item_changed
-    , load_date
+    , '{current_date}'
 FROM stage.rdma_staging stg
 JOIN mdm.rdma p
 	ON stg.base_prod_number=p.base_prod_number
