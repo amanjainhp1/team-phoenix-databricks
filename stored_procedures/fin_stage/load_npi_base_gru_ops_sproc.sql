@@ -16,7 +16,7 @@ EXECUTE 'GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP 
 
 ---------------------TRUNCATE NPI BASE TABLE IN fin_stage----------------------------------
 
-DELETE FROM TABLE fin_stage.npi_base_gru_ops_staging;
+DELETE FROM fin_stage.npi_base_gru_ops_staging;
 
 -------------------------------------POPULATE NPI BASE TABLE IN fin_stage FROM LANDING------------------------------------
 
