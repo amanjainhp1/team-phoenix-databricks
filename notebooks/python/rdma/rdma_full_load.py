@@ -340,11 +340,7 @@ INSERT INTO mdm.rdma
     SELECT * FROM stage.rdma_staging;
 """
 
-try:
-    write_df_to_redshift(configs = configs, df = rdma_df, destination = "stage.rdma_staging", mode = "overwrite", postactions = rdma_sproc)
-except Exception as error:
-        print ("An exception has occured:", error)
-        print ("Exception Type:", type(error))
+write_df_to_redshift(configs = configs, df = rdma_df, destination = "stage.rdma_staging", mode = "overwrite", postactions = rdma_sproc)
 
 # COMMAND ----------
 
