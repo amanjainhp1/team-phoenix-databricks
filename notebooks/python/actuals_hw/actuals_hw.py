@@ -281,3 +281,13 @@ if initial_data_load == False and append_to_prod_table and destination_table_exi
 
     if append_to_prod_table:
         write_df_to_redshift(configs, redshift_stage_actuals_hw, f"""{destination_schema}.{destination_table}""", "append")
+        
+        # push the latest month of data back into SFAI
+        sqlserver_actuals_hw = redshift_stage_actuals_hw \
+            .select('record', 'cal_date', 'country_alpha2', 'base_product_number', 'platform_subset',
+                    'base_quantity', 'load_date', 'official', 'version', 'source') \
+            .filter("record = 'ACTUALS - HW'") \
+            .filter("cal_date > '2022-03-01'") \
+            .orderBy('cal_date')
+            
+        write_df_to_sqlserver(configs=configs, df=sqlserver_actuals_hw, destination="IE2_Prod.dbo.actuals_hw", mode="append")
