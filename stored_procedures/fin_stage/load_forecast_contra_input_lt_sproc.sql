@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_input_sproc(group_param varchar)
+CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_input_lt_sproc(group_param varchar)
     LANGUAGE plpgsql
 AS $$
 
