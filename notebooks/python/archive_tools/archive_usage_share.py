@@ -28,7 +28,7 @@ select
 	load_date
 from
     ie2_prod.dbo.usage_share
-where version = '2022.06.22.1'
+where version = '2022.07.27.1'
 
 """
 
