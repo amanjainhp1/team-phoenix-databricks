@@ -11,7 +11,7 @@ dbutils.widgets.text("version", "")
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+version = dbutils.widgets.get("version")
 
 # COMMAND ----------
 
@@ -45,7 +45,8 @@ ib = read_redshift_to_df(configs) \
   .option("query",f"""
     SELECT country_alpha2, platform_subset, customer_engagement, cal_date, units
     FROM "prod"."ib"
-    WHERE version='{version}'
+    WHERE 1=1
+       AND version = '{version}'
     """) \
   .load()
 ib.createOrReplaceTempView("ib")
@@ -64,22 +65,42 @@ with step1 as (
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-	, AVG(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='TELEMETRY' THEN 1
-		WHEN us.data_source LIKE 'MODELED' THEN 0 END
-		ELSE NULL END) AS data_source_u
-	, AVG(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='TELEMETRY' THEN 1
-		WHEN us.data_source LIKE 'MODELED' THEN 0 END
-		ELSE NULL END) AS data_source_c
-	, AVG(CASE WHEN us.measure='USAGE' THEN
-		CASE WHEN us.data_source='TELEMETRY' THEN 1
-		WHEN us.data_source LIKE 'MODELED' THEN 0 END
-		ELSE NULL END) AS data_source_k
-	, AVG(CASE WHEN us.measure='HP_SHARE' THEN
-		CASE WHEN us.data_source='TELEMETRY' THEN 1
-		WHEN us.data_source LIKE 'MODELED' THEN 0
-		ELSE NULL END) AS data_source_s
+    --usage
+	, SUM(CASE WHEN us.measure='USAGE' AND us.data_source='TELEMETRY' THEN 1
+		ELSE 0 END) AS data_source_u
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='NPI' THEN 1
+		ELSE 0 END) AS data_source_u_n
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MATURE' THEN 1
+		ELSE 0 END) AS data_source_u_o
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MODELED' THEN 1
+		ELSE 0 END) AS data_source_u_m
+    --color usage
+	, SUM(CASE WHEN us.measure='COLOR_USAGE'AND us.data_source='TELEMETRY' THEN 1
+		ELSE 0 END) AS data_source_c
+    , SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='NPI' THEN 1
+		ELSE 0 END) AS data_source_c_n
+	, SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='MATURE' THEN 1
+		ELSE 0 END) AS data_source_c_o
+	, SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='MODELED' THEN 1
+		ELSE 0 END) AS data_source_c_m
+    --black usage
+	, SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='TELEMETRY' THEN 1
+		ELSE 0 END) AS data_source_k
+    , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='NPI' THEN 1
+		ELSE 0 END) AS data_source_k_n
+    , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='MATURE' THEN 1
+		ELSE 0 END) AS data_source_k_o
+    , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='MODELED' THEN 1
+		ELSE 0 END) AS data_source_k_m
+    --share     
+	, SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='TELEMETRY' THEN 1
+		ELSE 0 END) AS data_source_s
+    , SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='NPI' THEN 1
+		ELSE 0 END) AS data_source_s_n
+    , SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='MATURE' THEN 1
+		ELSE 0 END) AS data_source_s_o
+    , SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='MODELED' THEN 1
+		ELSE 0 END) AS data_source_s_m
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
     , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
@@ -99,6 +120,18 @@ GROUP BY us.cal_date
       ,SUM(u.data_source_c) as data_source_c
       ,SUM(u.data_source_k) as data_source_k
       ,SUM(u.data_source_s) as data_source_s
+      ,SUM(u.data_source_u_n) as data_source_u_n
+      ,SUM(u.data_source_c_n) as data_source_c_n
+      ,SUM(u.data_source_k_n) as data_source_k_n
+      ,SUM(u.data_source_s_n) as data_source_s_n
+      ,SUM(u.data_source_u_o) as data_source_u_o
+      ,SUM(u.data_source_c_o) as data_source_c_o
+      ,SUM(u.data_source_k_o) as data_source_k_o
+      ,SUM(u.data_source_s_o) as data_source_s_o
+      ,SUM(u.data_source_u_m) as data_source_u_m
+      ,SUM(u.data_source_c_m) as data_source_c_m
+      ,SUM(u.data_source_k_m) as data_source_k_m
+      ,SUM(u.data_source_s_m) as data_source_s_m
       ,SUM(u.usage) AS usage
       ,SUM(u.page_share) AS page_share
       ,SUM(u.usage_c) AS usage_c
@@ -125,15 +158,27 @@ GROUP BY
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,SUM(u.data_source_u) as data_source_u
-      ,SUM(u.data_source_c) as data_source_c
-      ,SUM(u.data_source_k) as data_source_k
-      ,SUM(u.data_source_s) as data_source_s
-      ,SUM(u.usage*COALESCE(ib,0)) AS pages
-      ,SUM(u.page_share*usage*COALESCE(ib,0)) AS hp_pages
-      ,SUM(u.usage_c*COALESCE(ib,0)) AS color_pages
-	  ,SUM(u.usage_k*COALESCE(ib,0)) AS black_pages
-      ,SUM(u.COALESCE(ib,0)) as ib
+      ,SUM(u.data_source_u*coalesce(ib,0)) as data_source_u
+      ,SUM(u.data_source_c*coalesce(ib,0)) as data_source_c
+      ,SUM(u.data_source_k*coalesce(ib,0)) as data_source_k
+      ,SUM(u.data_source_s*coalesce(ib,0)) as data_source_s
+      ,SUM(u.data_source_u_n*coalesce(ib,0)) as data_source_u_n
+      ,SUM(u.data_source_c_n*coalesce(ib,0)) as data_source_c_n
+      ,SUM(u.data_source_k_n*coalesce(ib,0)) as data_source_k_n
+      ,SUM(u.data_source_s_n*coalesce(ib,0)) as data_source_s_n
+      ,SUM(u.data_source_u_o*coalesce(ib,0)) as data_source_u_o
+      ,SUM(u.data_source_c_o*coalesce(ib,0)) as data_source_c_o
+      ,SUM(u.data_source_k_o*coalesce(ib,0)) as data_source_k_o
+      ,SUM(u.data_source_s_o*coalesce(ib,0)) as data_source_s_o
+      ,SUM(u.data_source_u_m*coalesce(ib,0)) as data_source_u_m
+      ,SUM(u.data_source_c_m*coalesce(ib,0)) as data_source_c_m
+      ,SUM(u.data_source_k_m*coalesce(ib,0)) as data_source_k_m
+      ,SUM(u.data_source_s_m*coalesce(ib,0)) as data_source_s_m
+      ,SUM(u.usage*coalesce(ib,0)) AS pages
+      ,SUM(u.page_share*usage*coalesce(ib,0)) AS hp_pages
+      ,SUM(u.usage_c*coalesce(ib,0)) AS color_pages
+	  ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
+      ,SUM(coalesce(ib,0)) as ib
       ,u.market10
     FROM step2 u
     GROUP BY 
@@ -146,17 +191,29 @@ GROUP BY
     SELECT u.cal_date
       ,u.platform_subset
       ,u.customer_engagement
-      ,AVG(u.data_source_u) as data_source_u
-      ,AVG(u.data_source_c) as data_source_c
-      ,AVG(u.data_source_k) as data_source_k
-      ,AVG(u.data_source_s) as data_source_s
+      ,SUM(u.data_source_u) as data_source_u
+      ,SUM(u.data_source_c) as data_source_c
+      ,SUM(u.data_source_k) as data_source_k
+      ,SUM(u.data_source_s) as data_source_s
+      ,SUM(u.data_source_u_n) as data_source_u_n
+      ,SUM(u.data_source_c_n) as data_source_c_n
+      ,SUM(u.data_source_k_n) as data_source_k_n
+      ,SUM(u.data_source_s_n) as data_source_s_n
+      ,SUM(u.data_source_u_o) as data_source_u_o
+      ,SUM(u.data_source_c_o) as data_source_c_o
+      ,SUM(u.data_source_k_o) as data_source_k_o
+      ,SUM(u.data_source_s_o) as data_source_s_o
+      ,SUM(u.data_source_u_m) as data_source_u_m
+      ,SUM(u.data_source_c_m) as data_source_c_m
+      ,SUM(u.data_source_k_m) as data_source_k_m
+      ,SUM(u.data_source_s_m) as data_source_s_m
       ,SUM(u.pages) AS pages
       ,SUM(u.hp_pages) AS hp_pages
       ,SUM(u.color_pages) AS color_pages
 	  ,SUM(u.black_pages) AS black_pages
       ,SUM(u.ib) as ib
       ,u.market10
-    FROM step2 u
+    FROM step3 u
     GROUP BY 
        u.cal_date
       ,u.platform_subset
@@ -166,17 +223,28 @@ GROUP BY
     SELECT
       h4.cal_date
 	, h4.market10
-	, h4.data_source_u
-	, h4.data_source_s
-	, h4.data_source_c
-	, h4.data_source_k
+	, h4.data_source_u/nullif(ib,0) as data_source_u
+	, h4.data_source_s/nullif(ib,0) as data_source_s
+	, h4.data_source_c/nullif(ib,0) as data_source_c
+	, h4.data_source_k/nullif(ib,0) as data_source_k
+    , h4.data_source_u_n/nullif(ib,0) as data_source_u_n
+	, h4.data_source_s_n/nullif(ib,0) as data_source_s_n
+	, h4.data_source_c_n/nullif(ib,0) as data_source_c_n
+	, h4.data_source_k_n/nullif(ib,0) as data_source_k_n
+    , h4.data_source_u_o/nullif(ib,0) as data_source_u_o
+	, h4.data_source_s_o/nullif(ib,0) as data_source_s_o
+	, h4.data_source_c_o/nullif(ib,0) as data_source_c_o
+	, h4.data_source_k_o/nullif(ib,0) as data_source_k_o
+    , h4.data_source_u_m/nullif(ib,0) as data_source_u_m
+	, h4.data_source_s_m/nullif(ib,0) as data_source_s_m
+	, h4.data_source_c_m/nullif(ib,0) as data_source_c_m
+	, h4.data_source_k_m/nullif(ib,0) as data_source_k_m
 	, h4.platform_subset
 	, h4.customer_engagement
 	, h4.pages/nullif(ib,0) AS usage
-	, h4.hp_pges/nullif(pages,0) AS page_share
+	, h4.hp_pages/nullif(pages,0) AS page_share
 	, h4.color_pages/nullif(ib,0) AS usage_c
 	, h4.black_pages/nullif(ib,0) AS usage_k
-	, h4.ib_version
 FROM step4 h4
 
 ), step6 as (
@@ -186,8 +254,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, CONCAT(data_source_u,"% TELEMETRY, ",1-data_source_u,"% MODELED") as source
-FROM step_5
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% O, ",round(data_source_u_m*100,0),"% M") as source
+FROM step5
 WHERE usage IS NOT NULL
     AND usage > 0
 UNION ALL
@@ -197,8 +265,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, CONCAT(data_source_s,"% TELEMETRY, ",1-data_source_s,"% MODELED") as source
-FROM step_5
+	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% O, ",round(data_source_s_m*100,0),"% M") as source
+FROM step5
 WHERE page_share IS NOT NULL
     AND page_share > 0
 UNION ALL
@@ -208,8 +276,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, CONCAT(data_source_c,"% TELEMETRY, ",1-data_source_c,"% MODELED") as source
-FROM step_5
+	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% O, ",round(data_source_c_m*100,0),"% M") as source
+FROM step5
 WHERE usage_c IS NOT NULL
     AND usage_c > 0
 UNION ALL
@@ -219,8 +287,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, CONCAT(data_source_k,"% TELEMETRY, ",1-data_source_k,"% MODELED") as source
-FROM step_5
+	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% O, ",round(data_source_k_m*100,0),"% M") as source
+FROM step5
 WHERE usage_k IS NOT NULL
     AND usage_k > 0
 
@@ -236,8 +304,8 @@ SELECT "USAGE_SHARE" as record
       ,'{version}' as ib_version
       ,source
       ,CONCAT(CAST(current_date() AS DATE),".1") as version
-      ,load_date
-      FROM step_6
+      ,CAST(current_date() AS DATE) AS load_date
+      FROM step6
                
 """
 convert=spark.sql(convert)
