@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS stage.scenario_mix_rate_landing(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_mix_rate_landing TO auto_glue;
-GRANT ALL ON TABLE stage.scenario_mix_rate_landing TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_mix_rate_landing TO GROUP '||group_param||';';
 
 INSERT INTO stage.scenario_mix_rate_landing
 (

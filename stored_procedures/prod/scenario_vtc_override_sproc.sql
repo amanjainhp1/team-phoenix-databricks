@@ -86,7 +86,7 @@ CREATE TABLE stage.scenario_vtc_override_staging(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_vtc_override_staging TO auto_glue;
-GRANT ALL ON TABLE stage.scenario_vtc_override_staging TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_vtc_override_staging TO GROUP '||group_param||';';
 
 ---------LOAD STAGING TABLE----------------------------------------------------------
 

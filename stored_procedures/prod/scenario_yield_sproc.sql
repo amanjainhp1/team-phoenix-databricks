@@ -85,7 +85,7 @@ CREATE TABLE stage.scenario_yield_staging(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_yield_staging TO auto_glue;
-GRANT ALL ON TABLE stage.scenario_yield_staging TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_yield_staging TO GROUP '||group_param||';';
 
 ---------LOAD STAGING TABLE----------------------------------------------------------
 

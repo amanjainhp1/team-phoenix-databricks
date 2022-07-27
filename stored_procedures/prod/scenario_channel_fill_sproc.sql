@@ -84,7 +84,7 @@ CREATE TABLE stage.scenario_channel_fill_staging(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_channel_fill_staging TO auto_glue;
-GRANT ALL ON TABLE stage.scenario_channel_fill_staging TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_channel_fill_staging TO GROUP '||group_param||';';
 
 ---------LOAD STAGING TABLE----------------------------------------------------------
 
