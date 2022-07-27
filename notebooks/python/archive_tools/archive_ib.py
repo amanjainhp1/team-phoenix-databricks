@@ -25,7 +25,7 @@ SELECT
     ,load_date
     ,version
   FROM ie2_prod.dbo.ib
-  WHERE version = '2022.05.02.1'
+  WHERE version = '2022.07.01.1'
   
 """
 
