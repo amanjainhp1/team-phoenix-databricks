@@ -499,7 +499,3 @@ query_list.append(["stage.uss_03_adjusts", uss_03_adjusts, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-
