@@ -346,6 +346,7 @@ SELECT record
       ,country_alpha2
       ,platform_subset
       ,customer_engagement
+      ,measure
       ,CAST(min(cal_date) AS DATE) AS min_us_date
       ,CAST(max(cal_date) AS DATE) AS max_us_date
 FROM npi_helper_4
@@ -355,6 +356,7 @@ record
       ,country_alpha2
       ,platform_subset
       ,customer_engagement
+      ,measure
 """
 
 npi_fill_missing_us_data=spark.sql(npi_fill_missing_us_data)
@@ -366,6 +368,7 @@ SELECT
       a.country_alpha2
       ,a.platform_subset
       ,a.customer_engagement
+      ,a.measure
       ,b.min_ib_date
       ,a.min_us_date
       ,b.max_ib_date
@@ -399,6 +402,7 @@ npi_dates_fill = """
 SELECT platform_subset
     , country_alpha2
     , UPPER(customer_engagement) AS customer_engagement
+    , measure
     , date AS cal_date
     , case when date > max_us_date then "F"
       else "B"
@@ -434,6 +438,7 @@ INNER JOIN npi_fill_missing_dates b
         AND a.customer_engagement = b.customer_engagement
         AND a.country_alpha2 = b.country_alpha2
         AND a.cal_date = b.max_us_date
+        AND a.measure=b.measure
 WHERE b.max_us_date < b.max_ib_date
 """
 fill_forecast=spark.sql(fill_forecast)
@@ -471,6 +476,7 @@ LEFT JOIN fill_forecast b
     ON a.platform_subset=b.platform_subset
         AND a.customer_engagement = b.customer_engagement
         AND a.country_alpha2 = b.country_alpha2
+        AND a.measure=b.measure
 WHERE 1=1
 """
 combine_data=spark.sql(combine_data)
@@ -524,7 +530,7 @@ display(npi_norm_final_landing)
 
 # COMMAND ----------
 
-npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='EUTHENIA STND DM1' AND geography='NZ' and measure='HP_SHARE' order by cal_date""")
+npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='AGATE 22 MANAGED' AND geography='CO' and measure='HP_SHARE' order by cal_date""")
 npi_tst.createOrReplaceTempView("npi_tst")
 
 # COMMAND ----------
