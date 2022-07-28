@@ -17,7 +17,7 @@ possible_tasks = ["all", "landing", "npi", "matures", "adjusts", "final"]
 # error and exit if task list contains any erroneous value
 for task in tasks:
     if task not in possible_tasks:
-        dbutils.notebook.exit("ERROR: tasks list contains at least one erroneous value. Accepted values are {} with a semicolon (;) delimiter.".format(", ".join(possible_tasks)))
+        raise Exception("ERROR: tasks list contains at least one erroneous value. Accepted values are {} with a semicolon (;) delimiter.".format(", ".join(possible_tasks)))
 
 # COMMAND ----------
 
@@ -48,4 +48,4 @@ for key, value in notebooks.items():
             completion_time = str(round((time.time() - start_time)/60, 1))
             print(f"LOG: {notebook} notebook completed in {completion_time} minutes")
         except Exception as e:
-            raise dbutils.notebook.exit(e)
+            raise Exception(e)
