@@ -43,7 +43,6 @@ SELECT lnd.record
     , lnd.units
     , lnd.proxy_used
     , lnd.ib_version
-    -- , '2022.05.12.1' as ib_version -- UPDATE 03-30-2022 because toner and ink are different versions in the version table
     , (SELECT MAX(load_date) FROM "prod"."version" WHERE record = 'USAGE_SHARE') as load_date
 FROM "phoenix_spectrum_itg"."cupsm" lnd
 """
