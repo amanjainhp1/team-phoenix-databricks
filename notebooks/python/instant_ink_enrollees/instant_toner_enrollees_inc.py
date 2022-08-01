@@ -7,22 +7,22 @@
 
 # COMMAND ----------
 
-submit_remote_query(configs, """UPDATE prod.instant_ink_enrollees
+submit_remote_query(configs,"""UPDATE prod.instant_toner_enrollees
 SET official = 0
 WHERE UPPER(data_source) = 'FCST'""")
 
 # COMMAND ----------
 
 try:
-    row_count = read_redshift_to_df(configs).option("dbtable", "stage.instant_ink_enrollees_staging").load().count()
+    row_count = read_redshift_to_df(configs).option("dbtable", "stage.instant_toner_enrollees_staging").load().count()
     if row_count > 0:
-        submit_remote_query(configs, """TRUNCATE TABLE stage.instant_ink_enrollees_staging""")
+        submit_remote_query(configs, """TRUNCATE TABLE stage.instant_toner_enrollees_staging""")
 except Exception as error:
     print ("An exception has occured:", error)
 
 # COMMAND ----------
 
-iink_enrollees_query = """
+itoner_enrollees_query = """
 SELECT
  program_type as record
 ,country
@@ -56,22 +56,20 @@ SELECT
 ,NULL version
 ,1 official
 FROM app_bm_instant_ink_bi.app_bm_instant_ink_bi.fcst_work_6f_summary_output_PR
-WHERE UPPER(program_type) = 'INSTANT INK'  AND year_month > (select case when cast(date_part(month,cast(max(year_month) as date)) as integer) < 10 THEN date_part(year,cast(max(year_month) as date)) || '0' || date_part(month,cast(max(year_month) as date))
+WHERE UPPER(program_type) = 'INSTANT TONER'  AND year_month > (select case when cast(date_part(month,cast(max(year_month) as date)) as integer) < 10 THEN date_part(year,cast(max(year_month) as date)) || '0' || date_part(month,cast(max(year_month) as date))
 when cast(date_part(year,cast(max(year_month) as date)) as integer) >=10 then date_part(year,cast(max(year_month) as date)) || date_part(month,cast(max(year_month) as date)) end mon
-from prod.instant_ink_enrollees WHERE official = 1 AND UPPER(data_source) = 'ACT')
+from prod.instant_toner_enrollees WHERE official = 1 AND UPPER(data_source) = 'ACT')
 """
 
-final_iink_enrollees = read_redshift_to_df(configs) \
-  .option("query",iink_enrollees_query) \
+final_itoner_enrollees = read_redshift_to_df(configs) \
+  .option("query",itoner_enrollees_query) \
   .load()
 
 # COMMAND ----------
 
-add_version_sproc = """
-call prod.addversion_sproc('IINK_IB', 'FORECASTER_INPUT');  
-"""
+add_version_sproc = "call prod.addversion_sproc('IINK_IB', 'FORECASTER_INPUT');"
 
-iink_proc = """
+itoner_proc = """
 UPDATE stage.instant_ink_enrollees_staging
 SET load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'IINK_IB'),
 version = (SELECT MAX(version) FROM prod.version WHERE record = 'IINK_IB');
@@ -108,9 +106,9 @@ SELECT
 ,iel.official
 ,iel.load_date
 ,iel.version
-FROM stage.instant_ink_enrollees_staging iel;
+FROM stage.instant_toner_enrollees_staging iel;
 """
 
 # COMMAND ----------
 
-write_df_to_redshift(configs,final_iink_enrollees, "stage.instant_ink_enrollees_staging", "append", add_version_sproc + "\n" + iink_proc)
+write_df_to_redshift(configs,final_itoner_enrollees, "stage.instant_toner_enrollees_staging", "append", add_version_sproc + "\n" + itoner_proc)
