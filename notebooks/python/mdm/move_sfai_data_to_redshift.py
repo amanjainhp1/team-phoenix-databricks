@@ -133,10 +133,12 @@ for col in output_table_cols:
 final_table_df = spark.sql(query + "FROM table_df")
 
 # COMMAND ----------
-large_tables = ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region']
-filtervals = []
 
-if configs["destination_table"] in large_tables and load_large_tables:
+# for large tables, we need to filter records and in order to retrieve many smaller datasets rather than one large dataset
+large_tables = ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region']
+
+if configs["destination_table"] in large_tables and load_large_tables.lower() == 'true':
+    filtervals = []
     filtercol = ''
     if configs["destination_table"] == 'working_forecast_country':
         filtercol = 'country' 
@@ -158,6 +160,10 @@ if configs["destination_table"] in large_tables and load_large_tables:
         print(filterval + " data loaded")
         write_df_to_redshift(configs, final_table_df.filter(f"{filtercol} = '{filterval}'"), destination, "append")
 
+# COMMAND ----------
+
+# load all other tables
+if configs["destination_table"] not in large_tables:
     # write data to S3
     write_df_to_s3(final_table_df, "{}{}/{}/{}/".format(constants['S3_BASE_BUCKET'][stack], configs["destination_table"], configs["datestamp"], configs["timestamp"]), "csv", "overwrite")
 
