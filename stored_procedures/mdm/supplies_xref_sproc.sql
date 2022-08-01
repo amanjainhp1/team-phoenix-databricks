@@ -56,7 +56,7 @@ SELECT record
     , supplies_group
     , supplies_technology
     , equivalents_multiplier
-    , 1 AS offical
+    , 1 AS official
     , current_date AS last_modified_date
     , current_date AS load_date
 FROM stage.supplies_xref_temp_landing;
