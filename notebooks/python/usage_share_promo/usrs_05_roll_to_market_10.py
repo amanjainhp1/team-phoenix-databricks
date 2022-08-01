@@ -314,3 +314,8 @@ convert.createOrReplaceTempView("convert")
 # COMMAND ----------
 
 display(convert)
+
+# COMMAND ----------
+
+#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_pre_adjust", mode: str = "overwrite")
+write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_market10", format="parquet", mode="overwrite", upper_strings=True)
