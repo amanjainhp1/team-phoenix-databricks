@@ -54,14 +54,14 @@ FROM "prod"."acct_rates"
 
 SELECT DISTINCT
 		ibp_supplies_forecast.country_alpha2
-		, iso_country_code_xref.regiON_5
+		, iso_country_code_xref.region_5
 		, ibp_supplies_forecast.sales_product_number
 		, rdma_base_to_sales_product_map.sales_product_line_code
 		, rdma_base_to_sales_product_map.base_product_number
-		, rdma_base_to_sales_product_map.bASe_product_line_code
+		, rdma_base_to_sales_product_map.baSe_product_line_code
 		, rdma_base_to_sales_product_map.base_prod_per_sales_prod_qty
 		, rdma_base_to_sales_product_map.base_product_amount_percent
-		, (ibp_supplies_forecast.units*rdma_base_to_sales_product_map.base_prod_per_sales_prod_qty) AS Base_Prod_fcst_Revenue_Units
+		, (ibp_supplies_forecast.units*rdma_base_to_sales_product_map.base_prod_per_sales_prod_qty) AS base_prod_fcst_revenue_units
 		, ibp_supplies_forecast.cal_date
 		, ibp_supplies_forecast.units
 		, ibp_supplies_forecast.version
@@ -125,9 +125,9 @@ FROM
 SELECT
 	actuals_supplies_baseprod.country_alpha2
 	, actuals_supplies_baseprod.base_product_number
-	, actuals_supplies_baseprod.pl base_product_line_code
-	, sum(actuals_supplies_baseprod.revenue_units) revenue_units
-	, sum(actuals_supplies_baseprod.gross_revenue) Gross_Rev
+	, actuals_supplies_baseprod.pl AS base_product_line_code
+	, sum(actuals_supplies_baseprod.revenue_units) AS revenue_units
+	, sum(actuals_supplies_baseprod.gross_revenue) AS gross_rev
 	, actuals_supplies_baseprod.version
 FROM
     "fin_prod"."actuals_supplies_baseprod" actuals_supplies_baseprod
@@ -147,9 +147,9 @@ GROUP BY
 SELECT
     country_alpha2
 	, sales_product_number
-	, pl sales_product_line_code
-	, SUM(revenue_units) revenue_units
-	, sum(gross_revenue) Gross_Rev
+	, pl AS sales_product_line_code
+	, SUM(revenue_units) AS revenue_units
+	, sum(gross_revenue) AS gross_rev
 	, version
 FROM
     "fin_prod"."actuals_supplies_salesprod"
@@ -167,12 +167,12 @@ SELECT
 		, Actuals_BaseProd.base_product_number
 		, rdma_base_to_sales_product_map.base_product_line_code
 		, Actuals_BaseProd.country_alpha2
-		, iso_country_code_xref.regiON_5
+		, iso_country_code_xref.region_5
 		, Calendar.Date AS cal_date
 		, base_prod_per_sales_prod_qty
 		, base_product_amount_percent
-		, Actuals_SalesProd.revenue_units AS Base_Prod_fcst_Revenue_Units
-		, Actuals_BaseProd.revenue_units AS sum_bASe_fcst
+		, Actuals_SalesProd.revenue_units AS base_prod_fcst_revenue_units
+		, Actuals_BaseProd.revenue_units AS sum_base_fcst
 		, Actuals_SalesProd.revenue_units/base_prod_per_sales_prod_qty AS units
 		, Actuals_SalesProd.version
 		, 'ACTUALS' AS source
