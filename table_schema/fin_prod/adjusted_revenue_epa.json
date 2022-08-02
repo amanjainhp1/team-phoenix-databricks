@@ -87,7 +87,7 @@
         },
         {
             "description": "equivalent_units",
-            "name": "revenue_units",
+            "name": "equivalent_units",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
