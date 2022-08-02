@@ -45,7 +45,7 @@
         {
             "description": "official",
             "name": "official",
-            "type": "INTEGER",
+            "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
