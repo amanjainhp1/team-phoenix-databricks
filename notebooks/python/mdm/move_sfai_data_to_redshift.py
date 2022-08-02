@@ -97,7 +97,7 @@ for col in output_table_cols:
                         query += "FixedCost_Desc AS fixed_cost_desc"
                     if col == 'fixed_cost_k_qtr':
                         query += "FixedCost_K_Qtr AS fixed_cost_k_qtr"
-                    # forecast_supplies_baseprod_region_stf
+                    # forecast_supplies_baseprod_region & forecast_supplies_base_prod_region_stf 
                     if col == 'base_prod_gru':
                         query += 'BaseProd_GRU AS base_prod_gru'
                     if col == 'base_prod_contra_per_unit':
@@ -114,13 +114,8 @@ for col in output_table_cols:
                         query += 'BaseProd_FixedCost_perUnit AS base_prod_fixed_cost_per_unit'
                     if col == 'base_prod_gross_margin_unit':
                         query += 'BaseProd_GrossMargin_Unit AS base_prod_gross_margin_unit'
-                    # stf_dollarization
-                    if col == 'gross_revenue ':
-                        query += 'GrossRevenue AS gross_revenue'
-                    if col == 'net_revenue':
-                        query += 'NetRevenue AS net_revenue'
-                    # current_stf_dollarization
-                    if col == 'gross_revenue ':
+                    # current_stf_dollarization & stf_dollarization
+                    if col == 'gross_revenue':
                         query += 'GrossRevenue AS gross_revenue'
                     if col == 'net_revenue':
                         query += 'NetRevenue AS net_revenue'
@@ -135,7 +130,7 @@ final_table_df = spark.sql(query + "FROM table_df")
 # COMMAND ----------
 
 # for large tables, we need to filter records and in order to retrieve many smaller datasets rather than one large dataset
-large_tables = ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region']
+large_tables = ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region', 'adjusted_revenue', 'trade_forecast']
 
 if configs["destination_table"] in large_tables and load_large_tables.lower() == 'true':
     filtervals = []
@@ -146,9 +141,11 @@ if configs["destination_table"] in large_tables and load_large_tables.lower() ==
         filtercol= 'geography'
     elif configs['destination_table'] == 'forecast_supples_base_prod_region5':
         filtercol = 'region_5'
-    elif configs['destination_table'] == 'forecast_supplies_baseprod':
+    elif configs['destination_table'] == 'forecast_supplies_baseprod' or configs['destination_table' == 'adjusted_revenue']:
         filtercol = 'country_alpha2'
-    
+    elif configs['destination_table'] == 'trade_forecast':
+        filtercol = 'region_5'
+
     filtervals = read_sql_server_to_df(configs) \
         .option('query', f'SELECT DISTINCT {filtercol} from {source}') \
         .load() \
@@ -167,8 +164,7 @@ if configs["destination_table"] not in large_tables:
     # write data to S3
     write_df_to_s3(final_table_df, "{}{}/{}/{}/".format(constants['S3_BASE_BUCKET'][stack], configs["destination_table"], configs["datestamp"], configs["timestamp"]), "csv", "overwrite")
 
-    # truncate existing redshift data and
-    # write data to redshift
+    # truncate existing redshift data and write data to redshift
     write_df_to_redshift(configs=configs, df=final_table_df, destination=destination, mode="append", preactions="TRUNCATE " + destination)
 
 # COMMAND ----------

@@ -135,13 +135,6 @@
             "encode": "raw"
         },
         {
-            "description": "version",
-            "name": "version",
-            "type": "VARCHAR(50)",
-            "nullable": false,
-            "encode": "lzo"
-        },
-        {
             "description": "username",
             "name": "username",
             "type": "VARCHAR(50)",

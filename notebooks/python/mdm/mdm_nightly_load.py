@@ -501,7 +501,9 @@ for table in tables:
 
     widgets["datestamp"] = datestamp
     widgets["timestamp"] = timestamp
-    
+
+    widgets['load_large_tables'] = dbutils.widgets.get('load_large_tables')
+
     notebooks = notebooks + [["move_sfai_data_to_redshift", 0, widgets]]
 
 # COMMAND ----------
