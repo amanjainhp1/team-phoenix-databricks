@@ -59,6 +59,7 @@ us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
 
+#roll up to market10 -- changing source to % of source, need to find way to roll up other notes (forecast process note, proxy used)
 convert = f"""
 with step1 as (
     SELECT us.cal_date

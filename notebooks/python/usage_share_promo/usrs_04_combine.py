@@ -43,6 +43,7 @@ ink_table.createOrReplaceTempView("ink_table")
 
 # COMMAND ----------
 
+#combine ink and toner (need to add LF)
 current_table = """
 SELECT * FROM toner_table
 UNION ALL
@@ -71,6 +72,7 @@ hardware_info.createOrReplaceTempView("hardware_info")
 
 # COMMAND ----------
 
+#Add group ID, and product lifecycle status information to current data
 current_1 = """
 
 SELECT c.record
@@ -106,6 +108,7 @@ display(current_1)
 
 # COMMAND ----------
 
+#Add group ID, and product lifecycle status information to mature data
 mature_1 = """
 
 SELECT c.record
@@ -143,6 +146,7 @@ display(mature_1)
 
 # COMMAND ----------
 
+# get where data is in both current and matures
 overlap_1 = """
 
 ---Find overlap between current and mature

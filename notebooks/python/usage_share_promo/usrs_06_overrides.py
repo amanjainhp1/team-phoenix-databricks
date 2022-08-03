@@ -487,10 +487,6 @@ display(override_table_c)
 
 # COMMAND ----------
 
-us_table.update(override_table2_b)
-
-# COMMAND ----------
-
 update_table = """
 WITH base as (
     SELECT record
@@ -583,7 +579,12 @@ with step1 as (
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-	, us.source
+	, CASE WHEN us.measure = 'HP_SHARE' THEN us.source
+           ELSE NULL
+           END AS source_s
+    , CASE WHEN us.measure like '%USAGE%' THEN us.source
+            ELSE NULL
+            END AS source_u
     , us.ib_version
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
@@ -595,8 +596,9 @@ GROUP BY us.cal_date
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-    , us.source
     , us.ib_version
+    , us.measure
+    , us.source
 	) , step2 as (
     SELECT 
        u.cal_date
@@ -604,7 +606,8 @@ GROUP BY us.cal_date
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,u.source
+      ,max(u.source_s) as source_s
+      ,max(u.source_u) as source_u
       ,u.ib_version
       ,SUM(u.usage) AS usage
       ,SUM(u.page_share) AS page_share
@@ -620,7 +623,6 @@ GROUP BY
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,u.source
       ,u.ib_version
       ,hw.technology
 ) , step5 as (
@@ -629,10 +631,11 @@ GROUP BY
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,u.source
+      ,u.source_s
+      ,u.source_u
       ,u.ib_version
-      ,CASE WHEN u.source in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='INK' THEN usage_c+usage_k
-            WHEN u.source in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='TONER' THEN usage_k
+      ,CASE WHEN u.source_u in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='INK' THEN usage_c+usage_k
+            WHEN u.source_u in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='TONER' THEN usage_k
             ELSE usage
             END AS usage
       ,u.page_share
@@ -648,7 +651,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, source
+	, source_u as source
     , ib_version
 FROM step5
 WHERE usage IS NOT NULL
@@ -661,7 +664,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, source
+	, source_s as source
     , ib_version
 FROM step5
 WHERE page_share IS NOT NULL
@@ -674,7 +677,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, source
+	, source_u as source
     , ib_version
 FROM step5
 WHERE usage_c IS NOT NULL
@@ -687,7 +690,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, source
+	, source_u as source
     , ib_version
 FROM step5
 WHERE usage_k IS NOT NULL
@@ -719,5 +722,5 @@ display(convert)
 
 # COMMAND ----------
 
-#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_pre_adjust", mode: str = "overwrite")
+#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_post_adjust", mode: str = "overwrite")
 write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_adjusted", format="parquet", mode="overwrite", upper_strings=True)
