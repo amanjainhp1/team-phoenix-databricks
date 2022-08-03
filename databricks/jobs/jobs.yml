@@ -3,6 +3,7 @@ Jobs:
   - actuals-hw
   - ce-split
   - example-job
+  - example-multitask-job
   - flash-load
   - hardware-ltf
   - hardware-stf
