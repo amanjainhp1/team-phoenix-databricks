@@ -108,6 +108,7 @@ for table in tables.items():
             .withColumn('max_load_date', f.max('load_date').over(w)) \
             .where(f.col('load_date') == f.col('max_load_date')) \
             .drop('max_load_date') \
+            .distinct()
     # else if norm_ships, filter to latest version
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
