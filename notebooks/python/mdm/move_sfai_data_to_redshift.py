@@ -132,7 +132,7 @@ final_table_df = spark.sql(query + "FROM table_df")
 # for large tables, we need to filter records and in order to retrieve many smaller datasets rather than one large dataset
 large_tables = ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region', 'adjusted_revenue', 'trade_forecast', 'adjusted_revenue_epa']
 
-if configs["destination_table"] in large_tables and load_large_tables.lower() == 'true':
+if configs["destination_table"] in large_tables and configs['load_large_tables'].lower() == 'true':
     filtervals = []
     filtercol = ''
     if configs["destination_table"] == 'working_forecast_country':

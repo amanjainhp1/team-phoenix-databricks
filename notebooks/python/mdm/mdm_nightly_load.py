@@ -38,6 +38,16 @@ except:
                 "destination_schema": "fin_prod", 
                 "destination_table": "adjusted_revenue"
             },
+            "adjusted_revenue_epa": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Financials",
+                "source_schema": "dbo",
+                "source_table": "adjusted_revenue_epa",
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "fin_prod", 
+                "destination_table": "adjusted_revenue_epa"
+            },
             "actuals_supplies": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
