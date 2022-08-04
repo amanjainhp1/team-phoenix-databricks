@@ -981,7 +981,7 @@ SELECT DISTINCT
 		, list_price_DP_DF_IN_RP.list_price
 		, country_currency_map.country_alpha2 AS currency_country
 		, acct_rates.accountingrate
-		, count(List_Price) over (partition by list_price_DP_DF_IN_RP.sales_product_number, list_price_DP_DF_IN_RP.country_alpha2, list_price_DP_DF_IN_RP.Price_term_code) as count_List_Price
+		, count(list_price) over (partition by list_price_DP_DF_IN_RP.sales_product_number, list_price_DP_DF_IN_RP.country_alpha2, list_price_DP_DF_IN_RP.Price_term_code) as count_List_Price
 		, list_price_eoq.eoq_discount
 	FROM
 		__dbt__CTE__lpf_24_list_price_DP_DF_IN_RP list_price_DP_DF_IN_RP
@@ -1163,3 +1163,7 @@ query_list.append(["fin_stage.list_price_version", list_price_version, "overwrit
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+
