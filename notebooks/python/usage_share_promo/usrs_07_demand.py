@@ -348,18 +348,22 @@ display(convert)
 
 # COMMAND ----------
 
+#Look at curves
+#NOVELLI PLUS YET1
 test1 = """
 select *
 from convert
 where 1=1
-    and platform_subset='NOVELLI PLUS YET1'
+    and platform_subset='CATALINA'
     and customer_engagement='TRAD'
     and geography='GREATER ASIA'
-    and measure='HP_SHARE'
+    and measure in ('TOTAL_PAGES','HP_PAGES', 'TOTAL_COLOR_PAGES')
+    --and measure in ('HP_SHARE')
 """
 test1=spark.sql(test1)
 test1.createOrReplaceTempView("test1")
 
 test2 = test1.select("*").toPandas()
-test2.plot(x='cal_date',y='units', kind='line')
+test2.set_index('cal_date', inplace=True)
+test2.groupby('measure')['units'].plot(xlabel='Calendar Date', ylabel='Units',legend=True)
 

@@ -255,7 +255,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% O, ",round(data_source_u_m*100,0),"% M") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD") as source
 FROM step5
 WHERE usage IS NOT NULL
     AND usage > 0
@@ -266,7 +266,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% O, ",round(data_source_s_m*100,0),"% M") as source
+	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% MA, ",round(data_source_s_m*100,0),"% MD") as source
 FROM step5
 WHERE page_share IS NOT NULL
     AND page_share > 0
@@ -277,7 +277,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% O, ",round(data_source_c_m*100,0),"% M") as source
+	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% MA, ",round(data_source_c_m*100,0),"% MD") as source
 FROM step5
 WHERE usage_c IS NOT NULL
     AND usage_c > 0
@@ -288,7 +288,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% O, ",round(data_source_k_m*100,0),"% M") as source
+	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% MA, ",round(data_source_k_m*100,0),"% MD") as source
 FROM step5
 WHERE usage_k IS NOT NULL
     AND usage_k > 0
