@@ -11,7 +11,7 @@
 
 # COMMAND ----------
 
-query = """
+hw_actuals_query = """
 
 select
 	record,
@@ -33,7 +33,7 @@ order by cal_date
 
 
 redshift_actuals_hw_records = read_redshift_to_df(configs) \
-    .option("query", query) \
+    .option("query", hw_actuals_query) \
     .load()
 
 # COMMAND ----------
