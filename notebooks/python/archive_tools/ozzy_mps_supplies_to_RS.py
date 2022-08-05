@@ -20,7 +20,8 @@
 # build query to pull data from OZZY server
 ozzy_mps_supplies_shipments_query = """
 SELECT DISTINCT
-     [Region] as region
+    'MPS_WW_SHIPPED_SUPPLY' as record
+    ,[Region] as region
     ,UPPER([Country]) AS country
     ,CAST([Fiscal Year] as varchar(4)) as fiscal_year
     ,[Quarter] as quarter
@@ -36,8 +37,8 @@ SELECT DISTINCT
     ,[Color] as color
     ,[MCC] as mcc
     ,CAST(YEAR([Month]) AS varchar(4)) + RIGHT('0'+CAST(MONTH([Month]) AS varchar(2)),2) AS [yearmo]
-    ,CONCAT(YEAR(GETDATE()),'.',CONVERT(CHAR(2),CAST(GETDATE() AS DATE),101),'.',CONVERT(CHAR(2), CAST(GETDATE() AS DATE), 103),'.1') AS [version]
     ,CONVERT(char(10), GetDate(),126) AS load_date
+    ,CONCAT(YEAR(GETDATE()),'.',CONVERT(CHAR(2),CAST(GETDATE() AS DATE),101),'.',CONVERT(CHAR(2), CAST(GETDATE() AS DATE), 103),'.1') AS [version]
   FROM [MPS_Supplies].[dbo].[WW_Shipped_Supply_Data]
   WHERE country IS NOT NULL
 """
@@ -69,8 +70,9 @@ max_load_date = max_version_info[1]
 
 # replace the existing version and load_date values with the retrieved results from the version table
 ozzy_mps_supplies_shipments_records = ozzy_mps_supplies_shipments_records \
-  .withColumn("version", lit(max_version)) \
-  .withColumn("load_date", lit(max_load_date))
+  .withColumn("load_date", lit(max_load_date)) \
+  .withColumn("version", lit(max_version))
+
 
 # COMMAND ----------
 
