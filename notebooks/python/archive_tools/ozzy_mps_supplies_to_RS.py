@@ -37,8 +37,8 @@ SELECT DISTINCT
     ,[Color] as color
     ,[MCC] as mcc
     ,CAST(YEAR([Month]) AS varchar(4)) + RIGHT('0'+CAST(MONTH([Month]) AS varchar(2)),2) AS [yearmo]
-    ,CONVERT(char(10), GetDate(),126) AS load_date
-    ,CONCAT(YEAR(GETDATE()),'.',CONVERT(CHAR(2),CAST(GETDATE() AS DATE),101),'.',CONVERT(CHAR(2), CAST(GETDATE() AS DATE), 103),'.1') AS [version]
+    ,GetDate() AS load_date
+    ,'version' AS [version]
   FROM [MPS_Supplies].[dbo].[WW_Shipped_Supply_Data]
   WHERE country IS NOT NULL
 """
