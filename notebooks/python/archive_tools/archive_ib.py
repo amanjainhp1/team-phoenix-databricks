@@ -25,7 +25,7 @@ SELECT
     ,load_date
     ,version
   FROM ie2_prod.dbo.ib
-  WHERE version = '2022.07.01.1'
+  WHERE version = '2022.07.26.3'
   
 """
 
@@ -51,9 +51,5 @@ version = redshift_ib_archive_records.select('version').distinct().head()[0]
 s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "spectrum/ib/" + version
 
 write_df_to_s3(redshift_ib_archive_records, s3_ib_output_bucket, "parquet", "overwrite")
-
-
-
-# COMMAND ----------
 
 
