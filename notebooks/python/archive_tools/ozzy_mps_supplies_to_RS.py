@@ -60,25 +60,24 @@ ozzy_mps_supplies_shipments_records = ozzy_mps_supplies_shipments_records \
 
 # COMMAND ----------
 
-# test that data looks ok
-# ozzy_mps_supplies_shipments_records.show()
+# add a record to the version table, then retrieve the max verison and load_date values
+from pyspark.sql.functions import lit
+max_version_info = call_redshift_addversion_sproc(configs, 'MPS_WW_SHIPPED_SUPPLY', 'OZZY')
+
+max_version = max_version_info[0]
+max_load_date = max_version_info[1]
+
+# replace the existing version and load_date values with the retrieved results from the version table
+ozzy_mps_supplies_shipments_records = ozzy_mps_supplies_shipments_records \
+  .withColumn("version", lit(max_version)) \
+  .withColumn("load_date", lit(max_load_date))
 
 # COMMAND ----------
 
-# get the version value that was dynamically created during the query stage
-version = ozzy_mps_supplies_shipments_records.select('version').distinct().head()[0]
-# write to parquet file in s3
-
-# COMMAND ----------
-
-# Check version value
-# print(version)
-
-# COMMAND ----------
+# set the bucket and folder:
 
 # s3a://dataos-core-dev-team-phoenix/mps_ww_shipped_supply/[version]
-# set the bucket and folder:
-s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "mps_ww_shipped_supply/" + version
+s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "mps_ww_shipped_supply/" + max_version
 
 # write data to the bucket, overwrite if pulled more than once on the same day
 write_df_to_s3(ozzy_mps_supplies_shipments_records, s3_ib_output_bucket, "parquet", "overwrite")
