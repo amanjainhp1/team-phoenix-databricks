@@ -46,7 +46,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's version
-prev_version = '2022.07.01.1'
+prev_version = '2022.07.26.3'
 
 # COMMAND ----------
 
@@ -758,7 +758,7 @@ with prod as
 
 select cal_date
     , prod.version as variable
-    , sum(units) as ib
+    , sum(units) as units
 from prod
 where 1=1
     and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
@@ -769,7 +769,7 @@ union all
 
 select cal_date
     , stage.version as variable
-    , sum(ib) as ib
+    , sum(ib) as units
 from stage
 where 1=1
     and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
@@ -787,7 +787,8 @@ ib_v2v_iink_df = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 iink_prod_prep = ib_v2v_iink_df.toPandas()
-iink_agg = ink_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+iink_agg = iink_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+# iink_agg.display()
 
 # COMMAND ----------
 
@@ -796,7 +797,7 @@ fig = px.line(data_frame=iink_agg,
               y='units',
               line_group='variable',
               color='variable',
-              title='RS - IB iink v2v compare')
+              title='RS - IB I-INK v2v compare')
 
 fig.update_xaxes(
     rangeslider_visible=True,
@@ -902,7 +903,7 @@ fig = px.line(data_frame=trad_agg,
               y='units',
               line_group='variable',
               color='variable',
-              title='RS - IB trad/ink v2v compare')
+              title='RS - IB INK TRAD v2v compare')
 
 fig.update_xaxes(
     rangeslider_visible=True,
@@ -931,3 +932,7 @@ fig.update_layout(
 )
 
 fig.show()
+
+# COMMAND ----------
+
+
