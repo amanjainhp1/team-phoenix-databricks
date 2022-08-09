@@ -41,8 +41,8 @@ npi_in.createOrReplaceTempView("npi_in")
 # COMMAND ----------
 
 #Split data into region5 and market10
-npi_in_r5 = spark.sql("""select * from npi_in where upper(geography_grain) ='REGION_5' """)
-npi_in_r5.createOrReplaceTempView("npi_in_r5")
+npi_in_r5i = spark.sql("""select * from npi_in where upper(geography_grain) ='REGION_5' """)
+npi_in_r5i.createOrReplaceTempView("npi_in_r5i")
 npi_in_m10 = spark.sql("""select * from npi_in where upper(geography_grain) ='MARKET10' """)
 npi_in_m10.createOrReplaceTempView("npi_in_m10")
 
@@ -87,6 +87,87 @@ ib_info_r5 = read_redshift_to_df(configs) \
     """) \
  .load()
 ib_info_r5.createOrReplaceTempView("ib_info_r5")
+
+#Add JP where missing
+fix_japan = """
+with step1 as (
+    SELECT record
+        ,min_sys_dt
+        ,month_num
+        ,geography_grain
+        ,'JP' as geography
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,forecast_created_date
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+        ,CONCAT(platform_subset,customer_engagement,measure) as grp
+    FROM npi_in_r5i
+    WHERE geography='AP'
+), step2 as (
+    SELECT *,CONCAT(platform_subset,customer_engagement,measure) as grp
+    FROM npi_in_r5i
+    WHERE geography='JP'
+), step3 as (
+    SELECT record
+        ,min_sys_dt
+        ,month_num
+        ,geography_grain
+        ,geography
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,forecast_created_date
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+    FROM step2
+    UNION 
+    SELECT record
+        ,min_sys_dt
+        ,month_num
+        ,geography_grain
+        ,geography
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,forecast_created_date
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+    FROM step1 
+        WHERE grp not in (select distinct grp from step2)
+), step4 as (
+    SELECT *
+    FROM npi_in_r5i
+    WHERE geography != 'JP'
+)
+SELECT * FROM step4
+UNION ALL
+SELECT * FROM step3
+
+"""
+
+npi_in_r5 = spark.sql(fix_japan)
+npi_in_r5.createOrReplaceTempView("npi_in_r5")
+
 
 #Push to country level---currently takes market10 as preference to region5; need to update shiny tool, or use load date?
 npi_helper_1 = f"""
@@ -145,11 +226,35 @@ npi_helper_1.createOrReplaceTempView("npi_helper_1")
 
 # COMMAND ----------
 
-display(ib_info_r5)
+testib = """
+select *
+from ib_info
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD'
+order by country_alpha2
+"""
+
+testib=spark.sql(testib)
+testib.createOrReplaceTempView("testib")
 
 # COMMAND ----------
 
-display(npi_helper_1)
+testib2 = """
+select distinct geography
+from npi_in_r5
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by geography
+"""
+
+testib2=spark.sql(testib2)
+testib2.createOrReplaceTempView("testib2")
+
+# COMMAND ----------
+
+display(testib)
+
+# COMMAND ----------
+
+display(testib2)
 
 # COMMAND ----------
 
@@ -265,7 +370,19 @@ npi_helper_3.createOrReplaceTempView("npi_helper_3")
 
 # COMMAND ----------
 
-display(npi_helper_3)
+testib3 = """
+select distinct country_alpha2
+from npi_helper_3
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by country_alpha2
+"""
+
+testib3 = spark.sql(testib3)
+testib3.createOrReplaceTempView("testib3")
+
+# COMMAND ----------
+
+display(testib3)
 
 # COMMAND ----------
 
@@ -303,6 +420,22 @@ npi_helper_4.createOrReplaceTempView("npi_helper_4")
 # COMMAND ----------
 
 display(npi_helper_4)
+
+# COMMAND ----------
+
+testib4 = """
+select distinct country_alpha2
+from npi_helper_4
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by country_alpha2
+"""
+
+testib4 = spark.sql(testib4)
+testib4.createOrReplaceTempView("testib4")
+
+# COMMAND ----------
+
+display(testib4)
 
 # COMMAND ----------
 
@@ -426,7 +559,19 @@ npi_dates_fill.createOrReplaceTempView("npi_dates_fill")
 
 # COMMAND ----------
 
-display(npi_dates_fill)
+testib5 = """
+select distinct country_alpha2
+from npi_dates_fill
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by country_alpha2
+"""
+
+testib5 = spark.sql(testib5)
+testib5.createOrReplaceTempView("testib5")
+
+# COMMAND ----------
+
+display(testib5)
 
 # COMMAND ----------
 
@@ -539,7 +684,8 @@ display(npi_norm_final_landing)
 # COMMAND ----------
 
 #test case--hp share had less values than usage; forecaster input ended in 2027-09-01
-npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='NOVELLI PLUS YET1' AND geography='AU' and measure='HP_SHARE' order by cal_date""")
+npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='MORETO BASE YET1' 
+    AND geography in (select country_alpha2 from country_info WHERE market10='GREATER ASIA') and measure='HP_SHARE' order by cal_date""")
 npi_tst.createOrReplaceTempView("npi_tst")
 
 # COMMAND ----------

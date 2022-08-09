@@ -354,7 +354,7 @@ test1 = """
 select *
 from convert
 where 1=1
-    and platform_subset='CATALINA'
+    and platform_subset='ALTAMIRA 3000'
     and customer_engagement='TRAD'
     and geography='GREATER ASIA'
     and measure in ('TOTAL_PAGES','HP_PAGES', 'TOTAL_COLOR_PAGES')
@@ -367,3 +367,23 @@ test2 = test1.select("*").toPandas()
 test2.set_index('cal_date', inplace=True)
 test2.groupby('measure')['units'].plot(xlabel='Calendar Date', ylabel='Units',legend=True)
 
+
+# COMMAND ----------
+
+test2 = """
+select source, count(*) as numsource
+from convert
+group by source
+"""
+
+test2=spark.sql(test2)
+test2.createOrReplaceTempView("test2")
+
+# COMMAND ----------
+
+display(test2)
+
+# COMMAND ----------
+
+#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_post_adjust", mode: str = "overwrite")
+write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/demand", format="parquet", mode="overwrite", upper_strings=True)
