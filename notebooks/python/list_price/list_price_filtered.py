@@ -109,7 +109,7 @@ WHERE
 UNION ALL
 
 SELECT 'EFFECTIVE_DATE_ACCT_RATES' AS record
-    , max(EffectiveDate) AS cal_date
+    , max(effective_date) AS cal_date
 FROM
     "prod"."acct_rates"                                       
 
@@ -582,7 +582,7 @@ query_list.append(["fin_stage.lpf_06_list_price_NA", lpf_06_list_price_NA, "over
 
 # COMMAND ----------
 
-forecast_sales_GRU = f"""
+forecast_sales_gru = f"""
 
 
 with __dbt__CTE__lpf_01_filter_vars AS (
@@ -901,14 +901,14 @@ SELECT DISTINCT
 
 SELECT DISTINCT
     country_currency_map_landing."country_alpha2"
-    , acct_rates."currencyCode"
-	, acct_rates."accountingrate"
+    , acct_rates."curency_code"
+	, acct_rates."accounting_rate"
 FROM
       "mdm"."country_currency_map" country_currency_map_landing
 	  INNER JOIN
 	  "prod"."acct_rates" acct_rates
-		ON acct_rates.isocurrcd = country_currency_map_landing."currency_iso_code"
-		AND acct_rates.effectivedate = '{dbutils.widgets.get("accounting_eff_date")}'
+		ON acct_rates.iso_curr_cd = country_currency_map_landing."currency_iso_code"
+		AND acct_rates.effective_date = '{dbutils.widgets.get("accounting_eff_date")}'
 		AND acct_rates.version = '{dbutils.widgets.get("accounting_rate_version")}'
 WHERE country_currency_map_landing.country_alpha2 is not null
 ),  __dbt__CTE__lpf_02_filter_dates AS (
@@ -944,7 +944,7 @@ WHERE
 UNION ALL
 
 SELECT 'EFFECTIVE_DATE_ACCT_RATES' AS record
-    , max(EffectiveDate) AS cal_date
+    , max(effective_date) AS cal_date
 FROM
     "prod"."acct_rates"                                       
 
@@ -980,7 +980,7 @@ SELECT DISTINCT
 		, list_price_DP_DF_IN_RP.qb_sequence_number
 		, list_price_DP_DF_IN_RP.list_price
 		, country_currency_map.country_alpha2 AS currency_country
-		, acct_rates.accountingrate
+		, acct_rates.accounting_rate
 		, count(list_price) over (partition by list_price_DP_DF_IN_RP.sales_product_number, list_price_DP_DF_IN_RP.country_alpha2, list_price_DP_DF_IN_RP.Price_term_code) as count_List_Price
 		, list_price_eoq.eoq_discount
 	FROM
@@ -994,10 +994,10 @@ SELECT DISTINCT
 		LEFT JOIN
 		__dbt__CTE__lpf_25_country_currency_map country_currency_map
 			ON country_currency_map.country_alpha2 = list_price_DP_DF_IN_RP.country_alpha2
-			AND country_currency_map.CurrencyCode = list_price_DP_DF_IN_RP.currency_code
+			AND country_currency_map.curency_code = list_price_DP_DF_IN_RP.currency_code
 		LEFT JOIN
 		"prod"."acct_rates" acct_rates
-			ON acct_rates.currencyCode = list_price_DP_DF_IN_RP.currency_code
+			ON acct_rates.curency_code = list_price_DP_DF_IN_RP.currency_code
 		LEFT JOIN
 		__dbt__CTE__lpf_26_eoq list_price_eoq
 			ON list_price_eoq.product_line = rdma_base_to_sales_product_map.sales_product_line_code
@@ -1005,7 +1005,7 @@ SELECT DISTINCT
 	WHERE 
 	1=1
 	AND acct_rates.version = '{dbutils.widgets.get("accounting_rate_version")}'
-		AND acct_rates.EffectiveDate = '{dbutils.widgets.get("accounting_eff_date")}'
+		AND acct_rates.effective_date = '{dbutils.widgets.get("accounting_eff_date")}'
 )SELECT DISTINCT
 		'FORECAST_SALES_GRU' AS record
 		,'{dbutils.widgets.get("forecast_record")}' AS build_type
@@ -1018,13 +1018,13 @@ SELECT DISTINCT
 		, list_price_eoq.qb_sequence_number
 		, list_price_eoq.list_price
 		, list_price_eoq.sales_product_line_code
-		, list_price_eoq.accountingrate
-		, list_price_eoq.list_price/list_price_eoq.accountingrate AS list_price_usd
-		, 0 AS listpriceadder_lc
-		, list_price_eoq.accountingrate AS currencycode_adder
-		, 0 AS listpriceadder_usd
-		, coalesce(EOQ_Discount, 0) AS eoq_discount
-		, ((list_price/accountingrate) * (1-coalesce(eoq_discount, 0))) AS salesproduct_gru
+		, list_price_eoq.accounting_rate
+		, list_price_eoq.list_price/list_price_eoq.accounting_rate AS list_price_usd
+		, 0 AS list_price_adder_lc
+		, list_price_eoq.accounting_rate AS currency_code_adder
+		, 0 AS list_price_adder_usd
+		, coalesce(eoq_discount, 0) AS eoq_discount
+		, ((list_price/accounting_rate) * (1-coalesce(eoq_discount, 0))) AS sales_product_gru
 		, null AS load_date
 		, null AS version
 	FROM
@@ -1033,7 +1033,7 @@ SELECT DISTINCT
 		(((count_list_price > 1) and (currency_country is not null)) or (count_list_price = 1))
 """
 
-query_list.append(["fin_stage.forecast_sales_gru", forecast_sales_GRU, "overwrite"])
+query_list.append(["fin_stage.forecast_sales_gru", forecast_sales_gru, "overwrite"])
 
 # COMMAND ----------
 
@@ -1109,7 +1109,7 @@ WHERE
 UNION ALL
 
 SELECT 'EFFECTIVE_DATE_ACCT_RATES' AS record
-    , max(EffectiveDate) AS cal_date
+    , max(effective_date) AS cal_date
 FROM
     "prod"."acct_rates"                                       
 
@@ -1163,7 +1163,3 @@ query_list.append(["fin_stage.list_price_version", list_price_version, "overwrit
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-

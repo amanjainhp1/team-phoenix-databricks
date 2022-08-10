@@ -1,36 +1,36 @@
 {
     "fields": [
         {
-            "description": "currencycode",
-            "name": "currencycode",
+            "description": "currency_code",
+            "name": "currency_code",
             "type": "VARCHAR(2)",
             "nullable": true,
             "encode": "lzo"
         },
         {
-            "description": "effectivedate",
-            "name": "effectivedate",
+            "description": "effective_date",
+            "name": "effective_date",
             "type": "DATE",
             "nullable": false,
             "encode": "az64"
         },
         {
-            "description": "accountingrate",
-            "name": "accountingrate",
+            "description": "accounting_rate",
+            "name": "accounting_rate",
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },
         {
-            "description": "isocurrcd",
-            "name": "isocurrcd",
+            "description": "iso_curr_cd",
+            "name": "iso_curr_cd",
             "type": "VARCHAR(3)",
             "nullable": true,
             "encode": "lzo"
         },
         {
-            "description": "currcddn",
-            "name": "currcddn",
+            "description": "curr_cd_dn",
+            "name": "curr_cd_dn",
             "type": "VARCHAR(20)",
             "nullable": true,
             "encode": "lzo"

@@ -11,37 +11,37 @@ query_list = []
 
 # COMMAND ----------
 
-forecast_Sales_GRU = """
+forecast_sales_gru = """
 
 
 SELECT DISTINCT
-		Sales_GRU.record
-		, Sales_GRU.build_type
-		, Sales_GRU.sales_product_number
-		, Sales_GRU.region_5
-		, Sales_GRU.country_alpha2
-		, Sales_GRU.currency_code
-		, Sales_GRU.price_term_code
-		, Sales_GRU.price_start_effective_date
-		, Sales_GRU.qb_sequence_number
-		, Sales_GRU.list_price
-		, Sales_GRU.sales_product_line_code
-		, Sales_GRU.accountingrate
-		, Sales_GRU.list_price_usd
-		, Sales_GRU.listpriceadder_lc
-		, Sales_GRU.currencycode_adder
-		, Sales_GRU.listpriceadder_usd
-		, Sales_GRU.eoq_discount
-		, Sales_GRU.salesproduct_gru
+		sales_gru.record
+		, sales_gru.build_type
+		, sales_gru.sales_product_number
+		, sales_gru.region_5
+		, sales_gru.country_alpha2
+		, sales_gru.currency_code
+		, sales_gru.price_term_code
+		, sales_gru.price_start_effective_date
+		, sales_gru.qb_sequence_number
+		, sales_gru.list_price
+		, sales_gru.sales_product_line_code
+		, sales_gru.accounting_rate
+		, sales_gru.list_price_usd
+		, sales_gru.list_price_adder_lc
+		, sales_gru.currency_code_adder
+		, sales_gru.list_price_adder_usd
+		, sales_gru.eoq_discount
+		, sales_gru.sales_product_gru
 		,(SELECT load_date FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED' 
 				AND load_date = (SELECT MAX(load_date) FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED')) AS load_date,
 			(SELECT version FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED' 
 				AND version = (SELECT MAX(version) FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED')) AS version
 	FROM
-		"fin_stage"."forecast_sales_gru" Sales_GRU
+		"fin_stage"."forecast_sales_gru" sales_gru
 """
 
-query_list.append(["fin_prod.forecast_sales_gru", forecast_Sales_GRU, "append"])
+query_list.append(["fin_prod.forecast_sales_gru", forecast_sales_gru, "append"])
 
 # COMMAND ----------
 
@@ -78,8 +78,8 @@ SELECT
        , qb_sequence_number
        , list_price
        , sales_product_line_code AS product_line
-       , accountingrate
-       , list_price_usd AS listpriceusd
+       , accounting_rate
+       , list_price_usd
        , (SELECT load_date FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED'
 				AND load_date = (SELECT MAX(load_date) FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED')) AS load_date
 FROM "fin_stage"."forecast_sales_gru"
@@ -96,26 +96,26 @@ SELECT
 		, ibp_sales_units.sales_product_number
 		, ibp_sales_units.sales_product_line_code
 		, ibp_sales_units.units AS ibp_sales_product_forecast_units
-		, sales_gru_gpsy.salesproduct_gru
-		, (ibp_sales_units.units * sales_gru_gpsy.salesproduct_gru) AS salesprod_grossrevenue
+		, sales_gru_gpsy.sales_product_gru
+		, (ibp_sales_units.units * sales_gru_gpsy.sales_product_gru) AS salesprod_grossrevenue
 		, ibp_sales_units.base_product_number
 		, ibp_sales_units.base_product_line_code
 		, ibp_sales_units.base_prod_per_sales_prod_qty 
 		, ibp_sales_units.base_product_amount_percent
 		, ibp_sales_units.base_prod_fcst_revenue_units
-		, (ibp_sales_units.units * sales_gru_gpsy.salesproduct_gru*ibp_sales_units.base_product_amount_percent)/100 AS baseprod_grossrevenue
+		, (ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100 AS baseprod_grossrevenue
 		, ibp_sales_units.region_5
 		, sum(ibp_sales_units.base_prod_fcst_revenue_units) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS base_units
-		, sum((ibp_sales_units.units * sales_gru_gpsy.salesproduct_gru*ibp_sales_units.base_product_amount_percent)/100) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS Base_GR
-		, sum((ibp_sales_units.units * sales_gru_gpsy.salesproduct_gru*ibp_sales_units.base_product_amount_percent)/100) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2)/sum(ibp_sales_units.base_prod_fcst_revenue_units) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS  base_gru
+		, sum((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS Base_GR
+		, sum((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2)/sum(ibp_sales_units.base_prod_fcst_revenue_units) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS  base_gru
 	    , (SELECT version FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED'
 				AND version = (SELECT MAX(version) FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED')) AS version
 	FROM
 		"fin_stage"."lpf_01_ibp_combined" ibp_sales_units
 		INNER JOIN
-		"fin_stage"."forecast_sales_gru" Sales_GRU_Gpsy
-			ON ibp_sales_units.sales_product_number = Sales_GRU_Gpsy.sales_product_number
-			AND ibp_sales_units.country_alpha2 = Sales_GRU_Gpsy.country_alpha2
+		"fin_stage"."forecast_sales_gru" sales_gru_gpsy
+			ON ibp_sales_units.sales_product_number = sales_gru_gpsy.sales_product_number
+			AND ibp_sales_units.country_alpha2 = sales_gru_gpsy.country_alpha2
 		WHERE 
 		ibp_sales_units.cal_date = (SELECT min(cal_date) FROM "fin_stage"."lpf_01_ibp_combined")
 """
@@ -140,14 +140,14 @@ SELECT DISTINCT
 			, country_xref.region_5
 			, country_xref.region_3
 			, country_xref.market10
-			, currency_code AS currencycode_gpsy
+			, currency_code AS currency_code_gpsy
 			, price_term_code AS "price_term_code"
 			, price_start_effective_date AS "price_start_effective_date"
 			, qb_sequence_number AS "qb_sequence_number"
 			, list_price AS "list_price"
-			, 0 AS accountingrate
-			, 0 AS "listpriceusd"
-			, 0 AS "salesproduct_gru"
+			, 0 AS accounting_rate
+			, 0 AS "list_price_usd"
+			, 0 AS "sales_product_gru"
 		FROM 
 			"fin_stage"."lpf_04_list_price_apj" list_price_APJ
 			INNER JOIN
@@ -166,14 +166,14 @@ SELECT DISTINCT
 			, country_xref.region_5
 			, country_xref.region_3
 			, country_xref.market10
-			, currency_code AS currencycode_gpsy
+			, currency_code AS currency_code_gpsy
 			, price_term_code AS "price_term_code"
 			, price_start_effective_date AS "price_start_effective_date"
 			, qb_sequence_number AS "qb_sequence_number"
 			, list_price AS "list_price"
-			, 0 AS accountingrate
-			, 0 AS "listpriceusd"
-			, 0 AS "salesproduct_gru"
+			, 0 AS accounting_rate
+			, 0 AS "list_price_usd"
+			, 0 AS "sales_product_gru"
 		FROM 
 			"fin_stage"."lpf_03_list_price_eu" list_price_EU
 			INNER JOIN
@@ -191,14 +191,14 @@ SELECT DISTINCT
 			, country_xref.region_5
 			, country_xref.region_3
 			, country_xref.market10
-			, currency_code AS currencycode_gpsy
+			, currency_code AS currency_code_gpsy
 			, price_term_code AS "price_term_code"
 			, price_start_effective_date AS "price_start_effective_date"
 			, qb_sequence_number AS "qb_sequence_number"
 			, list_price AS "list_price"
-			, 0 AS accountingrate
-			, 0 AS "listpriceusd"
-			, 0 AS "salesproduct_gru"
+			, 0 AS accounting_rate
+			, 0 AS "list_price_usd"
+			, 0 AS "sales_product_gru"
 		FROM 
 			"fin_stage"."lpf_05_list_price_la" list_price_LA
 			INNER JOIN
@@ -217,14 +217,14 @@ SELECT DISTINCT
 			, country_xref.region_5
 			, country_xref.region_3
 			, country_xref.market10
-			, currency_code AS currencycode_gpsy
+			, currency_code AS currency_code_gpsy
 			, price_term_code AS "price_term_code"
 			, price_start_effective_date AS "price_start_effective_date"
 			, qb_sequence_number AS "qb_sequence_number"
 			, list_price AS "list_price"
-			, 0 AS accountingrate
-			, 0 AS "listpriceusd"
-			, 0 AS "salesproduct_gru"
+			, 0 AS accounting_rate
+			, 0 AS "list_price_usd"
+			, 0 AS "sales_product_gru"
 		FROM 
 			"fin_stage"."lpf_06_list_price_na" list_price_NA
 			INNER JOIN
@@ -238,24 +238,24 @@ SELECT DISTINCT
 			'LIST_PRICE_FILTERED' AS record
 			, sales_product_number
 			, sales_product_line_code AS "product_line"
-			, forecast_Sales_GRU.country_alpha2
+			, forecast_sales_gru.country_alpha2
 			, iso_country_code_xref.country
 			, iso_country_code_xref.region_5
 			, iso_country_code_xref.region_3
 			, iso_country_code_xref.market10
-			, currency_code AS currencycode_gpsy
+			, currency_code AS currency_code_gpsy
 			, price_term_code AS "price_term_code"
 			, price_start_effective_date AS "price_start_effective_date"
 			, qb_sequence_number AS "qb_sequence_number"
 			, list_price AS "list_price"
-			, accountingrate
-			, list_price_usd AS "listpriceusd"
-			, salesproduct_gru
+			, accounting_rate
+			, list_price_usd
+			, sales_product_gru
 		FROM
-			"fin_stage"."forecast_sales_gru" forecast_Sales_GRU
+			"fin_stage"."forecast_sales_gru" forecast_sales_gru
 			INNER JOIN
 			"mdm"."iso_country_code_xref" iso_country_code_xref
-				ON forecast_Sales_GRU.country_alpha2 = iso_country_code_xref.country_alpha2
+				ON forecast_sales_gru.country_alpha2 = iso_country_code_xref.country_alpha2
 ),  __dbt__CTE__lpp_12_list_price_all as (
 
 
@@ -268,14 +268,14 @@ SELECT
 			, region_5
 			, region_3
 			, market10
-			, currencycode_gpsy
+			, currency_code_gpsy
 			, "price_term_code"
 			, "price_start_effective_date"
 			, "qb_sequence_number"
 			, "list_price"
-			, accountingrate
-			, "listpriceusd"
-			, "salesproduct_gru"
+			, accounting_rate
+			, "list_price_usd"
+			, "sales_product_gru"
 		FROM
 			__dbt__CTE__lpp_06_list_price_APJ
 
@@ -290,14 +290,14 @@ SELECT
 			, region_5
 			, region_3
 			, market10
-			, currencycode_gpsy
+			, currency_code_gpsy
 			, "price_term_code"
 			, "price_start_effective_date"
 			, "qb_sequence_number"
 			, "list_price"
-			, accountingrate
-			, "listpriceusd"
-			, "salesproduct_gru"
+			, accounting_rate
+			, "list_price_usd"
+			, "sales_product_gru"
 		FROM
 			__dbt__CTE__lpp_07_list_price_EU
 
@@ -312,14 +312,14 @@ SELECT
 			, region_5
 			, region_3
 			, market10
-			, currencycode_gpsy
+			, currency_code_gpsy
 			, "price_term_code"
 			, "price_start_effective_date"
 			, "qb_sequence_number"
 			, "list_price"
-			, accountingrate
-			, "listpriceusd"
-			, "salesproduct_gru"
+			, accounting_rate
+			, "list_price_usd"
+			, "sales_product_gru"
 		FROM
 			__dbt__CTE__lpp_08_list_price_LA
 
@@ -334,14 +334,14 @@ SELECT
 			, region_5
 			, region_3
 			, market10
-			, currencycode_gpsy
+			, currency_code_gpsy
 			, "price_term_code"
 			, "price_start_effective_date"
 			, "qb_sequence_number"
 			, "list_price"
-			, accountingrate
-			, "listpriceusd"
-			, "salesproduct_gru"
+			, accounting_rate
+			, "list_price_usd"
+			, "sales_product_gru"
 		FROM
 			__dbt__CTE__lpp_09_list_price_NA
 
@@ -356,14 +356,14 @@ SELECT
 			, region_5
 			, region_3
 			, market10
-			, currencycode_gpsy
+			, currency_code_gpsy
 			, "price_term_code"
 			, "price_start_effective_date"
 			, "qb_sequence_number"
 			, "list_price"
-			, accountingrate
-			, "listpriceusd"
-			, "salesproduct_gru"
+			, accounting_rate
+			, "list_price_usd"
+			, "sales_product_gru"
 		FROM
 			__dbt__CTE__lpp_10_list_price_filtered
 )SELECT 
@@ -377,14 +377,14 @@ SELECT
 			, region_5
 			, region_3
 			, market10
-			, currencycode_gpsy
+			, currency_code_gpsy
 			, "price_term_code"
 			, "price_start_effective_date"
 			, "qb_sequence_number"
 			, "list_price"
-			, accountingrate
-			, "listpriceusd"
-			, "salesproduct_gru"
+			, accounting_rate
+			, "list_price_usd"
+			, "sales_product_gru"
 			, (SELECT acct_rates_version FROM "fin_stage"."list_price_version") AS accounting_rate_version
 			, (SELECT lp_gpsy_version FROM "fin_stage"."list_price_version" ) AS gpsy_version
 			, (SELECT version FROM "prod".version WHERE record = 'LIST_PRICE_FILTERED' 
