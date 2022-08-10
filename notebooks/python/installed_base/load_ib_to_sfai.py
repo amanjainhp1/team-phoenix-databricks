@@ -112,7 +112,7 @@ for table in tables.items():
             .distinct()
         
         # do a left outer join with SFAI data to prevent loading of duplicate data (primary key violation)
-        cond = [source_df.scenario_name == destination_df.scenario_name, source_df.record == destination_df.record, source_df.version == destination_df.version]
+        cond = [sd.scenario_name == dd.scenario_name, sd.record == dd.record, sd.version == dd.version]
         source_df = source_df \
             .alias("sd") \
             .join(destination_df.alias("dd"), on = cond, how = 'left_outer') \
