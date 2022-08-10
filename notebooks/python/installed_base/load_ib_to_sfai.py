@@ -70,10 +70,11 @@ for table in tables.items():
     
     print("LOG: loading {} to {}".format(source, destination))
     
-    destination_cols = read_sql_server_to_df(configs) \
+    destination_df = read_sql_server_to_df(configs) \
         .option("dbtable", destination) \
-        .load() \
-        .columns
+        .load()
+
+    destination_cols = destination_df.columns
 
     source_df = read_redshift_to_df(configs) \
         .option("dbtable", source) \
@@ -109,6 +110,14 @@ for table in tables.items():
             .where(f.col('load_date') == f.col('max_load_date')) \
             .drop('max_load_date') \
             .distinct()
+        
+        # do a left outer join with SFAI data to prevent loading of duplicate data (primary key violation)
+        cond = [source_df.scenario_name == destination_df.scenario_name, source_df.record == destination_df.record, source_df.version == destination_df.version]
+        source_df = source_df \
+            .alias("sd") \
+            .join(destination_df.alias("dd"), on = cond, how = 'left_outer') \
+            .filter("dd.scenario_name IS NULL") \
+            .select("sd.scenario_name", "sd.record", "sd.version", "sd.load_date")
     # else if norm_ships, filter to latest version
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
