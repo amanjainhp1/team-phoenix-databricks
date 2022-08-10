@@ -365,15 +365,15 @@ test1.createOrReplaceTempView("test1")
 
 test2 = test1.select("*").toPandas()
 test2.set_index('cal_date', inplace=True)
-test2.groupby('measure')['units'].plot(xlabel='Calendar Date', ylabel='Units',legend=True)
+test2.groupby(['customer_engagement','measure'])['units'].plot(xlabel='Calendar Date', ylabel='Units',legend=True)
 
 
 # COMMAND ----------
 
 test2 = """
-select source, count(*) as numsource
+select customer_engagement, measure, source, count(*) as numsource
 from convert
-group by source
+group by customer_engagement, measure,source
 """
 
 test2=spark.sql(test2)

@@ -95,20 +95,20 @@ with step1 as (
 		ELSE 0 END) AS data_source_k_m
     --share     
 	, SUM(CASE WHEN us.measure='USAGE' AND us.data_source='TELEMETRY' AND us.customer_engagement='I-INK' THEN 1
-        WHEN us.measure='HP_SHARE' AND us.data_source='TELEMETRY' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='TELEMETRY' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s
     , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='NPI' AND us.customer_engagement='I-INK' THEN 1
-        WHEN us.measure='HP_SHARE' AND us.data_source='NPI' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='NPI' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_n
     , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MATURE' AND us.customer_engagement='I-INK' THEN 1
-        WHEN us.measure='HP_SHARE' AND us.data_source='MATURE' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='MATURE' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_o
     , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MODELED' AND us.customer_engagement='I-INK' THEN 1
-        WHEN us.measure='HP_SHARE' AND us.data_source='MODELED' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='MODELED' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_m
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
     , SUM(CASE WHEN us.measure='USAGE' AND us.customer_engagement='I-INK' THEN 1 
-               WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
+               WHEN us.measure='HP_SHARE' AND us.customer_engagement !='I-INK' THEN us.units ELSE 0 END) AS page_share
     , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
 FROM us_table us 
@@ -330,7 +330,7 @@ test2 = """
 select *
 from convert
 --where platform_subset='MORETO BASE YET1' and cal_date='2028-06-01' and geography in ('AU','JP')
-where test_src < 1
+where test_src > 1
 """
 
 test2=spark.sql(test2)
