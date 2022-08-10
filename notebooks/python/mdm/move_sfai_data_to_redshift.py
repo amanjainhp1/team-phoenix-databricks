@@ -162,7 +162,7 @@ if configs["destination_table"] in large_tables and configs['load_large_tables']
 # load all other tables
 if configs["destination_table"] not in large_tables:
     # write data to S3
-    write_df_to_s3(final_table_df, "{}{}/{}/{}/".format(constants['S3_BASE_BUCKET'][stack], configs["destination_table"], configs["datestamp"], configs["timestamp"]), "csv", "overwrite")
+    write_df_to_s3(final_table_df, "{}archive/{}/{}/{}/".format(constants['S3_BASE_BUCKET'][stack], configs["destination_table"], configs["datestamp"], configs["timestamp"]), "csv", "overwrite")
 
     # truncate existing redshift data and write data to redshift
     write_df_to_redshift(configs=configs, df=final_table_df, destination=destination, mode="append", preactions="TRUNCATE " + destination)
