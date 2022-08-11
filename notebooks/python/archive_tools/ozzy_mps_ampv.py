@@ -94,12 +94,12 @@ write_df_to_s3(ozzy_mps_ampv_records, s3_ib_output_bucket, "parquet", "overwrite
 # COMMAND ----------
 
 # write dataframe to the stage database
-write_df_to_redshift(configs, ozzy_mps_ampv_records, "stage.mps_ww_shipped_supply", "overwrite")
+write_df_to_redshift(configs, ozzy_mps_ampv_records, "stage.mps_ampv_stage", "overwrite")
 
 # COMMAND ----------
 
 # write dataframe to the prod database
-write_df_to_redshift(configs, ozzy_mps_supplies_shipments_records, "prod.mps_ww_shipped_supply", "overwrite")
+write_df_to_redshift(configs, ozzy_mps_ampv_records, "prod.mps_ampv", "overwrite")
 
 # COMMAND ----------
 
