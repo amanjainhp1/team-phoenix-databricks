@@ -79,7 +79,7 @@ ozzy_mps_supplies_shipments_records = ozzy_mps_supplies_shipments_records \
 # set the bucket and folder:
 
 # s3a://dataos-core-dev-team-phoenix/mps_ww_shipped_supply/[version]
-s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "mps_ww_shipped_supply/" + max_version
+s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/mps/mps_supplies_shipments/" + max_version
 
 # write data to the bucket, overwrite if pulled more than once on the same day
 write_df_to_s3(ozzy_mps_supplies_shipments_records, s3_ib_output_bucket, "parquet", "overwrite")
