@@ -35,21 +35,21 @@ FROM "prod"."ibp_supplies_forecast"
 UNION ALL
 
 SELECT 'INSIGHTS_UNITS' AS record
-    , max(version) AS version
+    , MAX(version) AS version
 FROM "prod"."working_forecast_country"
 
 UNION ALL
 
 SELECT 'LIST_PRICE_GPSY' AS record
-    , max(version) AS version
+    , MAX(version) AS version
 FROM "prod"."list_price_gpsy"
 
 UNION ALL
 
 SELECT 'ACCT_RATES' AS record
-    , max(version) AS version
+    , MAX(version) AS version
 FROM "prod"."acct_rates"
-),  __dbt__CTE__lpf_06_ibp_regiON AS (
+),  __dbt__CTE__lpf_06_ibp_region AS (
 
 
 SELECT DISTINCT
@@ -91,7 +91,7 @@ UNION ALL
 
 SELECT
     'IBP_SUPPLIES_FORECAST' AS record
-    , min(cal_date) AS cal_date
+    , MIN(cal_date) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                           
 WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST')
@@ -100,7 +100,7 @@ UNION ALL
 
 SELECT
     'MAX_IBP_SUPPLIES_FORECAST' AS record
-    , max(cal_date) AS cal_date
+    , MAX(cal_date) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                             
 WHERE
@@ -109,14 +109,14 @@ WHERE
 UNION ALL
 
 SELECT 'EFFECTIVE_DATE_ACCT_RATES' AS record
-    , max(effective_date) AS cal_date
+    , MAX(effective_date) AS cal_date
 FROM
     "prod"."acct_rates"                                       
 
 UNION ALL
 
 SELECT 'EOQ' AS record
-    , max(load_date) AS cal_date
+    , MAX(load_date) AS cal_date
 FROM
     "prod"."list_price_eoq"                                   
 ),  __dbt__CTE__lpf_03_Actuals_Baseprod AS (
@@ -126,8 +126,8 @@ SELECT
 	actuals_supplies_baseprod.country_alpha2
 	, actuals_supplies_baseprod.base_product_number
 	, actuals_supplies_baseprod.pl AS base_product_line_code
-	, sum(actuals_supplies_baseprod.revenue_units) AS revenue_units
-	, sum(actuals_supplies_baseprod.gross_revenue) AS gross_rev
+	, SUM(actuals_supplies_baseprod.revenue_units) AS revenue_units
+	, SUM(actuals_supplies_baseprod.gross_revenue) AS gross_rev
 	, actuals_supplies_baseprod.version
 FROM
     "fin_prod"."actuals_supplies_baseprod" actuals_supplies_baseprod
@@ -149,7 +149,7 @@ SELECT
 	, sales_product_number
 	, pl AS sales_product_line_code
 	, SUM(revenue_units) AS revenue_units
-	, sum(gross_revenue) AS gross_rev
+	, SUM(gross_revenue) AS gross_rev
 	, version
 FROM
     "fin_prod"."actuals_supplies_salesprod"
@@ -162,49 +162,49 @@ GROUP BY country_alpha2, sales_product_number, pl, version
 
 SELECT
 		DISTINCT
-		Actuals_SalesProd.sales_product_number
+		actuals_sales_prod.sales_product_number
 		, rdma_base_to_sales_product_map.sales_product_line_code
-		, Actuals_BaseProd.base_product_number
+		, actuals_base_prod.base_product_number
 		, rdma_base_to_sales_product_map.base_product_line_code
-		, Actuals_BaseProd.country_alpha2
+		, actuals_base_prod.country_alpha2
 		, iso_country_code_xref.region_5
-		, Calendar.Date AS cal_date
+		, calendar.date AS cal_date
 		, base_prod_per_sales_prod_qty
 		, base_product_amount_percent
-		, Actuals_SalesProd.revenue_units AS base_prod_fcst_revenue_units
-		, Actuals_BaseProd.revenue_units AS sum_base_fcst
-		, Actuals_SalesProd.revenue_units/base_prod_per_sales_prod_qty AS units
-		, Actuals_SalesProd.version
+		, actuals_sales_prod.revenue_units AS base_prod_fcst_revenue_units
+		, actuals_base_prod.revenue_units AS sum_base_fcst
+		, actuals_sales_prod.revenue_units/base_prod_per_sales_prod_qty AS units
+		, actuals_sales_prod.version
 		, 'ACTUALS' AS source
 	FROM
-		__dbt__CTE__lpf_03_Actuals_Baseprod Actuals_BaseProd
+		__dbt__CTE__lpf_03_Actuals_Baseprod actuals_base_prod
 		INNER JOIN
 		"mdm"."rdma_base_to_sales_product_map" rdma_base_to_sales_product_map
-			ON rdma_base_to_sales_product_map.base_product_number = Actuals_BaseProd.base_product_number
+			ON rdma_base_to_sales_product_map.base_product_number = actuals_base_prod.base_product_number
 		INNER JOIN
-		__dbt__CTE__lpf_04_Actuals_Salesprod Actuals_SalesProd
-			ON Actuals_SalesProd.sales_product_number = rdma_base_to_sales_product_map.sales_product_number
-			AND Actuals_BaseProd.country_alpha2 = Actuals_SalesProd.country_alpha2
+		__dbt__CTE__lpf_04_Actuals_Salesprod actuals_sales_prod
+			ON actuals_sales_prod.sales_product_number = rdma_base_to_sales_product_map.sales_product_number
+			AND actuals_base_prod.country_alpha2 = actuals_sales_prod.country_alpha2
 		LEFT JOIN
 		"mdm"."iso_country_code_xref" iso_country_code_xref
-			ON iso_country_code_xref.country_alpha2 = Actuals_BaseProd.country_alpha2
+			ON iso_country_code_xref.country_alpha2 = actuals_base_prod.country_alpha2
 		JOIN
-		 "mdm"."calendar" Calendar
+		 "mdm"."calendar" calendar
 		    ON 1 = 1
 	WHERE
-		Actuals_salesprod.revenue_units > 0
-		AND Actuals_BaseProd.revenue_units > 0
-		AND Calendar.Date >= (SELECT cal_date FROM __dbt__CTE__lpf_02_filter_dates WHERE record = 'IBP_SUPPLIES_FORECAST')
-		AND Calendar.Day_of_month = 1
-		AND Calendar.Date <= (SELECT cal_date FROM __dbt__CTE__lpf_02_filter_dates WHERE record = 'MAX_IBP_SUPPLIES_FORECAST')
+		actuals_sales_prod.revenue_units > 0
+		AND actuals_base_prod.revenue_units > 0
+		AND calendar.date >= (SELECT cal_date FROM __dbt__CTE__lpf_02_filter_dates WHERE record = 'IBP_SUPPLIES_FORECAST')
+		AND calendar.day_of_month = 1
+		AND calendar.date <= (SELECT cal_date FROM __dbt__CTE__lpf_02_filter_dates WHERE record = 'MAX_IBP_SUPPLIES_FORECAST')
 		AND not exists (SELECT 1 FROM __dbt__CTE__lpf_06_ibp_region ibp_region
-						WHERE ibp_region.base_product_number = Actuals_BASeProd.base_product_number
-						AND ibp_region.country_alpha2 = Actuals_BASeProd.country_alpha2
-						AND ibp_region.sales_product_number = Actuals_SalesProd.sales_product_number)
-		AND EXISTS (SELECT 1 FROM "prod"."working_forecast_country" Insights_Units
-					WHERE Insights_Units.base_product_number = Actuals_BaseProd.base_product_number
-					AND Insights_Units.country = Actuals_BaseProd.country_alpha2
-					AND Insights_Units.cal_date = Calendar.Date
+						WHERE ibp_region.base_product_number = actuals_base_prod.base_product_number
+						AND ibp_region.country_alpha2 = actuals_base_prod.country_alpha2
+						AND ibp_region.sales_product_number = actuals_sales_prod.sales_product_number)
+		AND EXISTS (SELECT 1 FROM "prod"."working_forecast_country" insights_units
+					WHERE insights_units.base_product_number = actuals_base_prod.base_product_number
+					AND insights_units.country = actuals_base_prod.country_alpha2
+					AND insights_units.cal_date = calendar.date
 					AND cal_date >= (SELECT cal_date FROM __dbt__CTE__lpf_02_filter_dates WHERE record = 'IBP_SUPPLIES_FORECAST')
 					AND version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'INSIGHTS_UNITS')
 					AND cartridges > 0)
@@ -354,7 +354,7 @@ query_list.append(["fin_stage.lpf_02_list_price_all", lpf_02_list_price_all, "ov
 
 # COMMAND ----------
 
-lpf_03_list_price_EU = """
+lpf_03_list_price_eu = """
 
 
 with __dbt__CTE__lpf_09_ibp_grp as (
@@ -384,22 +384,22 @@ SELECT DISTINCT
 	, list_price_all.sales_unit_source
 FROM
 	"fin_stage"."lpf_02_list_price_all" list_price_all
-	inner join
+	INNER JOIN
 	"mdm"."iso_country_code_xref" iso_country_code_xref
 		on iso_country_code_xref.region_5 = list_price_all.country_alpha2
-	inner join
+	INNER JOIN
 	__dbt__CTE__lpf_09_ibp_grp ibp_grp
 		on ibp_grp.sales_product_number = list_price_all.sales_product_number
 		and iso_country_code_xref.country_alpha2 = ibp_grp.country_alpha2
-	inner join
-	"mdm"."list_price_EU_CountryList" list_price_EU_CountryList
-		on list_price_EU_CountryList.country_alpha2 = ibp_grp.country_alpha2
-		and
-		    ((list_price_EU_CountryList.currency = 'EURO' AND list_price_all.currency_code = 'EC')
-		    or (list_price_EU_CountryList.currency = 'DOLLAR' AND list_price_all.currency_code = 'UD'))
+	INNER JOIN
+	"mdm"."list_price_eu_countrylist" list_price_eu_countrylist
+		ON list_price_eu_countrylist.country_alpha2 = ibp_grp.country_alpha2
+		AND
+		    ((list_price_eu_countrylist.currency = 'EURO' AND list_price_all.currency_code = 'EC')
+		    OR (list_price_eu_countrylist.currency = 'DOLLAR' AND list_price_all.currency_code = 'UD'))
 WHERE
 	(list_price_all.country_alpha2 = 'EU')
-	AND Price_term_code IN ('DP', 'DF')
+	AND price_term_code IN ('DP', 'DF')
 	AND not exists
 	(SELECT * FROM "fin_stage"."lpf_02_list_price_all" list_price_all2
 		WHERE list_price_all.sales_product_number = list_price_all2.sales_product_number
@@ -411,11 +411,11 @@ WHERE
 			AND list_price_all.qb_sequence_number < list_price_all2.qb_sequence_number)))
 """
 
-query_list.append(["fin_stage.lpf_03_list_price_EU", lpf_03_list_price_EU, "overwrite"])
+query_list.append(["fin_stage.lpf_03_list_price_eu", lpf_03_list_price_eu, "overwrite"])
 
 # COMMAND ----------
 
-lpf_04_list_price_APJ = """
+lpf_04_list_price_apj = """
 
 
 with __dbt__CTE__lpf_09_ibp_grp as (
@@ -463,11 +463,11 @@ WHERE
 			AND list_price_all.qb_sequence_number < list_price_all2.qb_sequence_number)))
 """
 
-query_list.append(["fin_stage.lpf_04_list_price_APJ", lpf_04_list_price_APJ, "overwrite"])
+query_list.append(["fin_stage.lpf_04_list_price_apj", lpf_04_list_price_apj, "overwrite"])
 
 # COMMAND ----------
 
-lpf_05_list_price_LA = """
+lpf_05_list_price_la = """
 
 
 with __dbt__CTE__lpf_09_ibp_grp as (
@@ -528,11 +528,11 @@ WHERE
 			AND list_price_all.qb_sequence_number < list_price_all2.qb_sequence_number)))
 """
 
-query_list.append(["fin_stage.lpf_05_list_price_LA", lpf_05_list_price_LA, "overwrite"])
+query_list.append(["fin_stage.lpf_05_list_price_la", lpf_05_list_price_la, "overwrite"])
 
 # COMMAND ----------
 
-lpf_06_list_price_NA = """
+lpf_06_list_price_na = """
 
 
 with __dbt__CTE__lpf_09_ibp_grp as (
@@ -578,7 +578,7 @@ WHERE
 			AND list_price_all.qb_sequence_number < list_price_all2.qb_sequence_number)))
 """
 
-query_list.append(["fin_stage.lpf_06_list_price_NA", lpf_06_list_price_NA, "overwrite"])
+query_list.append(["fin_stage.lpf_06_list_price_na", lpf_06_list_price_na, "overwrite"])
 
 # COMMAND ----------
 
@@ -621,79 +621,79 @@ UNION ALL
 SELECT 'ACCT_RATES' AS record
     , max(version) AS version
 FROM "prod"."acct_rates"
-),  __dbt__CTE__lpf_17_list_price_APJ_filtered as (
+),  __dbt__CTE__lpf_17_list_price_apj_filtered as (
 
 
 SELECT DISTINCT
-	list_price_APJ.sales_product_number
-	, list_price_APJ.sales_product_line_code
-	, list_price_APJ.country_alpha2
-	, list_price_APJ.currency_code
-	, list_price_APJ.price_term_code
-	, list_price_APJ.price_start_effective_date
-	, list_price_APJ.qb_sequence_number
-	, list_price_APJ.list_price
-	, list_price_APJ.price_term_code_priority
+	list_price_apj.sales_product_number
+	, list_price_apj.sales_product_line_code
+	, list_price_apj.country_alpha2
+	, list_price_apj.currency_code
+	, list_price_apj.price_term_code
+	, list_price_apj.price_start_effective_date
+	, list_price_apj.qb_sequence_number
+	, list_price_apj.list_price
+	, list_price_apj.price_term_code_priority
 FROM
-	"fin_stage"."lpf_04_list_price_APJ" list_price_APJ
+	"fin_stage"."lpf_04_list_price_apj" list_price_apj
 WHERE
-	list_price_APJ.Price_term_code = list_price_APJ.selected_price_term_code
-	AND list_price_APJ.currency_code = list_price_APJ.selected_currency_code
+	list_price_apj.Price_term_code = list_price_apj.selected_price_term_code
+	AND list_price_apj.currency_code = list_price_apj.selected_currency_code
 	AND not exists(
-	SELECT 1 FROM "fin_stage"."lpf_04_list_price_APJ" list_price_APJ_2
-		WHERE list_price_APJ.sales_product_number = list_price_APJ_2.sales_product_number
-		AND list_price_APJ.country_alpha2 = list_price_APJ_2.country_alpha2
-		AND list_price_APJ_2.price_term_code = list_price_APJ_2.selected_price_term_code
-		AND list_price_APJ_2.currency_code = list_price_APJ_2.selected_currency_code
-		AND list_price_APJ.price_term_code_priority > list_price_APJ_2.price_term_code_priority)
-),  __dbt__CTE__lpf_19_list_price_LA_filtered AS (
+	SELECT 1 FROM "fin_stage"."lpf_04_list_price_apj" list_price_apj_2
+		WHERE list_price_apj.sales_product_number = list_price_apj_2.sales_product_number
+		AND list_price_apj.country_alpha2 = list_price_apj_2.country_alpha2
+		AND list_price_apj_2.price_term_code = list_price_apj_2.selected_price_term_code
+		AND list_price_apj_2.currency_code = list_price_apj_2.selected_currency_code
+		AND list_price_apj.price_term_code_priority > list_price_apj_2.price_term_code_priority)
+),  __dbt__CTE__lpf_19_list_price_la_filtered AS (
 
 
 SELECT DISTINCT
-	list_price_LA.sales_product_number
-	, list_price_LA.sales_product_line_code
-	, list_price_LA.country_alpha2
-	, list_price_LA.currency_code
-	, list_price_LA.price_term_code
-	, list_price_LA.price_start_effective_date
-	, list_price_LA.qb_sequence_number
-	, list_price_LA.list_price
-	, list_price_LA.price_term_code_priority
+	list_price_la.sales_product_number
+	, list_price_la.sales_product_line_code
+	, list_price_la.country_alpha2
+	, list_price_la.currency_code
+	, list_price_la.price_term_code
+	, list_price_la.price_start_effective_date
+	, list_price_la.qb_sequence_number
+	, list_price_la.list_price
+	, list_price_la.price_term_code_priority
 FROM
-	"fin_stage"."lpf_05_list_price_LA" list_price_LA
+	"fin_stage"."lpf_05_list_price_la" list_price_la
 WHERE
-	list_price_LA.price_term_code = list_price_LA.selected_price_term_code
-	AND list_price_LA.currency_code = list_price_LA.selected_currency_code
+	list_price_la.price_term_code = list_price_la.selected_price_term_code
+	AND list_price_la.currency_code = list_price_la.selected_currency_code
 	AND not exists(
-	SELECT 1 FROM "fin_stage"."lpf_05_list_price_LA" list_price_LA2
-		WHERE list_price_LA.sales_product_number = list_price_LA2.sales_product_number
-		AND list_price_LA.country_alpha2 = list_price_LA2.country_alpha2
-		AND list_price_LA2.price_term_code = list_price_LA2.selected_price_term_code
-		AND list_price_LA2.currency_code = list_price_LA2.selected_currency_code
-		AND list_price_LA.price_term_code_priority > list_price_LA2.price_term_code_priority)
-),  __dbt__CTE__lpf_21_list_price_NA_filtered as (
+	SELECT 1 FROM "fin_stage"."lpf_05_list_price_la" list_price_la2
+		WHERE list_price_la.sales_product_number = list_price_la2.sales_product_number
+		AND list_price_la.country_alpha2 = list_price_la2.country_alpha2
+		AND list_price_la2.price_term_code = list_price_la2.selected_price_term_code
+		AND list_price_la2.currency_code = list_price_la2.selected_currency_code
+		AND list_price_la.price_term_code_priority > list_price_la2.price_term_code_priority)
+),  __dbt__CTE__lpf_21_list_price_na_filtered as (
 
 
 SELECT DISTINCT
-	list_price_NA.sales_product_number
-	, list_price_NA.sales_product_line_code
-	, list_price_NA.country_alpha2
-	, list_price_NA.currency_code
-	, list_price_NA.price_term_code
-	, list_price_NA.price_start_effective_date
-	, list_price_NA.qb_sequence_number
-	, list_price_NA.list_price
-	, list_price_NA.price_term_code_priority
+	list_price_na.sales_product_number
+	, list_price_na.sales_product_line_code
+	, list_price_na.country_alpha2
+	, list_price_na.currency_code
+	, list_price_na.price_term_code
+	, list_price_na.price_start_effective_date
+	, list_price_na.qb_sequence_number
+	, list_price_na.list_price
+	, list_price_na.price_term_code_priority
 FROM
-	"fin_stage"."lpf_06_list_price_NA" list_price_NA
+	"fin_stage"."lpf_06_list_price_na" list_price_na
 WHERE
-	list_price_NA.currency_code = list_price_NA.selected_currency_code
+	list_price_na.currency_code = list_price_na.selected_currency_code
 	AND not exists(
-	SELECT 1 FROM "fin_stage"."lpf_06_list_price_NA" list_price_NA2
-		WHERE list_price_NA.sales_product_number = list_price_NA2.sales_product_number
-		AND list_price_NA.country_alpha2 = list_price_NA2.country_alpha2
-		AND list_price_NA2.currency_code = list_price_NA2.selected_currency_code
-		AND list_price_NA.price_term_code_priority > list_price_NA2.price_term_code_priority)
+	SELECT 1 FROM "fin_stage"."lpf_06_list_price_NA" list_price_na2
+		WHERE list_price_na.sales_product_number = list_price_na2.sales_product_number
+		AND list_price_na.country_alpha2 = list_price_na2.country_alpha2
+		AND list_price_na2.currency_code = list_price_na2.selected_currency_code
+		AND list_price_na.price_term_code_priority > list_price_na2.price_term_code_priority)
 ),  __dbt__CTE__lpf_09_ibp_grp as (
 
 
@@ -705,37 +705,37 @@ SELECT DISTINCT
 		, ibp_combined.version
 	FROM
 	    "fin_stage"."lpf_01_ibp_combined" ibp_combined
-),  __dbt__CTE__lpf_14_list_price_EU_filtered as (
+),  __dbt__CTE__lpf_14_list_price_eu_filtered as (
 
 
 SELECT DISTINCT
-		list_price_EU.sales_product_number
-		, list_price_EU.sales_product_line_code
-		, list_price_EU.country_alpha2
-		, list_price_EU.currency_code
-		, list_price_EU.price_term_code
-		, list_price_EU.price_start_effective_date
-		, list_price_EU.qb_sequence_number
-		, list_price_EU.list_price
-		, list_price_EU.price_term_code_priority
-		, list_price_EU.list_price_version
-		, list_price_EU.sales_unit_version
-		, list_price_EU.sales_unit_source
+		list_price_eu.sales_product_number
+		, list_price_eu.sales_product_line_code
+		, list_price_eu.country_alpha2
+		, list_price_eu.currency_code
+		, list_price_eu.price_term_code
+		, list_price_eu.price_start_effective_date
+		, list_price_eu.qb_sequence_number
+		, list_price_eu.list_price
+		, list_price_eu.price_term_code_priority
+		, list_price_eu.list_price_version
+		, list_price_eu.sales_unit_version
+		, list_price_eu.sales_unit_source
 
 FROM
-	"fin_stage"."lpf_03_list_price_eu" list_price_EU
+	"fin_stage"."lpf_03_list_price_eu" list_price_eu
 	INNER JOIN
 	__dbt__CTE__lpf_09_ibp_grp ibp_grp
-    	ON ibp_grp.sales_product_number = list_price_EU.sales_product_number
-	    AND ibp_grp.country_alpha2 = list_price_EU.country_alpha2
+    	ON ibp_grp.sales_product_number = list_price_eu.sales_product_number
+	    AND ibp_grp.country_alpha2 = list_price_eu.country_alpha2
 WHERE
 	not exists
 	(
 		SELECT 1 FROM
-		"fin_stage"."lpf_03_list_price_eu" list_price_EU2
-		WHERE list_price_EU.sales_product_number = list_price_EU2.sales_product_number
-		AND list_price_EU.country_alpha2 = list_price_EU2.country_alpha2
-		AND list_price_EU.price_term_code_priority > list_price_EU2.price_term_code_priority
+		"fin_stage"."lpf_03_list_price_eu" list_price_eu2
+		WHERE list_price_eu.sales_product_number = list_price_eu2.sales_product_number
+		AND list_price_eu.country_alpha2 = list_price_eu2.country_alpha2
+		AND list_price_eu.price_term_code_priority > list_price_eu2.price_term_code_priority
 	)
 ),   __dbt__CTE__lpf_11_country_price_term_map as (
 
@@ -753,7 +753,7 @@ SELECT
 		"mdm"."iso_cc_rollup_xref" iso_cc_rollup_xref
 			ON iso_cc_rollup_xref.country_level_1 = price_term_codes.country_alpha2
 			WHERE country_scenario = 'LIST_PRICE'
-),  __dbt__CTE__lpf_15_list_price_USRP as (
+),  __dbt__CTE__lpf_15_list_price_usrp as (
 
 
 SELECT DISTINCT
@@ -789,43 +789,43 @@ FROM
 	__dbt__CTE__lpf_09_ibp_grp ibp_grp
 WHERE
 	not exists
-	(SELECT 1 FROM __dbt__CTE__lpf_14_list_price_EU_filtered list_price_EU_filtered
-		WHERE list_price_EU_filtered.sales_product_number = ibp_grp.sales_product_number
-		AND list_price_EU_filtered.country_alpha2 = ibp_grp.country_alpha2
+	(SELECT 1 FROM __dbt__CTE__lpf_14_list_price_eu_filtered list_price_eu_filtered
+		WHERE list_price_eu_filtered.sales_product_number = ibp_grp.sales_product_number
+		AND list_price_eu_filtered.country_alpha2 = ibp_grp.country_alpha2
 	)
 	AND not exists
-	(SELECT 1 FROM __dbt__CTE__lpf_17_list_price_APJ_filtered list_price_APJ_filtered
-		WHERE list_price_APJ_filtered.sales_product_number = ibp_grp.sales_product_number
-		AND list_price_APJ_filtered.country_alpha2 = ibp_grp.country_alpha2
+	(SELECT 1 FROM __dbt__CTE__lpf_17_list_price_APJ_filtered list_price_apj_filtered
+		WHERE list_price_apj_filtered.sales_product_number = ibp_grp.sales_product_number
+		AND list_price_apj_filtered.country_alpha2 = ibp_grp.country_alpha2
 	)
 	AND not exists
-	(SELECT 1 FROM __dbt__CTE__lpf_19_list_price_LA_filtered list_price_LA_filtered
-		WHERE list_price_LA_filtered.sales_product_number = ibp_grp.sales_product_number
-		AND list_price_LA_filtered.country_alpha2 = ibp_grp.country_alpha2
+	(SELECT 1 FROM __dbt__CTE__lpf_19_list_price_LA_filtered list_price_la_filtered
+		WHERE list_price_la_filtered.sales_product_number = ibp_grp.sales_product_number
+		AND list_price_la_filtered.country_alpha2 = ibp_grp.country_alpha2
 	)
 	AND not exists
-	(SELECT 1 FROM __dbt__CTE__lpf_21_list_price_NA_filtered list_price_NA_filtered
-		WHERE list_price_NA_filtered.sales_product_number = ibp_grp.sales_product_number
-		AND list_price_NA_filtered.country_alpha2 = ibp_grp.country_alpha2
+	(SELECT 1 FROM __dbt__CTE__lpf_21_list_price_NA_filtered list_price_na_filtered
+		WHERE list_price_na_filtered.sales_product_number = ibp_grp.sales_product_number
+		AND list_price_na_filtered.country_alpha2 = ibp_grp.country_alpha2
 	)
-),  __dbt__CTE__lpf_23_list_price_RP_filtered as (
+),  __dbt__CTE__lpf_23_list_price_rp_filtered as (
 
 
 SELECT DISTINCT
 	no_list_price.sales_product_number
 	, no_list_price.country_alpha2
-	, list_price_USRP.sales_product_line_code
-	, list_price_USRP.currency_code
-	, list_price_USRP.price_term_code
-	, list_price_USRP.price_start_effective_date
-	, list_price_USRP.qb_sequence_number
-	, list_price_USRP.list_price
+	, list_price_usrp.sales_product_line_code
+	, list_price_usrp.currency_code
+	, list_price_usrp.price_term_code
+	, list_price_usrp.price_start_effective_date
+	, list_price_usrp.qb_sequence_number
+	, list_price_usrp.list_price
 FROM
-	__dbt__CTE__lpf_15_list_price_USRP list_price_USRP
+	__dbt__CTE__lpf_15_list_price_usrp list_price_usrp
 	INNER JOIN
 	__dbt__CTE__lpf_22_no_list_price no_list_price
-			ON list_price_USRP.sales_product_number = no_list_price.sales_product_number
-),  __dbt__CTE__lpf_24_list_price_DP_DF_IN_RP as (
+			ON list_price_usrp.sales_product_number = no_list_price.sales_product_number
+),  __dbt__CTE__lpf_24_list_price_dp_df_in_rp as (
 
 
 SELECT DISTINCT
@@ -838,7 +838,7 @@ SELECT DISTINCT
 		, qb_sequence_number
 		, list_price
 	FROM
-		__dbt__CTE__lpf_17_list_price_APJ_filtered
+		__dbt__CTE__lpf_17_list_price_apj_filtered
 
 	UNION ALL
 
@@ -852,7 +852,7 @@ SELECT DISTINCT
 		, qb_sequence_number
 		, list_price
 	FROM
-		__dbt__CTE__lpf_19_list_price_LA_filtered
+		__dbt__CTE__lpf_19_list_price_la_filtered
 
 	UNION ALL
 
@@ -866,7 +866,7 @@ SELECT DISTINCT
 		, qb_sequence_number
 		, list_price
 	FROM
-		__dbt__CTE__lpf_21_list_price_NA_filtered
+		__dbt__CTE__lpf_21_list_price_na_filtered
 
 	UNION ALL
 
@@ -881,7 +881,7 @@ SELECT DISTINCT
 		, qb_sequence_number
 		, list_price
 	FROM
-		__dbt__CTE__lpf_14_list_price_EU_filtered
+		__dbt__CTE__lpf_14_list_price_eu_filtered
 
 	UNION ALL
 
@@ -895,7 +895,7 @@ SELECT DISTINCT
 		, qb_sequence_number
 		, list_price
 	FROM
-		__dbt__CTE__lpf_23_list_price_RP_filtered
+		__dbt__CTE__lpf_23_list_price_rp_filtered
 ),  __dbt__CTE__lpf_25_country_currency_map as (
 
 
@@ -926,7 +926,7 @@ UNION ALL
 
 SELECT
     'IBP_SUPPLIES_FORECAST' AS record
-    , min(cal_date) AS cal_date
+    , MIN(cal_date) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                           
 WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST')
@@ -935,7 +935,7 @@ UNION ALL
 
 SELECT
     'MAX_IBP_SUPPLIES_FORECAST' AS record
-    , max(cal_date) AS cal_date
+    , MAX(cal_date) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                             
 WHERE
@@ -944,14 +944,14 @@ WHERE
 UNION ALL
 
 SELECT 'EFFECTIVE_DATE_ACCT_RATES' AS record
-    , max(effective_date) AS cal_date
+    , MAX(effective_date) AS cal_date
 FROM
     "prod"."acct_rates"                                       
 
 UNION ALL
 
 SELECT 'EOQ' AS record
-    , max(load_date) AS cal_date
+    , MAX(load_date) AS cal_date
 FROM
     "prod"."list_price_eoq"                                   
 ),  __dbt__CTE__lpf_26_eoq as (
@@ -970,34 +970,34 @@ SELECT
 
 
 SELECT DISTINCT
-		list_price_DP_DF_IN_RP.sales_product_number
+		list_price_dp_df_in_rp.sales_product_number
 		, rdma_base_to_sales_product_map.sales_product_line_code
-		, list_price_DP_DF_IN_RP.country_alpha2
+		, list_price_dp_df_in_rp.country_alpha2
 		, iso_country_code_xref.region_5
-		, list_price_DP_DF_IN_RP.currency_code
-		, list_price_DP_DF_IN_RP.price_term_code
-		, list_price_DP_DF_IN_RP.price_start_effective_date
-		, list_price_DP_DF_IN_RP.qb_sequence_number
-		, list_price_DP_DF_IN_RP.list_price
+		, list_price_dp_df_in_rp.currency_code
+		, list_price_dp_df_in_rp.price_term_code
+		, list_price_dp_df_in_rp.price_start_effective_date
+		, list_price_dp_df_in_rp.qb_sequence_number
+		, list_price_dp_df_in_rp.list_price
 		, country_currency_map.country_alpha2 AS currency_country
 		, acct_rates.accounting_rate
-		, count(list_price) over (partition by list_price_DP_DF_IN_RP.sales_product_number, list_price_DP_DF_IN_RP.country_alpha2, list_price_DP_DF_IN_RP.Price_term_code) as count_List_Price
+		, count(list_price) over (partition by list_price_dp_df_in_rp.sales_product_number, list_price_dp_df_in_rp.country_alpha2, list_price_dp_df_in_rp.price_term_code) as count_List_Price
 		, list_price_eoq.eoq_discount
 	FROM
-		__dbt__CTE__lpf_24_list_price_DP_DF_IN_RP list_price_DP_DF_IN_RP
+		__dbt__CTE__lpf_24_list_price_DP_DF_IN_RP list_price_dp_df_in_rp
 		LEFT JOIN
 		(SELECT DISTINCT sales_product_number, sales_product_line_code FROM "mdm"."rdma_base_to_sales_product_map") rdma_base_to_sales_product_map
 			on list_price_DP_DF_IN_RP.sales_product_number = rdma_base_to_sales_product_map.sales_product_number
 		LEFT JOIN
 		"mdm"."iso_country_code_xref" iso_country_code_xref
-			ON iso_country_code_xref.country_alpha2 = list_price_DP_DF_IN_RP.country_alpha2
+			ON iso_country_code_xref.country_alpha2 = list_price_dp_df_in_rp.country_alpha2
 		LEFT JOIN
 		__dbt__CTE__lpf_25_country_currency_map country_currency_map
-			ON country_currency_map.country_alpha2 = list_price_DP_DF_IN_RP.country_alpha2
-			AND country_currency_map.curency_code = list_price_DP_DF_IN_RP.currency_code
+			ON country_currency_map.country_alpha2 = list_price_dp_df_in_rp.country_alpha2
+			AND country_currency_map.curency_code = list_price_dp_df_in_rp.currency_code
 		LEFT JOIN
 		"prod"."acct_rates" acct_rates
-			ON acct_rates.curency_code = list_price_DP_DF_IN_RP.currency_code
+			ON acct_rates.curency_code = list_price_dp_df_in_rp.currency_code
 		LEFT JOIN
 		__dbt__CTE__lpf_26_eoq list_price_eoq
 			ON list_price_eoq.product_line = rdma_base_to_sales_product_map.sales_product_line_code
@@ -1062,26 +1062,26 @@ FROM "prod"."ibp_supplies_forecast"
 UNION ALL
 
 SELECT 'INSIGHTS_UNITS' AS record
-    , max(version) AS version
+    , MAX(version) AS version
 FROM "prod"."working_forecast_country"
 
 UNION ALL
 
 SELECT 'LIST_PRICE_GPSY' AS record
-    , max(version) AS version
+    , MAX(version) AS version
 FROM "prod"."list_price_gpsy"
 
 UNION ALL
 
 SELECT 'ACCT_RATES' AS record
-    , max(version) AS version
+    , MAX(version) AS version
 FROM "prod"."acct_rates"
 ),  __dbt__CTE__lpf_02_filter_dates AS (
 
 
 SELECT
     'ACTUALS_SUPPLIES' AS record
-    , dateadd(month, -12, min(cal_date)) AS cal_date
+    , dateadd(month, -12, MIN(cal_date)) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                                 
 WHERE
@@ -1091,7 +1091,7 @@ UNION ALL
 
 SELECT
     'IBP_SUPPLIES_FORECAST' AS record
-    , min(cal_date) AS cal_date
+    , MIN(cal_date) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                           
 WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST')
@@ -1100,7 +1100,7 @@ UNION ALL
 
 SELECT
     'MAX_IBP_SUPPLIES_FORECAST' AS record
-    , max(cal_date) AS cal_date
+    , MAX(cal_date) AS cal_date
 FROM
     "prod"."ibp_supplies_forecast"                             
 WHERE
@@ -1109,14 +1109,14 @@ WHERE
 UNION ALL
 
 SELECT 'EFFECTIVE_DATE_ACCT_RATES' AS record
-    , max(effective_date) AS cal_date
+    , MAX(effective_date) AS cal_date
 FROM
     "prod"."acct_rates"                                       
 
 UNION ALL
 
 SELECT 'EOQ' AS record
-    , max(load_date) AS cal_date
+    , MAX(load_date) AS cal_date
 FROM
     "prod"."list_price_eoq"                                   
 ),  __dbt__CTE__lpf_09_ibp_grp as (
@@ -1155,7 +1155,7 @@ SELECT
 		"fin_stage"."lpf_02_list_price_all" list_price_all
 		INNER JOIN 
 		__dbt__CTE__lpf_26_eoq eoq
-			on list_price_all.sales_product_line_code = eoq.product_line
+			ON list_price_all.sales_product_line_code = eoq.product_line
 """
 
 query_list.append(["fin_stage.list_price_version", list_price_version, "overwrite"])

@@ -89,7 +89,7 @@ query_list.append(["prod.list_price_filtered", list_price_filtered, "append"])
 
 # COMMAND ----------
 
-forecast_GRU_Sales_to_Base = """
+forecast_gru_sales_to_base = """
 
 SELECT
 		ibp_sales_units.country_alpha2
@@ -105,9 +105,9 @@ SELECT
 		, ibp_sales_units.base_prod_fcst_revenue_units
 		, (ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100 AS baseprod_grossrevenue
 		, ibp_sales_units.region_5
-		, sum(ibp_sales_units.base_prod_fcst_revenue_units) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS base_units
-		, sum((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS Base_GR
-		, sum((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2)/sum(ibp_sales_units.base_prod_fcst_revenue_units) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS  base_gru
+		, SUM(ibp_sales_units.base_prod_fcst_revenue_units) over (partition by ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS base_units
+		, SUM((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) OVER (PARTITION BY ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS Base_GR
+		, SUM((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) OVER (PARTITION BY ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2)/sum(ibp_sales_units.base_prod_fcst_revenue_units) OVER (PARTITION BY ibp_sales_units.base_product_number, ibp_sales_units.base_product_line_code, ibp_sales_units.cal_date, ibp_sales_units.region_5, ibp_sales_units.country_alpha2) AS  base_gru
 	    , (SELECT version FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED'
 				AND version = (SELECT MAX(version) FROM "prod"."version" WHERE record = 'LIST_PRICE_FILTERED')) AS version
 	FROM
@@ -120,14 +120,14 @@ SELECT
 		ibp_sales_units.cal_date = (SELECT min(cal_date) FROM "fin_stage"."lpf_01_ibp_combined")
 """
 
-query_list.append(["fin_prod.forecast_gru_sales_to_base", forecast_GRU_Sales_to_Base, "append"])
+query_list.append(["fin_prod.forecast_gru_sales_to_base", forecast_gru_sales_to_base, "append"])
 
 # COMMAND ----------
 
 list_price_dashboard = """
 
 
-with  __dbt__CTE__lpp_06_list_price_APJ as (
+with  __dbt__CTE__lpp_06_list_price_apj as (
 
 
 
@@ -149,11 +149,11 @@ SELECT DISTINCT
 			, 0 AS "list_price_usd"
 			, 0 AS "sales_product_gru"
 		FROM 
-			"fin_stage"."lpf_04_list_price_apj" list_price_APJ
+			"fin_stage"."lpf_04_list_price_apj" list_price_apj
 			INNER JOIN
 			"mdm"."iso_country_code_xref" country_xref
-				on list_price_APJ.country_alpha2 = country_xref.country_alpha2
-),  __dbt__CTE__lpp_07_list_price_EU as (
+				on list_price_apj.country_alpha2 = country_xref.country_alpha2
+),  __dbt__CTE__lpp_07_list_price_eu as (
 
 
 
@@ -175,11 +175,11 @@ SELECT DISTINCT
 			, 0 AS "list_price_usd"
 			, 0 AS "sales_product_gru"
 		FROM 
-			"fin_stage"."lpf_03_list_price_eu" list_price_EU
+			"fin_stage"."lpf_03_list_price_eu" list_price_eu
 			INNER JOIN
 			"mdm"."iso_country_code_xref" country_xref
-				on list_price_EU.country_alpha2 = country_xref.country_alpha2
-),  __dbt__CTE__lpp_08_list_price_LA AS (
+				on list_price_eu.country_alpha2 = country_xref.country_alpha2
+),  __dbt__CTE__lpp_08_list_price_la AS (
 
 
 SELECT DISTINCT
@@ -200,11 +200,11 @@ SELECT DISTINCT
 			, 0 AS "list_price_usd"
 			, 0 AS "sales_product_gru"
 		FROM 
-			"fin_stage"."lpf_05_list_price_la" list_price_LA
+			"fin_stage"."lpf_05_list_price_la" list_price_la
 			INNER JOIN
 			"mdm"."iso_country_code_xref" country_xref
-				on list_price_LA.country_alpha2 = country_xref.country_alpha2
-),  __dbt__CTE__lpp_09_list_price_NA AS (
+				on list_price_la.country_alpha2 = country_xref.country_alpha2
+),  __dbt__CTE__lpp_09_list_price_na AS (
 
 
 
@@ -226,10 +226,10 @@ SELECT DISTINCT
 			, 0 AS "list_price_usd"
 			, 0 AS "sales_product_gru"
 		FROM 
-			"fin_stage"."lpf_06_list_price_na" list_price_NA
+			"fin_stage"."lpf_06_list_price_na" list_price_na
 			INNER JOIN
 			"mdm"."iso_country_code_xref" country_xref
-				on list_price_NA.country_alpha2 = country_xref.country_alpha2
+				on list_price_na.country_alpha2 = country_xref.country_alpha2
 ),  __dbt__CTE__lpp_10_list_price_filtered as (
 
 
@@ -277,7 +277,7 @@ SELECT
 			, "list_price_usd"
 			, "sales_product_gru"
 		FROM
-			__dbt__CTE__lpp_06_list_price_APJ
+			__dbt__CTE__lpp_06_list_price_apj
 
 		UNION
 
@@ -299,7 +299,7 @@ SELECT
 			, "list_price_usd"
 			, "sales_product_gru"
 		FROM
-			__dbt__CTE__lpp_07_list_price_EU
+			__dbt__CTE__lpp_07_list_price_eu
 
 		UNION
 
@@ -321,7 +321,7 @@ SELECT
 			, "list_price_usd"
 			, "sales_product_gru"
 		FROM
-			__dbt__CTE__lpp_08_list_price_LA
+			__dbt__CTE__lpp_08_list_price_la
 
 		UNION
 
@@ -343,7 +343,7 @@ SELECT
 			, "list_price_usd"
 			, "sales_product_gru"
 		FROM
-			__dbt__CTE__lpp_09_list_price_NA
+			__dbt__CTE__lpp_09_list_price_na
 
 		UNION
 
