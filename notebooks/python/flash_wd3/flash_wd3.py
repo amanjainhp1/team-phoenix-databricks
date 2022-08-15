@@ -53,7 +53,7 @@ from pyspark.sql.functions import col,lit
 
 archer_records = archer_records \
     .withColumn("source_name", lit(archer_record_str)) \
-    .withColumn("record", lit(f"{job_type}.upper()")) \
+    .withColumn("record", lit(f"{job_type}".upper())) \
     .withColumn("load_date", lit(max_load_date)) \
     .withColumn("version", lit(max_version)) \
     .withColumnRenamed('geo', 'country_alpha2') \
