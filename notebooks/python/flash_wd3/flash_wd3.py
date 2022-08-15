@@ -30,7 +30,7 @@ if redshift_record > 0:
 
 # COMMAND ----------
 
-# retrieve archer_flash_records
+# retrieve archer_records
 archer_records = read_sql_server_to_df(configs) \
     .option("query", f"SELECT * FROM archer_prod.dbo.stf_{job_type}_country_speedlic_vw WHERE record LIKE '{job_type}%'") \
     .load()
@@ -51,7 +51,7 @@ max_load_date = max_version_info[1]
 
 from pyspark.sql.functions import col,lit
 
-archer_flash_records = archer_records \
+archer_records = archer_records \
     .withColumn("source_name", lit(archer_record_str)) \
     .withColumn("record", lit(f"{job_type}.upper()")) \
     .withColumn("load_date", lit(max_load_date)) \
