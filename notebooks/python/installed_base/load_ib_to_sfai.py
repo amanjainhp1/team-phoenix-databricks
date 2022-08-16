@@ -13,17 +13,6 @@ from pyspark.sql import Window
 
 # COMMAND ----------
 
-import pymssql
-
-def submit_remote_sfai_query(configs:dict, db_name:str = "IE2_Prod", query: str = ""):
-    conn = pymssql.connect(configs['sfai_url'].split('//')[1], configs["sfai_username"], configs["sfai_password"], db_name)
-    cursor = conn.cursor()
-    cursor.execute(query)
-    conn.commit()
-    conn.close
-
-# COMMAND ----------
-
 tables = {
     "version": {
         "source": "prod.version",
@@ -143,16 +132,3 @@ for table in tables.items():
 
     completion_time = str(round((time.time()-start_time)/60, 1))
     print("LOG: loaded {} to {} in {} minutes".format(source, destination, completion_time))
-
-# COMMAND ----------
-
-update_version_query = """
-update ie2_prod.dbo.version 
-set official = 0
-where 1=1
-    and record = 'norm_shipments'
-    and version <> (select max(version) from ie2_prod.dbo.version where record = 'norm_shipments')
-    and official = 1
-"""
-
-submit_remote_sfai_query(configs, "IE2_Prod", update_version_query)
