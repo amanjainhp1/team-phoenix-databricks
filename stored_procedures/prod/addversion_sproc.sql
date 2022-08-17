@@ -49,8 +49,8 @@ IF record_count > 0 THEN
         v1_record
         , current_date_string + '.' + CAST(CAST(RIGHT(max_version, 1) AS INT)+1 AS TEXT)
         , v2_source_name
-        , CASE v1_record
-            WHEN 'IB' THEN 0
+        , CASE
+            WHEN v1_record IN ('IB', 'NORM_SHIPMENTS') THEN 0
             ELSE 1
             END
     , current_date
@@ -69,8 +69,8 @@ ELSE
         v1_record
         , current_date_string + '.1'
         , v2_source_name
-        , CASE v1_record
-            WHEN 'IB' then 0
+        , CASE
+            WHEN v1_record IN ('IB', 'NORM_SHIPMENTS') THEN 0
             ELSE 1
             END
         , current_date
