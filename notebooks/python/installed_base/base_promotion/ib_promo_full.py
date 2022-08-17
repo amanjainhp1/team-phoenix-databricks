@@ -47,7 +47,7 @@ print(version)
 # COMMAND ----------
 
 insert_ns_ib = f"""
-with filters as
+WITH filters AS
 (
     SELECT record
         , version

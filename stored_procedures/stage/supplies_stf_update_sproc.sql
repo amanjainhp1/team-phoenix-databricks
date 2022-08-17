@@ -22,13 +22,13 @@ CREATE TABLE IF NOT EXISTS stage.supplies_stf_landing(
 );
 GRANT ALL ON TABLE stage.supplies_stf_landing TO auto_glue;
 
-DELETE a
-FROM stage.supplies_stf_landing a
-JOIN stage.supplies_stf_temp_landing b
-ON a.geography_grain = b.geography_grain
-    AND a.geography = b.geography
-    AND REPLACE(a.base_product_number, CHR(10),'') = REPLACE(b.base_product_number, CHR(10),'')
-    AND a.cal_date = b.cal_date;
+DELETE
+FROM stage.supplies_stf_landing
+USING stage.supplies_stf_temp_landing
+WHERE stage.supplies_stf_landing.geography_grain = stage.supplies_stf_temp_landing.geography_grain
+    AND stage.supplies_stf_landing.geography = stage.supplies_stf_temp_landing.geography
+    AND REPLACE(stage.supplies_stf_landing.base_product_number, CHR(10),'') = REPLACE(stage.supplies_stf_temp_landing.base_product_number, CHR(10),'')
+    AND stage.supplies_stf_landing.cal_date = stage.supplies_stf_temp_landing.cal_date;
 
 --insert records from the temp table
 INSERT INTO stage.supplies_stf_landing
@@ -56,6 +56,17 @@ SELECT 'SUPPLIES_STF' AS record
   WHERE units <> 0;
 
 --load data to historical table
+CREATE TABLE IF NOT EXISTS stage.supplies_stf_historical_landing(
+    geography_grain VARCHAR(20) NOT NULL
+    ,geography VARCHAR(20) NOT NULL
+    ,base_product_number VARCHAR(15) NOT NULL
+    ,cal_date DATE NOT NULL
+    ,units DOUBLE PRECISION NOT NULL
+    ,load_date TIMESTAMP WITH TIME ZONE
+    ,username VARCHAR(256)
+);
+GRANT ALL ON TABLE stage.supplies_stf_landing TO auto_glue;
+
 INSERT INTO stage.supplies_stf_historical_landing
            (geography_grain
 		   ,geography

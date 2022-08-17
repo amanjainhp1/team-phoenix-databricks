@@ -4,7 +4,7 @@ AS $$
 
 BEGIN
 
------------------------------------SET offical FLAG = 1, LoadDate= GETDATE() FOR TEMP_LANDING-------------------------
+-----------------------------------SET official FLAG = 1, LoadDate= GETDATE() FOR TEMP_LANDING-------------------------
 
 UPDATE stage.supplies_hw_mapping_temp_landing
 SET official = 1, load_date = GETDATE()

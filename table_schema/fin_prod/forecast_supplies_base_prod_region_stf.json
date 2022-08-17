@@ -1,0 +1,116 @@
+{
+    "fields": [
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(255)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(255)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_line_code",
+            "name": "base_product_line_code",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(255)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "base_prod_gru",
+            "name": "base_prod_gru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_contra_per_unit",
+            "name": "base_prod_contra_per_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_revenue_currency_hedge_unit",
+            "name": "base_prod_revenue_currency_hedge_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_aru",
+            "name": "base_prod_aru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_variable_cost_per_unit",
+            "name": "base_prod_variable_cost_per_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_contribution_margin_unit",
+            "name": "base_prod_contribution_margin_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_fixed_cost_per_unit",
+            "name": "base_prod_fixed_cost_per_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_gross_margin_unit",
+            "name": "base_prod_gross_margin_unit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

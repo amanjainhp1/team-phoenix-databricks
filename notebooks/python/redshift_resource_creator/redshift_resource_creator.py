@@ -14,7 +14,7 @@ import re
 
 # COMMAND ----------
 
-dbutils.widgets.text("redshift_secrets_name", "") # arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ
+dbutils.widgets.text("drop_tables", "") # false
 dbutils.widgets.text("stack", "") # itg
 dbutils.widgets.text("job_dbfs_path", "") # dbfs:/dataos-pipeline-springboard/itg/table-creator/green
 

@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_input_sproc(group_param varchar)
+CREATE OR REPLACE PROCEDURE fin_stage.load_forecast_contra_input_lt_sproc(group_param varchar)
     LANGUAGE plpgsql
 AS $$
 
@@ -7,16 +7,16 @@ BEGIN
 CREATE TABLE IF NOT EXISTS fin_stage.forecast_contra_input_lt_staging(
     pl VARCHAR(255)
     ,region_5 VARCHAR(255)
-    ,country_code VARCHAR(255)
+    ,country VARCHAR(255)
     ,fiscal_yr_qtr VARCHAR(255)
     ,contra_per_qtr DOUBLE PRECISION
 );
 GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO auto_glue;
-GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP '||group_param||';';
 
 ---------TRUNCATE FINANCIAL TABLE--------------------------------
 
-TRUNCATE TABLE fin_stage.forecast_contra_input_lt_staging;
+DELETE FROM fin_stage.forecast_contra_input_lt_staging;
 
 -------------------------------LOAD DATA TO FINANCIAL TABLES-----------------------------
 

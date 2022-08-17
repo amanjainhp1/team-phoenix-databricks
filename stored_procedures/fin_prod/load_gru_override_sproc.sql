@@ -34,7 +34,7 @@ SELECT 'GRU_OVERRIDE' as record
       ,base_product_number
       ,region_5
       ,country_code
-      ,gru
+      ,CAST(gru AS DOUBLE PRECISION) AS gru
       ,1 as official
       ,(SELECT load_date from prod.version WHERE record = 'GRU_OVERRIDE' 
                 AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'GRU_OVERRIDE')) as load_date

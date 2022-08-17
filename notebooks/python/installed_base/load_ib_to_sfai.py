@@ -13,16 +13,6 @@ from pyspark.sql import Window
 
 # COMMAND ----------
 
-import pymssql
-
-def submit_remote_sfai_query(configs:dict, db_name:str = "IE2_Prod", query: str = ""):
-    conn = pymssql.connect(configs['sfai_url'].split('//')[1], configs["sfai_username"], configs["sfai_password"], db_name)
-    cursor = conn.cursor()
-    cursor.execute(query)
-    conn.close
-
-# COMMAND ----------
-
 tables = {
     "version": {
         "source": "prod.version",
@@ -70,10 +60,11 @@ for table in tables.items():
     
     print("LOG: loading {} to {}".format(source, destination))
     
-    destination_cols = read_sql_server_to_df(configs) \
+    destination_df = read_sql_server_to_df(configs) \
         .option("dbtable", destination) \
-        .load() \
-        .columns
+        .load()
+
+    destination_cols = destination_df.columns
 
     source_df = read_redshift_to_df(configs) \
         .option("dbtable", source) \
@@ -103,9 +94,20 @@ for table in tables.items():
     # for prod.scenario, select all records grouped by latest load_date
     elif "scenario" in source:
         w = Window.partitionBy('record')
-        source_df = source_df.withColumn('max_load_date', f.max('load_date').over(w)) \
+        source_df = source_df \
+            .filter((col("record") != "ALLOCATED FLASH PLUS LTF")) \
+            .withColumn('max_load_date', f.max('load_date').over(w)) \
             .where(f.col('load_date') == f.col('max_load_date')) \
             .drop('max_load_date') \
+            .distinct()
+        
+        # do a left outer join with SFAI data to prevent loading of duplicate data (primary key violation)
+        cond = [sd.scenario_name == dd.scenario_name, sd.record == dd.record, sd.version == dd.version]
+        source_df = source_df \
+            .alias("sd") \
+            .join(destination_df.alias("dd"), on = cond, how = 'left_outer') \
+            .filter("dd.scenario_name IS NULL") \
+            .select("sd.scenario_name", "sd.record", "sd.version", "sd.load_date")
     # else if norm_ships, filter to latest version
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
@@ -130,16 +132,3 @@ for table in tables.items():
 
     completion_time = str(round((time.time()-start_time)/60, 1))
     print("LOG: loaded {} to {} in {} minutes".format(source, destination, completion_time))
-
-# COMMAND ----------
-
-update_version_query = """
-update ie2_prod.dbo.version 
-set official = 0
-where 1=1
-    and record = 'norm_shipments'
-    and version <> (select max(version) from ie2_prod.dbo.version where record = 'norm_shipments')
-    and official = 1
-"""
-
-submit_remote_sfai_query(configs, "IE2_Prod", update_version_query)

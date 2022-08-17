@@ -27,7 +27,8 @@ notebooks = {
     "npi": "./usg_shr_02_npi",
     "matures": "./usg_shr_03_matures",
     "adjusts": "./usg_shr_04_adjusts",
-    "final": "./usg_shr_05_final"
+    "demand": "./usg_shr_05_demand",
+    "final": "./usg_shr_06_final"
 }
 
 # loop through each installed-base related notebook in order and run
@@ -47,4 +48,4 @@ for key, value in notebooks.items():
             completion_time = str(round((time.time() - start_time)/60, 1))
             print(f"LOG: {notebook} notebook completed in {completion_time} minutes")
         except Exception as e:
-            raise dbutils.notebook.exit(e)
+            raise Exception(e)

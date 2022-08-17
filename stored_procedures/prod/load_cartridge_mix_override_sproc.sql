@@ -26,8 +26,8 @@ GRANT ALL ON TABLE stage.cartridge_mix_override_landing TO auto_glue;
 
 ---------------------------------SET EXISTING RECORDS TO ZERO------------------------------------
 
-UPDATE TGT
-SET TGT.official = 0
+UPDATE stage.cartridge_mix_override_landing
+SET official = 0
 FROM stage.cartridge_mix_override_landing TGT
 INNER JOIN stage.cartridge_mix_override_temp_landing SRC
 ON  SRC.platform_subset = TGT.platform_subset
@@ -119,8 +119,8 @@ WHERE load_date = (SELECT MAX(load_date) FROM stage.cartridge_mix_override_landi
 
 ------------------------------LOAD DATA TO PROD------------------------------------------
 
-UPDATE TGT
-SET TGT.official = 0
+UPDATE prod.cartridge_mix_override
+SET official = 0
 FROM prod.cartridge_mix_override TGT
 INNER JOIN  stage.cartridge_mix_override_staging SRC
 ON  SRC.platform_subset = TGT.platform_subset

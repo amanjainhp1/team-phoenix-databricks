@@ -45,7 +45,7 @@
         {
             "description": "official",
             "name": "official",
-            "type": "BOOLEAN",
+            "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
         },

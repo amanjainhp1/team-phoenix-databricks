@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS stage.scenario_supplies_spares_landing(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_supplies_spares_landing TO auto_glue;
-GRANT ALL ON TABLE stage.scenario_supplies_spares_landing TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_supplies_spares_landing TO GROUP '||group_param||';';
 
 INSERT INTO stage.scenario_supplies_spares_landing
 (
@@ -84,7 +84,7 @@ CREATE TABLE stage.scenario_supplies_spares_staging(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_supplies_spares_staging TO auto_glue;
-GRANT ALL ON TABLE stage.scenario_supplies_spares_staging TO GROUP group_param;
+EXECUTE 'GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP '||group_param||';';
 
 ---------LOAD STAGING TABLE----------------------------------------------------------
 

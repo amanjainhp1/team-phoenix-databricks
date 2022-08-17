@@ -1,0 +1,159 @@
+
+{
+    "fields": [
+        {
+            "description": "geography",
+            "name": "geography",
+            "type": "VARCHAR(20)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(15)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "pl",
+            "name": "pl",
+            "type": "VARCHAR(2)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "technology",
+            "name": "technology",
+            "type": "VARCHAR(25)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "units",
+            "name": "units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "equivalent_units",
+            "name": "equivalent_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "gross_revenue",
+            "name": "gross_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "contractual_discounts",
+            "name": "contractual_discounts",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "discretionary_discounts",
+            "name": "discretionary_discounts",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "contra",
+            "name": "contra",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "revenue_currency_hedge",
+            "name": "revenue_currency_hedge",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "net_revenue",
+            "name": "net_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "variable_cost",
+            "name": "variable_cost",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "contribution_margin",
+            "name": "contribution_margin",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "fixed_cost",
+            "name": "fixed_cost",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "total_cos",
+            "name": "total_cos",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "gross_margin",
+            "name": "gross_margin",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "insights_units",
+            "name": "insights_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "username",
+            "name": "username",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

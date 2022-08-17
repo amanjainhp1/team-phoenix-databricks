@@ -7,14 +7,12 @@ BEGIN
 --Add version to version table
 CALL prod.addversion_sproc('FORECAST_CONTRA_INPUT_LT', 'FINANCE');
 
-DELETE FROM fin_stage.forecast_contra_input_lt_staging
-WHERE EXISTS (
-    SELECT *
-    FROM fin_prod.forecast_contra_input_ops ST
-    WHERE forecast_contra_input_lt_staging.pl = ST.pl
-    AND forecast_contra_input_lt_staging.region_5 = ST.region_5
-    AND forecast_contra_input_lt_staging.fiscal_yr_qtr = ST.fiscal_yr_qtr
-);
+DELETE FROM fin_prod.forecast_contra_input
+USING fin_stage.forecast_contra_input_lt_staging
+WHERE fin_prod.forecast_contra_input.pl = fin_stage.forecast_contra_input_lt_staging.pl
+    AND fin_prod.forecast_contra_input.region_5 = fin_stage.forecast_contra_input_lt_staging.region_5
+    AND fin_prod.forecast_contra_input.fiscal_yr_qtr = fin_stage.forecast_contra_input_lt_staging.fiscal_yr_qtr
+;
 
 UPDATE fin_prod.forecast_contra_input
 SET official = 0
@@ -23,7 +21,7 @@ WHERE EXISTS (
     FROM fin_stage.forecast_contra_input_lt_staging contra_LT
     WHERE forecast_contra_input.pl = contra_LT.pl
     AND forecast_contra_input.region_5 = contra_LT.region_5
-    AND forecast_contra_input.country = contra_LT.country_code
+    AND forecast_contra_input.country = contra_LT.country
     AND forecast_contra_input.fiscal_yr_qtr = contra_LT.fiscal_yr_qtr
 );
 
