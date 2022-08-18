@@ -111,10 +111,12 @@ for table in tables.items():
     # else if norm_ships, filter to latest version
     elif "norm_ship" in source:
         source_df = source_df.filter(f"version = '{max_version_ns}'")
-    # else select latest version
+    # else if ib, ib_datamart_source, filter to latest_version
+    elif table[0] in ['ib', 'ib_datamart_source']:
+        source_df = source_df.filter(f"version = '{max_version_ib}'")
+    # else if ib, select latest version and rename country_alpha2 col
     elif table[0] == "ib":
-        source_df = source_df.filter(f"version = '{max_version_ib}'") \
-            .withColumnRenamed("country_alpha2", "country")
+        source_df = source_df.withColumnRenamed("country_alpha2", "country")
     
     source_df = source_df.select(destination_cols)
     source_df.show()
