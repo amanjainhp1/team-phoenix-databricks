@@ -101,7 +101,7 @@ def get_file_list(job_dbfs_subfolder, file_substring):
 # tables
 # our "main" method
 # for each json file, parse, construct table create statement, and submit to Redshift
-input_json_files = get_file_list("/table_schema/", ".json")
+input_json_files = get_file_list("/redshift/table_schema/", ".json")
 
 for input_json_file in input_json_files:
     
@@ -126,7 +126,7 @@ for input_json_file in input_json_files:
 # our "main" method
 # for each json file, parse, construct table create statement, and submit to Redshift
 
-input_files = get_file_list("/stored_procedures/", ".sql")
+input_files = get_file_list("/redshift/stored_procedures/", ".sql")
 
 for input_file in input_files:
     

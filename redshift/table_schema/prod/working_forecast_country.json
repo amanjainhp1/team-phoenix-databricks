@@ -1,0 +1,110 @@
+{
+    "fields": [
+        {
+            "description": "working_forecast_country_id",
+            "name": "working_forecast_country_id",
+            "type": "IDENTITY",
+            "nullable": false,
+            "encode": "raw",
+            "sort_key": true
+        },
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "geography_grain",
+            "name": "geography_grain",
+            "type": "VARCHAR(8)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography",
+            "name": "geography",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "country",
+            "name": "country",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "platform_subset",
+            "name": "platform_subset",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "customer_engagement",
+            "name": "customer_engagement",
+            "type": "VARCHAR(64)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "cartridges",
+            "name": "cartridges",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "imp_corrected_cartridges",
+            "name": "imp_corrected_cartridges",
+            "type": "DOUBLE PRECISION",
+            "nullable": false,
+            "encode": "raw"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

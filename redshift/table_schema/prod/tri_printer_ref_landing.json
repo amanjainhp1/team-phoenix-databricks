@@ -1,0 +1,229 @@
+{
+    "fields": [
+        {
+            "description": "tprl_id",
+            "name": "tprl_id",
+            "type": "IDENTITY",
+            "nullable": false,
+            "encode": "raw",
+            "sort_key": true
+        },
+        {
+            "description": "printer_product_number",
+            "name": "printer_product_number",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_platform_name",
+            "name": "printer_platform_name",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_group",
+            "name": "printer_group",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_group_selectability",
+            "name": "printer_group_selectability",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_technology_type",
+            "name": "printer_technology_type",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_chrome_code",
+            "name": "printer_chrome_code",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_function_code",
+            "name": "printer_function_code",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_page_size_category",
+            "name": "printer_page_size_category",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "product_line",
+            "name": "product_line",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_host_cartridge_flag",
+            "name": "printer_host_cartridge_flag",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_managed_flag",
+            "name": "printer_managed_flag",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_network_flag",
+            "name": "printer_network_flag",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_copy_flag",
+            "name": "printer_copy_flag",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_fax_flag",
+            "name": "printer_fax_flag",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_duplex_flag",
+            "name": "printer_duplex_flag",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_mono_speed",
+            "name": "printer_mono_speed",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_color_speed",
+            "name": "printer_color_speed",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_region_code",
+            "name": "printer_region_code",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_market_status_code",
+            "name": "printer_market_status_code",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_intro_month",
+            "name": "printer_intro_month",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_model_name",
+            "name": "printer_model_name",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_series_model_name",
+            "name": "printer_series_model_name",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "platform_series_model_name",
+            "name": "platform_series_model_name",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_firmware_code",
+            "name": "printer_firmware_code",
+            "type": "VARCHAR(100)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "printer_intro_price",
+            "name": "printer_intro_price",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_usage_por_pages",
+            "name": "printer_usage_por_pages",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "printer_product_number_ky",
+            "name": "printer_product_number_ky",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "platform_ky",
+            "name": "platform_ky",
+            "type": "INTEGER",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

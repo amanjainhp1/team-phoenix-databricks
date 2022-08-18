@@ -1,0 +1,102 @@
+{
+    "fields": [
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography_grain",
+            "name": "geography_grain",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography",
+            "name": "geography",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "value",
+            "name": "value",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "effective_date",
+            "name": "effective_date",
+            "type": "DATE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "active_at",
+            "name": "active_at",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "inactive_at",
+            "name": "inactive_at",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "official",
+            "name": "official",
+            "type": "BOOLEAN",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "last_modified_date",
+            "name": "last_modified_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
