@@ -325,26 +325,6 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-#HAVING problems where data was brought in at Region 5, but not JP
-test2 = """
-select *
-from convert
---where platform_subset='MORETO BASE YET1' and cal_date='2028-06-01' and geography in ('AU','JP')
-where test_src > 1
-"""
-
-test2=spark.sql(test2)
-test2.createOrReplaceTempView("test2")
-
-# COMMAND ----------
-
-display(test2)
-
-# COMMAND ----------
-
-display(convert)
-
-# COMMAND ----------
-
-#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_pre_adjust", mode: str = "overwrite")
-write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_market10", format="parquet", mode="overwrite", upper_strings=True)
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_market10"
+print("output file name: " + s3_destination)
+write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
