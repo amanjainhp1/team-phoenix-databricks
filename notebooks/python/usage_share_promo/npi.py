@@ -6,18 +6,13 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+dbutils.widgets.text("ib_version", "")
+dbutils.widgets.text("datestamp", "")
 
 # COMMAND ----------
 
 # retrieve version from widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+ib_version = dbutils.widgets.get("ib_version")
 
 # COMMAND ----------
 
@@ -26,6 +21,10 @@ import psycopg2 as ps
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 
 # COMMAND ----------
 
@@ -68,7 +67,7 @@ ib_info = read_redshift_to_df(configs) \
       SELECT distinct country_alpha2, platform_subset, customer_engagement
       FROM "prod"."ib"
       WHERE 1=1
-      AND version = '{version}'
+      AND version = '{ib_version}'
     """) \
  .load()
 ib_info.createOrReplaceTempView("ib_info")
@@ -81,7 +80,7 @@ ib_info_r5 = read_redshift_to_df(configs) \
       LEFT JOIN "mdm"."iso_country_code_xref" cc
         ON ib.country_alpha2=cc.country_alpha2
       WHERE 1=1
-      AND ib.version = '{version}'
+      AND ib.version = '{ib_version}'
       GROUP BY 
         cc.region_5, ib.platform_subset, ib.customer_engagement
     """) \
@@ -271,7 +270,7 @@ ib_info_m10 = read_redshift_to_df(configs) \
       LEFT JOIN "mdm"."iso_country_code_xref" cc
         ON ib.country_alpha2=cc.country_alpha2
       WHERE 1=1
-      AND ib.version = '{version}'
+      AND ib.version = '{ib_version}'
       GROUP BY 
         cc.market10, ib.platform_subset, ib.customer_engagement
     """) \
@@ -457,7 +456,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
-	AND ib.version = '{version}'
+	AND ib.version = '{ib_version}'
 	AND measure = 'IB'
 	AND (hw.product_lifecycle_status = 'N')
     AND units>0
@@ -705,4 +704,6 @@ npi_norm_final_landing \
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: npi_norm_final_landing, destination: "stage"."usrs_npi_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+
+dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")

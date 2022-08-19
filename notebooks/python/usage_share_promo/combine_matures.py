@@ -1,24 +1,18 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # Usage Share Refactor Step 04
-# MAGIC - Add NPIs into data
-# MAGIC - This portion will be run each time an update is required
+# MAGIC - Combine data
+# MAGIC - This portion will be run only when there is a new usage/share run (ie Quarter End)
+
+# COMMAND ----------
+
+from datetime import datetime
 
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+dbutils.widgets.text("ink_current_version", "")
+dbutils.widgets.text("datestamp", "")
 
 # COMMAND ----------
 
@@ -29,16 +23,35 @@ import psycopg2 as ps
 # MAGIC %run ../common/database_utils
 
 # COMMAND ----------
+datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+
+# COMMAND ----------
 
 # Read in Current data
-current_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing")
+#current_table=need to get step 01 results
+toner_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/toner_locked*")
+toner_table.createOrReplaceTempView("toner_table")
+
+ink_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{dbutils.widgets.get('ink_current_version')}/ink*")
+ink_table.createOrReplaceTempView("ink_table")
+
+# COMMAND ----------
+
+#combine ink and toner (need to add LF)
+current_table = """
+SELECT * FROM toner_table
+UNION ALL
+SELECT * FROM ink_table
+"""
+
+current_table=spark.sql(current_table)
 current_table.createOrReplaceTempView("current_table")
 
 # COMMAND ----------
 
-# Read in NPI data
-npi_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/npi_norm_final_landing")
-npi_table.createOrReplaceTempView("npi_table")
+# Read in Mature data
+matures_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_norm_final_landing")
+matures_table.createOrReplaceTempView("matures_table")
 
 # COMMAND ----------
 
@@ -53,6 +66,7 @@ hardware_info.createOrReplaceTempView("hardware_info")
 
 # COMMAND ----------
 
+#Add group ID, and product lifecycle status information to current data
 current_1 = """
 
 SELECT c.record
@@ -72,6 +86,7 @@ SELECT c.record
       ,h.product_lifecycle_status
       ,h.product_lifecycle_status_usage
       ,h.product_lifecycle_status_share
+      ,h.epa_family
       ,CONCAT(c.platform_subset,c.customer_engagement,c.geography,c.cal_date) as grp_id
 FROM current_table c
 LEFT JOIN hardware_info h
@@ -83,7 +98,12 @@ current_1.createOrReplaceTempView("current_1")
 
 # COMMAND ----------
 
-npi_1 = """
+display(current_1)
+
+# COMMAND ----------
+
+#Add group ID, and product lifecycle status information to mature data
+mature_1 = """
 
 SELECT c.record
       ,c.cal_date
@@ -95,32 +115,32 @@ SELECT c.record
       ,c.data_source
       ,c.version
       ,c.measure
-      ,CASE WHEN c.measure='HP_SHARE' and c.customer_engagement='I-INK' THEN 1
-          ELSE c.units
-          END AS units
+      ,c.units
       ,c.proxy_used
       ,c.ib_version
       ,c.load_date
       ,h.product_lifecycle_status
       ,h.product_lifecycle_status_usage
       ,h.product_lifecycle_status_share
+      ,h.epa_family
       ,CONCAT(c.platform_subset,c.customer_engagement,c.geography,c.cal_date) as grp_id
-FROM npi_table c
+FROM matures_table c
 LEFT JOIN hardware_info h
     ON c.platform_subset=h.platform_subset
 WHERE c.units >0 
-    AND h.product_lifecycle_status = 'N' or h.product_lifecycle_status_usage='N' or product_lifecycle_status_share='N'
+    AND h.product_lifecycle_status != 'E'
 """
 
-npi_1=spark.sql(npi_1)
-npi_1.createOrReplaceTempView("npi_1")
+mature_1=spark.sql(mature_1)
+mature_1.createOrReplaceTempView("mature_1")
 
 # COMMAND ----------
 
-display(npi_1)
+display(mature_1)
 
 # COMMAND ----------
 
+# get where data is in both current and matures
 overlap_1 = """
 
 ---Find overlap between current and mature
@@ -131,18 +151,14 @@ SELECT c.record
       ,c.platform_subset
       ,c.customer_engagement
       ,c.forecast_process_note
-      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' THEN 'NPI'
-            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN 'NPI'
-            WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN 'TELEMETRY'
-            WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN 'TELEMETRY'
-            ELSE 'MODELED'
+      ,CASE WHEN c.product_lifecycle_status_share='M' AND c.measure='HP_SHARE' THEN m.data_source
+            WHEN c.product_lifecycle_status_usage='M' AND c.measure like '%USAGE%' THEN m.data_source
+            ELSE c.data_source
             END AS data_source
       ,c.version
       ,c.measure
-      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' THEN m.units
-            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN m.units
-            WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
-            WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN c.units
+      ,CASE WHEN c.product_lifecycle_status_share='M' AND c.measure='HP_SHARE' THEN m.units
+            WHEN c.product_lifecycle_status_usage='M' AND c.measure like '%USAGE%' THEN m.units
             ELSE c.units
             END AS units
       ,c.proxy_used
@@ -150,7 +166,7 @@ SELECT c.record
       ,c.load_date
       ,c.grp_id
 FROM current_1 c
-INNER JOIN npi_1 m
+INNER JOIN mature_1 m
     ON 1=1
     AND c.platform_subset=m.platform_subset
     AND c.customer_engagement=m.customer_engagement
@@ -163,6 +179,10 @@ overlap_1.createOrReplaceTempView("overlap_1")
 
 # COMMAND ----------
 
+display(overlap_1)
+
+# COMMAND ----------
+
 combine_1 = """
 with cur_1 as (SELECT record
       ,cal_date
@@ -171,11 +191,7 @@ with cur_1 as (SELECT record
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,CASE WHEN measure='HP_SHARE' AND data_source = 'HAVE DATA' THEN 'TELEMETRY'
-            WHEN measure like '%USAGE%' AND data_source = 'DASHBOARD' THEN 'TELEMETRY'
-            WHEN data_source = 'OVERRIDE' THEN 'MATURE'
-            ELSE 'MODELED'
-            END AS data_source
+      ,data_source
       ,version
       ,measure
       ,units
@@ -199,41 +215,37 @@ FROM current_1
       ,ib_version
       ,load_date
 FROM overlap_1)
-, npi_1 as (SELECT record
+, mat_1 as (SELECT record
       ,cal_date
       ,geography_grain
       ,geography
       ,platform_subset
       ,customer_engagement
       ,forecast_process_note
-      ,'NPI' as data_source
+      ,data_source
       ,version
       ,measure
       ,units
       ,proxy_used
       ,ib_version
       ,load_date
-FROM npi_1
+FROM mature_1
 WHERE grp_id not in (select distinct grp_id from overlap_1))
 , combine as (
-SELECT * FROM cur_1
+SELECT * FROM mat_1
 UNION ALL
 SELECT * FROM ovr_1
 UNION ALL
-SELECT * FROM npi_1
+SELECT * FROM cur_1
 )
 SELECT * FROM combine
 
 """
 
 combine_1=spark.sql(combine_1)
-combine_1.createOrReplaceTempView("combine_1")
-
-# COMMAND ----------
-
-display(combine_1)
+combine_1.createOrReplaceTempView("overlap_1")
 
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing", format="parquet", mode="overwrite", upper_strings=True)
