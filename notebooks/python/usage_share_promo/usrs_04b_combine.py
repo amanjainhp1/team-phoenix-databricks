@@ -95,7 +95,9 @@ SELECT c.record
       ,c.data_source
       ,c.version
       ,c.measure
-      ,c.units
+      ,CASE WHEN c.measure='HP_SHARE' and c.customer_engagement='I-INK' THEN 1
+          ELSE c.units
+          END AS units
       ,c.proxy_used
       ,c.ib_version
       ,c.load_date

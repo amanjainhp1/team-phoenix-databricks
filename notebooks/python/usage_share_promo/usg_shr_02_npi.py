@@ -64,7 +64,7 @@ overrides_norm_landing = f"""
 
 with npi_06_month_num_ib_dates as (
 
-
+--Get list of dates for each platform subset/customer engagement
 SELECT DISTINCT ib.platform_subset
 	, ib.cal_date
 	, UPPER(ib.customer_engagement) AS customer_engagement
@@ -78,7 +78,7 @@ WHERE 1=1
 	AND ib.measure = 'IB'
 ),  npi_05_month_num_min_max_dates_r5 as (
 
-
+--get min and max ib dates for each platform subset/customer engagement
 SELECT ib.platform_subset
 	, cc.region_5
 	, customer_engagement
@@ -95,7 +95,7 @@ GROUP BY platform_subset
 	, cc.region_5
 ),  npi_08_month_num_date_diff_r5 as (
 
-
+--change from date to months since begin
 SELECT ib.platform_subset
     , ib.cal_date
     , ib.customer_engagement
@@ -110,7 +110,7 @@ ON ib.platform_subset=r5.platform_subset
 	AND ib.region_5=r5.region_5
 ),  npi_09_month_num_usage_1 as (
 
-
+--change month_num to cal_date in usage share data
 SELECT a.record
 	, CAST(b.cal_date AS DATE) AS cal_date
 	, a.geography
@@ -134,7 +134,7 @@ ON a.platform_subset=b.platform_subset
 	AND a.geography = b.region_5
 ),  npi_10_month_num_usage_1_2 as (
 
-
+--move to country
 SELECT DISTINCT a.record
     , a.cal_date
     , a.geography
@@ -184,7 +184,7 @@ WHERE 1=1
 		(SELECT * FROM stage.us_overrides_helper_1)
 ),  npi_04_month_num_min_max_date_m10 as (
 
-
+--get min/max dates at market 10 level from IB
 SELECT ib.platform_subset
     , cc.market10
     , customer_engagement
@@ -201,7 +201,7 @@ GROUP BY ib.platform_subset
 	, cc.market10
 ),  npi_11_month_num_usage_2 as (
 
-
+--align start dates by market10 so roll up will match
 SELECT a.record
     , a.cal_date
     , a.geography
@@ -226,7 +226,7 @@ ON a.platform_subset= b.platform_subset
     and a.customer_engagement=b.customer_engagement
 ),  npi_12_month_num_usage_3 as (
 
-
+--finalize forecaster data
 SELECT nu.record
     , nu.cal_date
     , nu.geography
@@ -283,7 +283,7 @@ query_list.append(["stage.usage_share_overrides_normalized_landing", overrides_n
 norm_fill_landing = f"""
 with npi_14_fill_missing_ib_data as (
 
-
+--get min/max dates at market10
 SELECT a.platform_subset
     , b.market10
     , customer_engagement
@@ -303,7 +303,7 @@ GROUP BY a.platform_subset
 	, b.market10
 ),  npi_15_fill_missing_us_data as (
 
-
+--get min/max dates of usage/share
 SELECT platform_subset
     , market10
     , customer_engagement
