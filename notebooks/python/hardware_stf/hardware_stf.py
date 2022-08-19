@@ -1,12 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("redshift_secrets_name", "")
-dbutils.widgets.text("sqlserver_secrets_name", "")
-dbutils.widgets.dropdown("stack", "dev", ["dev", "itg", "prod"])
-dbutils.widgets.text("aws_iam_role", "")
-dbutils.widgets.text("job_dbfs_path", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -42,7 +34,7 @@ rdma = read_redshift_to_df(configs) \
 hardware_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.hardware_xref") \
     .load() \
-    .select("platform_subset", "category_feature", "technology") \
+    .select("platform_subset", "category_feature", "technology", "pl") \
     .distinct()
 
 iso_country_code_xref = read_redshift_to_df(configs) \
@@ -82,11 +74,14 @@ print("wd3_max_cal_date: " + wd3_max_cal_date)
 flash_version = spark.sql("""SELECT MAX(version) AS version FROM flash""").head()[0]
 print("flash_version: " + flash_version)
 
-flash_record = "flash"
-print("flash_record: " + flash_record)
+flash_load_date = spark.sql("""SELECT MAX(load_date) AS load_date FROM flash""").head()[0]
+print("flash_load_date: " + str(flash_load_date))
+
+wd3_version = spark.sql("""SELECT MAX(version) AS version FROM wd3 WHERE record LIKE ('WD3%')""").head()[0]
+print("wd3_version: " + wd3_version)
 
 wd3_load_date = str(spark.sql("""SELECT MAX(load_date) AS load_date FROM wd3 WHERE record LIKE ('WD3%')""").head()[0])
-print("wd3_load_date: " + wd3_load_date)
+print("wd3_load_date: " + str(wd3_load_date))
 
 flash_forecast_name = spark.sql(f"""SELECT DISTINCT source_name FROM flash WHERE version = '{flash_version}'""").head()[0]
 print("flash_forecast_name: " + flash_forecast_name)
@@ -461,17 +456,6 @@ hardware_stf_landing.createOrReplaceTempView("hardware_stf_landing")
 
 # COMMAND ----------
 
-# --Add version to version table
-max_version_info = call_redshift_addversion_sproc(configs, 'HW_STF_FCST', 'ARCHER')
-
-max_forecast_version = max_version_info[0]
-max_forecast_load_date = max_version_info[1]
-
-print("max_forecast_version: " + max_forecast_version)
-print("max_forecast_load_date: " + str(max_forecast_load_date))
-
-# COMMAND ----------
-
 # --load data to staging table
 # --UPDATE staging load_date and version
 hardware_stf_staging = spark.sql(f"""
@@ -484,9 +468,6 @@ SELECT DISTINCT
 	, rdma.platform_subset
 	, s.base_prod_number AS base_product_number
 	, s.units
-	, CAST("{max_forecast_load_date}" AS date) AS load_date
-	, CAST('true' AS BOOLEAN) AS official
-	, "{max_forecast_version}" AS version
 FROM hardware_stf_landing s
 	LEFT JOIN rdma ON UPPER(rdma.base_prod_number)=UPPER(s.base_prod_number)
 	LEFT JOIN iso_country_code_xref i ON s.geo=i.country_alpha2
@@ -496,12 +477,71 @@ hardware_stf_staging.createOrReplaceTempView("hardware_stf_staging")
 
 # COMMAND ----------
 
-submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], "UPDATE prod.hardware_ltf SET official = 0 WHERE UPPER(record) = 'HW_STF_FCST' AND official=1;")
+wd3_allocated_ltf_ltf_units.cache()
+wd3_allocated_ltf_flash_units.cache()
+wd3_allocated_ltf_wd3_units.cache()
+wd3_allocated_ltf_wd3_pct.cache()
+
+# COMMAND ----------
+
+mdm_check = spark.sql("""
+    WITH wd3_records AS
+    (
+        SELECT DISTINCT
+            b.platform_subset,
+            a.base_product_number,
+            a.units 
+        FROM wd3 a
+        LEFT JOIN rdma b
+        ON a.base_product_number = b.base_prod_number 
+    ),
+    --stf
+    stf_records AS 
+    (
+        SELECT DISTINCT platform_subset 
+        FROM hardware_stf_staging
+    )
+    SELECT DISTINCT
+        a.platform_subset AS wd3_platform, 
+        b.platform_subset AS stf_platform, 
+        c.pl,
+        c.technology,
+        c.category_feature,
+        d.pl_category
+    FROM wd3_records a 
+    LEFT JOIN stf_records b ON a.platform_subset = b.platform_subset
+    LEFT JOIN hardware_xref c ON a.platform_subset = c.platform_subset
+    LEFT JOIN product_line_xref d ON c.pl = d.pl 
+    WHERE 1=1
+        AND b.platform_subset IS NULL
+        AND a.platform_subset IS NOT NULL
+        AND a.units > 0
+    ORDER BY 1;
+""")
+
+if mdm_check.count() > 0:
+    mdm_check.display()
+    raise Exception("A Product dropped from the STF build that should not have. An MDM update is required.")
+
+# COMMAND ----------
+
+# --Add version to version table
+max_version_info = call_redshift_addversion_sproc(configs, 'HW_STF_FCST', 'ARCHER')
+
+max_forecast_version = max_version_info[0]
+max_forecast_load_date = max_version_info[1]
+
+print("max_forecast_version: " + max_forecast_version)
+print("max_forecast_load_date: " + str(max_forecast_load_date))
+
+# COMMAND ----------
+
+submit_remote_query(configs, "UPDATE prod.hardware_ltf SET official = 0 WHERE UPPER(record) = 'HW_STF_FCST' AND official=1;")
 
 # COMMAND ----------
 
 # --move to prod
-hardware_ltf = spark.sql("""
+hardware_ltf = spark.sql(f"""
 SELECT DISTINCT
       a.record
     , a.forecast_name
@@ -510,9 +550,9 @@ SELECT DISTINCT
     , b.platform_subset
     , a.base_product_number
     , a.units
-    , a.official
-    , a.load_date
-    , a.version
+    , CAST('true' AS BOOLEAN) AS official
+    , CAST('{max_forecast_load_date}' AS date) AS load_date
+    , '{max_forecast_version}' AS version
 FROM hardware_stf_staging a 
     LEFT JOIN rdma b ON UPPER(a.platform_subset)=UPPER(b.platform_subset)
     LEFT JOIN product_line_xref c ON UPPER(b.pl) = UPPER(c.PL)
@@ -525,16 +565,25 @@ WHERE UPPER(c.Technology) IN ('INK','LASER','PWA') AND UPPER(c.pl_category) = 'H
 
 # COMMAND ----------
 
-wd3_allocated_ltf_ltf_units.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_ltf_units, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
 
-wd3_allocated_ltf_flash_units.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite")
 
-wd3_allocated_ltf_wd3_units.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite")
 
-wd3_allocated_ltf_wd3_pct.cache()
 write_df_to_redshift(configs, wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite")
 
 write_df_to_redshift(configs, hardware_ltf, "prod.hardware_ltf", "append")
+
+# COMMAND ----------
+
+# insert input info into scenario table
+scenario_name = 'HW_STF_FCST - ' + max_forecast_version
+
+scenario_query = f"""
+INSERT INTO prod.scenario VALUES
+('{scenario_name}', 'FLASH', '{flash_version}', '{flash_load_date}'),
+('{scenario_name}', 'WD3', '{wd3_version}', '{wd3_load_date}');
+"""
+
+submit_remote_query(configs, scenario_query)

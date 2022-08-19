@@ -14,7 +14,7 @@ import re
 
 # COMMAND ----------
 
-dbutils.widgets.text("redshift_secrets_name", "") # arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ
+dbutils.widgets.text("drop_tables", "") # false
 dbutils.widgets.text("stack", "") # itg
 dbutils.widgets.text("job_dbfs_path", "") # dbfs:/dataos-pipeline-springboard/itg/table-creator/green
 
@@ -101,7 +101,7 @@ def get_file_list(job_dbfs_subfolder, file_substring):
 # tables
 # our "main" method
 # for each json file, parse, construct table create statement, and submit to Redshift
-input_json_files = get_file_list("/table_schema/", ".json")
+input_json_files = get_file_list("/redshift/table_schema/", ".json")
 
 for input_json_file in input_json_files:
     
@@ -115,25 +115,31 @@ for input_json_file in input_json_files:
     drop_table_query = ""
     if dbutils.widgets.get("drop_tables").lower() == "true":
         drop_table_query = "DROP TABLE IF EXISTS {}.{};".format(input_schema, input_table_name)
+        print("dropping table (if exists) {}.{}".format(input_schema, input_table_name))
     
+    print("creating table {}.{}...".format(input_schema, input_table_name))
     submit_remote_query(configs, drop_table_query + sql_query)
-
+    print("table {}.{} created!".format(input_schema, input_table_name))
 # COMMAND ----------
 
 # stored_procedures
 # our "main" method
 # for each json file, parse, construct table create statement, and submit to Redshift
 
-input_files = get_file_list("/stored_procedures/", ".sql")
+input_files = get_file_list("/redshift/stored_procedures/", ".sql")
 
 for input_file in input_files:
     
     sql_query = open(input_file).read()
-    sproc = re.sub('CREATE OR REPLACE PROCEDURE', '', sql_query.split("\n")[0])
+    sproc_name = sql_query.split("\n")[0]
+    sproc = re.sub('CREATE OR REPLACE PROCEDURE', '', sproc_name)
     
     permissions_query = f"""
     -- Permissions
     GRANT ALL ON PROCEDURE {sproc} TO {configs["redshift_username"]};
     GRANT ALL ON PROCEDURE {sproc} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
     """
+
+    print("creating stored procedure {}...".format(sproc))
     submit_remote_query(configs, sql_query + "\n" + permissions_query)
+    print("stored procedure {} created!".format(sproc))

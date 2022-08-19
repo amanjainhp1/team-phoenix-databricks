@@ -6,7 +6,7 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+dbutils.widgets.text("version", "2022.07.14.1")
 
 # COMMAND ----------
 
@@ -33,12 +33,10 @@ import psycopg2 as ps
 
 # COMMAND ----------
 
-#Get matures data from parquet file
-matures_table_toner = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/2022.07.14.1/toner.parquet")
-matures_table_ink = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/2022.07.14.1/ink.parquet")
-#test1 = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/2022.07.14.1/test1.parquet")
+matures_table_toner = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{version}/toner.parquet")
+matures_table_ink = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{version}/ink.parquet")
+
 matures=matures_table_toner.union(matures_table_ink)
-#test1 = spark.read.parquet("s3://dataos-core-dev-team-phoenix/spectrum/cupsm/2022.06.23.1/ink_ink_test_2022.1")
 matures.createOrReplaceTempView("matures")
 
 # COMMAND ----------

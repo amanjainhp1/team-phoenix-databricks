@@ -48,17 +48,16 @@ git push origin new-branch-name
 <img src="https://media.github.azc.ext.hp.com/user/24293/files/5c98102d-c93f-4f0d-8fc6-c18f5f6a23ad" width=50% height=50%>
 
 In general, coders should work on notebooks in the Databricks web workspace in their repo. When ready to formally deploy, the general workflow is as follows:
-1. A PR should be opened to merge the relevant working branch to "dev".
-2. The "dev" branch is unprotected, so the committer can immediately merge the changes. Subsequently, a deployment will launch and redeploy all notebooks to the "dev" workspace.
-3. Pending functionality testing, another PR should be opened to merge "dev" to "master". This PR will require another team-phoenix member's review and approval.
-4. Upon merge, jobs in the "itg" workspace will be updated.
-5. For production/"prod" updates, a more formal release process will follow where builds are set up on a cadence and documented with a succint changelog.
+1. Functionality testing should be completed in the "dataos-dev-internal" Databricks workspace.
+2. A pull request (PR) should be opened to merge the relevant working branch to "master".
+3. Pending peer review, another team-phoenix member will comment and/or approve the PR.
+4. Upon merge, jobs in all three workspaces ("dev-internal", "itg-internal", "prod-internal" workspace will be updated.
 
 ## Databricks URLs
 
 dataos-dev-internal: https://dataos-dev-internal.cloud.databricks.com/  
 dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/<sup>1</sup>  
-dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/<sup>1</sup>     
+dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/   
 dataos-dev: https://dataos-dev.cloud.databricks.com/    
 dataos-prod: https://dataos-prod.cloud.databricks.com/    
 

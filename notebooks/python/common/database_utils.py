@@ -76,6 +76,7 @@ def write_df_to_redshift(configs: dict, df: DataFrame, destination: str = "", mo
     except Exception as error:
         print ("An exception has occured:", error)
         print ("Exception Type:", type(error))
+        raise Exception(error)
 
 # COMMAND ----------
 
@@ -105,16 +106,22 @@ def write_df_to_sqlserver(configs: dict, df: DataFrame, destination: str = "", m
     except Exception as error:
         print ("An exception has occured:", error)
         print ("Exception Type:", type(error))
+        raise Exception(error)
 
 # COMMAND ----------
 
 def write_df_to_s3(df: DataFrame, destination: str = "", format: str = "parquet", mode: str = "append", upper_strings: bool = False) -> None:
-    if upper_strings:
-        df = df_strings_to_upper(df)
-    df.write \
-        .format(format) \
-        .mode(mode) \
-        .save(destination)
+    try:
+        if upper_strings:
+            df = df_strings_to_upper(df)
+        df.write \
+            .format(format) \
+            .mode(mode) \
+            .save(destination)
+    except Exception as error:
+        print ("An exception has occured:", error)
+        print ("Exception Type:", type(error))
+        raise Exception(error)
 
 # COMMAND ----------
 

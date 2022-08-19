@@ -61,9 +61,9 @@ version_count = read_redshift_to_df(configs) \
     .count()
 
 if len(forecast_name_record_names) > 1:
-    dbutils.notebook.exit("LTF data from Archer contains more than one distinct record (n=" + len(forecast_name_record_names) + ")")
+    raise Exception("LTF data from Archer contains more than one distinct record (n=" + len(forecast_name_record_names) + ")")
 elif version_count >= 1:
-    dbutils.notebook.exit("LTF version already loaded in prod.version table in redshift")
+    raise Exception("LTF version already loaded in prod.version table in redshift")
 
 # COMMAND ----------
 

@@ -64,7 +64,7 @@ WHERE record IN ('HW_LTF_LF')
     AND official = 1
 GROUP BY record, forecast_name
 )SELECT 'NORM_SHIPMENTS_STAGING' AS tbl_name
-    , CASE WHEN record IN  ('HW_STF_FCST','HW_LF_FCST') THEN forecast_name ELSE record END AS record
+    , CASE WHEN record IN  ('HW_LF_FCST') THEN forecast_name ELSE record END AS record
     , max_version AS version
     , GETDATE() AS execute_time
 FROM nrm_01_filter_vars

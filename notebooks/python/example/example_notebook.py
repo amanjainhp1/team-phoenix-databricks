@@ -7,4 +7,4 @@ print("this task is: " + task)
 
 # COMMAND ----------
 
-dbutils.notebooks.exit("SUCCESS: " + task)
+dbutils.notebook.exit("SUCCESS: " + task)

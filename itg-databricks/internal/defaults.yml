@@ -7,7 +7,7 @@ default_custom_tags:
   Category: "Environment:Dev+Criticality:Normal+Role:Application"
   CostManagement: "CostCenter:US98019197+MRU:YMD8"
 
-airflow_gitops:
-  publish_job_ids: true
-  repo: https://github.azc.ext.hp.com/hp-data-platform/k8s-dataos-core-dev-2.git
-  path: 'flux2-green/namespaces/infra/airflow-dev/databricks-springboard-job-ids-cm.yaml'
+# airflow_gitops:
+#   publish_job_ids: true
+#   repo: https://github.azc.ext.hp.com/hp-data-platform/k8s-dataos-core-dev-2.git
+#   path: 'flux2-green/namespaces/infra/airflow-dev/databricks-springboard-job-ids-cm.yaml'
