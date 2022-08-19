@@ -787,7 +787,7 @@ GROUP BY cal_date
     , pl
 """
 
-query_list.append(["fin_prod.odw_sacp_actuals", odw_sacp_actuals , "overwrite"])
+query_list.append(["fin_prod.odw_sacp_actuals", odw_sacp_actuals , "append"])
 
 # COMMAND ----------
 
