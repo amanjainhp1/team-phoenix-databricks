@@ -1,11 +1,19 @@
 # Databricks notebook source
-dbutils.widgets.text("usage_share_file", "")
-dbutils.widgets.text("usage_share_constant", "")
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Usage Share 01 
+# MAGIC - Proxy Locking
 
 # COMMAND ----------
 
-import pandas as pd
-import numpy as mp
+from datetime import datetime
+
+# COMMAND ----------
+
+# for interactive sessions, define a version
+dbutils.widgets.text("usage_share_file", "")
+dbutils.widgets.text("usage_share_constant", "")
+dbutils.widgets.text("datestamp", "")
 
 # COMMAND ----------
 
@@ -13,50 +21,47 @@ import numpy as mp
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
 # (Country Usage-Page Share Monthly) CUPSM Processing
 
-#This portion of the code tried to quantify changes in incoming raw, CUPSM data and the cause of those changes i.e. BD, modeling changes, or proxying changes. 
+# This portion of the code tried to quantify changes in incoming raw, CUPSM data and the cause of those changes i.e. BD, modeling changes, or proxying changes. 
 
-#Data is labeled as such:
-#-BD if there is telemetry data for that cal_date
-#-Modelled if there is not telemetry for that cal_date but the time series for that platform has some data
-#-Proxied if there is no data for the time series for that platform
+# Data is labeled as such:
+# -BD if there is telemetry data for that cal_date
+# -Modelled if there is not telemetry for that cal_date but the time series for that platform has some data
+# -Proxied if there is no data for the time series for that platform
 
-#Share and usage are treated separately by the CUPSM process so the change is quantified for each metric separately. The data is generated at the platform/geo level (a single time series for each platform/geo). A reference data set is used (the previous DUPSM that was reported off). This DUPSM is used to 
-#label each data point as either not changing; or a restatement of either BD, modelled, or proxied data; or a flag change (this is where a platform/geo is flagged as directional, or looses the flag); or a dropped/added platform/geo.
+# Share and usage are treated separately by the CUPSM process so the change is quantified for each metric separately. The data is generated at the platform/geo level (a single time series for each platform/geo). A reference data set is used (the previous DUPSM that was reported off). This DUPSM is used to 
+
+# Label each data point as either not changing; or a restatement of either BD, modelled, or proxied data; or a flag change (this is where a platform/geo is flagged as directional, or looses the flag); or a dropped/added platform/geo.
 
 
 # Load Current run of Usage/Share
-usage_share_current = dbutils.widgets.get("usage_share_file")
-
-usage_share_current_df = spark.read.parquet(usage_share_current)
+usage_share_current_version = dbutils.widgets.get("usage_share_current_version") # s3://dataos-core-prod-team-phoenix/spectrum/cupsm/2022.08.11.1/toner*
+usage_share_current_df = spark.read.parquet(f"constants['S3_BASE_BUCKET'][stack]/spectrum/cupsm/{usage_share_current_version}/toner*") 
 
 # COMMAND ----------
 
 # Load Proxy Constant Usage/Share
-usage_share_locked = dbutils.widgets.get("usage_share_constant")
+usage_share_locked_version = dbutils.widgets.get("usage_share_locked_version") # s3://dataos-core-prod-team-phoenix/spectrum/cupsm/2022.07.19.1/toner*
+usage_share_locked_df = spark.read.parquet(f"constants['S3_BASE_BUCKET'][stack]/spectrum/cupsm/{usage_share_locked_version}/toner*")
 
-usage_share_locked_df = spark.read.parquet(usage_share_locked)
+# COMMAND ----------
+datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 
 # COMMAND ----------
 
-#create table of just values to hold constant --share
-
+# Create table of just values to hold constant --share
 usage_share_current_df.createOrReplaceTempView("usage_share_current_df")
 
 # COMMAND ----------
 
-#get list of platform_subset/customer_engagement/geographys that use Big Data directly
+# Get list of platform_subset/customer_engagement/geographys that use Big Data directly
 bdcurrent = spark.sql("""
     SELECT DISTINCT geography, platform_subset, customer_engagement, measure, 'BD' as group1
     FROM usage_share_current_df
     WHERE 1=1
       AND upper(data_source) in ('HAVE DATA','DASHBOARD')
-    """)
+""")
 
 # COMMAND ----------
 
@@ -66,21 +71,21 @@ bdcurrent.createOrReplaceTempView("bdcurrent")
 
 #add flag to show if telemetry directly used
 cupsm_current_raw = spark.sql("""
-    with step1 AS (SELECT usc.record, usc.cal_date, usc.geography_grain, usc.geography, usc.platform_subset, usc.customer_engagement, usc.forecast_process_note, usc.forecast_created_date, usc.data_source, usc.version, usc.units, usc.proxy_used, usc.ib_version
-        , usc.load_date, usc.measure, bdl.group1
-    FROM usage_share_current_df usc
-    LEFT JOIN bdcurrent bdl
-      ON usc.geography=bdl.geography AND usc.platform_subset=bdl.platform_subset AND usc.customer_engagement=bdl.customer_engagement AND usc.measure=bdl.measure
-    WHERE 1=1)
+    with step1 AS (
+      SELECT usc.record, usc.cal_date, usc.geography_grain, usc.geography, usc.platform_subset, usc.customer_engagement, usc.forecast_process_note, usc.forecast_created_date, usc.data_source, usc.version,   usc.units, usc.proxy_used, usc.ib_version, usc.load_date, usc.measure, bdl.group1
+      FROM usage_share_current_df usc
+      LEFT JOIN bdcurrent bdl
+        ON usc.geography=bdl.geography AND usc.platform_subset=bdl.platform_subset AND usc.customer_engagement=bdl.customer_engagement AND usc.measure=bdl.measure
+      WHERE 1=1)
     SELECT record,cal_date, geography_grain, geography, platform_subset,customer_engagement, forecast_process_note, forecast_created_date, data_source, version, units, proxy_used, ib_version
-        , load_date, measure, group1
+         , load_date, measure, group1
          , CASE WHEN group1='BD' THEN 
-                    CASE WHEN upper(data_source) IN ('HAVE DATA','DASHBOARD') THEN 'BD'
-                         ELSE 'MODELLED'
-                         END
-                WHEN data_source IN ('N') THEN 'N'
-               WHEN group1 is NULL THEN 'PROXIED'
-               END AS proxy_flag
+             CASE WHEN upper(data_source) IN ('HAVE DATA','DASHBOARD') THEN 'BD'
+               ELSE 'MODELLED'
+               END
+              WHEN data_source IN ('N') THEN 'N'
+              WHEN group1 is NULL THEN 'PROXIED'
+            END AS proxy_flag
      FROM step1
 """)
 
@@ -157,14 +162,15 @@ bdlocked.stat.crosstab('measure','data_source').show()
 
 #add flag to show if telemetry directly used
 cupsm_locked_raw = spark.sql("""
-    with step1 AS (SELECT usc.record, usc.cal_date, upper(usc.geography_grain) as geography_grain, upper(usc.geography) as geography, upper(usc.platform_subset) as platform_subset
+    with step1 AS (
+      SELECT usc.record, usc.cal_date, upper(usc.geography_grain) as geography_grain, upper(usc.geography) as geography, upper(usc.platform_subset) as platform_subset
                    , upper(usc.customer_engagement) as customer_engagement, usc.forecast_process_note, usc.forecast_created_date, upper(usc.data_source) as data_source
                    , usc.version, usc.units, upper(usc.proxy_used) as proxy_used, usc.ib_version
-        , usc.load_date, upper(usc.measure) as measure, bdl.group1
-    FROM usage_share_locked_df usc
-    LEFT JOIN bdlocked bdl
-      ON upper(usc.geography)=upper(bdl.geography) AND upper(usc.platform_subset)=upper(bdl.platform_subset) AND upper(usc.customer_engagement)=upper(bdl.customer_engagement) AND upper(usc.measure)=upper(bdl.measure)
-    WHERE 1=1)
+                   , usc.load_date, upper(usc.measure) as measure, bdl.group1
+      FROM usage_share_locked_df usc
+      LEFT JOIN bdlocked bdl
+        ON upper(usc.geography)=upper(bdl.geography) AND upper(usc.platform_subset)=upper(bdl.platform_subset) AND upper(usc.customer_engagement)=upper(bdl.customer_engagement) AND upper(usc.measure)=upper(bdl.measure)
+      WHERE 1=1)
     SELECT record,cal_date, geography_grain, geography, platform_subset,customer_engagement, forecast_process_note, forecast_created_date, data_source, version, units, proxy_used, ib_version
         , load_date, measure, group1
         , CASE WHEN group1='BD' THEN 
@@ -246,6 +252,36 @@ cupsm_combined.createOrReplaceTempView("cupsm_combined")
 
 # COMMAND ----------
 
+test3 = spark.sql("""
+      SELECT platform_subset, status, min(cal_date) as min_cal_date,  count(cal_date) as count
+      FROM cupsm_combined
+      WHERE units is null
+        AND measure='USAGE'
+      GROUP BY platform_subset, status
+      order by platform_subset
+""")
+
+# COMMAND ----------
+
+display(test3)
+
+# COMMAND ----------
+
+test4 = spark.sql("""
+      SELECT *
+      FROM cupsm_combined
+      WHERE platform_subset='GAHERIS YET2 DE'
+        AND cal_date > '2021-09-01'
+        AND measure='USAGE'
+      order by geography, cal_date
+""")
+
+# COMMAND ----------
+
+display(test4)
+
+# COMMAND ----------
+
 output = spark.sql("""
       SELECT 
         record
@@ -276,10 +312,8 @@ output = spark.sql("""
       WHERE measure in ('COLOR_USAGE', 'COLOR_USAGE_C', 'COLOR_USAGE_M', 'COLOR_USAGE_Y', 'HP_SHARE', 'K_USAGE', 'USAGE', 'USAGE_N', 'SHARE_N')
 """)
 
-
 # COMMAND ----------
 
 #usage_share_proxy
 
-write_df_to_s3(df=output, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/toner_locked", format="parquet", mode="overwrite", upper_strings=True)
-
+output.write.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/toner_locked", mode="overwrite")

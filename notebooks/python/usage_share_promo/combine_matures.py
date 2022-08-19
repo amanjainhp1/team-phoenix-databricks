@@ -6,19 +6,13 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+from datetime import datetime
 
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+dbutils.widgets.text("ink_current_version", "")
+dbutils.widgets.text("toner_locked_version", "")
 
 # COMMAND ----------
 
@@ -30,16 +24,23 @@ import psycopg2 as ps
 
 # COMMAND ----------
 
+datestamp = dbutils.jobs.taskValues.get(taskKey = "matures", key = "datestamp")
+ink_current_version = dbutils.widgets.get('ink_current_version')
+toner_locked_version = dbutils.widgets.get('toner_locked_version')
+
+print("datestamp: " + datestamp)
+print("ink_current_version: " + ink_current_version)
+print("toner_locked_version: " + toner_locked_version)
+
+# COMMAND ----------
+
 # Read in Current data
 #current_table=need to get step 01 results
-toner_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/toner_locked")
+toner_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{toner_locked_version}/toner_locked*")
 toner_table.createOrReplaceTempView("toner_table")
 
-#ink_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}cupsm/toner_locked")
-ink_table = spark.read.parquet("s3://insights-environment-sandbox/BrentT/ink_q3_pulse_2022.1")
+ink_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{ink_current_version}/ink*")
 ink_table.createOrReplaceTempView("ink_table")
-
-
 
 # COMMAND ----------
 
@@ -56,7 +57,7 @@ current_table.createOrReplaceTempView("current_table")
 # COMMAND ----------
 
 # Read in Mature data
-matures_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_norm_final_landing")
+matures_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/matures_norm_final_landing")
 matures_table.createOrReplaceTempView("matures_table")
 
 # COMMAND ----------
@@ -250,10 +251,6 @@ SELECT * FROM combine
 
 combine_1=spark.sql(combine_1)
 combine_1.createOrReplaceTempView("overlap_1")
-
-# COMMAND ----------
-
-display(combine_1)
 
 # COMMAND ----------
 

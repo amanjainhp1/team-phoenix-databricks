@@ -6,19 +6,7 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+dbutils.widgets.text("matures_version", "")
 
 # COMMAND ----------
 
@@ -29,15 +17,19 @@ import psycopg2 as ps
 # MAGIC %run ../common/database_utils
 
 # COMMAND ----------
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+matures_version = datestamp if dbutils.widgets.get("matures_version") == "" else dbutils.widgets.get("matures_version")
+
+# COMMAND ----------
 
 # Read in Current data
-current_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing")
+current_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{matures_version}/matures_current_landing*")
 current_table.createOrReplaceTempView("current_table")
 
 # COMMAND ----------
 
 # Read in NPI data
-npi_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/npi_norm_final_landing")
+npi_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/npi_norm_final_landing*")
 npi_table.createOrReplaceTempView("npi_table")
 
 # COMMAND ----------
@@ -227,13 +219,8 @@ SELECT * FROM combine
 """
 
 combine_1=spark.sql(combine_1)
-combine_1.createOrReplaceTempView("combine_1")
-
-# COMMAND ----------
-
-display(combine_1)
 
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)

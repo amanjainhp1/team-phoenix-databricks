@@ -5,19 +5,8 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-# for interactive sessions, define a version widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
 
 # COMMAND ----------
 
@@ -31,7 +20,7 @@ import psycopg2 as ps
 
 # Read in Current data
 #current_table=need to get step 01 results
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_adjusted")
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_adjusted")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
@@ -42,7 +31,7 @@ ib = read_redshift_to_df(configs) \
     SELECT country_alpha2, platform_subset, customer_engagement, cal_date, units
     FROM "prod"."ib"
     WHERE 1=1
-       AND version = '{version}'
+       AND version = '{ib_version}'
     """) \
   .load()
 ib.createOrReplaceTempView("ib")
@@ -332,7 +321,7 @@ SELECT "USAGE_SHARE" as record
       ,customer_engagement
       ,measure
       ,units
-      ,'{version}' as ib_version
+      ,'{ib_version}' as ib_version
       ,source
       ,CONCAT(CAST(current_date() AS DATE),".1") as version
       ,CAST(current_date() AS DATE) AS load_date
@@ -344,10 +333,6 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-display(convert)
-
-# COMMAND ----------
-
-s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/demand"
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/demand"
 print("output file name: " + s3_destination)
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)

@@ -5,27 +5,16 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-# for interactive sessions, define a version widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
 
 # COMMAND ----------
 
@@ -46,7 +35,7 @@ ib = read_redshift_to_df(configs) \
     SELECT country_alpha2, platform_subset, customer_engagement, cal_date, units
     FROM "prod"."ib"
     WHERE 1=1
-       AND version = '{version}'
+       AND version = '{ib_version}'
     """) \
   .load()
 ib.createOrReplaceTempView("ib")
@@ -54,7 +43,7 @@ ib.createOrReplaceTempView("ib")
 # COMMAND ----------
 
 # Read in U/S data
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country")
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/usage_share_country*")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
@@ -325,6 +314,6 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_market10"
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_market10"
 print("output file name: " + s3_destination)
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)

@@ -6,18 +6,15 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "2022.07.14.1")
+dbutils.widgets.text("matures_version", "")
+dbutils.widgets.text("ib_version", "")
+dbutils.widgets.text("datestamp", "")
 
 # COMMAND ----------
 
 # retrieve version from widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+matures_version = dbutils.widgets.get("matures_version")
+ib_version = dbutils.widgets.get("ib_version")
 
 # COMMAND ----------
 
@@ -33,11 +30,14 @@ import psycopg2 as ps
 
 # COMMAND ----------
 
-matures_table_toner = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{version}/toner.parquet")
-matures_table_ink = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{version}/ink.parquet")
+matures_table_toner = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{matures_version}/toner*")
+matures_table_ink = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{matures_version}/ink*")
 
 matures=matures_table_toner.union(matures_table_ink)
 matures.createOrReplaceTempView("matures")
+
+# COMMAND ----------
+datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 
 # COMMAND ----------
 
@@ -56,7 +56,7 @@ ib_info = read_redshift_to_df(configs) \
       SELECT distinct country_alpha2, platform_subset, customer_engagement
       FROM "prod"."ib"
       WHERE 1=1
-      AND version = '{version}'
+      AND version = '{ib_version}'
     """) \
  .load()
 ib_info.createOrReplaceTempView("ib_info")
@@ -152,7 +152,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
-	AND ib.version = '{version}'
+	AND ib.version = '{ib_version}'
 	AND measure = 'IB'
 	AND (hw.product_lifecycle_status = 'M' OR (hw.product_lifecycle_status = 'C' AND hw.epa_family like 'SEG%'))
     AND units>0
@@ -445,4 +445,6 @@ matures_norm_final_landing \
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=matures_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=matures_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/matures_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+
+dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")
