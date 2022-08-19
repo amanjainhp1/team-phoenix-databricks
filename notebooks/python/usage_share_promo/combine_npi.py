@@ -6,7 +6,7 @@
 
 # COMMAND ----------
 
-dbutils.widgets.text("matures_datestamp", "")
+dbutils.widgets.text("matures_version", "")
 
 # COMMAND ----------
 
@@ -18,12 +18,12 @@ dbutils.widgets.text("matures_datestamp", "")
 
 # COMMAND ----------
 datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
-matures_datestamp = datestamp if dbutils.widgets.get("matures_datestamp") == "" else dbutils.widgets.get("matures_datestamp")
+matures_version = datestamp if dbutils.widgets.get("matures_version") == "" else dbutils.widgets.get("matures_version")
 
 # COMMAND ----------
 
 # Read in Current data
-current_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{matures_datestamp}/matures_current_landing*")
+current_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{matures_version}/matures_current_landing*")
 current_table.createOrReplaceTempView("current_table")
 
 # COMMAND ----------

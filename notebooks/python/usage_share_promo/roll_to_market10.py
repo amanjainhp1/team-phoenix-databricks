@@ -5,16 +5,6 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-# for interactive sessions, define a version widget
-ib_version = dbutils.widgets.get("ib_version")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -24,6 +14,7 @@ ib_version = dbutils.widgets.get("ib_version")
 # COMMAND ----------
 
 datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
 
 # COMMAND ----------
 
