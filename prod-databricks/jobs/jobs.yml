@@ -11,8 +11,7 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
-  - odw-document-currency
-  - odw-revenue-unit
+  - odw-wd8-load
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
@@ -22,6 +21,8 @@ DeleteJobs:
   - ink-share
   - ink-usage-color
   - ink-usage-total
+  - odw-document-currency
+  - odw-revenue-unit
   - table-creator
   - toner-share
   - toner-usage-color

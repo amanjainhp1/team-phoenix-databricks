@@ -12,8 +12,7 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
-  - odw-document-currency
-  - odw-revenue-unit
+  - odw-wd8-load
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
@@ -27,6 +26,8 @@ DeleteJobs:
   - installed-base-promo
   - installed-base-scenario
   - norm-ships
+  - odw-document-currency
+  - odw-revenue-unit
   - toner-share
   - toner-usage-color
   - toner-usage-total
