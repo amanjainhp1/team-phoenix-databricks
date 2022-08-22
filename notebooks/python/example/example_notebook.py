@@ -7,11 +7,11 @@ print("this task is: " + task)
 
 # COMMAND ----------
 
-import dataos_splunk 
+import dataos_splunk
 import os
 
-data = {"hello": "from niraj"} 
-metadata = {"source": "disk"} 
+data = {"hello": "from matt"} 
+metadata = {"source": "team-phoenix " + task} 
 
 dataos_splunk.send_to_splunk(metadata, data) 
 
