@@ -14,16 +14,14 @@ splunk:
   index: dataos-core-dev
   secret: 'dev/k8s/splunk/logging'
   secret_attr: splunk_hec_token
-
-  # metrics_index: dataos-phoenix-metrics-cd
-  # metrics_secret: 'splunk/dataos-phoenix-metrics-cd'
-  # metrics_secret_attr: splunk_hec_token
-
 libraries: 
     private:
       dataos-splunk:
         version: 1.0.4
         type: 'whl'
+  # metrics_index: dataos-phoenix-metrics-cd
+  # metrics_secret: 'splunk/dataos-phoenix-metrics-cd'
+  # metrics_secret_attr: splunk_hec_token
 
 # airflow_gitops:
 #   publish_job_ids: true
