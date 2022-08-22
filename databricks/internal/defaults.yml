@@ -7,6 +7,24 @@ default_custom_tags:
   Category: "Environment:Dev+Criticality:Normal+Role:Application"
   CostManagement: "CostCenter:US98019197+MRU:YMD8"
 
+splunk:
+  enable: true
+  host: 'splunk.internal.forwaders.tools.hp-cia.com'
+
+  index: dataos-phoenix-cd
+  secret: 'splunk/dataos-phoenix-metrics-cd'
+  secret_attr: splunk_hec_token?
+
+  metrics_index: dataos-phoenix-metrics-cd
+  metrics_secret: 'splunk/dataos-phoenix-metrics-cd'
+  metrics_secret_attr: splunk_hec_token
+
+libraries: 
+    private:
+      dataos-splunk:
+        version: 1.0.4
+        type: 'whl'
+
 # airflow_gitops:
 #   publish_job_ids: true
 #   repo: https://github.azc.ext.hp.com/hp-data-platform/k8s-dataos-core-dev-2.git
