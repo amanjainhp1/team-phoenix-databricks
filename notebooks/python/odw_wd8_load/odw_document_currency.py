@@ -47,7 +47,7 @@ if redshift_row_count == 0:
 
 # mount S3 bucket
 bucket = f"dataos-core-{stack}-team-phoenix"
-bucket_prefix = "landing/ODW/odw_document_currency"
+bucket_prefix = "landing/odw/odw_document_currency"
 dbfs_mount = '/mnt/odw_document_currency/'
 
 s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
