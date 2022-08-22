@@ -5,27 +5,16 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
-
-# COMMAND ----------
-
-# for interactive sessions, define a version widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
 
 # COMMAND ----------
 
@@ -46,7 +35,7 @@ ib = read_redshift_to_df(configs) \
     SELECT country_alpha2, platform_subset, customer_engagement, cal_date, units
     FROM "prod"."ib"
     WHERE 1=1
-       AND version = '{version}'
+       AND version = '{ib_version}'
     """) \
   .load()
 ib.createOrReplaceTempView("ib")
@@ -54,11 +43,12 @@ ib.createOrReplaceTempView("ib")
 # COMMAND ----------
 
 # Read in U/S data
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/usage_share_country")
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/usage_share_country*")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
 
+#roll up to market10 -- changing source to % of source, need to find way to roll up other notes (forecast process note, proxy used)
 convert = f"""
 with step1 as (
     SELECT us.cal_date
@@ -93,16 +83,21 @@ with step1 as (
     , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='MODELED' THEN 1
 		ELSE 0 END) AS data_source_k_m
     --share     
-	, SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='TELEMETRY' THEN 1
+	, SUM(CASE WHEN us.measure='USAGE' AND us.data_source='TELEMETRY' AND us.customer_engagement='I-INK' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='TELEMETRY' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s
-    , SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='NPI' THEN 1
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='NPI' AND us.customer_engagement='I-INK' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='NPI' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_n
-    , SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='MATURE' THEN 1
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MATURE' AND us.customer_engagement='I-INK' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='MATURE' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_o
-    , SUM(CASE WHEN us.measure='HP_SHARE' AND us.data_source='MODELED' THEN 1
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MODELED' AND us.customer_engagement='I-INK' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='MODELED' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_m
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
-    , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
+    , SUM(CASE WHEN us.measure='USAGE' AND us.customer_engagement='I-INK' THEN 1 
+               WHEN us.measure='HP_SHARE' AND us.customer_engagement !='I-INK' THEN us.units ELSE 0 END) AS page_share
     , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
 FROM us_table us 
@@ -254,7 +249,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% O, ",round(data_source_u_m*100,0),"% M") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m,1) as test_src
 FROM step5
 WHERE usage IS NOT NULL
     AND usage > 0
@@ -265,7 +261,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% O, ",round(data_source_s_m*100,0),"% M") as source
+	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% MA, ",round(data_source_s_m*100,0),"% MD") as source
+    , round(data_source_s+data_source_s_n+data_source_s_o+data_source_s_m,1) as test_src
 FROM step5
 WHERE page_share IS NOT NULL
     AND page_share > 0
@@ -276,7 +273,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% O, ",round(data_source_c_m*100,0),"% M") as source
+	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% MA, ",round(data_source_c_m*100,0),"% MD") as source
+    , round(data_source_c+data_source_c_n+data_source_c_o+data_source_c_m,1) as test_src
 FROM step5
 WHERE usage_c IS NOT NULL
     AND usage_c > 0
@@ -287,13 +285,14 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% O, ",round(data_source_k_m*100,0),"% M") as source
+	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% MA, ",round(data_source_k_m*100,0),"% MD") as source
+    , round(data_source_k+data_source_k_n+data_source_k_o+data_source_k_m,1) as test_src
 FROM step5
 WHERE usage_k IS NOT NULL
     AND usage_k > 0
 
 )
-SELECT "USAGE_SHARE" as record
+, final_step as (SELECT "USAGE_SHARE" as record
       ,cal_date
       ,"MARKET 10" as geography_grain
       ,market10 as geography
@@ -303,9 +302,11 @@ SELECT "USAGE_SHARE" as record
       ,units
       ,'{version}' as ib_version
       ,source
+      ,test_src
       ,CONCAT(CAST(current_date() AS DATE),".1") as version
       ,CAST(current_date() AS DATE) AS load_date
-      FROM step6
+      FROM step6)
+ SELECT * FROM final_step
                
 """
 convert=spark.sql(convert)
@@ -313,9 +314,6 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-display(convert)
-
-# COMMAND ----------
-
-#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_pre_adjust", mode: str = "overwrite")
-write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_market10", format="parquet", mode="overwrite", upper_strings=True)
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_market10"
+print("output file name: " + s3_destination)
+write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)

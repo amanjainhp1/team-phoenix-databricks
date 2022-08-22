@@ -5,12 +5,6 @@
 
 # COMMAND ----------
 
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -19,9 +13,13 @@ import psycopg2 as ps
 
 # COMMAND ----------
 
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+
+# COMMAND ----------
+
 # Read in Current data
 #current_table=need to get step 01 results
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_market10")
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_market10")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
@@ -32,16 +30,6 @@ us_table.createOrReplaceTempView("us_table")
 # COMMAND ----------
 
 #read in override data
-#override_in = read_redshift_to_df(configs) \
-  #.option("query","""
-  #  SELECT user_name, geography_grain, geography, platform_subset, customer_engagement, measure, min_sys_date,month_num, value, load_date
-  #  FROM "prod"."working_forecast_usage_share"
-  #  WHERE 1=1
-  #  AND user_name != 'BRENTT'
-  #  """) \
- # .load()
-#override_in.createOrReplaceTempView("override_in")
-
 override_in = read_sql_server_to_df(configs) \
   .option("query","""
     SELECT UPPER(user_name) as user_name, upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
@@ -128,14 +116,6 @@ override_table = """
 
 override_table=spark.sql(override_table)
 override_table.createOrReplaceTempView("override_table")
-
-# COMMAND ----------
-
-display(override_table)
-
-# COMMAND ----------
-
-display(override_table)
 
 # COMMAND ----------
 
@@ -231,10 +211,6 @@ override_table_a.createOrReplaceTempView("override_table_a")
 
 # COMMAND ----------
 
-display(override_table_a)
-
-# COMMAND ----------
-
 ###Overwrite data as pulled from override table, and then adjust total usage after overriding (ink usage=color_usage+k_usage, toner usage=k_usage)
 
 override_table_test1 = """
@@ -285,15 +261,6 @@ override_table_b.createOrReplaceTempView("override_table_b")
 # MAGIC # EPA Overrides
 
 # COMMAND ----------
-
-#read in override data
-#override_in2 = read_redshift_to_df(configs) \
-#  .option("query","""
-#    SELECT user_name, geography_grain, geography, platform_subset, customer_engagement, measure, min_sys_date,month_num, value, load_date
-#    FROM "prod"."epa_drivers_usage_share"
-#    """) \
-#  .load()
-#override_in2.createOrReplaceTempView("override_in2")
 
 override_in2 = read_sql_server_to_df(configs) \
   .option("query","""
@@ -451,43 +418,28 @@ override_table2_b.createOrReplaceTempView("override_table2_b")
 # COMMAND ----------
 
 
-    override_table_c ="""
-        SELECT * FROM override_table_b
-        UNION ALL
-        SELECT * FROM override_table2_b
-        """
+override_table_c ="""
+SELECT * FROM override_table_b
+UNION ALL
+SELECT * FROM override_table2_b
+"""
 
+override_table_c2 ="""
+SELECT * FROM override_table_b
+"""
 
-        
-
-    override_table_c2 ="""
-        SELECT * FROM override_table_b
-        """
-    
-if override_table2_b.count() > 0: 
-        override_table_c=spark.sql(override_table_c)
+if override_table2_b.count() > 0:
+    override_table_c=spark.sql(override_table_c)
 if override_table2_b.count() == 0:
-        override_table_c=spark.sql(override_table_c2)
-    
+    override_table_c=spark.sql(override_table_c2)
+
 override_table_c=override_table_c.distinct()
 override_table_c.createOrReplaceTempView("override_table_c")
 
 # COMMAND ----------
 
-display(override_table2_b)
-
-# COMMAND ----------
-
-display(override_table_c)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC #Update usage & Share
-
-# COMMAND ----------
-
-us_table.update(override_table2_b)
 
 # COMMAND ----------
 
@@ -555,10 +507,6 @@ update_table.createOrReplaceTempView("update_table")
 
 # COMMAND ----------
 
-display(update_table)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Clean up Data
 
@@ -583,7 +531,12 @@ with step1 as (
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-	, us.source
+	, CASE WHEN us.measure = 'HP_SHARE' THEN us.source
+           ELSE NULL
+           END AS source_s
+    , CASE WHEN us.measure like '%USAGE%' THEN us.source
+            ELSE NULL
+            END AS source_u
     , us.ib_version
 	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
@@ -595,8 +548,9 @@ GROUP BY us.cal_date
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-    , us.source
     , us.ib_version
+    , us.measure
+    , us.source
 	) , step2 as (
     SELECT 
        u.cal_date
@@ -604,7 +558,8 @@ GROUP BY us.cal_date
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,u.source
+      ,max(u.source_s) as source_s
+      ,max(u.source_u) as source_u
       ,u.ib_version
       ,SUM(u.usage) AS usage
       ,SUM(u.page_share) AS page_share
@@ -620,7 +575,6 @@ GROUP BY
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,u.source
       ,u.ib_version
       ,hw.technology
 ) , step5 as (
@@ -629,10 +583,11 @@ GROUP BY
       ,u.geography
       ,u.platform_subset
       ,u.customer_engagement
-      ,u.source
+      ,u.source_s
+      ,u.source_u
       ,u.ib_version
-      ,CASE WHEN u.source in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='INK' THEN usage_c+usage_k
-            WHEN u.source in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='TONER' THEN usage_k
+      ,CASE WHEN u.source_u in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='INK' THEN usage_c+usage_k
+            WHEN u.source_u in ('WORKING-FORECAST OVERRIDE','EPA-DRIVERS OVERRIDE') AND u.technology='TONER' THEN usage_k
             ELSE usage
             END AS usage
       ,u.page_share
@@ -648,7 +603,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, source
+	, source_u as source
     , ib_version
 FROM step5
 WHERE usage IS NOT NULL
@@ -661,7 +616,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, source
+	, source_s as source
     , ib_version
 FROM step5
 WHERE page_share IS NOT NULL
@@ -674,7 +629,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, source
+	, source_u as source
     , ib_version
 FROM step5
 WHERE usage_c IS NOT NULL
@@ -687,7 +642,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, source
+	, source_u as source
     , ib_version
 FROM step5
 WHERE usage_k IS NOT NULL
@@ -712,12 +667,7 @@ SELECT "USAGE_SHARE" as record
 convert=spark.sql(convert)
 convert.createOrReplaceTempView("convert")
 
-
 # COMMAND ----------
 
-display(convert)
-
-# COMMAND ----------
-
-#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_pre_adjust", mode: str = "overwrite")
-write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/us_adjusted", format="parquet", mode="overwrite", upper_strings=True)
+#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_post_adjust", mode: str = "overwrite")
+write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_adjusted", format="parquet", mode="overwrite", upper_strings=True)

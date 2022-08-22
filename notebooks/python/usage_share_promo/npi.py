@@ -6,18 +6,13 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "")
+dbutils.widgets.text("ib_version", "")
+dbutils.widgets.text("datestamp", "")
 
 # COMMAND ----------
 
 # retrieve version from widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+ib_version = dbutils.widgets.get("ib_version")
 
 # COMMAND ----------
 
@@ -29,6 +24,11 @@ import psycopg2 as ps
 
 # COMMAND ----------
 
+datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+
+# COMMAND ----------
+
+#Read in data
 npi_in = read_redshift_to_df(configs) \
   .option("query","""
     SELECT *
@@ -39,17 +39,9 @@ npi_in.createOrReplaceTempView("npi_in")
 
 # COMMAND ----------
 
-mature_tst=spark.sql("""select * from npi_in where platform_subset ='EUTHENIA STND DM1' AND (geography='AP' or upper(geography)='GREATER ASIA') order by customer_engagement, measure, month_num""")
-mature_tst.createOrReplaceTempView("mature_tst")
-
-# COMMAND ----------
-
-display(mature_tst)
-
-# COMMAND ----------
-
-npi_in_r5 = spark.sql("""select * from npi_in where upper(geography_grain) ='REGION_5' """)
-npi_in_r5.createOrReplaceTempView("npi_in_r5")
+#Split data into region5 and market10
+npi_in_r5i = spark.sql("""select * from npi_in where upper(geography_grain) ='REGION_5' """)
+npi_in_r5i.createOrReplaceTempView("npi_in_r5i")
 npi_in_m10 = spark.sql("""select * from npi_in where upper(geography_grain) ='MARKET10' """)
 npi_in_m10.createOrReplaceTempView("npi_in_m10")
 
@@ -60,6 +52,7 @@ npi_in_m10.createOrReplaceTempView("npi_in_m10")
 
 # COMMAND ----------
 
+#Get country information for region5 and market10
 country_info = read_redshift_to_df(configs) \
   .option("query","""
     SELECT distinct region_5, market10, country_alpha2
@@ -68,16 +61,18 @@ country_info = read_redshift_to_df(configs) \
   .load()
 country_info.createOrReplaceTempView("country_info")
 
+#Get which countries have IB by platform subset/customer engagement
 ib_info = read_redshift_to_df(configs) \
   .option("query",f"""
       SELECT distinct country_alpha2, platform_subset, customer_engagement
       FROM "prod"."ib"
       WHERE 1=1
-      AND version = '{version}'
+      AND version = '{ib_version}'
     """) \
  .load()
 ib_info.createOrReplaceTempView("ib_info")
 
+##Get start dates by region5 for each platform_subset/customer engagement
 ib_info_r5 = read_redshift_to_df(configs) \
   .option("query",f"""
       SELECT cc.region_5, ib.platform_subset, ib.customer_engagement, min(ib.cal_date) as ib_strt_dt
@@ -85,13 +80,95 @@ ib_info_r5 = read_redshift_to_df(configs) \
       LEFT JOIN "mdm"."iso_country_code_xref" cc
         ON ib.country_alpha2=cc.country_alpha2
       WHERE 1=1
-      AND ib.version = '{version}'
+      AND ib.version = '{ib_version}'
       GROUP BY 
         cc.region_5, ib.platform_subset, ib.customer_engagement
     """) \
  .load()
 ib_info_r5.createOrReplaceTempView("ib_info_r5")
 
+#Add JP where missing
+fix_japan = """
+with step1 as (
+    SELECT record
+        ,min_sys_dt
+        ,month_num
+        ,geography_grain
+        ,'JP' as geography
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,forecast_created_date
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+        ,CONCAT(platform_subset,customer_engagement,measure) as grp
+    FROM npi_in_r5i
+    WHERE geography='AP'
+), step2 as (
+    SELECT *,CONCAT(platform_subset,customer_engagement,measure) as grp
+    FROM npi_in_r5i
+    WHERE geography='JP'
+), step3 as (
+    SELECT record
+        ,min_sys_dt
+        ,month_num
+        ,geography_grain
+        ,geography
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,forecast_created_date
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+    FROM step2
+    UNION 
+    SELECT record
+        ,min_sys_dt
+        ,month_num
+        ,geography_grain
+        ,geography
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,forecast_created_date
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+    FROM step1 
+        WHERE grp not in (select distinct grp from step2)
+), step4 as (
+    SELECT *
+    FROM npi_in_r5i
+    WHERE geography != 'JP'
+)
+SELECT * FROM step4
+UNION ALL
+SELECT * FROM step3
+
+"""
+
+npi_in_r5 = spark.sql(fix_japan)
+npi_in_r5.createOrReplaceTempView("npi_in_r5")
+
+
+#Push to country level---currently takes market10 as preference to region5; need to update shiny tool, or use load date?
 npi_helper_1 = f"""
  with stp1 as (SELECT npi.record
       ,npi.min_sys_dt
@@ -148,11 +225,35 @@ npi_helper_1.createOrReplaceTempView("npi_helper_1")
 
 # COMMAND ----------
 
-display(ib_info_r5)
+testib = """
+select *
+from ib_info
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD'
+order by country_alpha2
+"""
+
+testib=spark.sql(testib)
+testib.createOrReplaceTempView("testib")
 
 # COMMAND ----------
 
-display(npi_helper_1)
+testib2 = """
+select distinct geography
+from npi_in_r5
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by geography
+"""
+
+testib2=spark.sql(testib2)
+testib2.createOrReplaceTempView("testib2")
+
+# COMMAND ----------
+
+display(testib)
+
+# COMMAND ----------
+
+display(testib2)
 
 # COMMAND ----------
 
@@ -161,6 +262,7 @@ display(npi_helper_1)
 
 # COMMAND ----------
 
+#Get start dates at market10 level
 ib_info_m10 = read_redshift_to_df(configs) \
   .option("query",f"""
       SELECT cc.market10, ib.platform_subset, ib.customer_engagement, min(ib.cal_date) as ib_strt_dt
@@ -168,14 +270,14 @@ ib_info_m10 = read_redshift_to_df(configs) \
       LEFT JOIN "mdm"."iso_country_code_xref" cc
         ON ib.country_alpha2=cc.country_alpha2
       WHERE 1=1
-      AND ib.version = '{version}'
+      AND ib.version = '{ib_version}'
       GROUP BY 
         cc.market10, ib.platform_subset, ib.customer_engagement
     """) \
  .load()
 ib_info_m10.createOrReplaceTempView("ib_info_m10")
 
-
+#Push to country level
 npi_helper_2 =f"""
  with stp1 as (SELECT npi.record
       ,npi.min_sys_dt
@@ -217,6 +319,7 @@ display(npi_helper_2)
 
 # COMMAND ----------
 
+#combine data from market10 and region5---currently preferring market10 to region5-need to update shiny tool to go to market 10, or write for load date
 npi_helper_3 = """
 with step1 as (
 SELECT *, concat(country_alpha2,month_num,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
@@ -266,7 +369,19 @@ npi_helper_3.createOrReplaceTempView("npi_helper_3")
 
 # COMMAND ----------
 
-display(npi_helper_3)
+testib3 = """
+select distinct country_alpha2
+from npi_helper_3
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by country_alpha2
+"""
+
+testib3 = spark.sql(testib3)
+testib3.createOrReplaceTempView("testib3")
+
+# COMMAND ----------
+
+display(testib3)
 
 # COMMAND ----------
 
@@ -307,11 +422,28 @@ display(npi_helper_4)
 
 # COMMAND ----------
 
+testib4 = """
+select distinct country_alpha2
+from npi_helper_4
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by country_alpha2
+"""
+
+testib4 = spark.sql(testib4)
+testib4.createOrReplaceTempView("testib4")
+
+# COMMAND ----------
+
+display(testib4)
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC # Fill in missing NPI data
 
 # COMMAND ----------
 
+#Get min/max dates from IB to find missing
 npi_fill_missing_ib_data = read_redshift_to_df(configs) \
   .option("query",f"""
 --Get dates by platform_subset and customer_engagement from IB
@@ -324,7 +456,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
-	AND ib.version = '{version}'
+	AND ib.version = '{ib_version}'
 	AND measure = 'IB'
 	AND (hw.product_lifecycle_status = 'N')
     AND units>0
@@ -338,6 +470,7 @@ npi_fill_missing_ib_data.createOrReplaceTempView("npi_fill_missing_ib_data")
 
 # COMMAND ----------
 
+#Get min/max dates of usage/share data to compare with IB
 npi_fill_missing_us_data = """
 
 --create dates from min_sys_date and month_num
@@ -350,6 +483,7 @@ SELECT record
       ,CAST(min(cal_date) AS DATE) AS min_us_date
       ,CAST(max(cal_date) AS DATE) AS max_us_date
 FROM npi_helper_4
+    WHERE units is not null and units>0
 GROUP BY 
 record
       ,geography_grain
@@ -362,6 +496,7 @@ record
 npi_fill_missing_us_data=spark.sql(npi_fill_missing_us_data)
 npi_fill_missing_us_data.createOrReplaceTempView("npi_fill_missing_us_data")
 
+#Find number of missing months
 npi_fill_missing_dates = """
 ---Combine data
 SELECT 
@@ -388,6 +523,7 @@ npi_fill_missing_dates.createOrReplaceTempView("npi_fill_missing_dates")
 
 # COMMAND ----------
 
+#get all months
 npi_dates_list = read_redshift_to_df(configs) \
   .option("query",f"""
 --Get dates
@@ -398,6 +534,7 @@ WHERE Day_of_Month = 1
  .load()
 npi_dates_list.createOrReplaceTempView("npi_dates_list")
 
+#get missing dates (F for Forecast, B for Backcast)--should be no backcasting in NPIs
 npi_dates_fill = """
 SELECT platform_subset
     , country_alpha2
@@ -421,10 +558,23 @@ npi_dates_fill.createOrReplaceTempView("npi_dates_fill")
 
 # COMMAND ----------
 
-display(npi_dates_fill)
+testib5 = """
+select distinct country_alpha2
+from npi_dates_fill
+where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
+order by country_alpha2
+"""
+
+testib5 = spark.sql(testib5)
+testib5.createOrReplaceTempView("testib5")
 
 # COMMAND ----------
 
+display(testib5)
+
+# COMMAND ----------
+
+#cast constant value foreward
 fill_forecast = """
 --get last value for flatlining forecast
 SELECT a.platform_subset
@@ -455,8 +605,9 @@ display(fill_forecast)
 
 # COMMAND ----------
 
+#fill in constant columns
 combine_data = """
-SELECT 'USAGE_SHARE_MATURES' As record
+SELECT 'USAGE_SHARE_NPI' As record
     , CAST(a.cal_date AS DATE) AS cal_date
     , a.country_alpha2 AS geography
     , a.platform_subset
@@ -464,7 +615,7 @@ SELECT 'USAGE_SHARE_MATURES' As record
     , 'NPI OVERRIDE' AS forecast_process_note
     , 'NONE' AS post_processing_note
     , CAST(current_date() AS DATE) AS forecast_created_date
-    , 'DATA_SOURCE' AS data_source
+    , 'OVERRIDE' AS data_source
     , 'VERSION' AS version
     , b.measure
     , b.units
@@ -484,6 +635,7 @@ combine_data.createOrReplaceTempView("combine_data")
 
 # COMMAND ----------
 
+#Combine the two tables (current table, forecast,)
 npi_norm_final_landing = f"""
 SELECT nl.record
     , nl.cal_date
@@ -530,7 +682,9 @@ display(npi_norm_final_landing)
 
 # COMMAND ----------
 
-npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='AGATE 22 MANAGED' AND geography='CO' and measure='HP_SHARE' order by cal_date""")
+#test case--hp share had less values than usage; forecaster input ended in 2027-09-01
+npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='MORETO BASE YET1' 
+    AND geography in (select country_alpha2 from country_info WHERE market10='GREATER ASIA') and measure='HP_SHARE' order by cal_date""")
 npi_tst.createOrReplaceTempView("npi_tst")
 
 # COMMAND ----------
@@ -550,4 +704,7 @@ npi_norm_final_landing \
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: npi_norm_final_landing, destination: "stage"."usrs_npi_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+
+dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")
+dbutils.jobs.taskValues.set(key = "ib_version", value = "{ib_version}")

@@ -6,18 +6,15 @@
 # COMMAND ----------
 
 # for interactive sessions, define a version widget
-dbutils.widgets.text("version", "2022.07.14.1")
+dbutils.widgets.text("matures_version", "")
+dbutils.widgets.text("ib_version", "")
+dbutils.widgets.text("datestamp", "")
 
 # COMMAND ----------
 
 # retrieve version from widget
-version = dbutils.widgets.get("version")
-
-# COMMAND ----------
-
-import pandas as pd
-import numpy as mp
-import psycopg2 as ps
+matures_version = dbutils.widgets.get("matures_version")
+ib_version = dbutils.widgets.get("ib_version")
 
 # COMMAND ----------
 
@@ -33,24 +30,18 @@ import psycopg2 as ps
 
 # COMMAND ----------
 
-matures_table_toner = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{version}/toner.parquet")
-matures_table_ink = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{version}/ink.parquet")
-#test1 = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/2022.07.14.1/test1.parquet")
+matures_table_toner = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{matures_version}/toner*")
+matures_table_ink = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}/spectrum/matures/{matures_version}/ink*")
+
 matures=matures_table_toner.union(matures_table_ink)
-#test1 = spark.read.parquet("s3://dataos-core-dev-team-phoenix/spectrum/cupsm/2022.06.23.1/ink_ink_test_2022.1")
 matures.createOrReplaceTempView("matures")
 
 # COMMAND ----------
-
-mature_tst=spark.sql("""select * from matures where platform_subset ='KOALA' """)
-mature_tst.createOrReplaceTempView("mature_tst")
+datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 
 # COMMAND ----------
 
-display(mature_tst)
-
-# COMMAND ----------
-
+#get information to push from market10 to country
 country_info = read_redshift_to_df(configs) \
   .option("query","""
     SELECT distinct country_alpha2, market10
@@ -59,16 +50,18 @@ country_info = read_redshift_to_df(configs) \
   .load()
 country_info.createOrReplaceTempView("country_info")
 
+#get information on which countries have IB for each platform_subset/customer engagement
 ib_info = read_redshift_to_df(configs) \
   .option("query",f"""
       SELECT distinct country_alpha2, platform_subset, customer_engagement
       FROM "prod"."ib"
       WHERE 1=1
-      AND version = '{version}'
+      AND version = '{ib_version}'
     """) \
  .load()
 ib_info.createOrReplaceTempView("ib_info")
 
+#push matures to country level
 mature_helper_1 ="""
  with stp1 as (SELECT distinct mat.record
       ,mat.min_sys_dt
@@ -99,46 +92,8 @@ INNER JOIN ib_info ib
 """
 
 mature_helper_1=spark.sql(mature_helper_1)
+mature_helper_1.createOrReplaceTempView("mature_helper_1")
 #query_list.append(["stage.usrs_matures_helper_1", mature_helper_1, "overwrite"])
-
-# COMMAND ----------
-
-test2 = read_redshift_to_df(configs) \
-  .option("query",f"""
-      SELECT distinct country_alpha2, platform_subset, customer_engagement
-      FROM "prod"."ib"
-      WHERE 1=1
-      AND version = '{version}'
-      AND platform_subset='KOALA'
-    """) \
- .load()
-test2.createOrReplaceTempView("test2")
-
-# COMMAND ----------
-
-display(test2)
-
-# COMMAND ----------
-
-mature_helper_1.createOrReplaceTempView("mature_helper_1")
-test3=spark.sql("""select * from mature_helper_1 where platform_subset='KOALA' and country_alpha2='PK'""")
-
-# COMMAND ----------
-
-display(test3)
-
-# COMMAND ----------
-
-display(mature_helper_1)
-
-# COMMAND ----------
-
-# can write to helper file
-#write_df_to_redshift(configs: config(), df: mature_helper_1, destination: "stage"."usrs_matures_helper_1", mode: str = "overwrite")
-
-# COMMAND ----------
-
-mature_helper_1.createOrReplaceTempView("mature_helper_1")
 
 # COMMAND ----------
 
@@ -170,25 +125,12 @@ FROM mature_helper_1
 """
 
 mature_helper_2=spark.sql(overrides_norm_landing)
+mature_helper_2.createOrReplaceTempView("mature_helper_2")
 #query_list.append(["stage.usrs_matures_normalized", overrides_norm_landing, "overwrite"])
 
 # COMMAND ----------
 
-mature_helper_2.createOrReplaceTempView("mature_helper_2")
-test4 = spark.sql("select * from mature_helper_2 where platform_subset='KOALA' and country_alpha2='PK' and measure='HP_SHARE'")
-
-# COMMAND ----------
-
-display(test4)
-
-# COMMAND ----------
-
 display(mature_helper_2)
-
-# COMMAND ----------
-
-# can write to helper file
-#write_df_to_redshift(configs: config(), df: mature_helper_2, destination: "stage"."usrs_matures_helper_2", mode: str = "overwrite")
 
 # COMMAND ----------
 
@@ -197,6 +139,7 @@ display(mature_helper_2)
 
 # COMMAND ----------
 
+#Get min/max dates from IB to find missing
 matures_fill_missing_ib_data = read_redshift_to_df(configs) \
   .option("query",f"""
 --Get dates by platform_subset and customer_engagement from IB
@@ -209,7 +152,7 @@ FROM "prod"."ib" ib
 LEFT JOIN "mdm"."hardware_xref" hw
     ON ib.platform_subset=hw.platform_subset
 WHERE 1=1
-	AND ib.version = '{version}'
+	AND ib.version = '{ib_version}'
 	AND measure = 'IB'
 	AND (hw.product_lifecycle_status = 'M' OR (hw.product_lifecycle_status = 'C' AND hw.epa_family like 'SEG%'))
     AND units>0
@@ -224,6 +167,7 @@ matures_fill_missing_ib_data.createOrReplaceTempView("matures_fill_missing_ib_da
 
 # COMMAND ----------
 
+#Get min/max dates of usage/share data to compare with IB
 matures_fill_missing_us_data = """
 
 --create dates from min_sys_date and month_num
@@ -246,6 +190,7 @@ record
 matures_fill_missing_us_data=spark.sql(matures_fill_missing_us_data)
 matures_fill_missing_us_data.createOrReplaceTempView("matures_fill_missing_us_data")
 
+#Find number of missing months
 matures_fill_missing_dates = """
 ---Combine data
 SELECT 
@@ -272,13 +217,7 @@ matures_fill_missing_dates.createOrReplaceTempView("matures_fill_missing_dates")
 
 # COMMAND ----------
 
-test1 = spark.sql("select * from matures_fill_missing_dates where platform_subset='KOALA'")
-
-test1.createOrReplaceTempView("test1")
-display(test1)
-
-# COMMAND ----------
-
+#get all months
 matures_dates_list = read_redshift_to_df(configs) \
   .option("query",f"""
 --Get dates
@@ -289,6 +228,7 @@ WHERE Day_of_Month = 1
  .load()
 matures_dates_list.createOrReplaceTempView("matures_dates_list")
 
+#get missing dates (F for Forecast, B for Backcast)
 matures_dates_fill = """
 SELECT platform_subset
     , country_alpha2
@@ -317,6 +257,7 @@ display(matures_dates_fill)
 
 # COMMAND ----------
 
+#cast constant value foreward
 fill_forecast = """
 --get last value for flatlining forecast
 SELECT a.platform_subset
@@ -335,6 +276,7 @@ WHERE b.max_us_date < b.max_ib_date
 fill_forecast=spark.sql(fill_forecast)
 fill_forecast.createOrReplaceTempView("fill_forecast")
 
+#cast constant value backwards
 fill_backfill = """
 --get last value for flatlining forecast
 SELECT a.platform_subset
@@ -369,6 +311,7 @@ display(fill_backfill)
 
 # COMMAND ----------
 
+#fill in constant columns
 combine_data = """
 SELECT 'USAGE_SHARE_MATURES' As record
     , CAST(a.cal_date AS DATE) AS cal_date
@@ -378,7 +321,7 @@ SELECT 'USAGE_SHARE_MATURES' As record
     , 'MATURE OVERRIDE' AS forecast_process_note
     , 'NONE' AS post_processing_note
     , CAST(current_date() AS DATE) AS forecast_created_date
-    , 'DATA_SOURCE' AS data_source
+    , 'MATURE OVERRIDE' AS data_source
     , 'VERSION' AS version
     , b.measure
     , b.units
@@ -402,7 +345,7 @@ SELECT 'USAGE_SHARE_MATURES' As record
     , 'MATURE OVERRIDE' AS forecast_process_note
     , 'NONE' AS post_processing_note
     , CAST(current_date() AS DATE) AS forecast_created_date
-    , 'DATA_SOURCE' AS data_source
+    , 'MATURE OVERRIDE' AS data_source
     , 'VERSION' AS version
     , b.measure
     , b.units
@@ -424,10 +367,12 @@ combine_data_b.createOrReplaceTempView("combine_data_b")
 
 # COMMAND ----------
 
+
 display(combine_data)
 
 # COMMAND ----------
 
+#Combine the three tables (current table, forecast, backcast)
 matures_norm_final_landing = f"""
 SELECT nl.record
     , nl.cal_date
@@ -500,4 +445,6 @@ matures_norm_final_landing \
 # COMMAND ----------
 
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=matures_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=matures_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/matures_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
+
+dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")

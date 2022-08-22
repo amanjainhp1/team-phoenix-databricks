@@ -1,7 +1,9 @@
 ---
 Jobs:
   - actuals-hw
+  - base-usage-share
   - ce-split
+  - create-demand-file
   - example-job
   - example-multitask-job
   - flash-load
