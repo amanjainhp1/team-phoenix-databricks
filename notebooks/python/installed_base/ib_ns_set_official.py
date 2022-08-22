@@ -26,6 +26,21 @@ if ns_version == "":
         .rdd.flatMap(lambda x: x).collect()
 
 # COMMAND ----------
+
 submit_remote_query(configs, "UPDATE prod.ib SET official = 1 WHERE version = {ib_version};") # update ib table
 submit_remote_query(configs, "UPDATE prod.version SET official = 1 WHERE version = {ib_version} AND record = 'IB';") # update version table
 submit_remote_query(configs, "UPDATE prod.version SET official = 1 WHERE version = {ns_version} AND record = 'NORM_SHIPMENTS';") # update version table
+
+# COMMAND ----------
+
+import pymssql
+
+def submit_remote_sqlserver_query(configs, db, query):
+    conn = pymssql.connect(server="sfai.corp.hpicloud.net", user=configs["sfai_username"], password=configs["sfai_password"], database=db)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    conn.commit()
+    conn.close()
+
+submit_remote_sqlserver_query(configs, "IE2_Prod", "UPDATE IE2_Prod.dbo.version SET official = 1 WHERE version = {ib_version} AND record = 'IB';")
+submit_remote_sqlserver_query(configs, "IE2_Prod", "UPDATE IE2_Prod.dbo.version SET official = 1 WHERE version = {ns_version} AND record = 'NORM_SHIPMENTS';")
