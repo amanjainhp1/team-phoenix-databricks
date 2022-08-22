@@ -9,6 +9,7 @@ Jobs:
   - flash-load
   - hardware-ltf
   - hardware-stf
+  - ib-ns-set-official
   - ink-usage-share
   - installed-base
   - lf-decay
