@@ -9,15 +9,15 @@ default_custom_tags:
 
 splunk:
   enable: true
-  host: 'splunk.internal.forwaders.tools.hp-cia.com'
+  host: 'splunk.prod.internal.forwarders.tools.cso-hp.com'
 
-  index: dataos-phoenix-cd
-  secret: 'splunk/dataos-phoenix-metrics-cd'
-  secret_attr: splunk_hec_token?
+  index: dataos-core-dev
+  secret: 'dev/k8s/splunk/logging'
+  secret_attr: splunk_hec_token
 
-  metrics_index: dataos-phoenix-metrics-cd
-  metrics_secret: 'splunk/dataos-phoenix-metrics-cd'
-  metrics_secret_attr: splunk_hec_token
+  # metrics_index: dataos-phoenix-metrics-cd
+  # metrics_secret: 'splunk/dataos-phoenix-metrics-cd'
+  # metrics_secret_attr: splunk_hec_token
 
 libraries: 
     private:
