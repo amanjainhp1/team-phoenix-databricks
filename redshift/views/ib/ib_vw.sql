@@ -1,4 +1,3 @@
 CREATE OR REPLACE VIEW ib.ib_vw
-AS 
-
+AS
 SELECT * FROM prod.ib;

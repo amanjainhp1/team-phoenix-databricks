@@ -1,6 +1,6 @@
 -- prod.hw_plan_bible_vw source
 
-CREATE VIEW dbo.hw_plan_bible_vw
+CREATE VIEW prod.hw_plan_bible_vw
 AS
 
 WITH calendar_fy AS
@@ -250,7 +250,7 @@ INNER JOIN product_line_xref AS d
 INNER JOIN mdm.calendar AS e
     ON a.cal_date = e.date
 LEFT JOIN product_line_scenarios_xref plx ON c.pl=plx.pl
-INNER JOIN ie2_prod.dbo.iso_country_code_xref AS f
+INNER JOIN mdm.iso_country_code_xref AS f
     ON a.country_alpha2 = f.country_alpha2
 WHERE 1=1
     AND e.fiscal_yr = (SELECT fiscal_yr FROM calendar_fy)
