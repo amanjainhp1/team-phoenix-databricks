@@ -204,7 +204,7 @@ SELECT
 	"func_area_hier_desc_level12" fa_level_12_description,
 	SUM(amount) as amount
 FROM add_seg_hierarchy w
-LEFT JOIN "mdm"."hp_simplify_functional_area_hierarchy_v1" f ON w.fa_code = f.functional_area_code
+LEFT JOIN "mdm"."ms4_functional_area_hierarchy" f ON w.fa_code = f.functional_area_code
 WHERE func_area_hier_desc_level6 IN ('NET REVENUES', 'TOTAL COST OF SALES')
 GROUP BY cal_date
     , pl
@@ -233,12 +233,12 @@ SELECT
 	fa_level_9_description,
 	fa_level_12_description,
 	CASE
-		WHEN fa_level_7_description = 'GROSS TRADE REVENUES' THEN 'GROSS REVENUE'
-		WHEN fa_level_7_description = 'NET CURRENCY' THEN 'NET CURRENCY'
-		WHEN fa_level_12_description = 'CONTRACTUAL DISCOUNTS' THEN 'CONTRACTUAL DISCOUNTS'
-		WHEN fa_level_7_description = 'TRADE DISCOUNTS' AND fa_level_12_description <> 'CONTRACTUAL DISCOUNTS' THEN 'DISCRETIONARY DISCOUNTS'
+		WHEN fa_level_7_description = 'GROSS TRADE REVENUES' THEN 'GROSS_REVENUE'
+		WHEN fa_level_7_description = 'NET CURRENCY' THEN 'NET_CURRENCY'
+		WHEN fa_level_12_description IN ('CONTRACTUAL UPFRONT', 'CONTRACTUAL BACKEND') THEN 'CONTRACTUAL_DISCOUNTS'
+		WHEN fa_level_7_description = 'TRADE DISCOUNTS' AND fa_level_12_description NOT IN ('CONTRACTUAL UPFRONT', 'CONTRACTUAL BACKEND') THEN 'DISCRETIONARY_DISCOUNTS'
 		WHEN fa_level_8_description = 'WARRANTY' THEN 'WARRANTY'
-		ELSE 'OTHER COS'	
+		ELSE 'OTHER_COS'	
 	END AS finance11,
 	SUM(amount) as amount
 FROM add_financial_hierarchy
@@ -309,7 +309,7 @@ SELECT
 	pl,
 	SUM(dollars) as gross_revenue
 FROM webi_financials_narrow
-WHERE finance11 = 'GROSS REVENUE'
+WHERE finance11 = 'GROSS_REVENUE'
 GROUP BY cal_date
     , region_5
     , pl
@@ -322,7 +322,7 @@ SELECT
 	pl,
 	SUM(dollars) as net_currency
 FROM webi_financials_narrow
-WHERE finance11 = 'NET CURRENCY'
+WHERE finance11 = 'NET_CURRENCY'
 GROUP BY cal_date
     , region_5
     , pl
@@ -335,7 +335,7 @@ SELECT
 	pl,
 	SUM(dollars) as contractual_discounts
 FROM webi_financials_narrow
-WHERE finance11 = 'CONTRACTUAL DISCOUNTS'
+WHERE finance11 = 'CONTRACTUAL_DISCOUNTS'
 GROUP BY cal_date
     , region_5
     , pl
@@ -348,7 +348,7 @@ SELECT
 	pl,
 	SUM(dollars) as discretionary_discounts
 FROM webi_financials_narrow
-WHERE finance11 = 'DISCRETIONARY DISCOUNTS'
+WHERE finance11 = 'DISCRETIONARY_DISCOUNTS'
 GROUP BY cal_date
     , region_5
     , pl
@@ -374,7 +374,7 @@ SELECT
 	pl,
 	SUM(dollars) as other_cos
 FROM webi_financials_narrow
-WHERE finance11 = 'OTHER COS'
+WHERE finance11 = 'OTHER_COS'
 GROUP BY cal_date
     , region_5
     , pl
