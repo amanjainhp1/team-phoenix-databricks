@@ -573,7 +573,7 @@ tables = [
     [wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite"],
     [wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite"],
     [wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite"],
-    [hardware_ltf, "prod.hardware_ltf", "append"],
+    [hardware_ltf, "prod.hardware_ltf", "append"]
 ]
 
 for table in tables:
