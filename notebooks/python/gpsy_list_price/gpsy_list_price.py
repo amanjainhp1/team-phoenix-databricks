@@ -1,9 +1,11 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+
+from pyspark.sql.functions import trim, col, lit
+
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
@@ -23,10 +25,6 @@ apj_s3 = spark.read.csv(path="s3a://enrich-data-lake-restricted-prod/gpsy/insigh
 
 # load new EU files
 eu_s3 = spark.read.csv(path="s3a://enrich-data-lake-restricted-prod/gpsy/insight_product_price_eu*.bz2", header=True)
-
-# COMMAND ----------
-
-from pyspark.sql.functions import trim, col, lit
 
 # COMMAND ----------
 
@@ -87,9 +85,9 @@ write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_
 
 # s3a://dataos-core-dev-team-phoenix/product/list_price_gpsy/
 
-s3_gpsy_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/list_price_gpsy/" + max_version
+s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/list_price_gpsy/" + max_version
 
-write_df_to_s3(redshift_gpsy_prod_list_price_records, s3_gpsy_output_bucket, "parquet", "overwrite")
+write_df_to_s3(redshift_gpsy_prod_list_price_records, s3_output_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
@@ -108,9 +106,6 @@ def submit_remote_sqlserver_query(configs, db, query):
     cursor.execute(query)
     conn.commit()
     conn.close()
-    
+
 submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC ie2_prod.dbo.p_load_list_price_gpsy;")
-
-# COMMAND ----------
-
 
