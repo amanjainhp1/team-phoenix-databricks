@@ -118,26 +118,26 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 
 # EDW actuals supplies baseprod
 actuals_supplies_baseprod = f"""
-SELECT 			
+SELECT             
     cal_date,
     country_alpha2,
-	market10,
-	base_product_number,
-	pl,
-	customer_engagement,			
-	SUM(gross_revenue) AS gross_revenue,
-	SUM(net_currency) AS net_currency,
-	SUM(contractual_discounts) AS contractuaL_discounts,
-	SUM(discretionary_discounts) AS discretionary_discounts,
-	SUM(net_revenue) AS net_revenue,
-	SUM(warranty) AS warranty,
-	SUM(other_cos) AS other_cos,
-	SUM(total_cos) AS total_cos,
-	SUM(gross_profit) AS gross_profit,
-	SUM(revenue_units) AS revenue_units,
-	SUM(equivalent_units) AS equivalent_units,
-	SUM(yield_x_units) AS yield_x_units,
-	SUM(yield_x_units_black_only) AS yield_x_units_black_only
+    market10,
+    base_product_number,
+    pl,
+    customer_engagement,            
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractuaL_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units,
+    SUM(equivalent_units) AS equivalent_units,
+    SUM(yield_x_units) AS yield_x_units,
+    SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM edw_actuals_supplies_baseprod_staging_interim_supplies_only
 WHERE 1=1
 GROUP BY cal_date, country_alpha2, base_product_number, pl, customer_engagement, market10
@@ -151,35 +151,35 @@ actuals_supplies_baseprod.createOrReplaceTempView("actuals_supplies_baseprod")
 #platform subset by cartridge demand mix
 cartridge_demand = f"""
 SELECT 
-	cal_date,
-	geography AS market10,
-	platform_subset,
-	base_product_number,
-	SUM(adjusted_cartridges) AS units
+    cal_date,
+    geography AS market10,
+    platform_subset,
+    base_product_number,
+    SUM(adjusted_cartridges) AS units
 FROM working_forecast
 WHERE version = (select max(version) from working_forecast)
-	AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod) 
-	AND adjusted_cartridges <> 0
-	AND geography_grain = 'MARKET10'
+    AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod) 
+    AND adjusted_cartridges <> 0
+    AND geography_grain = 'MARKET10'
 GROUP BY 
-	cal_date,
-	geography,
-	platform_subset,
-	base_product_number
+    cal_date,
+    geography,
+    platform_subset,
+    base_product_number
 """
 
 cartridge_demand = spark.sql(cartridge_demand)
 cartridge_demand.createOrReplaceTempView("cartridge_demand")
 
 cartridge_demand_ptr_mix = f"""
-SELECT distinct	cal_date,
-	market10,
-	platform_subset,
-	base_product_number,
-	CASE
-		WHEN SUM(units) OVER (PARTITION BY cal_date, market10, base_product_number) = 0 THEN NULL
-		ELSE units / SUM(units) OVER (PARTITION BY cal_date, market10, base_product_number)
-	END AS platform_mix
+SELECT distinct    cal_date,
+    market10,
+    platform_subset,
+    base_product_number,
+    CASE
+        WHEN SUM(units) OVER (PARTITION BY cal_date, market10, base_product_number) = 0 THEN NULL
+        ELSE units / SUM(units) OVER (PARTITION BY cal_date, market10, base_product_number)
+    END AS platform_mix
 FROM cartridge_demand
 GROUP BY cal_date, 
     market10, 
@@ -196,23 +196,23 @@ cartridge_demand_ptr_mix.createOrReplaceTempView("cartridge_demand_ptr_mix")
 # platform subset by ib mix, get ib -- if no data comes back, comment out official = 1
 installed_base_history = f"""
 SELECT cal_date,
-	platform_subset,
-	ib.country_alpha2,
-	market10,
-	sum(units) as units
+    platform_subset,
+    ib.country_alpha2,
+    market10,
+    sum(units) as units
 FROM ib ib
 LEFT JOIN iso_country_code_xref iso
-	ON ib.country_alpha2 = iso.country_alpha2
+    ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
 AND units <> 0
 AND units IS NOT NULL
 AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
 GROUP BY
-	cal_date,
-	platform_subset,
-	market10,
-	ib.country_alpha2    
+    cal_date,
+    platform_subset,
+    market10,
+    ib.country_alpha2    
 """
 
 installed_base_history = spark.sql(installed_base_history)
@@ -247,7 +247,7 @@ JOIN hardware_xref AS hw
     ON hw.platform_subset = shm.platform_subset
 WHERE 1=1
     AND hw.official = 1
-	AND shm.official = 1
+    AND shm.official = 1
     and geography_grain = 'MARKET10'
 """
 
@@ -357,14 +357,14 @@ shm_06_map_geo.createOrReplaceTempView("shm_06_map_geo")
 
 #modify shm_06_map_geo for different customer engagements in actuals supplies then forecast supplies:
 shm_07_collapse_ce_type = f"""
-			SELECT distinct platform_subset
-				, base_product_number
-				, geography
-				, CASE
-					WHEN customer_engagement = 'I-INK' THEN 'I-INK'
-					ELSE 'TRAD'
-				END AS customer_engagement
-			FROM shm_06_map_geo
+            SELECT distinct platform_subset
+                , base_product_number
+                , geography
+                , CASE
+                    WHEN customer_engagement = 'I-INK' THEN 'I-INK'
+                    ELSE 'TRAD'
+                END AS customer_engagement
+            FROM shm_06_map_geo
 """
 shm_07_collapse_ce_type = spark.sql(shm_07_collapse_ce_type)
 shm_07_collapse_ce_type.createOrReplaceTempView("shm_07_collapse_ce_type")
@@ -372,36 +372,36 @@ shm_07_collapse_ce_type.createOrReplaceTempView("shm_07_collapse_ce_type")
 
 supplies_ce_supplies_hw_map = f"""
 SELECT distinct platform_subset
-	, base_product_number
-	, geography
-	, customer_engagement
+    , base_product_number
+    , geography
+    , customer_engagement
 FROM shm_07_collapse_ce_type
 WHERE customer_engagement = 'I-INK'
 
 UNION ALL
 
 SELECT distinct platform_subset
-	, base_product_number
-	, geography
-	, 'EST_DIRECT_FULFILLMENT' AS customer_engagement
+    , base_product_number
+    , geography
+    , 'EST_DIRECT_FULFILLMENT' AS customer_engagement
 FROM shm_07_collapse_ce_type
 WHERE customer_engagement = 'TRAD'
 
 UNION ALL
 
 SELECT distinct platform_subset
-	, base_product_number
-	, geography
-	, 'EST_INDIRECT_FULFILLMENT' AS customer_engagement
+    , base_product_number
+    , geography
+    , 'EST_INDIRECT_FULFILLMENT' AS customer_engagement
 FROM shm_07_collapse_ce_type
 WHERE customer_engagement = 'TRAD'
 
 UNION ALL
 
 SELECT distinct platform_subset
-	, base_product_number
-	, geography
-	, customer_engagement
+    , base_product_number
+    , geography
+    , customer_engagement
 FROM shm_07_collapse_ce_type
 WHERE customer_engagement = 'TRAD'
 """
@@ -412,13 +412,13 @@ supplies_ce_supplies_hw_map.createOrReplaceTempView("supplies_ce_supplies_hw_map
 #end supplies_hw_mapping build out
 map_crtg_to_printers = f"""
 SELECT
-	distinct platform_subset,
-	base_product_number,
-	geography as market10
+    distinct platform_subset,
+    base_product_number,
+    geography as market10
 FROM supplies_ce_supplies_hw_map
 WHERE 1=1
-	AND platform_subset IN (select distinct platform_subset from installed_base_history)
-	AND base_product_number IN (select distinct base_product_number from actuals_supplies_baseprod)
+    AND platform_subset IN (select distinct platform_subset from installed_base_history)
+    AND base_product_number IN (select distinct base_product_number from actuals_supplies_baseprod)
 """
 
 map_crtg_to_printers = spark.sql(map_crtg_to_printers)
@@ -430,21 +430,21 @@ map_crtg_to_printers.createOrReplaceTempView("map_crtg_to_printers")
 #platform subset by ib mix
 installed_base_with_crtg = f"""
 SELECT
-	cal_date,
-	country_alpha2,
-	ib.market10,
-	ib.platform_subset,
-	base_product_number,
-	sum(units) as units
+    cal_date,
+    country_alpha2,
+    ib.market10,
+    ib.platform_subset,
+    base_product_number,
+    sum(units) as units
 FROM installed_base_history ib
 INNER JOIN map_crtg_to_printers map ON
-	ib.market10 = map.market10 AND
-	ib.platform_subset = map.platform_subset
+    ib.market10 = map.market10 AND
+    ib.platform_subset = map.platform_subset
 GROUP BY cal_date,
-	country_alpha2,
-	ib.market10,
-	ib.platform_subset,
-	base_product_number
+    country_alpha2,
+    ib.market10,
+    ib.platform_subset,
+    base_product_number
 """
 
 installed_base_with_crtg = spark.sql(installed_base_with_crtg)
@@ -452,22 +452,22 @@ installed_base_with_crtg.createOrReplaceTempView("installed_base_with_crtg")
 
 
 ib_printer_mix = f"""
-SELECT distinct	cal_date,
-	country_alpha2,
-	market10,
-	platform_subset,
-	base_product_number,
-	CASE
-		WHEN SUM(units) OVER (PARTITION BY cal_date, country_alpha2, market10, base_product_number) = 0 THEN NULL
-		ELSE units / SUM(units) OVER (PARTITION BY cal_date, country_alpha2, market10, base_product_number)
-	END AS ib_mix
+SELECT distinct    cal_date,
+    country_alpha2,
+    market10,
+    platform_subset,
+    base_product_number,
+    CASE
+        WHEN SUM(units) OVER (PARTITION BY cal_date, country_alpha2, market10, base_product_number) = 0 THEN NULL
+        ELSE units / SUM(units) OVER (PARTITION BY cal_date, country_alpha2, market10, base_product_number)
+    END AS ib_mix
 FROM installed_base_with_crtg
 GROUP BY cal_date,
     country_alpha2,
-	market10,
-	platform_subset,
-	base_product_number,
-	units
+    market10,
+    platform_subset,
+    base_product_number,
+    units
 """
 
 ib_printer_mix = spark.sql(ib_printer_mix)
@@ -478,29 +478,29 @@ ib_printer_mix.createOrReplaceTempView("ib_printer_mix")
 #accounting items
 accounting_items_addback = f"""
 SELECT
-	cal_date,
-	country_alpha2,
-	market10,
-	'NA' AS platform_subset,
-	base_product_number,
-	pl,
-	customer_engagement,
-	SUM(gross_revenue) AS gross_revenue,
-	SUM(net_currency) AS net_currency,
-	SUM(contractual_discounts) AS contractual_discounts,
-	SUM(discretionary_discounts) AS discretionary_discounts,
-	SUM(net_revenue) AS net_revenue,
-	SUM(warranty) AS warranty,
-	SUM(other_cos) AS other_cos,
-	SUM(total_cos) AS total_cos,
-	SUM(gross_profit) AS gross_profit,
-	SUM(revenue_units) AS revenue_units,
-	SUM(equivalent_units) AS equivalent_units,
-	SUM(yield_x_units) AS yield_x_units,
-	SUM(yield_x_units_black_only) AS yield_x_units_black_only
+    cal_date,
+    country_alpha2,
+    market10,
+    'NA' AS platform_subset,
+    base_product_number,
+    pl,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units,
+    SUM(equivalent_units) AS equivalent_units,
+    SUM(yield_x_units) AS yield_x_units,
+    SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM actuals_supplies_baseprod
 WHERE base_product_number LIKE 'UNK%'
-	OR base_product_number IN ('EDW_TIE_TO_PLANET', 'BIRDS', 'CISS', 'CTSS', 'EST_MPS_REVENUE_JV', 'LFMPS')
+    OR base_product_number IN ('EDW_TIE_TO_PLANET', 'BIRDS', 'CISS', 'CTSS', 'EST_MPS_REVENUE_JV', 'LFMPS')
 GROUP BY cal_date, country_alpha2, base_product_number, pl, customer_engagement, market10
 """
 
@@ -512,28 +512,28 @@ accounting_items_addback.createOrReplaceTempView("accounting_items_addback")
 #non-accounting items // data to map printers to // addback 1
 baseprod_without_acct_items = f"""
 SELECT
-	cal_date,
-	country_alpha2,
-	market10,
-	base_product_number,
-	pl,
-	customer_engagement,
-	SUM(gross_revenue) AS gross_revenue,
-	SUM(net_currency) AS net_currency,
-	SUM(contractual_discounts) AS contractual_discounts,
-	SUM(discretionary_discounts) AS discretionary_discounts,
-	SUM(net_revenue) AS net_revenue,
-	SUM(warranty) AS warranty,
-	SUM(other_cos) AS other_cos,
-	SUM(total_cos) AS total_cos,
-	SUM(gross_profit) AS gross_profit,
-	SUM(revenue_units) AS revenue_units,
-	SUM(equivalent_units) AS equivalent_units,
-	SUM(yield_x_units) AS yield_x_units,
-	SUM(yield_x_units_black_only) AS yield_x_units_black_only
+    cal_date,
+    country_alpha2,
+    market10,
+    base_product_number,
+    pl,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units,
+    SUM(equivalent_units) AS equivalent_units,
+    SUM(yield_x_units) AS yield_x_units,
+    SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM actuals_supplies_baseprod
 WHERE base_product_number NOT LIKE 'UNK%'
-	AND base_product_number NOT IN ('EDW_TIE_TO_PLANET', 'BIRDS', 'CISS', 'CTSS', 'EST_MPS_REVENUE_JV', 'LFMPS')
+    AND base_product_number NOT IN ('EDW_TIE_TO_PLANET', 'BIRDS', 'CISS', 'CTSS', 'EST_MPS_REVENUE_JV', 'LFMPS')
 GROUP BY cal_date, country_alpha2, base_product_number, pl, customer_engagement, market10
 """
 
@@ -545,26 +545,26 @@ baseprod_without_acct_items.createOrReplaceTempView("baseprod_without_acct_items
 #base product with assigned printers based upon cartridge demand // addback 2
 baseprod_printer_from_crtg_demand = f"""
 SELECT 
-	act.cal_date,			
-	country_alpha2,
-	act.market10,
-	platform_subset,
-	act.base_product_number,
-	pl,
-	customer_engagement,
-	SUM(gross_revenue * platform_mix) AS gross_revenue,
-	SUM(net_currency * platform_mix) AS net_currency,
-	SUM(contractual_discounts * platform_mix) AS contractual_discounts,
-	SUM(discretionary_discounts * platform_mix) AS discretionary_discounts,
-	SUM(net_revenue * platform_mix) AS net_revenue,	
-	SUM(warranty * platform_mix) AS warranty,	
-	SUM(other_cos * platform_mix) AS other_cos,	
-	SUM(total_cos * platform_mix) AS total_cos,
-	SUM(gross_profit * platform_mix) AS gross_profit,
-	SUM(revenue_units * platform_mix) AS revenue_units,
-	SUM(equivalent_units * platform_mix) AS equivalent_units,
-	SUM(yield_x_units * platform_mix) AS yield_x_units,
-	SUM(yield_x_units_black_only * platform_mix) AS yield_x_units_black_only
+    act.cal_date,            
+    country_alpha2,
+    act.market10,
+    platform_subset,
+    act.base_product_number,
+    pl,
+    customer_engagement,
+    SUM(gross_revenue * platform_mix) AS gross_revenue,
+    SUM(net_currency * platform_mix) AS net_currency,
+    SUM(contractual_discounts * platform_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * platform_mix) AS discretionary_discounts,
+    SUM(net_revenue * platform_mix) AS net_revenue,    
+    SUM(warranty * platform_mix) AS warranty,    
+    SUM(other_cos * platform_mix) AS other_cos,    
+    SUM(total_cos * platform_mix) AS total_cos,
+    SUM(gross_profit * platform_mix) AS gross_profit,
+    SUM(revenue_units * platform_mix) AS revenue_units,
+    SUM(equivalent_units * platform_mix) AS equivalent_units,
+    SUM(yield_x_units * platform_mix) AS yield_x_units,
+    SUM(yield_x_units_black_only * platform_mix) AS yield_x_units_black_only
 FROM baseprod_without_acct_items act
 JOIN cartridge_demand_ptr_mix mix ON mix.cal_date = act.cal_date AND mix.market10 = act.market10 AND mix.base_product_number = act.base_product_number
 GROUP BY act.cal_date, country_alpha2, act.base_product_number, pl, customer_engagement, platform_subset, act.market10
@@ -579,34 +579,34 @@ baseprod_printer_from_crtg_demand.createOrReplaceTempView("baseprod_printer_from
 # failed match via cartridge demand
 baseprod_without_crtg_demand_connect = f"""
 SELECT
-	bp.cal_date,
-	bp.country_alpha2,
-	bp.market10,
-	platform_subset,
-	bp.base_product_number,
-	bp.pl,
-	bp.customer_engagement,
-	SUM(bp.gross_revenue) AS gross_revenue,
-	SUM(bp.net_currency) AS net_currency,
-	SUM(bp.contractual_discounts) AS contractual_discounts,
-	SUM(bp.discretionary_discounts) AS discretionary_discounts,
-	SUM(bp.net_revenue) AS net_revenue,
-	SUM(bp.warranty) AS warranty,
-	SUM(bp.other_cos) AS other_cos,
-	SUM(bp.total_cos) AS total_cos,
-	SUM(bp.gross_profit) AS gross_profit,
-	SUM(bp.revenue_units) AS revenue_units,
-	SUM(bp.equivalent_units) AS equivalent_units,
-	SUM(bp.yield_x_units) AS yield_x_units,
-	SUM(bp.yield_x_units_black_only) AS yield_x_units_black_only
+    bp.cal_date,
+    bp.country_alpha2,
+    bp.market10,
+    platform_subset,
+    bp.base_product_number,
+    bp.pl,
+    bp.customer_engagement,
+    SUM(bp.gross_revenue) AS gross_revenue,
+    SUM(bp.net_currency) AS net_currency,
+    SUM(bp.contractual_discounts) AS contractual_discounts,
+    SUM(bp.discretionary_discounts) AS discretionary_discounts,
+    SUM(bp.net_revenue) AS net_revenue,
+    SUM(bp.warranty) AS warranty,
+    SUM(bp.other_cos) AS other_cos,
+    SUM(bp.total_cos) AS total_cos,
+    SUM(bp.gross_profit) AS gross_profit,
+    SUM(bp.revenue_units) AS revenue_units,
+    SUM(bp.equivalent_units) AS equivalent_units,
+    SUM(bp.yield_x_units) AS yield_x_units,
+    SUM(bp.yield_x_units_black_only) AS yield_x_units_black_only
 FROM baseprod_without_acct_items bp
 LEFT JOIN baseprod_printer_from_crtg_demand sub 
-	ON bp.cal_date = sub.cal_date 
-	AND bp.country_alpha2 = sub.country_alpha2 
-	AND bp.base_product_number = sub.base_product_number 
-	AND bp.pl = sub.pl 
-	AND bp.customer_engagement = sub.customer_engagement 
-	AND bp.market10 = sub.market10 
+    ON bp.cal_date = sub.cal_date 
+    AND bp.country_alpha2 = sub.country_alpha2 
+    AND bp.base_product_number = sub.base_product_number 
+    AND bp.pl = sub.pl 
+    AND bp.customer_engagement = sub.customer_engagement 
+    AND bp.market10 = sub.market10 
 WHERE platform_subset IS NULL
 GROUP BY bp.cal_date, bp.country_alpha2, bp.base_product_number, bp.pl, bp.customer_engagement, bp.market10, platform_subset
 """
@@ -619,30 +619,30 @@ baseprod_without_crtg_demand_connect.createOrReplaceTempView("baseprod_without_c
 #base product with assigned printers based upon ib // addback 3
 baseprod_printer_by_ib_mix = f"""
 SELECT
-	act.cal_date,
-	act.country_alpha2,
-	act.market10,
-	mix.platform_subset,
-	act.base_product_number,
-	pl,
-	customer_engagement,
-	SUM(gross_revenue * ib_mix) AS gross_revenue,
-	SUM(net_currency * ib_mix) AS net_currency,
-	SUM(contractual_discounts * ib_mix) AS contractual_discounts,
-	SUM(discretionary_discounts * ib_mix) AS discretionary_discounts,
-	SUM(net_revenue * ib_mix) AS net_revenue,
-	SUM(warranty * ib_mix) AS warranty,
-	SUM(other_cos * ib_mix) AS other_cos,
-	SUM(total_cos * ib_mix) AS total_cos,
-	SUM(gross_profit * ib_mix) AS gross_profit,
-	SUM(revenue_units * ib_mix) AS revenue_units,
-	SUM(equivalent_units * ib_mix) AS equivalent_units,
-	SUM(yield_x_units * ib_mix) AS yield_x_units,
-	SUM(yield_x_units_black_only * ib_mix) AS yield_x_units_black_only
+    act.cal_date,
+    act.country_alpha2,
+    act.market10,
+    mix.platform_subset,
+    act.base_product_number,
+    pl,
+    customer_engagement,
+    SUM(gross_revenue * ib_mix) AS gross_revenue,
+    SUM(net_currency * ib_mix) AS net_currency,
+    SUM(contractual_discounts * ib_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * ib_mix) AS discretionary_discounts,
+    SUM(net_revenue * ib_mix) AS net_revenue,
+    SUM(warranty * ib_mix) AS warranty,
+    SUM(other_cos * ib_mix) AS other_cos,
+    SUM(total_cos * ib_mix) AS total_cos,
+    SUM(gross_profit * ib_mix) AS gross_profit,
+    SUM(revenue_units * ib_mix) AS revenue_units,
+    SUM(equivalent_units * ib_mix) AS equivalent_units,
+    SUM(yield_x_units * ib_mix) AS yield_x_units,
+    SUM(yield_x_units_black_only * ib_mix) AS yield_x_units_black_only
 FROM baseprod_without_crtg_demand_connect act
 JOIN ib_printer_mix AS mix ON mix.cal_date = act.cal_date AND mix.base_product_number = act.base_product_number AND act.country_alpha2 = mix.country_alpha2 AND act.market10 = mix.market10
 GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, pl, customer_engagement, mix.platform_subset, act.market10
-"""			
+"""            
 
 baseprod_printer_by_ib_mix = spark.sql(baseprod_printer_by_ib_mix)
 baseprod_printer_by_ib_mix.createOrReplaceTempView("baseprod_printer_by_ib_mix") 
@@ -652,34 +652,34 @@ baseprod_printer_by_ib_mix.createOrReplaceTempView("baseprod_printer_by_ib_mix")
 # failed match via ib
 baseprod_without_printer_map_from_crtg_demand_or_ib = f"""
 SELECT
-	act.cal_date,
-	act.country_alpha2,
-	act.market10,
-	mix.platform_subset,
-	act.base_product_number,
-	act.pl,
-	act.customer_engagement,
-	SUM(act.gross_revenue) AS gross_revenue,
-	SUM(act.net_currency) AS net_currency,
-	SUM(act.contractual_discounts) AS contractual_discounts,
-	SUM(act.discretionary_discounts) AS discretionary_discounts,
-	SUM(act.net_revenue) AS net_revenue,
+    act.cal_date,
+    act.country_alpha2,
+    act.market10,
+    mix.platform_subset,
+    act.base_product_number,
+    act.pl,
+    act.customer_engagement,
+    SUM(act.gross_revenue) AS gross_revenue,
+    SUM(act.net_currency) AS net_currency,
+    SUM(act.contractual_discounts) AS contractual_discounts,
+    SUM(act.discretionary_discounts) AS discretionary_discounts,
+    SUM(act.net_revenue) AS net_revenue,
     SUM(act.warranty) AS warranty,
-	SUM(act.other_cos) AS other_cos,
-	SUM(act.total_cos) AS total_cos,
-	SUM(act.gross_profit) AS gross_profit,
-	SUM(act.revenue_units) AS revenue_units,
-	SUM(act.equivalent_units) AS equivalent_units,
-	SUM(act.yield_x_units) AS yield_x_units,
-	SUM(act.yield_x_units_black_only) AS yield_x_units_black_only
+    SUM(act.other_cos) AS other_cos,
+    SUM(act.total_cos) AS total_cos,
+    SUM(act.gross_profit) AS gross_profit,
+    SUM(act.revenue_units) AS revenue_units,
+    SUM(act.equivalent_units) AS equivalent_units,
+    SUM(act.yield_x_units) AS yield_x_units,
+    SUM(act.yield_x_units_black_only) AS yield_x_units_black_only
 FROM baseprod_without_crtg_demand_connect act
 LEFT JOIN baseprod_printer_by_ib_mix AS mix 
-	ON mix.cal_date = act.cal_date
-	AND mix.country_alpha2 = act.country_alpha2
-	AND act.pl = mix.pl
-	AND act.customer_engagement = mix.customer_engagement
+    ON mix.cal_date = act.cal_date
+    AND mix.country_alpha2 = act.country_alpha2
+    AND act.pl = mix.pl
+    AND act.customer_engagement = mix.customer_engagement
     AND mix.base_product_number = act.base_product_number 
-	AND act.market10 = mix.market10
+    AND act.market10 = mix.market10
 WHERE mix.platform_subset IS NULL
 GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, act.pl, act.customer_engagement, mix.platform_subset, act.market10
 """
@@ -691,40 +691,40 @@ baseprod_without_printer_map_from_crtg_demand_or_ib.createOrReplaceTempView("bas
 
 #map printer to crtg based upon supplies hw mapping
 map_ptr_to_crtg = f"""
-SELECT distinct	platform_subset,
-	base_product_number,
-	market10,
-	CASE
-		WHEN COUNT(platform_subset) OVER (PARTITION BY base_product_number, market10) = 0 THEN NULL
-		ELSE COUNT(platform_subset) OVER (PARTITION BY base_product_number, market10)
-	END AS printers_per_baseprod
+SELECT distinct    platform_subset,
+    base_product_number,
+    market10,
+    CASE
+        WHEN COUNT(platform_subset) OVER (PARTITION BY base_product_number, market10) = 0 THEN NULL
+        ELSE COUNT(platform_subset) OVER (PARTITION BY base_product_number, market10)
+    END AS printers_per_baseprod
 FROM map_crtg_to_printers 
 GROUP BY platform_subset, base_product_number, market10
-"""				
+"""                
 
 map_ptr_to_crtg = spark.sql(map_ptr_to_crtg)
 map_ptr_to_crtg.createOrReplaceTempView("map_ptr_to_crtg") 
 
 
 map_ptr_to_crtg_no_nulls = f"""
-SELECT distinct	platform_subset,
-	base_product_number,
-	market10,
-	coalesce(sum(printers_per_baseprod), 0) AS printers_per_baseprod
+SELECT distinct    platform_subset,
+    base_product_number,
+    market10,
+    coalesce(sum(printers_per_baseprod), 0) AS printers_per_baseprod
 FROM map_ptr_to_crtg 
 GROUP BY platform_subset, base_product_number, market10
 """
 
 map_ptr_to_crtg_no_nulls = spark.sql(map_ptr_to_crtg_no_nulls)
-map_ptr_to_crtg_no_nulls.createOrReplaceTempView("map_ptr_to_crtg_no_nulls") 	
+map_ptr_to_crtg_no_nulls.createOrReplaceTempView("map_ptr_to_crtg_no_nulls")     
 
 
 map_ptr_to_crtg2 = f"""
 SELECT
-	platform_subset,
-	base_product_number,
-	m.market10,
-	CAST(printers_per_baseprod AS decimal(10,8)) AS printers_per_baseprod
+    platform_subset,
+    base_product_number,
+    m.market10,
+    CAST(printers_per_baseprod AS decimal(10,8)) AS printers_per_baseprod
 FROM map_ptr_to_crtg_no_nulls m
 """
 
@@ -736,8 +736,8 @@ map_ptr_to_crtg2.createOrReplaceTempView("map_ptr_to_crtg2")
 #supplies hardware map mix
 date_helper = f"""
 SELECT
-	date_key
-	, Date AS cal_date
+    date_key
+    , Date AS cal_date
 FROM calendar
 WHERE day_of_month = 1
 """
@@ -748,17 +748,17 @@ date_helper.createOrReplaceTempView("date_helper")
 
 hw_supplies_map3 = f"""
 SELECT 
-	cal_date,
-	platform_subset,
-	base_product_number,
-	printers_per_baseprod,
-	market10
+    cal_date,
+    platform_subset,
+    base_product_number,
+    printers_per_baseprod,
+    market10
 FROM date_helper
 CROSS JOIN map_ptr_to_crtg2
 WHERE cal_date BETWEEN 
-	(SELECT MIN(cal_date) FROM edw_actuals_supplies_salesprod) 
-	AND 
-	(SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
+    (SELECT MIN(cal_date) FROM edw_actuals_supplies_salesprod) 
+    AND 
+    (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
 """
 
 hw_supplies_map3 = spark.sql(hw_supplies_map3)
@@ -767,11 +767,11 @@ hw_supplies_map3.createOrReplaceTempView("hw_supplies_map3")
 
 supplies_hw_map_mix = f"""
 SELECT distinct cal_date,
-	platform_subset,
-	base_product_number,
-	m.market10,
-	SUM(printers_per_baseprod) AS printers_per_baseprod,
-	1 / SUM(printers_per_baseprod) AS hw_mix
+    platform_subset,
+    base_product_number,
+    m.market10,
+    SUM(printers_per_baseprod) AS printers_per_baseprod,
+    1 / SUM(printers_per_baseprod) AS hw_mix
 FROM hw_supplies_map3 m
 LEFT JOIN iso_country_code_xref iso ON m.market10 = iso.market10
 GROUP BY platform_subset, base_product_number, m.market10, cal_date
@@ -785,29 +785,29 @@ supplies_hw_map_mix.createOrReplaceTempView("supplies_hw_map_mix")
 ##base product with assigned printers based upon supplies hw map // addback 4
 actuals_join_hw_mix = f"""
 SELECT
-	sup.cal_date,
-	country_alpha2,
-	sup.market10,
-	map.platform_subset,
-	sup.base_product_number,
-	pl,
-	sup.customer_engagement,
-	SUM(gross_revenue * COALESCE(hw_mix, 1)) AS gross_revenue,
-	SUM(net_currency * COALESCE(hw_mix, 1)) AS net_currency,
-	SUM(contractual_discounts * COALESCE(hw_mix, 1)) AS contractual_discounts,
-	SUM(discretionary_discounts * COALESCE(hw_mix, 1)) AS discretionary_discounts,
-	SUM(net_revenue * COALESCE(hw_mix, 1)) AS net_revenue,
-	SUM(warranty * COALESCE(hw_mix, 1)) AS warranty,
-	SUM(other_cos * COALESCE(hw_mix, 1)) AS other_cos,
-	SUM(total_cos * COALESCE(hw_mix, 1)) AS total_cos,
-	SUM(gross_profit * COALESCE(hw_mix, 1)) AS gross_profit,
-	SUM(revenue_units * COALESCE(hw_mix, 1)) AS revenue_units,
-	SUM(equivalent_units * COALESCE(hw_mix, 1)) AS equivalent_units,
-	SUM(yield_x_units * COALESCE(hw_mix, 1)) AS yield_x_units,
-	SUM(yield_x_units_black_only * COALESCE(hw_mix, 1)) AS yield_x_units_black_only
+    sup.cal_date,
+    country_alpha2,
+    sup.market10,
+    map.platform_subset,
+    sup.base_product_number,
+    pl,
+    sup.customer_engagement,
+    SUM(gross_revenue * COALESCE(hw_mix, 1)) AS gross_revenue,
+    SUM(net_currency * COALESCE(hw_mix, 1)) AS net_currency,
+    SUM(contractual_discounts * COALESCE(hw_mix, 1)) AS contractual_discounts,
+    SUM(discretionary_discounts * COALESCE(hw_mix, 1)) AS discretionary_discounts,
+    SUM(net_revenue * COALESCE(hw_mix, 1)) AS net_revenue,
+    SUM(warranty * COALESCE(hw_mix, 1)) AS warranty,
+    SUM(other_cos * COALESCE(hw_mix, 1)) AS other_cos,
+    SUM(total_cos * COALESCE(hw_mix, 1)) AS total_cos,
+    SUM(gross_profit * COALESCE(hw_mix, 1)) AS gross_profit,
+    SUM(revenue_units * COALESCE(hw_mix, 1)) AS revenue_units,
+    SUM(equivalent_units * COALESCE(hw_mix, 1)) AS equivalent_units,
+    SUM(yield_x_units * COALESCE(hw_mix, 1)) AS yield_x_units,
+    SUM(yield_x_units_black_only * COALESCE(hw_mix, 1)) AS yield_x_units_black_only
 FROM baseprod_without_printer_map_from_crtg_demand_or_ib  sup
 LEFT JOIN supplies_hw_map_mix AS map ON map.base_product_number = sup.base_product_number AND map.cal_date = sup.cal_date AND 
-	map.market10 = sup.market10
+    map.market10 = sup.market10
 GROUP BY sup.cal_date, country_alpha2, sup.market10, sup.base_product_number, pl, sup.customer_engagement, map.platform_subset
 """
 
@@ -818,29 +818,29 @@ actuals_join_hw_mix.createOrReplaceTempView("actuals_join_hw_mix")
 #platform subset has to be a primary key, so it cannot be null
 baseprod_map_printer_using_shm = f"""
 SELECT
-	cal_date,
-	country_alpha2,
-	market10,
-	CASE
-		WHEN platform_subset IS NULL THEN 'NA'
-		ELSE platform_subset
-	END AS platform_subset,
-	base_product_number,
-	pl,
-	customer_engagement,
-	SUM(gross_revenue) AS gross_revenue,
-	SUM(net_currency) AS net_currency,
-	SUM(contractual_discounts) AS contractual_discounts,
-	SUM(discretionary_discounts) AS discretionary_discounts,
-	SUM(net_revenue) AS net_revenue,
-	SUM(warranty) AS warranty,
-	SUM(other_cos) AS other_cos,
-	SUM(total_cos) AS total_cos,
-	SUM(gross_profit) AS gross_profit,
-	SUM(revenue_units) AS revenue_units,
-	SUM(equivalent_units) AS equivalent_units,
-	SUM(yield_x_units) AS yield_x_units,
-	SUM(yield_x_units_black_only) AS yield_x_units_black_only
+    cal_date,
+    country_alpha2,
+    market10,
+    CASE
+        WHEN platform_subset IS NULL THEN 'NA'
+        ELSE platform_subset
+    END AS platform_subset,
+    base_product_number,
+    pl,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units,
+    SUM(equivalent_units) AS equivalent_units,
+    SUM(yield_x_units) AS yield_x_units,
+    SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM actuals_join_hw_mix
 GROUP BY cal_date, country_alpha2, market10, base_product_number, pl, customer_engagement, platform_subset
 """
@@ -872,27 +872,27 @@ all_baseprod_with_platform_subsets.createOrReplaceTempView("all_baseprod_with_pl
 
 baseprod_financials_preplanet_table = f"""
 SELECT
-	cal_date,
-	country_alpha2,
-	market10,
-	platform_subset,
-	base_product_number,
-	bp.pl,
-	L5_Description,
-	customer_engagement,
-	SUM(gross_revenue) AS gross_revenue,
-	SUM(net_currency) AS net_currency,
-	SUM(contractual_discounts) AS contractual_discounts,
-	SUM(discretionary_discounts) AS discretionary_discounts,
-	SUM(net_revenue) AS net_revenue,
-	SUM(warranty) AS warranty,
-	SUM(other_cos) AS other_cos,
-	SUM(total_cos ) AS total_cos,
-	SUM(gross_profit) AS gross_profit,
-	SUM(revenue_units) AS revenue_units,
-	SUM(equivalent_units) AS equivalent_units,
-	SUM(yield_x_units) AS yield_x_units,
-	SUM(yield_x_units_black_only) AS yield_x_units_black_only
+    cal_date,
+    country_alpha2,
+    market10,
+    platform_subset,
+    base_product_number,
+    bp.pl,
+    L5_Description,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos ) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units,
+    SUM(equivalent_units) AS equivalent_units,
+    SUM(yield_x_units) AS yield_x_units,
+    SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM all_baseprod_with_platform_subsets AS bp
 JOIN product_line_xref AS plx ON bp.pl = plx.pl
 GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, L5_Description
@@ -906,30 +906,30 @@ baseprod_financials_preplanet_table.createOrReplaceTempView("baseprod_financials
 #planet target totals
 planet_data = f"""
 SELECT 
-	cal_date,
-	Fiscal_Yr,	
-	p.country_alpha2,
-	region_5,
-	pl,
-	SUM(l2fa_gross_trade_rev * 1000) AS p_gross_revenue,
-	SUM(l2fa_net_currency * 1000) AS p_net_currency,
-	SUM(l2fa_contra_rev_contractual * 1000) AS p_contractual_discounts, 
-	SUM(l2fa_contra_rev_discretionary * 1000) AS p_discretionary_discounts,
-	SUM(l2fa_net_revenues * 1000) AS p_net_revenue,
-	SUM(l2fa_warranty * 1000) AS p_warranty,
-	SUM(l2fa_total_cos * 1000) AS p_total_cos,
-	SUM(l2fa_gross_profit * 1000) AS p_gross_profit
+    cal_date,
+    Fiscal_Yr,    
+    p.country_alpha2,
+    region_5,
+    pl,
+    SUM(l2fa_gross_trade_rev * 1000) AS p_gross_revenue,
+    SUM(l2fa_net_currency * 1000) AS p_net_currency,
+    SUM(l2fa_contra_rev_contractual * 1000) AS p_contractual_discounts, 
+    SUM(l2fa_contra_rev_discretionary * 1000) AS p_discretionary_discounts,
+    SUM(l2fa_net_revenues * 1000) AS p_net_revenue,
+    SUM(l2fa_warranty * 1000) AS p_warranty,
+    SUM(l2fa_total_cos * 1000) AS p_total_cos,
+    SUM(l2fa_gross_profit * 1000) AS p_gross_profit
 FROM planet_actuals AS p
 JOIN iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
 JOIN calendar AS cal ON cal.Date = p.cal_date
 WHERE pl IN 
-	(
-		SELECT DISTINCT (pl) 
-		FROM product_line_xref 
-		WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
-			AND PL_category IN ('SUP', 'LLC')
-			OR pl = 'IX'
-			)
+    (
+        SELECT DISTINCT (pl) 
+        FROM product_line_xref 
+        WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
+            AND PL_category IN ('SUP', 'LLC')
+            OR pl = 'IX'
+            )
 AND Fiscal_Yr > '2016'
 AND Day_of_Month = 1
 AND cal_date < '2021-11-01'
@@ -942,20 +942,20 @@ planet_data.createOrReplaceTempView("planet_data")
 
 planet_system_targets = f"""
 SELECT cal_date,
-	Fiscal_Yr,
-	region_5,
-	CASE
-		WHEN pl = 'IX' THEN 'TX'
-		ELSE pl
-	END AS pl,
-	SUM(p_gross_revenue) AS p_gross_revenue,
-	SUM(p_net_currency) AS p_net_currency,
-	SUM(p_contractual_discounts) AS p_contractual_discounts,
-	SUM(p_discretionary_discounts) AS p_discretionary_discounts,
-	SUM(p_net_revenue) AS p_net_revenue,
-	SUM(p_warranty) AS p_warranty,
-	SUM(p_total_cos) - SUM(p_warranty) AS p_other_cos,
-	SUM(p_total_cos) AS p_total_cos,
+    Fiscal_Yr,
+    region_5,
+    CASE
+        WHEN pl = 'IX' THEN 'TX'
+        ELSE pl
+    END AS pl,
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) - SUM(p_warranty) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
     SUM(p_gross_profit) AS p_gross_profit
 FROM planet_data
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
@@ -970,10 +970,10 @@ planet_system_targets.createOrReplaceTempView("planet_system_targets")
 planet_targets_excluding_toner_sacp_restatements = f"""
 SELECT cal_date,
     Fiscal_Yr,
-	region_5,
-	pl,
-	SUM(p_gross_revenue) AS p_gross_revenue,
-	SUM(p_net_currency) AS p_net_currency,
+    region_5,
+    pl,
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
 	SUM(p_contractual_discounts) AS p_contractual_discounts,
 	SUM(p_discretionary_discounts) AS p_discretionary_discounts,
 	SUM(p_net_revenue) AS p_net_revenue,
