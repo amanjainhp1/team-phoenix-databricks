@@ -3,15 +3,15 @@ dbutils.widgets.text("load_to_redshift", "")
 
 # COMMAND ----------
 
-# MAGIC %run Repos/noelle.diederich@hp.com/team-phoenix-databricks/notebooks/python/common/configs
+# MAGIC %run ..common/configs
 
 # COMMAND ----------
 
-# MAGIC %run Repos/noelle.diederich@hp.com/team-phoenix-databricks/notebooks/python/common/database_utils
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
+#if dbutils.widgets.get("load_to_redshift").lower() == "true": 
     
     #edw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
     #    .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_baseprod") \
@@ -19,18 +19,18 @@ if dbutils.widgets.get("load_to_redshift").lower() == "true":
 
    # write_df_to_redshift(configs, edw_actuals_supplies_baseprod, "fin_prod.edw_actuals_supplies_baseprod", "append", "", "truncate fin_prod.edw_actuals_supplies_baseprod")
     
-    edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Staging.dbo.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
-        .load()
+    #edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_sql_server_to_df(configs) \
+     #   .option("dbtable", "IE2_Staging.dbo.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
+     #   .load()
 
-    write_df_to_redshift(configs, edw_actuals_supplies_baseprod_staging_interim_supplies_only, "fin_prod.edw_actuals_supplies_baseprod_staging_interim_supplies_only", "append", "", "truncate fin_prod.edw_actuals_supplies_baseprod_staging_interim_supplies_only") 
+    #write_df_to_redshift(configs, edw_actuals_supplies_baseprod_staging_interim_supplies_only, "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only", "append", "", "truncate #fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") 
  
 
 # COMMAND ----------
 
 # load S3 tables to df
 edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
+    .option("dbtable", "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
     .load()
 planet_actuals = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.planet_actuals") \
@@ -69,7 +69,7 @@ hardware_xref = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 tables = [
-    ['fin_prod.edw_actuals_supplies_baseprod_staging_interim_supplies_only', edw_actuals_supplies_baseprod_staging_interim_supplies_only],
+    ['fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only', edw_actuals_supplies_baseprod_staging_interim_supplies_only],
     ['fin_prod.planet_actuals', planet_actuals],
     ['fin_prod.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
@@ -96,6 +96,7 @@ for table in tables:
     # Write the data to its target.
     df.write \
       .format(write_format) \
+      .option("overwriteSchema", "true") \
       .mode("overwrite") \
       .save(save_path)
 
@@ -1594,7 +1595,7 @@ SELECT 'actuals - edw supplies base product financials' AS record,
 	COALESCE(SUM(equivalent_units), 0) AS equivalent_units,
 	COALESCE(SUM(yield_x_units), 0) AS yield_x_units,
 	COALESCE(SUM(yield_x_units_black_only), 0) AS yield_x_units_black_only,
-    1 AS official,
+    CAST(1 AS BOOLEAN) AS official,
     '{addversion_info[1]}' AS load_date,
 	'{addversion_info[0]}' AS version
 FROM baseprod_add_planet_adjusts
