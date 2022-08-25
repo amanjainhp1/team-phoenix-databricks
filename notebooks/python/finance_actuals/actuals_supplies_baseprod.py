@@ -1,41 +1,9 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-    #actuals_supplies_baseprod = read_sql_server_to_df(configs) \
-     #   .option("dbtable", "IE2_Financials.dbo.actuals_supplies_baseprod") \
-     #   .load()
-
-    #write_df_to_redshift(configs, actuals_supplies_baseprod, "fin_prod.actuals_supplies_baseprod", "append", "", "truncate fin_prod.actuals_supplies_baseprod")
-    
-    #odw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
-     #   .option("dbtable", "IE2_Financials.ms4.odw_actuals_supplies_baseprod") \
-     #   .load() \
-    #    .select("record", "cal_date", "country_alpha2", "market10", "platform_subset", "base_product_number", "pl", "l5_description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts",
-    #           "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "equivalent_units", "yield_x_units", "yield_x_units_black_only", "official",
-     #          "load_date", "version")
-
-   # write_df_to_redshift(configs, odw_actuals_supplies_baseprod, "fin_prod.odw_actuals_supplies_baseprod", "append", "", "truncate fin_prod.odw_actuals_supplies_baseprod") 
-
-   # edw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
-   #     .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_baseprod") \
-   #     .load() \
-   #     .select("record", "cal_date", "country_alpha2", "market10", "platform_subset", "base_product_number", "pl", "l5_description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts",
-   #            "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "equivalent_units", "yield_x_units", "yield_x_units_black_only", "official",
-   #            "load_date", "version")
-
-   # write_df_to_redshift(configs, edw_actuals_supplies_baseprod, "fin_prod.edw_actuals_supplies_baseprod", "append",  "", "truncate fin_prod.edw_actuals_supplies_baseprod")
 
 # COMMAND ----------
 

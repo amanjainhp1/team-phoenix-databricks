@@ -1,8 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -147,4 +143,4 @@ GROUP BY
     ,official;
 """
 
-submit_remote_query(configs["redshift_dbname"], configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], query)
+submit_remote_query(configs, query)
