@@ -296,19 +296,6 @@ WHERE 1=1
 
 query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"])
 
-# COMMAND ----------
-
-ib_01_filter_vars = """
-ib_01_filter_vars as (
-
-
-SELECT record
-	, MAX(version) AS version
-FROM "prod"."ce_splits"
-WHERE 1=1
-    AND official = 1
-GROUP BY record
-"""
 
 # COMMAND ----------
 
