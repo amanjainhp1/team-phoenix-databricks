@@ -15,137 +15,26 @@ dbutils.widgets.text("load_to_redshift", "")
 
 # COMMAND ----------
 
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-    #odw_revenue_units_sales_actuals = read_sql_server_to_df(configs) \
-    #   .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
-    #   .load()
-
-    #write_df_to_redshift(configs, odw_revenue_units_sales_actuals, "fin_prod.odw_revenue_units_sales_actuals", "append", "", "truncate fin_prod.odw_revenue_units_sales_actuals")
-    
-    
-    #odw_report_rac_product_financials_actuals = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing") \
-    #    .load()
-
-    #write_df_to_redshift(configs, odw_report_rac_product_financials_actuals, "fin_prod.odw_report_rac_product_financials_actuals", "append", "", "truncate fin_prod.odw_report_rac_product_financials_actuals") 
-    
-    
-    #odw_document_currency = read_sql_server_to_df(configs) \
-    #   .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
-    #   .load()
-
-    #write_df_to_redshift(configs, odw_document_currency, "fin_prod.odw_document_currency", "append", "", "truncate fin_prod.odw_document_currency") 
-    
-    
-    #odw_sacp_actuals = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
-    #    .load()
-
-    #write_df_to_redshift(configs, odw_sacp_actuals, "fin_prod.odw_sacp_actuals", "append", "", "truncate fin_prod.odw_sacp_actuals") 
-    
-    
-    #mps_ww_shipped_supply = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Prod.dbo.mps_ww_shipped_supply") \
-    #    .load()
-
-    #write_df_to_redshift(configs, mps_ww_shipped_supply, "prod.mps_ww_shipped_supply", "append", "", "truncate prod.mps_ww_shipped_supply") 
-    
+if dbutils.widgets.get("load_to_redshift").lower() == "true":     
 
     itp_laser_landing = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.dbo.itp_laser_landing") \
         .load()
 
     write_df_to_redshift(configs, itp_laser_landing, "fin_stage.itp_laser_landing", "append", "", "truncate fin_stage.itp_laser_landing") 
-    
-    
+
     supplies_iink_units_landing = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.dbo.supplies_iink_units_landing") \
         .load()
 
     write_df_to_redshift(configs, supplies_iink_units_landing, "fin_stage.supplies_iink_units_landing", "append", "", "truncate fin_stage.supplies_iink_units_landing") 
-    
-    
+
+
     supplies_manual_mcode_jv_detail_landing = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.dbo.supplies_manual_mcode_jv_detail_landing") \
         .load()
 
     write_df_to_redshift(configs, supplies_manual_mcode_jv_detail_landing, "fin_stage.supplies_manual_mcode_jv_detail_landing", "append", "", "truncate fin_stage.supplies_manual_mcode_jv_detail_landing") 
-    
-
-# COMMAND ----------
-
-#load cbm data from sfai
-cbm_st_data = read_sql_server_to_df(configs) \
-    .option("dbtable", "CBM.dbo.cbm_st_data") \
-    .load()
-
-# COMMAND ----------
-
-# load S3 tables to df
-odw_revenue_units_sales_actuals = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
-    .load()
-odw_document_currency = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_document_currency") \
-    .load()
-odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
-   .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
-   .load()
-#odw_shipment_actuals = read_redshift_to_df(configs) \
-#   .option("dbtable", "fin_prod.odw_shipment_actuals") \
-#   .load()
-mps_ww_shipped_supply = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.mps_ww_shipped_supply") \
-    .load()
-iso_country_code_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.iso_country_code_xref") \
-    .load()
-calendar = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.calendar") \
-    .load()
-profit_center_code_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.profit_center_code_xref") \
-    .load()
-product_line_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.product_line_xref") \
-    .load()
-itp_laser_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.itp_laser_landing") \
-    .load()
-supplies_iink_units_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.supplies_iink_units_landing") \
-    .load()
-supplies_manual_mcode_jv_detail_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.supplies_manual_mcode_jv_detail_landing") \
-    .load()
-country_currency_map_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.country_currency_map") \
-    .load()
-list_price_eu_country_list = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.list_price_eu_countrylist") \
-    .load()
-exclusion = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.exclusion") \
-    .load()
-rdma_base_to_sales_product_map = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.rdma_base_to_sales_product_map") \
-    .load()
-supplies_hw_mapping = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.supplies_hw_mapping") \
-    .load()
-ib = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.ib") \
-    .load()
-actuals_supplies_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
-    .load()
-odw_sacp_actuals = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_sacp_actuals") \
-    .load()
-supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.supplies_finance_hier_restatements_2020_2021") \
-    .load()
 
 # COMMAND ----------
 
@@ -154,64 +43,70 @@ supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
 import re
 
 tables = [
-    ['fin_stage.odw_revenue_units_sales_actuals', odw_revenue_units_sales_actuals],
-    ['fin_stage.odw_document_currency', odw_document_currency],
-    ['fin_stage.odw_report_rac_product_financials_actuals', odw_report_rac_product_financials_actuals],
- #  delete me: ['fin_stage.odw_shipment_actuals', odw_shipment_actuals],
-    ['fin_stage.mps_ww_shipped_supply_staging', mps_ww_shipped_supply],
-    ['mdm.iso_country_code_xref', iso_country_code_xref],
-    ['mdm.profit_center_code_xref', profit_center_code_xref],
-    ['fin_stage.itp_laser_landing', itp_laser_landing],
-    ['fin_stage.supplies_iink_units_landing', supplies_iink_units_landing],
-    ['mdm.calendar', calendar],
-    ['mdm.product_line_xref', product_line_xref],
-    ['fin_stage.supplies_manual_mcode_jv_detail_landing', supplies_manual_mcode_jv_detail_landing],
-    ['fin_stage.country_currency_map_landing', country_currency_map_landing],
-    ['mdm.list_price_eu_country_list', list_price_eu_country_list],
-    ['fin_stage.cbm_st_data', cbm_st_data],
-    ['mdm.exclusion', exclusion],
-    ['mdm.rdma_base_to_sales_product_map', rdma_base_to_sales_product_map],
-    ['mdm.supplies_hw_mapping', supplies_hw_mapping],
-    ['stage.ib', ib],
-    ['fin_stage.odw_sacp_actuals', odw_sacp_actuals],
-    ['fin_stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
-    ]
+    ['fin_stage.odw_revenue_units_sales_actuals', "fin_prod.odw_revenue_units_sales_actuals", "redshift"],
+    ['fin_stage.odw_document_currency', "fin_prododw_document_currency", "redshift"],
+    ['fin_stage.odw_report_rac_product_financials_actuals', "fin_prod.odw_report_rac_product_financials_actuals", "redshift"],
+    ['fin_stage.mps_ww_shipped_supply_staging', "prod.mps_ww_shipped_supply", "redshift"],
+    ['mdm.iso_country_code_xref', "mdm.iso_country_code_xref", "redshift"],
+    ['mdm.profit_center_code_xref', "mdm.profit_center_code_xref", "redshift"],
+    ['fin_stage.itp_laser_landing', "fin_stage.itp_laser_landing", "redshift"],
+    ['fin_stage.supplies_iink_units_landing', "fin_stage.supplies_iink_units_landing", "redshift"],
+    ['mdm.calendar', "mdm.calendar", "redshift"],
+    ['mdm.product_line_xref', "mdm.product_line_xref", "redshift"],
+    ['fin_stage.supplies_manual_mcode_jv_detail_landing', "fin_stage.supplies_manual_mcode_jv_detail_landing", "redshift"],
+    ['fin_stage.country_currency_map_landing', "mdm.country_currency_map"],
+    ['mdm.list_price_eu_country_list', "mdm.list_price_eu_country_list", "redshift"],
+    ['fin_stage.cbm_st_data', "CBM.dbo.cbm_st_data", "sqlserver"],
+    ['mdm.exclusion', "mdm.exclusion", "redshift"],
+    ['mdm.rdma_base_to_sales_product_map', "mdm.rdma_base_to_sales_product_map", "redshift"],
+    ['mdm.supplies_hw_mapping', "mdm.supplies_hw_mapping", "redshift"],
+    ['stage.ib', "prod.ib", "redshift"],
+    ['fin_stage.odw_sacp_actuals', "fin_prod.odw_sacp_actuals", "redshift"],
+    ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"]
+    ['fin_stage.actuals_supplies_salesprod', "fin_prod.actuals_supplies_salesprod", "redshift"]
+]
 
 for table in tables:
+
+    df = spark.createDataFrame(spark.sparkContext.emptyRDD())
+    if table[2] == "redshift":
+        df = read_redshift_to_df(configs) \
+            .option("dbtable", table[1]) \
+            .load()
+    else:
+        df = read_sqlserver_to_df(configs) \
+            .option("dbtable", table[1]) \
+            .load()
+
     # Define the input and output formats and paths and the table name.
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
-    # Load the data from its source.
-    df = table[1]    
+    # Load the data from its source.  
     print(f'loading {table[0]}...')
     
     for column in df.dtypes:
-         renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
-         df = df.withColumnRenamed(column[0], renamed_column)
-         print(renamed_column) 
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column) 
         
-     # Write the data to its target.
+    # Write the data to its target.
     df.write \
-       .format(write_format) \
-       .option("overwriteSchema", "true") \
-       .mode("overwrite") \
-       .save(save_path)
+        .format(write_format) \
+        .option("overwriteSchema", "true") \
+        .mode("overwrite") \
+        .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
-     # Create the table.
+    # Create the table.
     spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
     
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
-
-# COMMAND ----------
-
-actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
 
 # COMMAND ----------
 
@@ -7483,21 +7378,6 @@ salesprod_financials.createOrReplaceTempView("salesprod_financials")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(net_revenue) AS net_revenue,
-# MAGIC     SUM(warranty) as warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(gross_profit) AS gross_profit,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from salesprod_financials;
-
-# COMMAND ----------
-
 from datetime import datetime
 from pyspark.sql.types import StringType
 
@@ -7604,4 +7484,4 @@ SET revenue_units = 0
 WHERE revenue_units >-.000001 and revenue_units < 0;
 """
 
-submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], query)
+submit_remote_query(configs, query)
