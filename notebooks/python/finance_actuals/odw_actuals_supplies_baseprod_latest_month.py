@@ -1,31 +1,9 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-    # write something like :: if latest month in interm supplies only = latest month in odw_actuals_supplies_baseprod then warning message??
-    
-    #odw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Financials.ms4.odw_actuals_supplies_baseprod") \
-    #    .load()
-
-    #write_df_to_redshift(configs, odw_actuals_supplies_baseprod, "fin_prod.odw_actuals_supplies_baseprod", "append", "", "truncate fin_prod.odw_actuals_supplies_baseprod")
-    
-    odw_actuals_supplies_baseprod_staging_interim_supplies_only = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Staging.ms4.odw_actuals_supplies_baseprod_staging_interim_supplies_only") \
-        .load()
-
-    write_df_to_redshift(configs, odw_actuals_supplies_baseprod_staging_interim_supplies_only, "fin_prod.odw_actuals_supplies_baseprod_staging_interim_supplies_only", "append", "", "truncate fin_prod.odw_actuals_supplies_baseprod_staging_interim_supplies_only") 
 
 # COMMAND ----------
 
@@ -1343,22 +1321,6 @@ GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_numbe
 
 baseprod_load_financials = spark.sql(baseprod_load_financials)
 baseprod_load_financials.createOrReplaceTempView("baseprod_load_financials")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select COUNT(*) as row_count,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(net_revenue) AS net_revenue,
-# MAGIC     SUM(warranty) as warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(gross_profit) AS gross_profit,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from baseprod_load_financials;
 
 # COMMAND ----------
 

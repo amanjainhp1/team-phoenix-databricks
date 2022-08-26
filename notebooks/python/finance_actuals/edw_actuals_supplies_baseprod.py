@@ -1,30 +1,9 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ..common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
-#if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-    #edw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_baseprod") \
-    #    .load()
-
-   # write_df_to_redshift(configs, edw_actuals_supplies_baseprod, "fin_prod.edw_actuals_supplies_baseprod", "append", "", "truncate fin_prod.edw_actuals_supplies_baseprod")
-    
-    #edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_sql_server_to_df(configs) \
-     #   .option("dbtable", "IE2_Staging.dbo.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
-     #   .load()
-
-    #write_df_to_redshift(configs, edw_actuals_supplies_baseprod_staging_interim_supplies_only, "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only", "append", "", "truncate #fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") 
- 
 
 # COMMAND ----------
 
@@ -1702,4 +1681,4 @@ SET yield_x_units = 0
 WHERE yield_x_units >-.000001 and yield_x_units < 0;
 """
 
-submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], query)
+submit_remote_query(configs, query)

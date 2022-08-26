@@ -1,24 +1,9 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-    odw_actuals_supplies_salesprod = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Financials.dbo.odw_actuals_supplies_salesprod") \
-        .load()
-
-    write_df_to_redshift(configs, edw_actuals_supplies_salesprod, "fin_prod.odw_actuals_supplies_salesprod", "append", "", "truncate fin_prod.odw_actuals_supplies_salesprod")
-    
 
 # COMMAND ----------
 
@@ -1034,22 +1019,6 @@ GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagemen
                 
 baseprod_actuals_yields = spark.sql(baseprod_actuals_yields)
 baseprod_actuals_yields.createOrReplaceTempView("baseprod_actuals_yields")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select COUNT(*) as row_count,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(net_revenue) AS net_revenue,
-# MAGIC     SUM(warranty) as warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(gross_profit) AS gross_profit,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from baseprod_actuals_yields;
 
 # COMMAND ----------
 

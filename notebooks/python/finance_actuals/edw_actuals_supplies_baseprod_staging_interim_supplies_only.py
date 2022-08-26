@@ -1,8 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -12,25 +8,6 @@ dbutils.widgets.text("load_to_redshift", "")
 # COMMAND ----------
 
 # MAGIC %run ../common/s3_utils
-
-# COMMAND ----------
-
-#if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-   ## edw_actuals_supplies_salesprod = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_salesprod") \
-    #    .load()
-
-    #write_df_to_redshift(configs, edw_actuals_supplies_salesprod, "fin_prod.edw_actuals_supplies_salesprod", "append", "", "truncate fin_prod.edw_actuals_supplies_salesprod")
-    
-  ##IE2_Landing.dbo.edw_revenue_units_sales_landing -- for media units
-
-    #edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Staging.dbo.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
-    #    .load()
-
-    #write_df_to_redshift(configs, edw_actuals_supplies_baseprod_staging_interim_supplies_only, "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only", "append", "", "truncate #fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") 
- 
 
 # COMMAND ----------
 
@@ -156,11 +133,6 @@ actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select count(*) from actuals_supplies_salesprod
-
-# COMMAND ----------
-
 #rdma base to sales map
 rdma_salesprod_to_baseprod_map_abridged = f"""
 SELECT 
@@ -276,11 +248,6 @@ GROUP BY revenue_recognition_fiscal_year_month_code, profit_center_code, busines
 
 edw_media_units = spark.sql(edw_media_units)
 edw_media_units.createOrReplaceTempView("edw_media_units")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select count(*) from edw_media_units
 
 # COMMAND ----------
 
@@ -572,11 +539,6 @@ GROUP BY record, cal_date, country_alpha2, base_product_number, base_product_lin
 
 supplies_units_from_media = spark.sql(supplies_units_from_media)
 supplies_units_from_media.createOrReplaceTempView("supplies_units_from_media")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select count(*) from supplies_units_from_media
 
 # COMMAND ----------
 
@@ -1049,11 +1011,6 @@ GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagemen
                 
 baseprod_actuals_yields = spark.sql(baseprod_actuals_yields)
 baseprod_actuals_yields.createOrReplaceTempView("baseprod_actuals_yields")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select count(*) from baseprod_actuals_yields
 
 # COMMAND ----------
 

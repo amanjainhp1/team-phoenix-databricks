@@ -7477,12 +7477,6 @@ salesprod_financials.createOrReplaceTempView("salesprod_financials")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select count(*) as row_count, sum(gross_revenue) as gross_revenue, sum(revenue_units) as units
-# MAGIC from salesprod_financials
-
-# COMMAND ----------
-
 #LOAD TO DB
 write_df_to_redshift(configs, salesprod_financials, "fin_prod.odw_actuals_supplies_salesprod", "append", postactions = "", preactions = "truncate fin_prod.odw_actuals_supplies_salesprod")
 

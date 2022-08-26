@@ -12,16 +12,6 @@ dbutils.widgets.text("refresh_db_data", "")
 
 # COMMAND ----------
 
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-    odw_actuals_supplies_salesprod = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Financials.ms4.odw_actuals_supplies_salesprod") \
-        .load()
-
-    write_df_to_redshift(configs, odw_actuals_supplies_salesprod, "fin_prod.odw_actuals_supplies_salesprod", "append", "", "truncate fin_prod.odw_actuals_supplies_salesprod")
-
-# COMMAND ----------
-
 # load S3 tables to df
 odw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.odw_actuals_supplies_salesprod") \
@@ -144,12 +134,6 @@ GROUP BY record, cal_date, country_alpha2, sales_product_number, pl, customer_en
 
 actuals_supplies_salesprod = spark.sql(actuals_supplies_salesprod)
 actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select count(*)
-# MAGIC from actuals_supplies_salesprod
 
 # COMMAND ----------
 
