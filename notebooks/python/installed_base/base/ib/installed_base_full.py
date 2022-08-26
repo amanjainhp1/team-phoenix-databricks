@@ -11,7 +11,6 @@ query_list = []
 
 ib_staging_inputs = """
 
-
 with ib_01_filter_vars as (
 
 
@@ -203,21 +202,7 @@ JOIN "mdm"."iso_country_code_xref" AS cc
 WHERE 1=1
     AND hw.technology IN ('LASER','INK','PWA','LF')
 
-), iso as (
-
-SELECT DISTINCT iso.country_alpha2,
-    iso.region_5,
-    iso.market10,
-    CASE iso.developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END as EM_DM,
-    concat(iso.market10,'-',CASE iso.developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END) as market13
-FROM mdm.iso_country_code_xref iso
-INNER JOIN ib_03_norm_shipments_agg norm ON norm.country_alpha2=iso.country_alpha2
-WHERE concat(iso.market10,'-',CASE iso.developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END) NOT IN ('UK&I-EM','NORTHERN EUROPE-EM', 'SOUTHERN EUROPE-EM') 
-
-),
-
-ib_02a_ce_splits as (
-
+), ib_02a_ce_splits as (
 
 SELECT ce.record
     , ce.platform_subset
@@ -232,8 +217,8 @@ FROM "prod"."ce_splits" AS ce
 WHERE 1=1
     AND ce.official = 1
     AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF')
-),  ib_02b_ce_splits_filter as (
 
+),  ib_02b_ce_splits_filter as (
 
 SELECT DISTINCT record
     , platform_subset
@@ -253,8 +238,8 @@ FROM
         AND pre_post_flag = 'PRE'
 ) AS sub
 WHERE 1=1
-),  ib_02c_ce_splits_final as (
 
+),  ib_02c_ce_splits_final as (
 
 SELECT ce.record
     , ce.platform_subset
@@ -295,7 +280,6 @@ WHERE 1=1
 """
 
 query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"])
-
 
 # COMMAND ----------
 
