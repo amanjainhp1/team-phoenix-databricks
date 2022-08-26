@@ -11,6 +11,16 @@
 
 # COMMAND ----------
 
+# edw_revenue_units_sales_landing
+# edw_revenue_document_currency_landing
+# edw_revenue_dollars_landing
+# edw_revenue_units_base_landing
+# edw_shipment_actuals_landing
+
+
+
+# COMMAND ----------
+
 ## IE2_Landing.dbo.edw_revenue_units_sales_landing
 
 edw_revenue_units_sales_landing_query = """
