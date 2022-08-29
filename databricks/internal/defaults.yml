@@ -11,8 +11,8 @@ splunk:
   enable: true
   host: 'splunk.prod.internal.forwarders.tools.cso-hp.com'
 
-  index: dataos-core-dev
-  secret: 'dev/k8s/splunk/logging'
+  index: team-phoenix-dev
+  secret: 'team-phoenix-dev'
   secret_attr: splunk_hec_token
 libraries: 
     private:
