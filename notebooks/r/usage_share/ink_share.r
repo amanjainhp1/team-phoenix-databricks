@@ -21,11 +21,37 @@ dbutils.widgets.text("timestamp", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve tasks from widgets/parameters
+# MAGIC tasks = dbutils.widgets.get("tasks") if dbutils.widgets.get("tasks") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["tasks"]
+# MAGIC tasks = tasks.split(";")
+# MAGIC 
+# MAGIC # define all relevenat task parameters to this notebook
+# MAGIC relevant_tasks = ["all", "share"]
+# MAGIC 
+# MAGIC # exit if tasks list does not contain a relevant task i.e. "all" or "share"
+# MAGIC for task in tasks:
+# MAGIC     if task not in relevant_tasks:
+# MAGIC         dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # set vars equal to widget vals for interactive sessions, else retrieve task values 
+# MAGIC writeout = dbutils.widgets.get("writeout") if dbutils.widgets.get("writeout") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["writeout"]
+# MAGIC outnm_dt = dbutils.widgets.get("outnm_dt") if dbutils.widgets.get("outnm_dt") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["outnm_dt"]
+# MAGIC ib_version = dbutils.widgets.get("ib_version") if dbutils.widgets.get("ib_version") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["ib_version"]
+# MAGIC datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
+# MAGIC timestamp = dbutils.widgets.get("timestamp") if dbutils.widgets.get("timestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["timestamp"]
 
 # COMMAND ----------
 
@@ -34,6 +60,9 @@ dbutils.widgets.text("timestamp", "")
 # MAGIC # retrieve configs and export to spark.confs for usage across languages
 # MAGIC for key, val in configs.items():
 # MAGIC     spark.conf.set(key, val)
+# MAGIC 
+# MAGIC spark.conf.set('datestamp', datestamp)
+# MAGIC spark.conf.set('timestamp', timestamp)
 # MAGIC 
 # MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
@@ -50,8 +79,6 @@ packages <- c("sqldf", "zoo", "plyr", "reshape2", "lubridate", "data.table", "ti
 options(scipen=999)
 sessionInfo()
 
-writeout <- dbutils.widgets.get("writeout") #change to YES to write to MDM
-
 # COMMAND ----------
 
 # define s3 bucket
@@ -61,9 +88,6 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # MAGIC %python
 # MAGIC # load parquet data and register views
-# MAGIC datestamp = dbutils.widgets.get('datestamp')
-# MAGIC timestamp = dbutils.widgets.get('timestamp')
-# MAGIC ibversion = dbutils.widgets.get('ib_version')
 # MAGIC 
 # MAGIC tables = ['bdtbl', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
 # MAGIC for table in tables:
@@ -1406,18 +1430,10 @@ proxylist_d$proxy <- ifelse(is.na(proxylist_d$proxy),"TIJ",proxylist_d$proxy)
 
 remaining3 <- subset(proxylist_d,is.na(min))
 
-#write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","Page Share for 100 percent IB DE ",".csv", sep=''), x=proxylist_final,row.names=FALSE, na="")
-
 # COMMAND ----------
 
 ###Need to remove files to clear up memory
 ibversion <- unique(ibtable$version)
-#rm(product_ib2a)
-#rm(ibtable)
-# rm(data_coefc)
-# rm(data_coefd)
-# rm(data_coefr)
-# rm(data_coefm)
 gc()
 
 # COMMAND ----------
@@ -1450,8 +1466,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 
-UPM <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "ink", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), "usage_total", sep="/"))
-UPMC <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "ink", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), "usage_color", sep="/"))
+UPM <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "ink", sparkR.conf("datestamp"), sparkR.conf("timestamp"), "usage_total", sep="/"))
+UPMC <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "ink", sparkR.conf("datestamp"), sparkR.conf("timestamp"), "usage_color", sep="/"))
 
 createOrReplaceTempView(UPM, "UPM")
 createOrReplaceTempView(UPMC, "UPMC")
@@ -1875,10 +1891,6 @@ createOrReplaceTempView(final_list6, "final_list6")
 # COMMAND ----------
 
 # Adjust curve at join
-
-# tempdir(check=TRUE)
-#rm(list= ls()[!(ls() %in% c('ibversion','final_list6','writeout','sfai'))])  ###Clear up memory- gets rid of all but these tables
-# gc(reset = TRUE)
 
 ws <- orderBy(windowPartitionBy("Platform_Subset_Nm", "rtm", "Country_Cd"), "FYearMo")
 final_list7 <- mutate(final_list6
@@ -2498,7 +2510,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC import re
 # MAGIC from pyspark.sql.functions import lit
 # MAGIC 
-# MAGIC forecast_process_note ="INK {} {}.1".format(dbutils.widgets.get("outnm_dt").upper(), datestamp[0:4])
+# MAGIC forecast_process_note ="INK {} {}.1".format(outnm_dt.upper(), datestamp[0:4])
 # MAGIC 
 # MAGIC version = call_redshift_addversion_sproc(configs=configs, record=forecast_process_note, source_name="CUPSM")
 # MAGIC 
@@ -2514,7 +2526,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 
 # MAGIC %python
 # MAGIC 
-# MAGIC if dbutils.widgets.get("writeout").upper() == "YES":
+# MAGIC if writeout.upper() == "YES":
 # MAGIC     write_df_to_redshift(configs=configs, df=spark.read.parquet(s3_destination).load(), destination="stage.usage_share_ink_landing", mode="append", preactions="TRUNCATE stage.usage_share_ink_landing")
 
 # COMMAND ----------

@@ -10,10 +10,31 @@ from datetime import datetime
 
 # COMMAND ----------
 
-# for interactive sessions, define a version
-dbutils.widgets.text("usage_share_file", "")
-dbutils.widgets.text("usage_share_constant", "")
+# for interactive sessions, define widgets
+dbutils.widgets.text("usage_share_current_version", "")
+dbutils.widgets.text("usage_share_locked_version", "")
 dbutils.widgets.text("datestamp", "")
+
+# COMMAND ----------
+
+# retrieve tasks from widgets/parameters
+tasks = dbutils.widgets.get("tasks").split(";")
+
+# define all relevenat task parameters to this notebook
+relevant_tasks = ["all", "proxy_locking"]
+# exit if tasks list does not contain a relevant task i.e. "all" or "proxy_locking"
+for task in tasks:
+    if task not in relevant_tasks:
+        dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# set vars equal to widget vals for job/interactive sessions
+usage_share_locked_version = dbutils.widgets.get("usage_share_locked_version")
+
+# set vars equal to widget vals for job/interactive sessions, else retrieve task values 
+usage_share_current_version = dbutils.widgets.get("usage_share_current_version") if dbutils.widgets.get("usage_share_current_version") != "" else dbutils.jobs.taskValues.get(taskKey = "toner_share", key = "args")["usage_share_current_version"]
+datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
 
 # COMMAND ----------
 
@@ -36,22 +57,14 @@ dbutils.widgets.text("datestamp", "")
 
 
 # Load Current run of Usage/Share
-usage_share_current_version = dbutils.widgets.get("usage_share_current_version") # s3://dataos-core-prod-team-phoenix/spectrum/cupsm/2022.08.11.1/toner*
 usage_share_current_df = spark.read.parquet(f"constants['S3_BASE_BUCKET'][stack]/spectrum/cupsm/{usage_share_current_version}/toner*") 
+usage_share_current_df.createOrReplaceTempView("usage_share_current_df")
 
 # COMMAND ----------
 
 # Load Proxy Constant Usage/Share
-usage_share_locked_version = dbutils.widgets.get("usage_share_locked_version") # s3://dataos-core-prod-team-phoenix/spectrum/cupsm/2022.07.19.1/toner*
 usage_share_locked_df = spark.read.parquet(f"constants['S3_BASE_BUCKET'][stack]/spectrum/cupsm/{usage_share_locked_version}/toner*")
-
-# COMMAND ----------
-datestamp = datetime.today().strftime("%Y%m%d") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
-
-# COMMAND ----------
-
-# Create table of just values to hold constant --share
-usage_share_current_df.createOrReplaceTempView("usage_share_current_df")
+usage_share_locked_df.createOrReplaceTempView("usage_share_locked_df")
 
 # COMMAND ----------
 
@@ -62,8 +75,6 @@ bdcurrent = spark.sql("""
     WHERE 1=1
       AND upper(data_source) in ('HAVE DATA','DASHBOARD')
 """)
-
-# COMMAND ----------
 
 bdcurrent.createOrReplaceTempView("bdcurrent")
 
@@ -89,27 +100,7 @@ cupsm_current_raw = spark.sql("""
      FROM step1
 """)
 
-# COMMAND ----------
-
-cupsm_current_raw.stat.crosstab('measure','proxy_flag').show()
-
-# COMMAND ----------
-
 cupsm_current_raw.createOrReplaceTempView("cupsm_current_raw")
-
-# COMMAND ----------
-
-test1 = spark.sql("""
-    SELECT *
-    FROM cupsm_current_raw
-    WHERE upper(measure)='USAGE'
-      AND units=NULL
-
-""")
-
-# COMMAND ----------
-
-usage_share_locked_df.createOrReplaceTempView("usage_share_locked_df")
 
 # COMMAND ----------
 
@@ -132,12 +123,6 @@ usage_share_locked_df = spark.sql("""
     
 """)
 
-# COMMAND ----------
-
-usage_share_locked_df.stat.crosstab('measure','data_source').show()
-
-# COMMAND ----------
-
 usage_share_locked_df.createOrReplaceTempView("usage_share_locked_df")
 
 # COMMAND ----------
@@ -150,13 +135,7 @@ bdlocked = spark.sql("""
       AND upper(data_source) IN ('HAVE DATA','DASHBOARD')
     """)
 
-# COMMAND ----------
-
 bdlocked.createOrReplaceTempView("bdlocked")
-
-# COMMAND ----------
-
-bdlocked.stat.crosstab('measure','data_source').show()
 
 # COMMAND ----------
 
@@ -182,12 +161,6 @@ cupsm_locked_raw = spark.sql("""
                END AS proxy_flag
      FROM step1
 """)
-
-# COMMAND ----------
-
-cupsm_locked_raw.stat.crosstab('measure','proxy_flag').show()
-
-# COMMAND ----------
 
 cupsm_current_raw.createOrReplaceTempView("cupsm_current_raw")
 cupsm_locked_raw.createOrReplaceTempView("cupsm_locked_raw")
@@ -241,44 +214,7 @@ cupsm_combined = spark.sql("""
   
 """)
 
-
-# COMMAND ----------
-
-cupsm_combined.stat.crosstab('measure','status').show()
-
-# COMMAND ----------
-
 cupsm_combined.createOrReplaceTempView("cupsm_combined")
-
-# COMMAND ----------
-
-test3 = spark.sql("""
-      SELECT platform_subset, status, min(cal_date) as min_cal_date,  count(cal_date) as count
-      FROM cupsm_combined
-      WHERE units is null
-        AND measure='USAGE'
-      GROUP BY platform_subset, status
-      order by platform_subset
-""")
-
-# COMMAND ----------
-
-display(test3)
-
-# COMMAND ----------
-
-test4 = spark.sql("""
-      SELECT *
-      FROM cupsm_combined
-      WHERE platform_subset='GAHERIS YET2 DE'
-        AND cal_date > '2021-09-01'
-        AND measure='USAGE'
-      order by geography, cal_date
-""")
-
-# COMMAND ----------
-
-display(test4)
 
 # COMMAND ----------
 
@@ -315,5 +251,4 @@ output = spark.sql("""
 # COMMAND ----------
 
 #usage_share_proxy
-
 output.write.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/toner_locked", mode="overwrite")
