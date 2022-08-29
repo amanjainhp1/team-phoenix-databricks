@@ -99,3 +99,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("GROSS MARGIN USD","gross_margin_usd") 
 
     write_df_to_redshift(configs, rac_product_financials_df, "fin_prod.odw_rac_product_financials_actuals", "append")
+
+# COMMAND ----------
+
+

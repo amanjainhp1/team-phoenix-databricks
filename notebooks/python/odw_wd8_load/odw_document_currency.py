@@ -45,8 +45,12 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
+dbutils.fs.unmount("/mnt/odw_document_currency/")
+
+# COMMAND ----------
+
 # mount S3 bucket
-bucket = f"dataos-core-{stack}-team-phoenix"
+bucket = f"dataos-core-{stack}-team-phoenix-fin"
 bucket_prefix = "landing/odw/odw_document_currency"
 dbfs_mount = '/mnt/odw_document_currency/'
 
@@ -141,7 +145,10 @@ LEFT JOIN "mdm"."calendar" cal ON w.ms4_fiscal_year_period = cal.ms4_fiscal_year
 LEFT JOIN "prod"."ms4_profit_center_hierarchy" plx ON w.profit_center_code = plx.profit_center_code    
 WHERE 1=1
 	AND Day_of_Month = 1
-GROUP BY cal.Date, pl, segment, document_currency_code
+GROUP BY cal.Date
+    , pl
+    , segment
+    , document_currency_code
 ), add_seg_hierarchy as (
 
 
@@ -156,7 +163,12 @@ SELECT
 FROM change_date_and_profit_center_hierarchy w
 LEFT JOIN "mdm"."profit_center_code_xref" s ON w.segment = s.profit_center_code
 LEFT JOIN "mdm"."iso_country_code_xref" iso ON s.country_alpha2 = iso.country_alpha2
-GROUP BY cal_date, pl, iso.country_alpha2, iso.region_5, document_currency_code, segment
+GROUP BY cal_date
+    , pl
+    , iso.country_alpha2
+    , iso.region_5
+    , document_currency_code
+    , segment
 )SELECT
     'ACTUALS - DOCUMENT CURRENCY' as record
     , cal_date
@@ -170,7 +182,12 @@ GROUP BY cal_date, pl, iso.country_alpha2, iso.region_5, document_currency_code,
 	, current_date as load_date
     , null as version
 FROM add_seg_hierarchy
-GROUP BY cal_date, country_alpha2, region_5, pl, segment, document_currency_code
+GROUP BY cal_date
+    , country_alpha2
+    , region_5
+    , pl
+    , segment
+    , document_currency_code
 """
 
 query_list.append(["fin_prod.odw_document_currency", odw_document_currency , "append"])
