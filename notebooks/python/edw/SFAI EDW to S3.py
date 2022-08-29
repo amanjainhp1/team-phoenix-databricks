@@ -17,8 +17,6 @@
 # edw_revenue_units_base_landing         --dataos-core-prod-team-phoenix-fin bucket
 # edw_shipment_actuals_landing           --dataos-core-prod-team-phoenix bucket
 
-
-
 # COMMAND ----------
 
 ## IE2_Landing.dbo.edw_revenue_units_sales_landing
@@ -55,18 +53,13 @@ redshift_edw_revenue_units_sales_landing_records = read_sql_server_to_df(configs
     .option("query", edw_revenue_units_sales_landing_query) \
     .load()
 
-
-
 # COMMAND ----------
 
 # write to parquet file in s3
 
 s3_usage_share_output_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_units_sales_landing/"
-# print (s3_usage_share_output_bucket)
 
 write_df_to_s3(redshift_edw_revenue_units_sales_landing_records, s3_usage_share_output_bucket, "parquet", "overwrite")
-
-
 
 # COMMAND ----------
 
@@ -210,7 +203,6 @@ select
 	[version]
 FROM [IE2_Landing].[dbo].[edw_shipment_actuals_landing]
 """
-
 
 edw_shipment_actuals_landing_records = read_sql_server_to_df(configs) \
     .option("query", edw_shipment_actuals_landing_query) \
