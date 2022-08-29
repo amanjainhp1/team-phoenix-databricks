@@ -3,10 +3,6 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
-
-# COMMAND ----------
-
 # MAGIC %run ../common/database_utils
 
 # COMMAND ----------
@@ -57,9 +53,9 @@ redshift_edw_revenue_units_sales_landing_records = read_sql_server_to_df(configs
 
 # write to parquet file in s3
 
-s3_usage_share_output_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_units_sales_landing/"
+s3_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_units_sales_landing/"
 
-write_df_to_s3(redshift_edw_revenue_units_sales_landing_records, s3_usage_share_output_bucket, "parquet", "overwrite")
+write_df_to_s3(redshift_edw_revenue_units_sales_landing_records, s3_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
@@ -89,9 +85,9 @@ redshift_edw_revenue_document_currency_landing_records = read_sql_server_to_df(c
 
 # write to parquet file in s3
 
-s3_usage_share_output_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_document_currency_landing/"
+s3_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_document_currency_landing/"
 
-write_df_to_s3(redshift_edw_revenue_document_currency_landing_records, s3_usage_share_output_bucket, "parquet", "overwrite")
+write_df_to_s3(redshift_edw_revenue_document_currency_landing_records, s3_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
@@ -129,9 +125,9 @@ edw_revenue_dollars_landing_records = read_sql_server_to_df(configs) \
 
 # write to parquet file in s3
 
-s3_usage_share_output_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_dollars_landing/"
+s3_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_dollars_landing/"
 
-write_df_to_s3(edw_revenue_dollars_landing_records, s3_usage_share_output_bucket, "parquet", "overwrite")
+write_df_to_s3(edw_revenue_dollars_landing_records, s3_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
@@ -172,9 +168,9 @@ edw_revenue_units_base_landing_records = read_sql_server_to_df(configs) \
 
 # write to parquet file in s3
 
-s3_usage_share_output_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_units_base_landing/"
+s3_bucket = constants["S3_FIN_BUCKET"][stack] + "EDW/edw_revenue_units_base_landing/"
 
-write_df_to_s3(edw_revenue_units_base_landing_records, s3_usage_share_output_bucket, "parquet", "overwrite")
+write_df_to_s3(edw_revenue_units_base_landing_records, s3_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
@@ -212,6 +208,6 @@ edw_shipment_actuals_landing_records = read_sql_server_to_df(configs) \
 
 # write to parquet file in s3
 
-s3_usage_share_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/EDW/edw_shipment_actuals_landing/"
+s3_bucket = constants["S3_BASE_BUCKET"][stack] + "product/EDW/edw_shipment_actuals_landing/"
 
-write_df_to_s3(edw_shipment_actuals_landing_records, s3_usage_share_output_bucket, "parquet", "overwrite")
+write_df_to_s3(edw_shipment_actuals_landing_records, s3_bucket, "parquet", "overwrite")
