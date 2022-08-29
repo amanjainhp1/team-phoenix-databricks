@@ -35,8 +35,8 @@ if redshift_row_count == 0:
 # COMMAND ----------
 
 # mount S3 bucket
-bucket = f"dataos-core-{stack}-team-phoenix"
-bucket_prefix = "landing/odw/odw_sacp_actuals/"
+bucket = f"dataos-core-{stack}-team-phoenix-fin"
+bucket_prefix = "landing/odw/sacp_actuals/"
 dbfs_mount = '/mnt/odw_sacp_actuals/'
 
 s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
