@@ -15,17 +15,41 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("cutoff_dt", "")
 dbutils.widgets.text("outnm_dt", "")
-dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("datestamp","")
 dbutils.widgets.text("timestamp","")
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve tasks from widgets/parameters
+# MAGIC tasks = dbutils.widgets.get("tasks") if dbutils.widgets.get("tasks") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["tasks"]
+# MAGIC tasks = tasks.split(";")
+# MAGIC 
+# MAGIC # define all relevenat task parameters to this notebook
+# MAGIC relevant_tasks = ["all", "share"]
+# MAGIC 
+# MAGIC # exit if tasks list does not contain a relevant task i.e. "all" or "share"
+# MAGIC for task in tasks:
+# MAGIC     if task not in relevant_tasks:
+# MAGIC         dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # set vars equal to widget vals for interactive sessions, else retrieve task values 
+# MAGIC cutoff_dt = dbutils.widgets.get("cutoff_dt") if dbutils.widgets.get("cutoff_dt") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["cutoff_dt"]
+# MAGIC outnm_dt = dbutils.widgets.get("outnm_dt") if dbutils.widgets.get("outnm_dt") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["outnm_dt"]
+# MAGIC datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
+# MAGIC timestamp = dbutils.widgets.get("timestamp") if dbutils.widgets.get("timestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["timestamp"]
 
 # COMMAND ----------
 
@@ -35,6 +59,9 @@ dbutils.widgets.text("timestamp","")
 # MAGIC for key, val in configs.items():
 # MAGIC     spark.conf.set(key, val)
 # MAGIC 
+# MAGIC spark.conf.set('cutoff_dt', cutoff_dt)
+# MAGIC spark.conf.set('datestamp', datestamp)
+# MAGIC spark.conf.set('timestamp', timestamp)
 # MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
@@ -51,9 +78,6 @@ options(java.parameters = "-Xmx30g" )
 options(stringsAsFactors = FALSE)
 
 tempdir(check=TRUE)
-
-#--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
-outnm_dt <- dbutils.widgets.get("outnm_dt")
 
 # COMMAND ----------
 
@@ -73,7 +97,7 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # COMMAND ----------
 
-cutoff_date <- dbutils.widgets.get("cutoff_dt")
+cutoff_date <- sparkR.conf("cutoff_dt")
 table_month0 <- SparkR::collect(SparkR::sql(paste0("
            SELECT  tpmib.printer_group  
            , tpmib.printer_platform_name as platform_name 
@@ -1582,101 +1606,6 @@ remaining <- subset(proxylist_b,is.na(min))
 
 remaining2 <- subset(remaining,substring(FMC,nchar(FMC)-2,nchar(FMC))=='WGP' | substring(FMC,nchar(FMC)-2,nchar(FMC))=='DSK')
 
-# remaining_LA <- subset(remaining,!is.na(FMC))
-# remaining_LA$regions <- as.character(remaining_LA$regions)
-# proxylist_la <- sqldf("
-#                          SELECT a.printer_platform_name, a.regions, a.Predecessor 
-#                           ,CASE 
-#                             WHEN a.min IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[min.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[min.mn] IS NULL THEN 
-#                                       CASE WHEN d.[min.mn] IS NULL THEN e.FMC
-#                                       ELSE d.FMC
-#                                       END
-#                                     ELSE c.FMC
-#                                   END
-#                                 ELSE b.FMC
-#                               END
-#                             ELSE a.FMC 
-#                           END as proxy
-#                           ,CASE 
-#                             WHEN a.min IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[min.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[min.mn] IS NULL THEN 
-#                                       CASE WHEN d.[min.mn] IS NULL THEN e.[min.mn]
-#                                       ELSE d.[min.mn]
-#                                       END
-#                                     ELSE c.[min.mn]
-#                                   END
-#                                 ELSE b.[min.mn]
-#                               END
-#                             ELSE a.min 
-#                           END as min
-#                           ,CASE 
-#                             WHEN a.max IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[max.mn] IS NULL THEN 
-#                               CASE 
-#                                 WHEN c.[max.mn] IS NULL THEN
-#                                   CASE WHEN d.[max.mn] IS NULL THEN e.[max.mn]
-#                                   ELsE d.[max.mn]
-#                                   END
-#                                 ELSE c.[max.mn]
-#                                 END
-#                                 ELSE b.[max.mn]
-#                               END
-#                             ELSE a.min
-#                           END as max
-#                           ,CASE 
-#                               WHEN a.med IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[med.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[med.mn] IS NULL THEN
-#                                       CASE WHEN d.[med.mn] IS NULL THEN e.[med.mn]
-#                                       ELSE d.[med.mn]
-#                                       END
-#                                     ELSE c.[med.mn]
-#                                   END
-#                                 ELSE b.[med.mn]
-#                               END
-#                             ELSE a.min
-#                           END as med
-#                           ,CASE 
-#                             WHEN a.spread IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[spread.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[spread.mn] IS NULL THEN
-#                                       CASE WHEN d.[spread.mn] IS NULL THEN e.[spread.mn]
-#                                       ELSE d.[spread.mn]
-#                                       END
-#                                     ELSE c.[spread.mn]
-#                                   END
-#                                 ELSE b.[spread.mn]
-#                               END
-#                             ELSE a.spread
-#                           END as spread
-#                           , a.FMC
-#                         FROM remaining_LA a
-#                         LEFT JOIN  aggr_models_f b
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(b.FMC,1,2) AND SUBSTR(b.FMC,3,5)='WGP' AND a.regions=b.regions)
-#                         LEFT JOIN  aggr_models_f c
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(c.FMC,1,2) AND SUBSTR(c.FMC,3,5)='SWH' AND a.regions=c.regions)
-#                         LEFT JOIN  aggr_models_f d
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(d.FMC,1,2) AND SUBSTR(d.FMC,3,5)='SWL' AND a.regions=d.regions)
-#                         LEFT JOIN  aggr_models_f e
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(e.FMC,1,2) AND SUBSTR(e.FMC,3,5)='DSK' AND a.regions=e.regions)
-#                          ")
-# proxylist_la2 <- subset(proxylist_la,is.na(min))
-# proxylist_la3 <- subset(proxylist_la,!is.na(min))
-# #remaining_FMC <- subset(remaining,is.na(FMC))
-# proxylist_c <- subset(proxylist_b,!is.na(min))
-# proxylist_f1 <- rbind(proxylist_c,proxylist_la3)
 proxylist_f1 <- subset(proxylist_b,!is.na(min))
 #write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","Page Share for 100 percent IB DE ",".csv", sep=''), x=proxylist_final,row.names=FALSE, na="")
 
@@ -2520,7 +2449,6 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 final_list8$dm_version <- dm_version
-outnm_dt <- dbutils.widgets.get("outnm_dt")
 today <- dbutils.widgets.get("datestamp")
 vsn <- '2022.01.19.1'  #for DUPSM
 rec1 <- 'usage_share'
@@ -2863,7 +2791,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC import re
 # MAGIC from pyspark.sql.functions import lit
 # MAGIC 
-# MAGIC forecast_process_note ="TONER {} {}.1".format(dbutils.widgets.get("outnm_dt").upper(), datestamp[0:4])
+# MAGIC forecast_process_note ="TONER {} {}.1".format(outnm_dt.upper(), datestamp[0:4])
 # MAGIC 
 # MAGIC version = call_redshift_addversion_sproc(configs=configs, record=forecast_process_note, source_name="CUPSM")
 # MAGIC 
