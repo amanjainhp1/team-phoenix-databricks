@@ -35,6 +35,7 @@ if redshift_row_count == 0:
 # COMMAND ----------
 
 # mount S3 bucket
+dbutils.fs.unmount("/mnt/odw_sacp_actuals/")
 bucket = f"dataos-core-{stack}-team-phoenix-fin"
 bucket_prefix = "landing/odw/sacp_actuals/"
 dbfs_mount = '/mnt/odw_sacp_actuals/'
@@ -792,7 +793,3 @@ query_list.append(["fin_prod.odw_sacp_actuals", odw_sacp_actuals , "append"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-

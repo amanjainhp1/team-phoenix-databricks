@@ -19,7 +19,7 @@ from functools import reduce
 redshift_row_count = 0
 try:
     redshift_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "fin_prod.ms4_actuals_deliveries") \
+        .option("dbtable", "prod.actuals_deliveries") \
         .load() \
         .count()
 except:
@@ -30,11 +30,12 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Prod.ms4.actuals_deliveries") \
         .load()
     
-    write_df_to_redshift(configs, odw_actuals_deliveries_df, "fin_prod.ms4_actuals_deliveries", "append")
+    write_df_to_redshift(configs, odw_actuals_deliveries_df, "prod.actuals_deliveries", "append")
 
 # COMMAND ----------
 
 # mount S3 bucket
+dbutils.fs.unmount("/mnt/odw_shipment_actuals/")
 bucket = f"dataos-core-{stack}-team-phoenix-fin"
 bucket_prefix = "landing/odw/shipment_actuals/"
 dbfs_mount = '/mnt/odw_shipment_actuals/'
@@ -105,7 +106,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Bundled Qty","bundled_qty") \
                         .withColumnRenamed("Unbundled Qty","unbundled_qty") 
 
-    write_df_to_redshift(configs, odw_actuals_deliveries_df, "fin_stage.ms4_odw_report_ships_deliveries_actuals", "append")
+    write_df_to_redshift(configs, odw_actuals_deliveries_df, "stage.odw_report_ships_deliveries_actuals", "append")
 
 # COMMAND ----------
 
@@ -113,7 +114,7 @@ query_list = []
 
 # COMMAND ----------
 
-ms4_actuals_deliveries = """
+actuals_deliveries = """
 
 WITH
 
@@ -134,10 +135,10 @@ SELECT calendar_year_month
       ,SUM(delivery_item_qty) as units
 	  ,SUM(bundled_qty) as bundled_qty
 	  ,SUM(unbundled_qty) as unbundled_qty
-  FROM fin_stage.ms4_odw_report_ships_deliveries_actuals w
+  FROM stage.odw_report_ships_deliveries_actuals w
   where 1=1
   AND segment_code is not null -- all have zero values
-  AND calendar_year_month = (SELECT MAX(calendar_year_month) FROM fin_stage.ms4_odw_report_ships_deliveries_actuals)
+  AND calendar_year_month = (SELECT MAX(calendar_year_month) FROM stage.odw_report_ships_deliveries_actuals)
   GROUP BY calendar_year_month
       , profit_center_code
       , material_nr
@@ -419,12 +420,8 @@ GROUP BY cal_date,
 	pl
 """
 
-query_list.append(["fin_prod.ms4_actuals_deliveries", ms4_actuals_deliveries , "append"])
+query_list.append(["fin_prod.actuals_deliveries", actuals_deliveries , "append"])
 
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-

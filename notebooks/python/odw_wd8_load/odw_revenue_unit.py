@@ -46,6 +46,8 @@ if redshift_row_count == 0:
 # COMMAND ----------
 
 # mount S3 bucket
+dbutils.fs.unmount("/mnt/odw_revenue_unit_sales/")
+
 bucket = f"dataos-core-{stack}-team-phoenix-fin" 
 bucket_prefix = "landing/odw/revenue_unit_sales/"
 dbfs_mount = '/mnt/odw_revenue_unit_sales/'

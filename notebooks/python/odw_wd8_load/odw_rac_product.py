@@ -19,7 +19,7 @@ from functools import reduce
 redshift_row_count = 0
 try:
     redshift_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "fin_prod.odw_rac_product_financials_actuals") \
+        .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
         .load() \
         .count()
 except:
@@ -35,6 +35,7 @@ if redshift_row_count == 0:
 # COMMAND ----------
 
 # mount S3 bucket
+dbutils.fs.unmount("/mnt/odw_rac_product_financials/")
 bucket = f"dataos-core-{stack}-team-phoenix-fin"
 bucket_prefix = "landing/odw/rac_product_financials/"
 dbfs_mount = '/mnt/odw_rac_product_financials/'
@@ -98,8 +99,4 @@ if redshift_row_count > 0:
                         .withColumnRenamed("TOTAL COST OF SALES USD","total_cost_of_sales_usd") \
                         .withColumnRenamed("GROSS MARGIN USD","gross_margin_usd") 
 
-    write_df_to_redshift(configs, rac_product_financials_df, "fin_prod.odw_rac_product_financials_actuals", "append")
-
-# COMMAND ----------
-
-
+    write_df_to_redshift(configs, rac_product_financials_df, "fin_prod.odw_report_rac_product_financials_actuals", "append")
