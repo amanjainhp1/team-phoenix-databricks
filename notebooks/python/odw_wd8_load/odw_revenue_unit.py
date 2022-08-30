@@ -5,11 +5,11 @@ from pyspark.sql.types import DecimalType
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
