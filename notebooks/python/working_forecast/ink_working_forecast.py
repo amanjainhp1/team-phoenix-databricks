@@ -83,6 +83,8 @@ WITH geography_mapping AS
      WHERE 1 = 1
        AND us.upload_type = 'WORKING-FORECAST'
        AND us.geography_grain = 'REGION_5')
+       
+ select * from ink_us_subset
 """
 
 query_list.append(["scen.ink_01_us_uploads", ink_01_us_uploads, "overwrite"])
@@ -493,6 +495,8 @@ WITH override_filters  AS
        AND us_scen.geography IS NULL
        AND us_scen.customer_engagement IS NULL
        AND us_scen.cal_date IS NULL)
+       
+       SELECT * FROM ink_usage_share
 """
 
 query_list.append(["scen.ink_03_usage_share", ink_03_usage_share, "overwrite"])
@@ -1016,7 +1020,7 @@ SELECT 'PCM_ENGINE_PROJECTION'  AS type
        ' ' +
        base_product_number + ' ' + customer_engagement + ' ' +
        'PCM_ENGINE_PROJECTION'   AS composite_key
-FROM pcm_14_projection AS m14;  
+FROM pcm_14_projection AS m14
 """
 
 query_list.append(["scen.ink_page_mix_engine", ink_page_mix_engine, "overwrite"])
@@ -1271,7 +1275,7 @@ WITH pcm_27_pages_ccs_mix_prep AS
              , m19.base_product_number
              , m19.customer_engagement
              , m19.cc_mix
-        FROM scen.ink_cc_mix_engine AS m19
+        FROM scen.ink_page_mix_engine AS m19
                  LEFT OUTER JOIN scen.ink_page_cc_mix_override AS m26
                                  ON m26.cal_date = m19.cal_date
                                      AND UPPER(m26.market10) = UPPER(m19.geography)
@@ -1298,8 +1302,7 @@ WITH pcm_27_pages_ccs_mix_prep AS
         JOIN mdm.hardware_xref AS hw
             ON hw.platform_subset = m26.platform_subset
         WHERE 1=1
-          AND m26.type = 'UPLOADS'  -- no transformed mix required for ink
-          AND hw.technology IN ('INK', 'PWA'))
+        AND hw.technology IN ('INK', 'PWA'))
 
    , pcm_28_pages_ccs_mix_filter AS
     (SELECT m27.type
@@ -1384,7 +1387,7 @@ SELECT type
      , platform_subset
      , base_product_number
      , customer_engagement
-     , page_mix AS mix_rate
+     , cc_mix AS mix_rate
      , composite_key
 FROM scen.ink_cc_mix_complete
 """
@@ -1461,6 +1464,9 @@ WITH geography_mapping     AS
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
        AND smr.geography_grain = 'REGION_5')
+       
+SELECT *
+FROM ink_mix_rate_subset
 """
 
 query_list.append(["scen.ink_05_mix_uploads", ink_05_mix_uploads, "overwrite"])
@@ -1522,6 +1528,9 @@ WITH ink_mix_rate_final AS
             AND smr.base_product_number IS NULL
             AND smr.geography IS NULL
             AND smr.customer_engagement IS NULL)
+            
+SELECT *
+FROM ink_mix_rate_final
 """
 
 query_list.append(["scen.ink_06_mix_rate_final", ink_06_mix_rate_final, "overwrite"])
@@ -3878,6 +3887,9 @@ WITH geography_mapping   AS
        AND vtc.platform_subset IS NULL
        AND vtc.base_product_number IS NULL
        AND vtc.customer_engagement IS NULL)
+ 
+SELECT *
+FROM ink_working_fcst
 """
 
 query_list.append(["scen.ink_working_fcst", ink_working_fcst, "overwrite"])
