@@ -2595,7 +2595,7 @@ adj_rev_6 = spark.sql("""
 					and version = (select max(version) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as version,						
 				coalesce(sum(monthly_inv_usd_change), 0) as monthly_inv_usd_change,
 				coalesce(sum(previous_inventory_valuation_rate), 0) as previous_inventory_valuation_rate,
-				coalesce(sum(period_price_change), 0) as period_implied_price_change,
+				coalesce(sum(period_price_change), 0) as implied_period_price_change,
 				coalesce(sum(price_change_x_prev_inv_qty), 0) as implied_price_change_x_prev_inv_qty,
 				coalesce(sum(monthly_unit_change_dollar_impact), 0) as monthly_unit_change_dollar_impact,
 				coalesce(sum(proxy_change), 0) as proxy_change,
@@ -2609,7 +2609,64 @@ adj_rev_6 = spark.sql("""
 
  """)
 
+adj_rev_6.createOrReplaceTempView("adjusted_revenue_staging")
 query_list.append(["stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Adjust Revenue Salesprod
+
+# COMMAND ----------
+
+adj_rev_sales = spark.sql("""
+select  record
+      ,cal_date
+      ,country_alpha2
+      ,country
+      ,market10
+      ,region_5
+      ,sales_product_number
+      ,pl
+      ,l5_description
+      ,customer_engagement
+      ,currency
+      ,net_revenue_before_hedge
+      ,net_hedge_benefit
+      ,net_revenue
+      ,original_rate_usd
+      ,current_rate_usd
+      ,currency_rate_adjustment
+      ,currency_impact
+      ,cc_net_revenue
+      ,inventory_usd
+      ,prev_inv_usd
+      ,inventory_qty
+      ,prev_inventory_qty as prev_inv_qty
+      ,monthly_unit_change
+      ,reported_inventory_valuation_rate
+      ,inventory_change_impact
+      ,currency_impact_ch_inventory
+      ,cc_inventory_impact
+      ,adjusted_revenue
+      ,official
+      ,load_date
+      ,version
+      ,accounting_rate
+	  ,monthly_inv_usd_change
+      ,previous_inventory_valuation_rate
+      ,implied_period_price_change
+      ,implied_price_change_x_prev_inv_qty
+	  ,monthly_unit_change_dollar_impact
+	  ,proxy_change
+	  ,monthly_mix_change
+	  ,alt_inventory_change_calc
+	  ,inv_chg_calc_variance
+  from adjusted_revenue_staging
+""")
+
+query_list.append(["stage.adjusted_revenue_salesprod", adj_rev_sales, "overwrite"])
 
 # COMMAND ----------
 
