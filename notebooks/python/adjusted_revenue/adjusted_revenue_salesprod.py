@@ -2,9 +2,6 @@
 # MAGIC %md
 # MAGIC 
 # MAGIC # Adjusted Revenue
-# MAGIC 
-# MAGIC Notes/Questions:
-# MAGIC does isnull in tsql map to ifnull in redshift/spark sql?
 
 # COMMAND ----------
 
@@ -38,7 +35,9 @@ inv_curr2 = '2018-08-01'
 
 # COMMAND ----------
 
-# MAGIC %run ../common/delta_lake_loader_adj_rev
+# MAGIC %md
+# MAGIC 
+# MAGIC ### Save Delta Lake Data
 
 # COMMAND ----------
 
@@ -70,7 +69,7 @@ supp_hist_1 = spark.sql("""
 				sum(total_cos) as total_cos,
 				sum(gross_profit) as gross_profit,
 				sum(revenue_units) as revenue_units
-			from actuals_supplies_salesprod s
+			from fin_prod.actuals_supplies_salesprod s
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency
 		),
 		salesprod_actuals as
@@ -93,7 +92,7 @@ supp_hist_1 = spark.sql("""
 			where pl in
 				(
 					select distinct pl
-					from product_line_xref
+					from mdm.product_line_xref
                     where pl_category in ('SUP')
                         and technology in ('INK', 'LASER', 'PWA', 'LF')
                         and pl not in ('GY', 'LZ')
@@ -140,7 +139,7 @@ supp_hist_2 = spark.sql("""
 					when currency = 'EURO' then 'EUR'
 					else 'USD'
 				end as currency
-			from list_price_eu_countrylist
+			from mdm.list_price_eu_countrylist
 			where country_alpha2 not in ('ZM', 'ZW')
 		),
 		row_currency_table as
@@ -150,8 +149,8 @@ supp_hist_2 = spark.sql("""
 				cmap.country_alpha2,
 				cmap.country,
 				currency_iso_code as currency
-			from country_currency_map cmap
-			left join iso_country_code_xref iso on cmap.country_alpha2 = iso.country_alpha2 and cmap.country = iso.country
+			from mdm.country_currency_map cmap
+			left join mdm.iso_country_code_xref iso on cmap.country_alpha2 = iso.country_alpha2 and cmap.country = iso.country
 			where cmap.country_alpha2 not in (
 				select distinct country_alpha2
 				from emea_currency_table
@@ -192,7 +191,7 @@ supp_hist_3 = spark.sql("""
 				effectivedate,
 				accountingrate,
 				isocurrcd
-			from acct_rates
+			from prod.acct_rates
 			where accountingrate != 0
 		)
 			select
@@ -200,7 +199,7 @@ supp_hist_3 = spark.sql("""
 				effectivedate as accounting_rate,
 				accountingrate
 			from accounting_rates_table
-			where effectivedate = (select distinct '{cur_period}' as current_period from acct_rates)
+			where effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
 """)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")
@@ -217,7 +216,7 @@ supp_hist_4 = spark.sql("""
 				effectivedate,
 				accountingrate,
 				isocurrcd
-			from acct_rates
+			from prod.acct_rates
 			where accountingrate != 0
 		)
 
@@ -256,7 +255,7 @@ with
 				sum(gross_profit) as gross_profit,
 				sum(revenue_units) as revenue_units
 			from salesproduct_actuals act
-			left join iso_country_code_xref iso 
+			left join mdm.iso_country_code_xref iso 
 				on act.country_alpha2 = iso.country_alpha2
 			group by cal_date, act.country_alpha2, iso.region_5, currency, sales_product_number, pl, customer_engagement
 		),
@@ -270,8 +269,8 @@ with
 				sales_product_number,
 				pl,
 				customer_engagement,
-				ifnull(sum(rate.accountingrate), 1) as original_rate,
-				ifnull(sum(curr_rate.accountingrate), 1) as current_rate,
+				coalesce(sum(rate.accountingrate), 1) as original_rate,
+				coalesce(sum(curr_rate.accountingrate), 1) as current_rate,
 				sum(gross_revenue) as gross_revenue,
 				sum(net_currency) as net_currency,
 				sum(contractual_discounts) as contractual_discounts,
@@ -304,11 +303,11 @@ with
 					then 
 					(
 						select accountingrate 
-						from acct_rates 
+						from prod.acct_rates 
 						where isocurrcd = 'VEF'
 							and effectivedate = 
 							(
-							select max(effectivedate) from acct_rates where isocurrcd = 'VEF' and accountingrate != 0
+							select max(effectivedate) from prod.acct_rates where isocurrcd = 'VEF' and accountingrate != 0
 							)
 					)
 					else sum(current_rate) 
@@ -347,8 +346,8 @@ with
 				-- usd is denominator of all accounting rates
 				sum(original_rate) as original_rate,
 				sum(current_rate) as current_rate,
-				ifnull((nullif(original_rate, 0) / ifnull(current_rate, 0)), 1) as currency_rate_adjustment,
-				ifnull((nullif(original_rate, 0) / ifnull(current_rate, 0)), 1) * sum(net_revenue_before_hedge) as cc_net_revenue
+				coalesce((nullif(original_rate, 0) / coalesce(current_rate, 0)), 1) as currency_rate_adjustment,
+				coalesce((nullif(original_rate, 0) / coalesce(current_rate, 0)), 1) * sum(net_revenue_before_hedge) as cc_net_revenue
 			from actuals_join_acct_rates2
 			group by cal_date, country_alpha2, region_5, currency, sales_product_number, pl, customer_engagement, original_rate, current_rate
 		)
@@ -391,35 +390,37 @@ query_list.append(["stage.adj_rev_supplies_history_constant_currency", supp_hist
 
 chann_inv_ams = spark.sql("""
 
-	with
-		cbm_st_database as 
+	with cbm_st_database as 
 		(
 			select 
 				case
-					when [data type] = 'ACTUALS' then 'ACTUALS - CBM_ST_SALES_QTY'
-					when [data type] = 'PROXY ADJUSTMENT' then 'PROXY ADJUSTMENT'
+					when st.data_type = 'Actuals' then 'ACTUALS - CBM_ST_SALES_QTY'
+					when st.data_type = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
 				 end as record,
-				cast([month] as date) as cal_date,  
+				cast(st.month as date) as cal_date,  
 				case
-					when [country code] = '0A' then 'XB'
-					when [country code] = '0M' then 'XH'
-					when [country code] = 'CS' then 'XA'
-					when [country code] = 'KV' then 'XA'
-				else [country code]
+					when st.country_code = '0A' then 'XB'
+					when st.country_code = '0M' then 'XH'
+					when st.country_code = 'CS' then 'XA'
+					when st.country_code = 'KV' then 'XA'
+				else st.country_code
 				end as country_alpha2,
-				[product number] as sales_product_number,
-				[product line id] as pl, 
-				partner,
-				[rtm 2] as rtm2,
-				sum(cast(ifnull([sell-thru usd],0) as float)) as sell_thru_usd,
-				sum(cast(ifnull([sell-thru qty],0) as float)) as sell_thru_qty,
-				sum(cast(ifnull([channel inventory usd],0) as float)) as channel_inventory_usd,
-				(sum(cast(ifnull([channel inventory qty],0) as float)) + 0.0) as channel_inventory_qty
-			from cbm.dbo.cbm_st_data st
+                case
+					when st.product_number = 'Actuals' then 'ACTUALS - CBM_ST_SALES_QTY'
+					when st.product_number = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
+				 end as sales_product_number,
+				st.product_line_id as pl, 
+				st.partner,
+				st.rtm_2 as rtm2,
+				sum(cast(coalesce(st.`sell-thru_usd`,0) as float)) as sell_thru_usd,
+				sum(cast(coalesce(st.`sell-thru_qty`,0) as float)) as sell_thru_qty,
+				sum(cast(coalesce(st.channel_inventory_usd,0) as float)) as channel_inventory_usd,
+				(sum(cast(coalesce(st.channel_inventory_qty,0) as float)) + 0.0) as channel_inventory_qty
+			from fin_stage.cbm_st_data st
 			where 1=1
-				and	month > '2015-10-01' 
-				and (ifnull([sell-thru usd],0) + ifnull([sell-thru qty],0) + ifnull([channel inventory usd],0) + ifnull([channel inventory qty],0)) <> 0
-			group by [data type], month, [country code], [product number], [product line id], partner, [rtm 2]
+				and	st.month > '{}'
+				and (coalesce(st.`sell-thru_usd`,0) + coalesce(st.`sell-thru_qty`,0) + coalesce(st.channel_inventory_usd,0) + coalesce(st.channel_inventory_qty,0)) <> 0
+			group by st.data_type, st.month, st.country_code, st.product_number, st.product_line_id, st.partner, st.rtm_2
 		),
 		channel_inventory as
 		(
@@ -436,12 +437,12 @@ chann_inv_ams = spark.sql("""
 				sum(channel_inventory_qty) as channel_inventory_qty,
 				sum(channel_inventory_usd) + sum(channel_inventory_qty) as total
 			from cbm_st_database	
-			where (cal_date between (select min(cal_date) from actuals_supplies_salesprod)
-				and (select max(cal_date) from actuals_supplies_salesprod))
+			where (cal_date between (select min(cal_date) from fin_prod.actuals_supplies_salesprod)
+				and (select max(cal_date) from fin_prod.actuals_supplies_salesprod))
 				and pl in 
 				(
 					select distinct pl 
-					from product_line_xref 
+					from mdm.product_line_xref 
 					where pl_category = 'SUP' 
 						and technology in ('INK', 'LASER', 'PWA', 'LF')
 						and pl not in ('GY', 'LZ')
@@ -460,7 +461,7 @@ chann_inv_ams = spark.sql("""
 				end as sales_product_number,
 				case
 					when sales_product_number = '4HY97A' and pl = 'G0'
-					then 'e5'
+					then 'E5'
 					else pl
 				end as pl,
 				sum(channel_inventory_usd) as channel_inventory_usd,
@@ -474,7 +475,7 @@ chann_inv_ams = spark.sql("""
 			select 
 				distinct(sales_product_number),
 				 sales_product_line_code
-			from rdma_base_to_sales_product_map
+			from mdm.rdma_base_to_sales_product_map
 		),
 		channel_inventory_cleaned as
 		(
@@ -495,11 +496,7 @@ chann_inv_ams = spark.sql("""
 			select
 				cal_date,
 				country_alpha2,
-				case
-					when sales_product_number = 'PROXY ADJUSTMENT'
-					then 'PROXY_ADJUSTMENT'
-					else sales_product_number
-				end as sales_product_number,
+				sales_product_number,
 				case 
 					when rdma_pl is null then st_pl
 					else rdma_pl
@@ -522,7 +519,7 @@ chann_inv_ams = spark.sql("""
 			where pl in 
 				(	
 					select distinct pl 
-					from product_line_xref 
+					from mdm.product_line_xref 
 					where pl_category in ('SUP')
 						and technology in ('INK', 'LASER', 'PWA', 'LF')
 						and pl not in ('GY', 'LZ')
@@ -544,7 +541,7 @@ chann_inv_ams = spark.sql("""
 				sum(channel_inventory_usd) as inventory_usd,
 				sum(channel_inventory_qty) as inventory_qty
 			from channel_inventory_supplies_pl st
-			join iso_country_code_xref geo on st.country_alpha2 = geo.country_alpha2
+			join mdm.iso_country_code_xref geo on st.country_alpha2 = geo.country_alpha2
 			group by cal_date, st.country_alpha2, sales_product_number, pl, region_5
 		)
 		
@@ -557,7 +554,8 @@ chann_inv_ams = spark.sql("""
 				inventory_usd,
 				inventory_qty
 			from channel_inventory_region5
-""")
+            
+""".format(cbm_st_month))
 
 chann_inv_ams.createOrReplaceTempView("channel_inventory_prepped_ams_unadjusted")
 query_list.append(["stage.channel_inventory_prepped_ams_unadjusted", chann_inv_ams, "overwrite"])
@@ -576,38 +574,41 @@ ch_inv_prep_1 = spark.sql("""
 		(
 			select 
 				case
-					when [data type] = 'ACTUALS' then 'ACTUALS - CBM_ST_BASE_QTY'
-					when [data type] = 'PROXY ADJUSTMENT' then 'PROXY ADJUSTMENT'
+					when st.data_type = 'Actuals' then 'ACTUALS - CBM_ST_BASE_QTY'
+					when st.data_type = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
 				 end as record,
-				cast([month] as date) as cal_date,  
+				cast(st.month as date) as cal_date,  
 				case
-					when [country code] = '0A' then 'XB'
-					when [country code] = '0M' then 'XH'
-					when [country code] = 'CS' then 'XA'
-					when [country code] = 'KV' then 'XA'
-				else [country code]
+					when st.country_code = '0A' then 'XB'
+					when st.country_code = '0M' then 'XH'
+					when st.country_code = 'CS' then 'XA'
+					when st.country_code = 'KV' then 'XA'
+				else st.country_code
 				end as country_alpha2,
-				[product number] as sales_product_number,
-				[product line id] as pl, 
-				partner,
-				[rtm 2] as rtm2,
-				sum(cast(isnull([sell-thru usd],0) as float)) as sell_thru_usd,
-				sum(cast(isnull([sell-thru qty],0) as float)) as sell_thru_qty,
-				sum(cast(isnull([channel inventory usd],0) as float)) as channel_inventory_usd,
-				(sum(cast(isnull([channel inventory qty],0) as float)) + 0.0) as channel_inventory_qty
-			from cbm_st_data st
-			where month > '{product_xref_month}'
-				and (isnull([sell-thru usd],0) + isnull([sell-thru qty],0) + isnull([channel inventory usd],0) + isnull([channel inventory qty],0)) <> 0
-				and [product line id] in 
+				case
+					when st.product_number = 'Actuals' then 'ACTUALS - CBM_ST_BASE_QTY'
+					when st.product_number = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
+				 end as sales_product_number,
+				st.product_line_id as pl, 
+				st.partner,
+				st.rtm_2 as rtm2,
+				sum(cast(coalesce(st.`sell-thru_usd`,0) as float)) as sell_thru_usd,
+				sum(cast(coalesce(st.`sell-thru_qty`,0) as float)) as sell_thru_qty,
+				sum(cast(coalesce(st.channel_inventory_usd,0) as float)) as channel_inventory_usd,
+				(sum(cast(coalesce(st.channel_inventory_qty,0) as float)) + 0.0) as channel_inventory_qty
+			from fin_stage.cbm_st_data st
+			where month > '{}'
+				and (coalesce(st.`sell-thru_usd`,0) + coalesce(st.`sell-thru_qty`,0) + coalesce(st.channel_inventory_usd,0) + coalesce(st.channel_inventory_qty,0)) <> 0
+				and product_line_id in 
 				(	select distinct pl 
-					from product_line_xref 
+					from mdm.product_line_xref 
 					where pl_category in ('SUP')
 						and technology in ('INK', 'PWA')
 						or pl = 'AU'
 				)
 				/** special finance calc discontinued in march 2021 **/
-				and month < '{cbm_st_month}'
-			group by [data type], month, [country code], [product number], [product line id], partner, [rtm 2]
+				and month < '{}'
+			group by data_type, month, country_code, product_number, product_line_id, partner, rtm_2
 		),
 		--cbm_st_database2 as 
 		--(
@@ -633,10 +634,10 @@ ch_inv_prep_1 = spark.sql("""
 				fiscal_year_qtr,
 				sum(channel_inventory_usd) as channel_inventory_usd
 			from cbm_st_database2 ci
-			join ie2_prod.dbo.calendar cal on ci.cal_date = cal.date 
-			join ie2_prod.dbo.iso_country_code_xref iso on iso.country_alpha2 = ci.country_alpha2
+			join mdm.calendar cal on ci.cal_date = cal.date 
+			join mdm.iso_country_code_xref iso on iso.country_alpha2 = ci.country_alpha2
 			where day_of_month = 1
-			and fiscal_month in ('3', '6', '9', '12')
+			and fiscal_month in ('3.0', '6.0', '9.0', '12.0')
 			and region_3 = 'AMS'
 			group by fiscal_year_qtr, cal_date, region_3, pl
 		),
@@ -684,7 +685,7 @@ ch_inv_prep_1 = spark.sql("""
 				0 as inventory_qty
 			from official_finance_ci_adjust
 			-- finance feedback:  due to possible restatements, adjustment does not tie out well prior to fy2018.  only apply adjustment to 2018 forward.
-			where cal_date >= '{ci_adjust_cal_date}'
+			where cal_date >= '{}'
 			group by cal_date, region_3
 		)
 
@@ -698,9 +699,9 @@ ch_inv_prep_1 = spark.sql("""
 			inventory_usd,
 			inventory_qty
 		from official_finance_ci_adjust_final
-""")
+""".format(cbm_st_month, product_xref_month, ci_adjust_cal_date))
 
-chann_inv_prep_1.createOrReplaceTempView("official_finance_adjustment")
+ch_inv_prep_1.createOrReplaceTempView("official_finance_adjustment")
 
 # COMMAND ----------
 
@@ -717,8 +718,8 @@ ch_inv_prep_2 = spark.sql("""
 				country_alpha2,
 				sales_product_number,
 				pl,
-				ifnull(sum(inventory_usd), 0) as inventory_usd,
-				ifnull(sum(inventory_qty), 0) as inventory_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty
 			from channel_inventory_prepped_ams_unadjusted
 			group by cal_date, region_5, country_alpha2, sales_product_number, pl
 		
@@ -748,7 +749,7 @@ ch_inv_prep_2 = spark.sql("""
 			group by cal_date, region_5, country_alpha2, sales_product_number, pl
 """)
 
-chann_inv_prep_2.createOrReplaceTempView("channel_inventory_prepped1")
+ch_inv_prep_2.createOrReplaceTempView("channel_inventory_prepped1")
 
 # COMMAND ----------
 
@@ -801,7 +802,7 @@ cbm_sell_adj5_1 = spark.sql("""
 			where country_alpha2  
             not in (
                         select country_alpha2
-                        from iso_country_code_xref
+                        from mdm.iso_country_code_xref
                         where country_alpha2 like 'X%'
                         and country_alpha2 != 'XK'
 					)
@@ -850,8 +851,8 @@ cbm_sell_adj5_1 = spark.sql("""
 					when pl = 'GD' then 'I-INK'
 					else 'TRAD'
 				end as customer_engagement,
-				ifnull(sum(inventory_usd), 0) as inventory_usd,
-				ifnull(sum(inventory_qty), 0) as inventory_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty
 			from channel_inventory_with_proxy2
 			group by cal_date, country_alpha2, pl, region_5, sales_product_number
 		)
@@ -927,7 +928,7 @@ cbm_sell_adj5_2 = spark.sql("""
 			where country_alpha2  
             not in (
                         select country_alpha2
-                        from ie2_prod.dbo.iso_country_code_xref
+                        from mdm.iso_country_code_xref
                         where country_alpha2 like 'X%'
                         and country_alpha2 != 'XK'
                     )
@@ -973,8 +974,8 @@ cbm_sell_adj5_2 = spark.sql("""
 				country_alpha2,
 				sales_product_number,
 				pl,
-				ifnull(sum(inventory_usd), 0) as inventory_usd,
-				ifnull(sum(inventory_qty), 0) as inventory_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty
 			from channel_inventory_without_xcodes
 			group by cal_date, region_5, country_alpha2, sales_product_number, pl				
 		),		
@@ -989,7 +990,7 @@ cbm_sell_adj5_2 = spark.sql("""
 					when sum(revenue_units) over (partition by cal_date, country_alpha2, sales_product_number) = 0 then null
 					else revenue_units / sum(revenue_units) over (partition by cal_date, country_alpha2, sales_product_number)
 				end as unit_ce_mix
-			from ie2_financials.dbo.actuals_supplies_salesprod
+			from fin_prod.actuals_supplies_salesprod
 			-- no dollar impact associated with direct fulfillment or i-ink at this time (i-ink subject to change)
 			where customer_engagement not in ('EST_DIRECT_FULFILLMENT', 'I-INK')
 			and revenue_units > 0
@@ -1004,8 +1005,8 @@ cbm_sell_adj5_2 = spark.sql("""
 				inv.sales_product_number,
 				pl,
 				customer_engagement,
-				sum(inventory_usd * isnull(unit_ce_mix, 1)) as inventory_usd,
-				sum(inventory_qty * isnull(unit_ce_mix, 1))  as inventory_qty
+				sum(inventory_usd * coalesce(unit_ce_mix, 1)) as inventory_usd,
+				sum(inventory_qty * coalesce(unit_ce_mix, 1))  as inventory_qty
 			from channel_inventory_without_xcodes2 inv
 			left join direct_indirect_mix mix on inv.cal_date = mix.cal_date and inv.country_alpha2 = mix.country_alpha2 
 				and inv.sales_product_number = mix.sales_product_number
@@ -1023,8 +1024,8 @@ cbm_sell_adj5_2 = spark.sql("""
 					when customer_engagement is null and pl = 'GD' then  'I-INK'
 					else customer_engagement
 				end as customer_engagement,
-				ifnull(sum(inventory_usd), 0) as inventory_usd,
-				ifnull(sum(inventory_qty),0)  as inventory_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty),0)  as inventory_qty
 			from inventory_adjust_for_customer_engagement
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement
 
@@ -1086,7 +1087,7 @@ where pl = 'g0'
 				country_alpha2,
 				sales_product_number,
 				pl,
-				'trad' as customer_engagement,
+				'TRAD' as customer_engagement,
 				sum(inventory_usd) as inventory_usd,
 				sum(inventory_qty) as inventory_qty
 			from channel_inventory_prepped1
@@ -1103,8 +1104,8 @@ where pl = 'g0'
 				sales_product_number,
 				pl,
 				customer_engagement,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty
 			from combined_channel_inventory act
 			group by cal_date, region_5, country_alpha2, sales_product_number, pl, customer_engagement
 		)
@@ -1187,24 +1188,24 @@ ci_rates_3 = spark.sql("""
 
 select
 	cal.date as cal_date,
-	fiscal_year_qtr,
-	fiscal_yr,
-	pl,
+	cal.fiscal_year_qtr,
+	cal.fiscal_yr,
+	plx.pl,
 	iso.country_alpha2,
 	iso.region_5,
-	[document currency code] as document_currency_code,
-	sum([net k$]) * 1000 as revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-from edw_revenue_document_currency_landing doc
-left join calendar cal on [fiscal year month code] = edw_fiscal_yr_mo
-left join profit_center_code_xref pcx on [profit center code] = profit_center_code
-left join iso_country_code_xref iso on pcx.country_alpha2 = iso.country_alpha2
-left join product_line_xref plx on plxx = [business area code]
+	doc.document_currency_code,
+	sum(`net_K$`) * 1000 as revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
+from fin_stage.edw_revenue_document_currency_landing doc
+left join mdm.calendar cal on fiscal_year_month_code = edw_fiscal_yr_mo
+left join mdm.profit_center_code_xref pcx on pcx.profit_center_code = doc.profit_center_code
+left join mdm.iso_country_code_xref iso on pcx.country_alpha2 = iso.country_alpha2
+left join mdm.product_line_xref plx on plx.plxx = doc.business_area_code
 where 1=1
-	and day_of_month = 1
-	and [net k$] <> 0
+	and cal.day_of_month = 1
+	and `net_K$` <> 0
 	and iso.country_alpha2 <> 'XW'
-	and [document currency code] <> '?'
-group by cal.date, iso.country_alpha2, [document currency code], pl, iso.region_5, fiscal_year_qtr, fiscal_yr
+	and doc.document_currency_code <> '?'
+group by cal.date, iso.country_alpha2, doc.document_currency_code, plx.pl, iso.region_5, cal.fiscal_year_qtr, cal.fiscal_yr
 """)
 
 ci_rates_3.createOrReplaceTempView("edw_document_currency_raw_original")
@@ -1223,9 +1224,9 @@ select
 	doc.region_5,
 	document_currency_code,
 	sum(revenue) as revenue
-from odw_document_currency doc
-left join calendar cal on cal.date = doc.cal_date
-left join profit_center_code_xref pcx on doc.segment = pcx.profit_center_code
+from fin_stage.odw_document_currency doc
+left join mdm.calendar cal on cal.date = doc.cal_date
+left join mdm.profit_center_code_xref pcx on doc.segment = pcx.profit_center_code
 where 1=1
 	and day_of_month = 1
 	and revenue <> 0
@@ -1234,7 +1235,7 @@ where 1=1
 group by cal_date, doc.country_alpha2, document_currency_code, pl, doc.region_5, fiscal_year_qtr, fiscal_yr
  """)
 
-ci_rates_3.createOrReplaceTempView("odw_document_currency_raw")
+ci_rates_4.createOrReplaceTempView("odw_document_currency_raw")
 
 # COMMAND ----------
 
@@ -1250,7 +1251,7 @@ select 	cal_date,
 	region_5,
 	document_currency_code,
 	sum(revenue) as revenue
-from #edw_document_currency_raw_original
+from edw_document_currency_raw_original
 group by cal_date,
 	fiscal_year_qtr,
 	fiscal_yr,
@@ -1286,7 +1287,7 @@ select 	cal_date,
 	country_alpha2,
 	region_5,
 	document_currency_code,
-	isnull(sum(revenue), 0) as revenue
+	coalesce(sum(revenue), 0) as revenue
 from document_currency_join
 group by cal_date,
 	fiscal_year_qtr,
@@ -1318,7 +1319,7 @@ where 1=1
 group by cal_date, country_alpha2, pl
 """)
 
-ci_rates_4.createOrReplaceTempView("country_revenue")
+ci_rates_5.createOrReplaceTempView("country_revenue")
 
 # COMMAND ----------
 
@@ -1357,7 +1358,7 @@ select
 	sum(revenue) as revenue
 from edw_document_currency_raw
 where 1=1
-	and concat(cal_date, country_alpha2, pl) in (select distinct filter_me from #above_zero_country_revenue1)
+	and concat(cal_date, country_alpha2, pl) in (select distinct filter_me from above_zero_country_revenue1)
 group by cal_date, country_alpha2, document_currency_code, pl, region_5, fiscal_year_qtr, fiscal_yr
  """)
     
@@ -1470,7 +1471,7 @@ select
 	end as country_proxy_mix
 from edw_doc_currency_non_eu
 where 1=1
-	and doc_date in (select distinct doc_date from #doc_currency_mix3)
+	and doc_date in (select distinct doc_date from doc_currency_mix3)
 group by cal_date, country_alpha2, document_currency_code, pl, revenue, region_5
  """)
 
@@ -1511,8 +1512,8 @@ ci_rates_13.createOrReplaceTempView("document_currency_time_availability")
 
 ci_rates_14 = spark.sql("""
  select distinct sales.cal_date
-from actuals_supplies_salesprod sales
-left join #document_currency_time_availability doc on doc.cal_date = sales.cal_date
+from fin_prod.actuals_supplies_salesprod sales
+left join document_currency_time_availability doc on doc.cal_date = sales.cal_date
 where doc.cal_date is null
  """)
 
@@ -1529,7 +1530,7 @@ ci_rates_15 = spark.sql("""
 	pl,
 	sum(country_currency_mix) as country_currency_mix
 from country_currency_mix2
-where cal_date = (select min(cal_date) from #country_currency_mix2)
+where cal_date = (select min(cal_date) from country_currency_mix2)
 group by cal_date, country_alpha2, currency, region_5, pl
  """)
 
@@ -1564,7 +1565,7 @@ select
 	region_5,
 	pl,
 	country_currency_mix
-from #country_currency_mix2 c
+from country_currency_mix2 c
 
 union all
 
@@ -1575,7 +1576,7 @@ select
 	region_5,
 	pl,
 	country_currency_mix
-from #currency_history_needed2
+from currency_history_needed2
 )
 
 
@@ -1585,7 +1586,7 @@ select
 	currency,
 	region_5,
 	pl,
-	isnull(sum(country_currency_mix), 0) as country_currency_mix
+	coalesce(sum(country_currency_mix), 0) as country_currency_mix
 from country_currency_mix3 c
 group by cal_date, country_alpha2, currency, region_5, pl
  """)
@@ -1615,6 +1616,34 @@ ci_rates_17.createOrReplaceTempView("country_currency_mix5")
 
 ci_rates_18 = spark.sql("""
  -- transition back to adjusted revenue code
+			select
+				c.cal_date,
+				c.country_alpha2,
+				currency,
+				c.region_5,
+				sales_product_number,
+				c.pl,
+				customer_engagement,
+				country_currency_mix,
+				sum(inventory_usd * coalesce(country_currency_mix, 1)) as inventory_usd,
+				sum(inventory_qty * coalesce(country_currency_mix, 1)) as inventory_qty
+			from cbm_sellthru_xcode_adjusted5 c
+			left join country_currency_mix5 mix on
+				c.cal_date = mix.cal_date and
+				c.country_alpha2 = mix.country_alpha2 and
+				c.pl = mix.pl
+			where c.region_5 <> 'EU'
+			group by c.cal_date, c.country_alpha2, currency, c.region_5, c.pl, sales_product_number, customer_engagement
+			,country_currency_mix
+	
+                """)
+
+ci_rates_18.createOrReplaceTempView("ci_before_constant_currency")
+
+# COMMAND ----------
+
+ci_rates_18 = spark.sql("""
+ -- transition back to adjusted revenue code
 
 with
 
@@ -1629,8 +1658,8 @@ with
 				c.pl,
 				customer_engagement,
 				country_currency_mix,
-				sum(inventory_usd * isnull(country_currency_mix, 1)) as inventory_usd,
-				sum(inventory_qty * isnull(country_currency_mix, 1)) as inventory_qty
+				sum(inventory_usd * coalesce(country_currency_mix, 1)) as inventory_usd,
+				sum(inventory_qty * coalesce(country_currency_mix, 1)) as inventory_qty
 			from cbm_sellthru_xcode_adjusted5 c
 			left join country_currency_mix5 mix on
 				c.cal_date = mix.cal_date and
@@ -1687,11 +1716,7 @@ with
 				sum(inventory_qty) as inventory_qty
 			from ci_currency_ams_apj2
 			group by cal_date, country_alpha2, currency, region_5, pl, sales_product_number, customer_engagement
-		)
-		--select * from inventory_with_currency
-
-/* new code is done -- need to test */		
-		,
+		),
 		inventory_with_currency2 as
 		(
 			select
@@ -1705,16 +1730,7 @@ with
 					when currency is null then 'USD'
 					when currency = 'VES' and cal_date < '{inv_curr2}' then 'VEF' 
 					when country_alpha2 = 'BR' 
-						and pl in 
-						(
-						select pl 
-						from ie2_prod.dbo.product_line_xref
-						where 1=1
-							and business_division = 'OPS'
-							and pl_category = 'SUP'
-							and l6_description not like '%OEM%'
-						) 
-						then 'USD'
+                       then 'USD'
 					when sales_product_number like '%AMS%' then 'USD'
 					when sales_product_number like '%PROXY%' then 'USD'
 					else currency
@@ -1722,6 +1738,43 @@ with
 				sum(inventory_usd) as inventory_usd,
 				sum(inventory_qty) as inventory_qty
 			from inventory_with_currency
+            where pl in (
+              select pl 
+                from mdm.product_line_xref
+                where 1=1
+                    and business_division = 'OPS'
+                    and pl_category = 'SUP'
+                    and l6_description not like '%OEM%'
+                )
+			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
+          
+            UNION ALL 
+            
+            select
+				cal_date,
+				region_5,
+				country_alpha2,
+				sales_product_number,
+				pl,
+				customer_engagement,	
+				case
+					when currency is null then 'USD'
+					when currency = 'VES' and cal_date < '{inv_curr2}' then 'VEF' 
+					when sales_product_number like '%AMS%' then 'USD'
+					when sales_product_number like '%PROXY%' then 'USD'
+					else currency
+				end as currency,
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty) as inventory_qty
+			from inventory_with_currency
+            where pl not in (
+              select pl 
+                from mdm.product_line_xref
+                where 1=1
+                    and business_division = 'OPS'
+                    and pl_category = 'SUP'
+                    and l6_description not like '%OEM%'
+                )
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
 		)
 		
@@ -1749,9 +1802,9 @@ ci_rates_19 = spark.sql("""
 		date_helper as
 		(
 			select
-				date_key
-				, [date] as cal_date
-			from ie2_prod.dbo.calendar
+				date_key, 
+                date as cal_date
+			from mdm.calendar
 			where day_of_month = 1
 		),
 		channel_inventory_analytic_setup as
@@ -1766,13 +1819,13 @@ ci_rates_19 = spark.sql("""
 				currency,
 				inventory_usd,
 				inventory_qty,
-					(select min(cal_date) from #cbm_sellthru_xcode_adjusted5) as min_cal_date,
-					(select max(cal_date) from #cbm_sellthru_xcode_adjusted5) as max_cal_date
+					(select min(cal_date) from cbm_sellthru_xcode_adjusted5) as min_cal_date,
+					(select max(cal_date) from cbm_sellthru_xcode_adjusted5) as max_cal_date
 					--min(cal_date) over (partition by country_alpha2, sales_product_number, pl, customer_engagement, currency 
 						--order by sales_product_number) as min_cal_date,
 					--max(cal_date) over (partition by country_alpha2, sales_product_number, pl, customer_engagement, currency 
 						--order by sales_product_number) as max_cal_date
-			from #ci_before_constant_currency
+			from ci_before_constant_currency
 		),
 		channel_inventory_full_calendar_cross_join as
 		(
@@ -1838,7 +1891,7 @@ ci_rates_19 = spark.sql("""
 					currency,
 					inventory_usd,
 					inventory_qty,
-					case when min_cal_date < cast(getdate() - day(getdate()) + 1 as date) then 1 else 0 end as actuals_flag,
+					case when min_cal_date < cast(current_date() - day(current_date()) + 1 as date) then 1 else 0 end as actuals_flag,
 					count(cal_date) over (partition by country_alpha2, sales_product_number, pl, customer_engagement, currency
 	                        order by cal_date rows between unbounded preceding and current row) as running_count
 				from fill_gap2
@@ -1857,11 +1910,11 @@ ci_rates_19 = spark.sql("""
 			from channel_inventory_time_series
  """)
 
-ci_rates_18.createOrReplaceTempView("channel_inventory_full_calendar")
+ci_rates_19.createOrReplaceTempView("channel_inventory_full_calendar")
 
 # COMMAND ----------
 
-ci_rates_19 = spark.sql("""
+ci_rates_20 = spark.sql("""
  with
 		
 		data_prep as
@@ -1874,8 +1927,8 @@ ci_rates_19 = spark.sql("""
 				pl,
 				customer_engagement,
 				currency,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty
 			from channel_inventory_full_calendar
 			group by cal_date, region_5, country_alpha2, sales_product_number, pl, customer_engagement, currency	
 		),
@@ -1889,11 +1942,11 @@ ci_rates_19 = spark.sql("""
 				pl,
 				customer_engagement,
 				currency,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty,
-				(lag(isnull(sum(inventory_usd), 0)) over
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty,
+				(lag(coalesce(sum(inventory_usd), 0)) over
 					(partition by sales_product_number, country_alpha2, customer_engagement, currency order by cal_date)) as prev_inv_usd,
-				(lag(isnull(sum(inventory_qty), 0)) over
+				(lag(coalesce(sum(inventory_qty), 0)) over
 					(partition by sales_product_number, country_alpha2, customer_engagement, currency order by cal_date)) as prev_inv_qty
 			from data_prep
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
@@ -1907,19 +1960,19 @@ ci_rates_19 = spark.sql("""
 				pl,
 				customer_engagement,
 				currency,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(prev_inv_usd), 0) as prev_inv_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty,
-				isnull(sum(prev_inv_qty), 0) as prev_inv_qty
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(prev_inv_usd), 0) as prev_inv_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty,
+				coalesce(sum(prev_inv_qty), 0) as prev_inv_qty
 			from lagged_data
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
  """)
 
-ci_rates_19.createOrReplaceTempView("lagged_data_cte3")
+ci_rates_20.createOrReplaceTempView("lagged_data_cte3")
 
 # COMMAND ----------
 
-ci_rates_20 = spark.sql("""
+ci_rates_21 = spark.sql("""
  select
 				cal_date,
 				region_5,
@@ -1934,37 +1987,13 @@ ci_rates_20 = spark.sql("""
 				sum(prev_inv_qty) as prev_inv_qty, 
 				sum(inventory_qty) - sum(prev_inv_qty) as monthly_unit_change,
 				sum(inventory_usd) - sum(prev_inv_usd) as monthly_usd_change,
-				isnull(sum(inventory_usd) / nullif(sum(inventory_qty), 0), 0)  as reported_inventory_valuation_rate,
-				isnull(sum(prev_inv_usd) / nullif(sum(prev_inv_qty), 0), 0)  as previous_inventory_valuation_rate
+				coalesce(sum(inventory_usd) / nullif(sum(inventory_qty), 0), 0)  as reported_inventory_valuation_rate,
+				coalesce(sum(prev_inv_usd) / nullif(sum(prev_inv_qty), 0), 0)  as previous_inventory_valuation_rate
 			from lagged_data_cte3
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
  """)
 
-ci_rates_20.createOrReplaceTempView("ci_calc_unit_change")
-
-# COMMAND ----------
-
-ci_rates_21 = spark.sql("""
- select
-				cal_date,
-				country_alpha2,
-				sales_product_number,
-				pl,
-				customer_engagement,
-				currency,
-				sum(inventory_usd) as inventory_usd,
-				sum(prev_inv_usd) as prev_inv_usd,
-				sum(inventory_qty) as inventory_qty,
-				isnull(sum(prev_inv_qty), 0) as prev_inv_qty,
-				isnull(sum(monthly_unit_change), 0) as monthly_unit_change,
-				isnull(sum(monthly_usd_change), 0) as monthly_usd_change,
-				sum(reported_inventory_valuation_rate) as reported_inventory_valuation_rate,
-				sum(previous_inventory_valuation_rate) as previous_inventory_valuation_rate
-			from ci_calc_unit_change
-			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency
- """)
-
-ci_rates_21.createOrReplaceTempView("ci_calc_unit_change2")
+ci_rates_21.createOrReplaceTempView("ci_calc_unit_change")
 
 # COMMAND ----------
 
@@ -1976,13 +2005,37 @@ ci_rates_22 = spark.sql("""
 				pl,
 				customer_engagement,
 				currency,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(prev_inv_usd), 0) as prev_inv_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty,
-				isnull(sum(prev_inv_qty), 0) as prev_inv_qty,
-				isnull(sum(monthly_unit_change), 0) as monthly_unit_change,
-				isnull(sum(monthly_usd_change), 0) as monthly_usd_change,
-				isnull(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
+				sum(inventory_usd) as inventory_usd,
+				sum(prev_inv_usd) as prev_inv_usd,
+				sum(inventory_qty) as inventory_qty,
+				coalesce(sum(prev_inv_qty), 0) as prev_inv_qty,
+				coalesce(sum(monthly_unit_change), 0) as monthly_unit_change,
+				coalesce(sum(monthly_usd_change), 0) as monthly_usd_change,
+				sum(reported_inventory_valuation_rate) as reported_inventory_valuation_rate,
+				sum(previous_inventory_valuation_rate) as previous_inventory_valuation_rate
+			from ci_calc_unit_change
+			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency
+ """)
+
+ci_rates_22.createOrReplaceTempView("ci_calc_unit_change2")
+
+# COMMAND ----------
+
+ci_rates_23 = spark.sql("""
+ select
+				cal_date,
+				country_alpha2,
+				sales_product_number,
+				pl,
+				customer_engagement,
+				currency,
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(prev_inv_usd), 0) as prev_inv_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty,
+				coalesce(sum(prev_inv_qty), 0) as prev_inv_qty,
+				coalesce(sum(monthly_unit_change), 0) as monthly_unit_change,
+				coalesce(sum(monthly_usd_change), 0) as monthly_usd_change,
+				coalesce(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
 				case
 					when sales_product_number like 'PROXY_ADJUSTMENT%' then sum(monthly_usd_change)
 					when sales_product_number like 'AMS%' then sum(monthly_usd_change)
@@ -1993,11 +2046,11 @@ ci_rates_22 = spark.sql("""
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency, reported_inventory_valuation_rate
  """)
 
-ci_rates_22.createOrReplaceTempView("ci_calc_unit_change3")
+ci_rates_23.createOrReplaceTempView("ci_calc_unit_change3")
 
 # COMMAND ----------
 
-ci_rates_23 = spark.sql("""
+ci_rates_24 = spark.sql("""
  select
 				cal_date,
 				ci.country_alpha2,
@@ -2006,24 +2059,24 @@ ci_rates_23 = spark.sql("""
 				pl,
 				customer_engagement,
 				currency,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(prev_inv_usd), 0) as prev_inv_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty,
-				isnull(sum(prev_inv_qty), 0) as prev_inv_qty,
-				isnull(sum(monthly_unit_change), 0) as monthly_unit_change,
-				isnull(sum(monthly_usd_change), 0) as monthly_usd_change,
-				isnull(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
-				isnull(sum(inventory_change_impact), 0) as inventory_change_impact
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(prev_inv_usd), 0) as prev_inv_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty,
+				coalesce(sum(prev_inv_qty), 0) as prev_inv_qty,
+				coalesce(sum(monthly_unit_change), 0) as monthly_unit_change,
+				coalesce(sum(monthly_usd_change), 0) as monthly_usd_change,
+				coalesce(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
+				coalesce(sum(inventory_change_impact), 0) as inventory_change_impact
 			from ci_calc_unit_change3 ci
-			left join iso_country_code_xref iso on ci.country_alpha2 = iso.country_alpha2
+			left join mdm.iso_country_code_xref iso on ci.country_alpha2 = iso.country_alpha2
 			group by cal_date, ci.country_alpha2, sales_product_number, pl, customer_engagement, region_5, currency
  """)
 
-ci_rates_23.createOrReplaceTempView("ci_calc_unit_change4")
+ci_rates_24.createOrReplaceTempView("ci_calc_unit_change4")
 
 # COMMAND ----------
 
-ci_rates_24 = spark.sql("""
+ci_rates_25 = spark.sql("""
  select
 				act.cal_date,
 				region_5,
@@ -2032,8 +2085,8 @@ ci_rates_24 = spark.sql("""
 				pl,
 				customer_engagement,
 				act.currency,
-				isnull(sum(rate.accountingrate), 1) as original_rate,
-				isnull(sum(curr_rate.accountingrate), 1) as current_rate,
+				coalesce(sum(rate.accountingrate), 1) as original_rate,
+				coalesce(sum(curr_rate.accountingrate), 1) as current_rate,
 				sum(inventory_usd) as inventory_usd,
 				sum(prev_inv_usd) as prev_inv_usd,
 				sum(inventory_qty) as inventory_qty,
@@ -2051,11 +2104,11 @@ ci_rates_24 = spark.sql("""
 				customer_engagement, act.currency, curr_rate.accountingrate, rate.accountingrate, region_5		
  """)
 
-ci_rates_24.createOrReplaceTempView("ci_with_accounting_rates")
+ci_rates_25.createOrReplaceTempView("ci_with_accounting_rates")
 
 # COMMAND ----------
 
-ci_rates_25 = spark.sql("""
+ci_rates_26 = spark.sql("""
  select
 				cal_date,
 				region_5,
@@ -2070,11 +2123,11 @@ ci_rates_25 = spark.sql("""
 					then 
 					(
 						select accountingrate 
-						from ie2_prod.dbo.acct_rates 
+						from prod.acct_rates 
 						where isocurrcd = 'VEF'
 							and effectivedate = 
 							(
-							select max(effectivedate) from acct_rates where isocurrcd = 'VEF' and accountingrate != 0
+							select max(effectivedate) from prod.acct_rates where isocurrcd = 'VEF' and accountingrate != 0
 							)
 					)
 					else sum(current_rate) 
@@ -2092,11 +2145,11 @@ ci_rates_25 = spark.sql("""
 				customer_engagement, currency, original_rate, current_rate, region_5
  """)
 
-ci_rates_25.createOrReplaceTempView("ci_with_accounting_rates2")
+ci_rates_26.createOrReplaceTempView("ci_with_accounting_rates2")
 
 # COMMAND ----------
 
-ci_rates_26 = spark.sql("""
+ci_rates_27 = spark.sql("""
  select
 				cal_date,
 				region_5,
@@ -2116,14 +2169,14 @@ ci_rates_26 = spark.sql("""
 				-- usd is denominator of all accounting rates
 				sum(original_rate) as original_rate,
 				sum(current_rate) as current_rate,
-				isnull((nullif(original_rate, 0) / nullif(current_rate, 0)), 1) as currency_rate_adjustment,
-				isnull((nullif(original_rate, 0) / nullif(current_rate, 0)), 1) * sum(inventory_change_impact) as cc_inventory_impact
+				coalesce((nullif(original_rate, 0) / nullif(current_rate, 0)), 1) as currency_rate_adjustment,
+				coalesce((nullif(original_rate, 0) / nullif(current_rate, 0)), 1) * sum(inventory_change_impact) as cc_inventory_impact
 			from ci_with_accounting_rates2	
 			group by cal_date, country_alpha2, sales_product_number, pl, 
 				customer_engagement, currency, original_rate, current_rate, region_5
  """)
 
-ci_rates_26.createOrReplaceTempView("ci_with_accounting_rates3")
+ci_rates_27.createOrReplaceTempView("ci_with_accounting_rates3")
 
 # COMMAND ----------
 
@@ -2235,25 +2288,25 @@ with ccrev_plus_ccci as
 				original_rate,
 				current_rate,
 				currency_rate_adjustment,
-				isnull(sum(gross_revenue), 0) as gross_revenue,
-				isnull(sum(net_currency),0) as net_currency,
-				isnull(sum(contractual_discounts), 0) as contractual_discounts,
-				isnull(sum(discretionary_discounts), 0) as discretionary_discounts,
-				isnull(sum(net_revenue), 0) as net_revenue,
-				isnull(sum(total_cos), 0) as total_cos,
-				isnull(sum(gross_profit), 0) as gross_profit,			
-				isnull(sum(net_revenue_before_hedge), 0) as net_revenue_before_hedge,
-				isnull(sum(revenue_units), 0) as revenue_units,
-				isnull(sum(cc_net_revenue), 0) as cc_net_revenue,
-				isnull(sum(inventory_usd), 0) as inventory_usd,
-				isnull(sum(prev_inv_usd), 0) as prev_inv_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty,
-				isnull(sum(prev_inv_qty), 0) as prev_inv_qty,
-				isnull(sum(monthly_unit_change), 0) as monthly_unit_change,
-				isnull(sum(monthly_usd_change), 0) as monthly_inv_usd_change,
-				isnull(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
-				isnull(sum(inventory_change_impact), 0) as inventory_change_impact,
-				isnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
+				coalesce(sum(gross_revenue), 0) as gross_revenue,
+				coalesce(sum(net_currency),0) as net_currency,
+				coalesce(sum(contractual_discounts), 0) as contractual_discounts,
+				coalesce(sum(discretionary_discounts), 0) as discretionary_discounts,
+				coalesce(sum(net_revenue), 0) as net_revenue,
+				coalesce(sum(total_cos), 0) as total_cos,
+				coalesce(sum(gross_profit), 0) as gross_profit,			
+				coalesce(sum(net_revenue_before_hedge), 0) as net_revenue_before_hedge,
+				coalesce(sum(revenue_units), 0) as revenue_units,
+				coalesce(sum(cc_net_revenue), 0) as cc_net_revenue,
+				coalesce(sum(inventory_usd), 0) as inventory_usd,
+				coalesce(sum(prev_inv_usd), 0) as prev_inv_usd,
+				coalesce(sum(inventory_qty), 0) as inventory_qty,
+				coalesce(sum(prev_inv_qty), 0) as prev_inv_qty,
+				coalesce(sum(monthly_unit_change), 0) as monthly_unit_change,
+				coalesce(sum(monthly_usd_change), 0) as monthly_inv_usd_change,
+				coalesce(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
+				coalesce(sum(inventory_change_impact), 0) as inventory_change_impact,
+				coalesce(sum(cc_inventory_impact), 0) as cc_inventory_impact
 			from ccrev_plus_ccci
 			group by cal_date,
 				region_5,
@@ -2301,9 +2354,9 @@ adj_rev_2 = spark.sql("""
 				sum(monthly_unit_change) as monthly_unit_change,
 				sum(monthly_inv_usd_change) as monthly_inv_usd_change,
 				sum(reported_inventory_valuation_rate) as reported_inventory_valuation_rate,
-				isnull(sum(inventory_change_impact), 0) as inventory_change_impact,
-				isnull(sum(cc_inventory_impact), 0) as cc_inventory_impact,
-				sum(cc_net_revenue) - isnull(sum(cc_inventory_impact), 0) as adjusted_revenue 
+				coalesce(sum(inventory_change_impact), 0) as inventory_change_impact,
+				coalesce(sum(cc_inventory_impact), 0) as cc_inventory_impact,
+				sum(cc_net_revenue) - coalesce(sum(cc_inventory_impact), 0) as adjusted_revenue 
 			from pre_adjusted_revenue
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency
  """)
@@ -2350,8 +2403,8 @@ adj_rev_3 = spark.sql("""
 				sum(cc_inventory_impact) as cc_inventory_impact,
 				sum(adjusted_revenue) as adjusted_revenue
 			from adjusted_revenue ar
-			join iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
-			join product_line_xref plx on plx.pl = ar.pl
+			join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
+			join mdm.product_line_xref plx on plx.pl = ar.pl
 			group by cal_date, ar.country_alpha2, sales_product_number, ar.pl, customer_engagement, 
 			currency, market10, region_5, country, l5_description
  """)
@@ -2396,7 +2449,7 @@ adj_rev_4 = spark.sql("""
 				sum(monthly_unit_change) as monthly_unit_change,
 				sum(monthly_inv_usd_change) as monthly_inv_usd_change,
 				sum(reported_inventory_valuation_rate) as reported_inventory_valuation_rate,				
-				isnull(sum(prev_inv_usd) / nullif(sum(prev_inv_qty), 0), 0)  as previous_inventory_valuation_rate,
+				coalesce(sum(prev_inv_usd) / nullif(sum(prev_inv_qty), 0), 0)  as previous_inventory_valuation_rate,
 				--case
 				--	when cal_date in ('2021-11-01', '2021-12-01', '2022-01-01') then sum(monthly_inv_usd_change)
 				--	else sum(inventory_change_impact)
@@ -2447,11 +2500,11 @@ adj_rev_5 = spark.sql("""
 				sum(monthly_unit_change) as monthly_unit_change,
 				sum(monthly_inv_usd_change) as monthly_inv_usd_change,
 				sum(reported_inventory_valuation_rate) as reported_inventory_valuation_rate,
-				isnull(sum(previous_inventory_valuation_rate), 0) as previous_inventory_valuation_rate,
+				coalesce(sum(previous_inventory_valuation_rate), 0) as previous_inventory_valuation_rate,
 
 				case
 					when sales_product_number like '%PROXY%' then 0
-					else sum(reported_inventory_valuation_rate) - isnull(sum(previous_inventory_valuation_rate),0) 
+					else sum(reported_inventory_valuation_rate) - coalesce(sum(previous_inventory_valuation_rate),0) 
 				end as period_price_change,
 
 				case 
@@ -2466,18 +2519,18 @@ adj_rev_5 = spark.sql("""
 					when sales_product_number like '%PROXY%' then 0
 					when sales_product_number like 'AMS%' then 0
 					when sum(reported_inventory_valuation_rate) = 0 then 0
-					else (sum(reported_inventory_valuation_rate) - isnull(sum(previous_inventory_valuation_rate), 0)) * sum(prev_inv_qty)
+					else (sum(reported_inventory_valuation_rate) - coalesce(sum(previous_inventory_valuation_rate), 0)) * sum(prev_inv_qty)
 				end as price_change_check,
 
-				sum(reported_inventory_valuation_rate) - isnull(sum(previous_inventory_valuation_rate),0) as period_price_change2,
+				sum(reported_inventory_valuation_rate) - coalesce(sum(previous_inventory_valuation_rate),0) as period_price_change2,
 
-				(sum(reported_inventory_valuation_rate) - isnull(sum(previous_inventory_valuation_rate), 0)) * sum(prev_inv_qty) as price_change_x_prev_inv_qty2,
+				(sum(reported_inventory_valuation_rate) - coalesce(sum(previous_inventory_valuation_rate), 0)) * sum(prev_inv_qty) as price_change_x_prev_inv_qty2,
 
 				sum(inventory_change_impact) as inventory_change_impact,
 
 				case
 					when sales_product_number like '%PROXY%' then 0
-					else isnull(sum(previous_inventory_valuation_rate), 0) * sum(monthly_unit_change) 
+					else coalesce(sum(previous_inventory_valuation_rate), 0) * sum(monthly_unit_change) 
 				end as monthly_unit_change_dollar_impact,
 
 				case
@@ -2522,34 +2575,34 @@ adj_rev_6 = spark.sql("""
 				sum(net_revenue) as net_revenue,
 				sum(original_rate_usd) as original_rate_usd,
 				sum(current_rate_usd) as current_rate_usd,
-				isnull(sum(currency_rate_adjustment),0) as currency_rate_adjustment,
+				coalesce(sum(currency_rate_adjustment),0) as currency_rate_adjustment,
 				sum(currency_impact) as currency_impact,
 				sum(cc_net_revenue) as cc_net_revenue,
 				sum(inventory_usd) as inventory_usd,
 				sum(prev_inv_usd) as prev_inv_usd,
-				isnull(sum(inventory_qty), 0) as inventory_qty,
-				isnull(sum(prev_inv_qty), 0) as prev_inventory_qty,
-				isnull(sum(monthly_unit_change), 0) as monthly_unit_change,
-				isnull(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
-				isnull(sum(inventory_change_impact), 0) as inventory_change_impact,
-				isnull(sum(currency_impact_ch_inventory), 0) as currency_impact_ch_inventory,
-				isnull(sum(cc_inventory_impact), 0) as cc_inventory_impact,
+				coalesce(sum(inventory_qty), 0) as inventory_qty,
+				coalesce(sum(prev_inv_qty), 0) as prev_inventory_qty,
+				coalesce(sum(monthly_unit_change), 0) as monthly_unit_change,
+				coalesce(sum(reported_inventory_valuation_rate), 0) as reported_inventory_valuation_rate,
+				coalesce(sum(inventory_change_impact), 0) as inventory_change_impact,
+				coalesce(sum(currency_impact_ch_inventory), 0) as currency_impact_ch_inventory,
+				coalesce(sum(cc_inventory_impact), 0) as cc_inventory_impact,
 				sum(adjusted_revenue) as adjusted_revenue,
 				1 as official,
-				(select load_date from version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT' 
-					and load_date = (select max(load_date) from version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as load_date,
-				(select version from version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT'
-					and version = (select max(version) from version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as version,						
-				isnull(sum(monthly_inv_usd_change), 0) as monthly_inv_usd_change,
-				isnull(sum(previous_inventory_valuation_rate), 0) as previous_inventory_valuation_rate,
-				isnull(sum(period_price_change), 0) as period_implied_price_change,
-				isnull(sum(price_change_x_prev_inv_qty), 0) as implied_price_change_x_prev_inv_qty,
-				isnull(sum(monthly_unit_change_dollar_impact), 0) as monthly_unit_change_dollar_impact,
-				isnull(sum(proxy_change), 0) as proxy_change,
-				isnull(sum(monthly_inv_usd_change),0) - isnull(sum(proxy_change), 0) - isnull(sum(price_change_x_prev_inv_qty), 0) 
-					- isnull(sum(monthly_unit_change_dollar_impact), 0) as monthly_mix_change,
-				isnull(sum(monthly_inv_usd_change),0) - isnull(sum(price_change_x_prev_inv_qty), 0) as alt_inventory_change_calc,
-				isnull(sum(inventory_change_impact), 0) - (isnull(sum(monthly_inv_usd_change), 0) - isnull(sum(price_change_x_prev_inv_qty), 0)) as inv_chg_calc_variance
+				(select load_date from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT' 
+					and load_date = (select max(load_date) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as load_date,
+				(select version from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT'
+					and version = (select max(version) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as version,						
+				coalesce(sum(monthly_inv_usd_change), 0) as monthly_inv_usd_change,
+				coalesce(sum(previous_inventory_valuation_rate), 0) as previous_inventory_valuation_rate,
+				coalesce(sum(period_price_change), 0) as period_implied_price_change,
+				coalesce(sum(price_change_x_prev_inv_qty), 0) as implied_price_change_x_prev_inv_qty,
+				coalesce(sum(monthly_unit_change_dollar_impact), 0) as monthly_unit_change_dollar_impact,
+				coalesce(sum(proxy_change), 0) as proxy_change,
+				coalesce(sum(monthly_inv_usd_change),0) - coalesce(sum(proxy_change), 0) - coalesce(sum(price_change_x_prev_inv_qty), 0) 
+					- coalesce(sum(monthly_unit_change_dollar_impact), 0) as monthly_mix_change,
+				coalesce(sum(monthly_inv_usd_change),0) - coalesce(sum(price_change_x_prev_inv_qty), 0) as alt_inventory_change_calc,
+				coalesce(sum(inventory_change_impact), 0) - (coalesce(sum(monthly_inv_usd_change), 0) - coalesce(sum(price_change_x_prev_inv_qty), 0)) as inv_chg_calc_variance
 			from adjusted_revenue4
 			group by cal_date, country_alpha2, country, sales_product_number, pl, customer_engagement, 
 			currency, market10, region_5, l5_description, net_currency
@@ -2560,4 +2613,5 @@ query_list.append(["stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
 
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+for t_name, df, mode in query_list:
+    write_df_to_redshift(configs, df, t_name, mode)

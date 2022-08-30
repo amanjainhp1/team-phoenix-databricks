@@ -11,6 +11,10 @@
 
 # COMMAND ----------
 
+from pyspark.sql import functions as F
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -83,6 +87,10 @@ edw_revenue_document_currency_landing = spark.read.parquet("s3://dataos-core-itg
 
 # COMMAND ----------
 
+cbm_st_data.withColumnRenamed("fiscal year name","fiscal_year_name").printSchema()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Create Tables
@@ -93,18 +101,19 @@ edw_revenue_document_currency_landing = spark.read.parquet("s3://dataos-core-itg
 
 
 tables = [
-    ['mdm.calendar', calendar]
-    ['CBM.dbo.cbm_st_data', cbm_st_data],
+    ['mdm.calendar', calendar],
     ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod],
-    ['fin_prod.odw_document_currency', odw_document_currency]
+    ['fin_prod.odw_document_currency', odw_document_currency],
+    ['fin_stage.cbm_st_data', cbm_st_data],
     ['fin_stage.edw_revenue_document_currency_landing', edw_revenue_document_currency_landing],
     ['mdm.country_currency_map', country_currency_map],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.list_price_eu_countrylist', list_price_eu_countrylist],
     ['mdm.product_line_xref', product_line_xref],
-    ['mdm.profit_center_code_xref', profit_center_code_xref]
+    ['mdm.profit_center_code_xref', profit_center_code_xref],
     ['mdm.rdma_base_to_sales_product_map', rdma_base_to_sales_product_map],
-    ['prod.acct_rates', acct_rates]
+    ['prod.acct_rates', acct_rates],
+    ['prod.version', version]
 ]
 
 for table in tables:
@@ -116,11 +125,13 @@ for table in tables:
     
     # Load the data from its source.
     df = table[1]
+    renamed_df = df.select([F.col(col).alias(col.replace(' ', '_')) for col in df.columns])
     print(f'loading {table[0]}...')
     # Write the data to its target.
-    df.write \
+    renamed_df.write \
       .format(write_format) \
       .mode("overwrite") \
+      .option("mergeSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
@@ -131,3 +142,7 @@ for table in tables:
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+
