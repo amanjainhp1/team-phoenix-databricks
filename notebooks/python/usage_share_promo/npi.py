@@ -225,38 +225,6 @@ npi_helper_1.createOrReplaceTempView("npi_helper_1")
 
 # COMMAND ----------
 
-testib = """
-select *
-from ib_info
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD'
-order by country_alpha2
-"""
-
-testib=spark.sql(testib)
-testib.createOrReplaceTempView("testib")
-
-# COMMAND ----------
-
-testib2 = """
-select distinct geography
-from npi_in_r5
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
-order by geography
-"""
-
-testib2=spark.sql(testib2)
-testib2.createOrReplaceTempView("testib2")
-
-# COMMAND ----------
-
-display(testib)
-
-# COMMAND ----------
-
-display(testib2)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # NPI Market10 to Country
 
