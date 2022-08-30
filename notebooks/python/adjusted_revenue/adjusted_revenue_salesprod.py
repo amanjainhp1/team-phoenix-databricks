@@ -378,7 +378,7 @@ with
 """)
 
 supp_hist_5.createOrReplaceTempView("supplies_history_constant_currency")
-query_list.append(["stage.adj_rev_supplies_history_constant_currency", supp_hist_5, "overwrite"])
+query_list.append(["fin_stage.adj_rev_supplies_history_constant_currency", supp_hist_5, "overwrite"])
 
 # COMMAND ----------
 
@@ -558,7 +558,7 @@ chann_inv_ams = spark.sql("""
 """.format(cbm_st_month))
 
 chann_inv_ams.createOrReplaceTempView("channel_inventory_prepped_ams_unadjusted")
-query_list.append(["stage.channel_inventory_prepped_ams_unadjusted", chann_inv_ams, "overwrite"])
+query_list.append(["fin_stage.channel_inventory_prepped_ams_unadjusted", chann_inv_ams, "overwrite"])
 
 # COMMAND ----------
 
@@ -2610,7 +2610,7 @@ adj_rev_6 = spark.sql("""
  """)
 
 adj_rev_6.createOrReplaceTempView("adjusted_revenue_staging")
-query_list.append(["stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
+query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
 
 # COMMAND ----------
 
@@ -2666,7 +2666,7 @@ select  record
   from adjusted_revenue_staging
 """)
 
-query_list.append(["stage.adjusted_revenue_salesprod", adj_rev_sales, "overwrite"])
+query_list.append(["fin_stage.adjusted_revenue_salesprod", adj_rev_sales, "overwrite"])
 
 # COMMAND ----------
 
