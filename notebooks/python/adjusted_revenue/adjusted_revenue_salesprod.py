@@ -2666,7 +2666,7 @@ select  record
   from adjusted_revenue_staging
 """)
 
-query_list.append(["fin_stage.adjusted_revenue_salesprod", adj_rev_sales, "overwrite"])
+query_list.append(["fin_prod.adjusted_revenue_salesprod", adj_rev_sales, "overwrite"])
 
 # COMMAND ----------
 
