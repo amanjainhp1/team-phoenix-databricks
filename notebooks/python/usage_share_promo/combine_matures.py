@@ -105,10 +105,6 @@ current_1.createOrReplaceTempView("current_1")
 
 # COMMAND ----------
 
-display(current_1)
-
-# COMMAND ----------
-
 #Add group ID, and product lifecycle status information to mature data
 mature_1 = """
 
@@ -140,10 +136,6 @@ WHERE c.units >0
 
 mature_1=spark.sql(mature_1)
 mature_1.createOrReplaceTempView("mature_1")
-
-# COMMAND ----------
-
-display(mature_1)
 
 # COMMAND ----------
 
@@ -183,10 +175,6 @@ INNER JOIN mature_1 m
 """
 overlap_1=spark.sql(overlap_1)
 overlap_1.createOrReplaceTempView("overlap_1")
-
-# COMMAND ----------
-
-display(overlap_1)
 
 # COMMAND ----------
 
