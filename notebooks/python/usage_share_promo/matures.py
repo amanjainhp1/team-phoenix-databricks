@@ -130,10 +130,6 @@ mature_helper_2.createOrReplaceTempView("mature_helper_2")
 
 # COMMAND ----------
 
-display(mature_helper_2)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Fill in missing Mature data
 
@@ -249,12 +245,6 @@ AND date >= min_ib_date)
 matures_dates_fill=spark.sql(matures_dates_fill)
 matures_dates_fill.createOrReplaceTempView("matures_dates_fill")
 
-
-
-# COMMAND ----------
-
-display(matures_dates_fill)
-
 # COMMAND ----------
 
 #cast constant value foreward
@@ -294,15 +284,6 @@ WHERE b.min_ib_date < b.min_us_date
 """
 fill_backfill=spark.sql(fill_backfill)
 fill_backfill.createOrReplaceTempView("fill_backfill")
-
-
-# COMMAND ----------
-
-display(fill_forecast)
-
-# COMMAND ----------
-
-display(fill_backfill)
 
 # COMMAND ----------
 
@@ -364,12 +345,6 @@ combine_data.createOrReplaceTempView("combine_data")
 combine_data_b=spark.sql(combine_data_b)
 combine_data_b.createOrReplaceTempView("combine_data_b")
 
-
-# COMMAND ----------
-
-
-display(combine_data)
-
 # COMMAND ----------
 
 #Combine the three tables (current table, forecast, backcast)
@@ -427,10 +402,6 @@ FROM combine_data_b bl
 """
 matures_norm_final_landing=spark.sql(matures_norm_final_landing)
 matures_norm_final_landing.createOrReplaceTempView("matures_norm_final_landing")
-
-# COMMAND ----------
-
-display(matures_norm_final_landing)
 
 # COMMAND ----------
 
