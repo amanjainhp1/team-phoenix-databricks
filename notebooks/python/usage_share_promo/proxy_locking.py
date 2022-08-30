@@ -57,13 +57,13 @@ datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp")
 
 
 # Load Current run of Usage/Share
-usage_share_current_df = spark.read.parquet(f"constants['S3_BASE_BUCKET'][stack]/spectrum/cupsm/{usage_share_current_version}/toner*") 
+usage_share_current_df = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{usage_share_current_version}/toner*") 
 usage_share_current_df.createOrReplaceTempView("usage_share_current_df")
 
 # COMMAND ----------
 
 # Load Proxy Constant Usage/Share
-usage_share_locked_df = spark.read.parquet(f"constants['S3_BASE_BUCKET'][stack]/spectrum/cupsm/{usage_share_locked_version}/toner*")
+usage_share_locked_df = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{usage_share_locked_version}/toner*")
 usage_share_locked_df.createOrReplaceTempView("usage_share_locked_df")
 
 # COMMAND ----------
