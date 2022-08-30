@@ -16,6 +16,7 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
+  - mps-ww-shipped-supplies
   - odw-monthly-actuals-update
   - odw-wd8-load
   - rdma-full-load
