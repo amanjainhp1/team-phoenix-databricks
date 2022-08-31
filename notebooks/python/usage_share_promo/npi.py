@@ -283,10 +283,6 @@ npi_helper_2.createOrReplaceTempView("npi_helper_2")
 
 # COMMAND ----------
 
-display(npi_helper_2)
-
-# COMMAND ----------
-
 #combine data from market10 and region5---currently preferring market10 to region5-need to update shiny tool to go to market 10, or write for load date
 npi_helper_3 = """
 with step1 as (
@@ -349,10 +345,6 @@ testib3.createOrReplaceTempView("testib3")
 
 # COMMAND ----------
 
-display(testib3)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Usage Share NPI Month Num to Date
 
@@ -383,11 +375,6 @@ npi_helper_4=spark.sql(overrides_norm_landing)
 npi_helper_4=npi_helper_4.distinct()
 npi_helper_4.createOrReplaceTempView("npi_helper_4")
 
-
-# COMMAND ----------
-
-display(npi_helper_4)
-
 # COMMAND ----------
 
 testib4 = """
@@ -399,10 +386,6 @@ order by country_alpha2
 
 testib4 = spark.sql(testib4)
 testib4.createOrReplaceTempView("testib4")
-
-# COMMAND ----------
-
-display(testib4)
 
 # COMMAND ----------
 
@@ -538,10 +521,6 @@ testib5.createOrReplaceTempView("testib5")
 
 # COMMAND ----------
 
-display(testib5)
-
-# COMMAND ----------
-
 #cast constant value foreward
 fill_forecast = """
 --get last value for flatlining forecast
@@ -561,10 +540,6 @@ WHERE b.max_us_date < b.max_ib_date
 """
 fill_forecast=spark.sql(fill_forecast)
 fill_forecast.createOrReplaceTempView("fill_forecast")
-
-# COMMAND ----------
-
-display(fill_forecast)
 
 # COMMAND ----------
 
@@ -646,18 +621,10 @@ npi_norm_final_landing.createOrReplaceTempView("npi_norm_final_landing")
 
 # COMMAND ----------
 
-display(npi_norm_final_landing)
-
-# COMMAND ----------
-
 #test case--hp share had less values than usage; forecaster input ended in 2027-09-01
 npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='MORETO BASE YET1' 
     AND geography in (select country_alpha2 from country_info WHERE market10='GREATER ASIA') and measure='HP_SHARE' order by cal_date""")
 npi_tst.createOrReplaceTempView("npi_tst")
-
-# COMMAND ----------
-
-display(npi_tst)
 
 # COMMAND ----------
 
