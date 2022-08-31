@@ -13,7 +13,7 @@ dbutils.widgets.text("base_usage_share_version", "")
 datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
 ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
 
-base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_version") == "" else dbutils.widgets.get("base_usage_version")
+base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_version") == "" else dbutils.widgets.get("base_usage_share_version")
 
 # COMMAND ----------
 
