@@ -109,10 +109,6 @@ npi_1.createOrReplaceTempView("npi_1")
 
 # COMMAND ----------
 
-display(npi_1)
-
-# COMMAND ----------
-
 overlap_1 = """
 
 ---Find overlap between current and mature
