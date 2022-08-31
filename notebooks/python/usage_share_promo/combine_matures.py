@@ -259,12 +259,12 @@ max_load_date = max_version_info[1]
 
 # retrieve ink and toner record names
 ink_record_name = read_redshift_to_df(configs) \
-    .option('query', "SELECT record_name FROM prod.version WHERE record LIKE ('INK_Q%') AND version = '{ink_current_version}'") \
+    .option('query', "SELECT record FROM prod.version WHERE record LIKE ('INK_Q%') AND version = '{ink_current_version}'") \
     .load() \
     .rdd.flatMap(lambda x: x).collect()[0]
 
 toner_record_name = read_redshift_to_df(configs) \
-    .option('query', "SELECT record_name FROM prod.version WHERE record LIKE ('TONER_Q%') AND version = '{toner_locked_version}'") \
+    .option('query', "SELECT record FROM prod.version WHERE record LIKE ('TONER_Q%') AND version = '{toner_locked_version}'") \
     .load() \
     .rdd.flatMap(lambda x: x).collect()[0]
 
