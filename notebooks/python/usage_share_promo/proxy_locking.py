@@ -13,7 +13,7 @@ from datetime import datetime
 # for interactive sessions, define widgets
 dbutils.widgets.text("usage_share_current_version", "")
 dbutils.widgets.text("usage_share_locked_version", "")
-dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("tasks", "")
 
 # COMMAND ----------
 
@@ -34,11 +34,14 @@ usage_share_locked_version = dbutils.widgets.get("usage_share_locked_version")
 
 # set vars equal to widget vals for job/interactive sessions, else retrieve task values 
 usage_share_current_version = dbutils.widgets.get("usage_share_current_version") if dbutils.widgets.get("usage_share_current_version") != "" else dbutils.jobs.taskValues.get(taskKey = "toner_share", key = "args")["usage_share_current_version"]
-datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
 
 # COMMAND ----------
 
 # MAGIC %run ../common/configs
+
+# COMMAND ----------
+
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
@@ -250,5 +253,22 @@ output = spark.sql("""
 
 # COMMAND ----------
 
+#execute stored procedure to create new version and load date
+record = "TONER_LOCKED_VERSION"
+source_name = read_redshift_to_df(configs) \
+    .option("query", f"SELECT DISTINCT record FROM prod.version WHERE record LIKE ('TONER Q%') AND version = '{usage_share_current_version}'") \
+    .load() \
+    .rdd.flatMap(lambda x: x).collect()[0]
+
+max_version_info = call_redshift_addversion_sproc(configs=configs, record=record, source_name=source_name)
+ 
+max_version = max_version_info[0]
+max_load_date = max_version_info[1]
+
+print("max_version: " + max_version)
+print("max_load_date: " + str(max_load_date))
+
+# COMMAND ----------
+
 #usage_share_proxy
-output.write.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/toner_locked", mode="overwrite")
+output.write.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{max_version}/toner_locked", mode="overwrite")
