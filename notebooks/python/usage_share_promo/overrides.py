@@ -73,10 +73,6 @@ override_in.createOrReplaceTempView("override_in")
 
 # COMMAND ----------
 
-display(override_in)
-
-# COMMAND ----------
-
 override_in_gp = """
     select user_name, max(load_date) as max_load_date
     from override_in
@@ -85,10 +81,6 @@ override_in_gp = """
 
 override_in_gp=spark.sql(override_in_gp)
 override_in_gp.createOrReplaceTempView("override_in_gp")
-
-# COMMAND ----------
-
-display(override_in_gp)
 
 # COMMAND ----------
 
@@ -225,10 +217,6 @@ override_table_test1.createOrReplaceTempView("override_table_test1")
 
 # COMMAND ----------
 
-display(override_table_test1)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ## Change to Months
 
@@ -273,10 +261,6 @@ override_in2 = read_sql_server_to_df(configs) \
     """) \
   .load()
 override_in2.createOrReplaceTempView("override_in2")
-
-# COMMAND ----------
-
-display(override_in2)
 
 # COMMAND ----------
 
