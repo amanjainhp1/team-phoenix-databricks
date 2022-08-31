@@ -5,6 +5,12 @@
 
 # COMMAND ----------
 
+# for interactive sessions, define widgets
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("ib_version", "")
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -13,8 +19,8 @@
 
 # COMMAND ----------
 
-datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
-ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version") if dbutils.widgets.get("ib_version") == "" else dbutils.widgets.get("ib_version")
 
 # COMMAND ----------
 
@@ -300,7 +306,7 @@ WHERE usage_k IS NOT NULL
       ,customer_engagement
       ,measure
       ,units
-      ,'{version}' as ib_version
+      ,'{ib_version}' as ib_version
       ,source
       ,test_src
       ,CONCAT(CAST(current_date() AS DATE),".1") as version
@@ -316,4 +322,5 @@ convert.createOrReplaceTempView("convert")
 
 s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_market10"
 print("output file name: " + s3_destination)
+
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)

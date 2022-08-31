@@ -5,15 +5,11 @@
 
 # COMMAND ----------
 
-# for interactive sessions, define a version widget
+# for interactive sessions, define widgets
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("base_usage_share_version", "")
-
-# COMMAND ----------
-
-datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
-ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
-
-base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_version") == "" else dbutils.widgets.get("base_usage_share_version")
+dbutils.widgets.text("writeout", "")
 
 # COMMAND ----------
 
@@ -22,6 +18,13 @@ base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_ve
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version") if dbutils.widgets.get("ib_version") == "" else dbutils.widgets.get("ib_version")
+
+base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_version") == "" else dbutils.widgets.get("base_usage_share_version")
 
 # COMMAND ----------
 
@@ -390,21 +393,22 @@ max_load_date = max_version_info[1]
 
 # retrieve ink and toner record names
 base_usage_share_source_name = read_redshift_to_df(configs) \
-    .option('query', "SELECT source_name FROM prod.version WHERE record = 'BASE_USAGE_SHARE' AND version = '{base_usage_share_version}'") \
+    .option('query', f"SELECT source_name FROM prod.version WHERE record = 'BASE_USAGE_SHARE' AND version = '{base_usage_share_version}'") \
     .load() \
     .rdd.flatMap(lambda x: x).collect()[0]
 
 # insert records into scenario table to link demand back to underlying CUPSM datasets
 insert_query = f"""
 INSERT INTO prod.scenario VALUES
-('{source_name}', '{base_usage_share_source_name}', '{base_usage_share_version}', {max_load_date});
+('{source_name}', '{base_usage_share_source_name}', '{base_usage_share_version}', '{max_load_date}');
 """
 submit_remote_query(configs, insert_query)
 
 # COMMAND ----------
 
-s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{datestamp}/demand"
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{max_version}"
 print("output file name: " + s3_destination)
+
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
 
 if dbutils.widgets.get("writeout").upper() == "TRUE":

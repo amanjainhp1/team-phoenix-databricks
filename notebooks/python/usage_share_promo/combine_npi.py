@@ -6,6 +6,7 @@
 
 # COMMAND ----------
 
+dbutils.widgets.text("datestamp", "")
 dbutils.widgets.text("base_usage_share_version", "")
 
 # COMMAND ----------
@@ -17,8 +18,12 @@ dbutils.widgets.text("base_usage_share_version", "")
 # MAGIC %run ../common/database_utils
 
 # COMMAND ----------
-datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
-base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_version") == "" else dbutils.widgets.get("base_usage_share_version")
+
+# use datestamp from upstream task if datestamp widget is blank (override) else use widget value
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+
+# for base_usage_share_version, use widget value
+base_usage_share_version = dbutils.widgets.get("base_usage_share_version")
 
 # COMMAND ----------
 
