@@ -35,8 +35,8 @@ constants = {
         "reporting": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/sqlserver/team-phoenix/auto_databricks-hChWVK"
     },
     "OZZY_SECRET_NAME": {
-        "dev": "",
-        "itg": "",
+        "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/team-phoenix/ozzy-sAlNQG",
+        "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/team-phoenix/ozzy-sAlNQG",
         "prod": "",
         "reporting": ""
     },
