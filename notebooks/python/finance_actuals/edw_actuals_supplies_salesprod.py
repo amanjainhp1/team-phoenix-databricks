@@ -55,13 +55,13 @@ cbm_st_data = read_sql_server_to_df(configs) \
 # COMMAND ----------
 
 # load parquet files to df
-edw_revenue_units_sales_landing = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_revenue_units_sales_landing")
+edw_revenue_units_sales_landing = spark.read.parquet("s3://dataos-core-prod-team-phoenix-fin/EDW/edw_revenue_units_sales_landing")
 
-edw_revenue_document_currency_landing = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_revenue_document_currency_landing")
+edw_revenue_document_currency_landing = spark.read.parquet("s3://dataos-core-prod-team-phoenix-fin/EDW/edw_revenue_document_currency_landing")
 
-edw_revenue_dollars_landing = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_revenue_dollars_landing")
+edw_revenue_dollars_landing = spark.read.parquet("s3://dataos-core-prod-team-phoenix-fin/EDW/edw_revenue_dollars_landing")
 
-edw_shipment_actuals_landing = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_shipment_actuals_landing")
+edw_shipment_actuals_landing = spark.read.parquet("s3://dataos-core-prod-team-phoenix/product/EDW/edw_shipment_actuals_landing")
 
 
 # COMMAND ----------
