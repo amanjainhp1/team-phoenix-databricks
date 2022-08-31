@@ -641,5 +641,5 @@ npi_norm_final_landing \
 #write_df_to_redshift(configs: config(), df: npi_norm_final_landing, destination: "stage"."usrs_npi_norm_final_landing", mode: str = "overwrite")
 write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
 
-dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")
-dbutils.jobs.taskValues.set(key = "ib_version", value = "{ib_version}")
+dbutils.jobs.taskValues.set(key = "datestamp", value = f"{datestamp}")
+dbutils.jobs.taskValues.set(key = "ib_version", value = f"{ib_version}")
