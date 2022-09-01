@@ -4,11 +4,11 @@ from functools import reduce
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
@@ -19,7 +19,7 @@ from functools import reduce
 redshift_row_count = 0
 try:
     redshift_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "prod.actuals_deliveries") \
+        .option("dbtable", "prod.odw_actuals_deliveries") \
         .load() \
         .count()
 except:
@@ -36,6 +36,7 @@ if redshift_row_count == 0:
 
 # mount S3 bucket
 dbutils.fs.unmount("/mnt/odw_shipment_actuals/")
+
 bucket = f"dataos-core-{stack}-team-phoenix-fin"
 bucket_prefix = "landing/odw/shipment_actuals/"
 dbfs_mount = '/mnt/odw_shipment_actuals/'
@@ -44,22 +45,23 @@ s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
 
 # COMMAND ----------
 
-files = dbutils.fs.ls(dbfs_mount)
+#Load all history data
+# files = dbutils.fs.ls(dbfs_mount)
 
-if len(files) >= 1:
-    SeriesAppend=[]
+# if len(files) >= 1:
+#     SeriesAppend=[]
     
-    for f in files:
-        odw_actuals_deliveries_df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("inferSchema", "True") \
-            .option("header","True") \
-            .option("treatEmptyValuesAsNulls", "False") \
-            .load(f.path)
+#     for f in files:
+#         odw_actuals_deliveries_df = spark.read \
+#             .format("com.crealytics.spark.excel") \
+#             .option("inferSchema", "True") \
+#             .option("header","True") \
+#             .option("treatEmptyValuesAsNulls", "False") \
+#             .load(f.path)
 
-        SeriesAppend.append(odw_actuals_deliveries_df)
+#         SeriesAppend.append(odw_actuals_deliveries_df)
 
-    df_series = reduce(DataFrame.unionAll, SeriesAppend)
+#     df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -73,10 +75,6 @@ shipment_actuals_latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucke
 shipment_actuals_latest_file = shipment_actuals_latest_file.split("/")[len(shipment_actuals_latest_file.split("/"))-1]
 
 print(shipment_actuals_latest_file)
-
-# COMMAND ----------
-
-redshift_row_count =2
 
 # COMMAND ----------
 
@@ -114,12 +112,11 @@ query_list = []
 
 # COMMAND ----------
 
-actuals_deliveries = """
+odw_actuals_deliveries = """
 
-WITH
-
-odw_shipment_aka_deliveries_data AS
+with odw_shipment_aka_deliveries_data as
 (
+
 SELECT calendar_year_month
 	  , unit_reporting_code
 	  , unit_reporting_description
@@ -390,8 +387,7 @@ GROUP BY
 	trade_or_non_trade,
 	unit_reporting_code,
 	unit_reporting_description
-)
-SELECT
+)SELECT
 	'ACTUALS - ODW SUPPPLIES SHIPS' AS record,
 	cal_date,
 	odw.country_alpha2,
@@ -405,8 +401,8 @@ SELECT
 	null as version,
 	unit_reporting_code,
 	unit_reporting_description,
-	SUM(bundled_qty),
-	SUM(unbundled_qty)
+	SUM(bundled_qty) as bundled_qty,
+	SUM(unbundled_qty) as unbundled_qty
 FROM fin_stage_odw_report_ships odw
 LEFT JOIN mdm.iso_country_code_xref iso ON odw.country_alpha2 = iso.country_alpha2
 GROUP BY cal_date,
@@ -420,7 +416,7 @@ GROUP BY cal_date,
 	pl
 """
 
-query_list.append(["fin_prod.actuals_deliveries", actuals_deliveries , "append"])
+query_list.append(["prod.odw_actuals_deliveries", odw_actuals_deliveries , "append"])
 
 # COMMAND ----------
 

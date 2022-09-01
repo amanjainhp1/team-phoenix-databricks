@@ -55,22 +55,23 @@ s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
 
 # COMMAND ----------
 
-files = dbutils.fs.ls(dbfs_mount)
+# Load all history data
+# files = dbutils.fs.ls(dbfs_mount)
 
-if len(files) >= 1:
-    SeriesAppend=[]
+# if len(files) >= 1:
+#     SeriesAppend=[]
     
-    for f in files:
-        document_currency_df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("inferSchema", "True") \
-            .option("header","True") \
-            .option("treatEmptyValuesAsNulls", "False") \
-            .load(f.path)
+#     for f in files:
+#         document_currency_df = spark.read \
+#             .format("com.crealytics.spark.excel") \
+#             .option("inferSchema", "True") \
+#             .option("header","True") \
+#             .option("treatEmptyValuesAsNulls", "False") \
+#             .load(f.path)
 
-        SeriesAppend.append(document_currency_df)
+#         SeriesAppend.append(document_currency_df)
 
-    df_series = reduce(DataFrame.unionAll, SeriesAppend)
+#     df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -124,7 +125,7 @@ SELECT "Fiscal Year/Period" as ms4_fiscal_year_period
   FROM  fin_stage.odw_document_currency w
   WHERE 1=1
 	AND "Net K$" is not null
-	AND "Fiscal Year/Period" = (SELECT MAX("Fiscal Year/Period") FROM "fin_stage"."odw_document_currency_report")
+	AND "Fiscal Year/Period" = (SELECT MAX("Fiscal Year/Period") FROM "fin_stage"."odw_document_currency")
 	AND "Net K$" <> 0
 	AND "Func Area Hier Desc Level6" = 'NET REVENUES' -- edw report filters to revenue
   GROUP BY "Fiscal Year/Period", "Profit Center Code", "Segment Code","Transaction Currency Code"
