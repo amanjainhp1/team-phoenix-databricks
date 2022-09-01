@@ -54,17 +54,6 @@ cbm_st_data = read_sql_server_to_df(configs) \
 
 # COMMAND ----------
 
-import json
-
-stack = ""
-custom_tags = json.loads(spark.conf.get("spark.databricks.clusterUsageTags.clusterAllTags"))
-
-for tag in custom_tags:
-    if tag["key"] == "Custom3":
-        stack = tag["value"].lower()
-
-# COMMAND ----------
-
 edw_fin_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix-fin/"
 edw_ships_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix/product/"
 
@@ -78,7 +67,6 @@ edw_revenue_document_currency_landing = spark.read.parquet(edw_fin_s3_bucket + "
 edw_revenue_dollars_landing = spark.read.parquet(edw_fin_s3_bucket + "EDW/edw_revenue_dollars_landing")
 
 edw_shipment_actuals_landing = spark.read.parquet(edw_ships_s3_bucket + "EDW/edw_shipment_actuals_landing")
-
 
 # COMMAND ----------
 
