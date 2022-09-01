@@ -14,6 +14,8 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
+  - odw-all-history-actuals-update
+  - odw-monthly-actuals-update
   - odw-wd8-load
   - rdma-full-load
   - redshift-resource-creator
