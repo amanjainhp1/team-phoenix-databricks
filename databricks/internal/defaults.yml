@@ -10,8 +10,8 @@ default_custom_tags:
 splunk:
   enable: true
   host: 'splunk.prod.internal.forwarders.tools.cso-hp.com'
-  index: dataos-core-dev
-  secret: 'dev/team-phoenix/splunk'
+  index:  team-phoenix-dev
+  secret: 'arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/team-phoenix/splunk'
   secret_attr: splunk_hec_token
 
 libraries: 
