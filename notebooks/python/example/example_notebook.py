@@ -7,13 +7,18 @@ print("this task is: " + task)
 
 # COMMAND ----------
 
-import dataos_splunk
 import os
+import dataos_splunk
 
-data = {"hello": "from matt"} 
-metadata = {"source": "team-phoenix " + task} 
+def splunk_logger(level, message, sourceType="databricks"):
+    data = {"level": level,
+            "message": message}
+    metadata = {"source": "databricks", "sourcetype": sourceType}
+    dataos_splunk.send_to_splunk(metadata, data)
 
-dataos_splunk.send_to_splunk(metadata, data) 
+# COMMAND ----------
+
+splunk_logger(level='INFO', message=f'team-phoenix example-multitask-dev {task} successful')
 
 # COMMAND ----------
 
