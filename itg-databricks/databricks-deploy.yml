@@ -9,6 +9,7 @@ resources:
       type: githubenterprise
       name: supplies-bd/team-phoenix-databricks-jobs-config
       endpoint: ghe
+      ref: aman/dev
 
 variables:
 - group: databricks-itg
