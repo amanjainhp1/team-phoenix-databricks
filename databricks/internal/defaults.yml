@@ -9,7 +9,7 @@ default_custom_tags:
 
 splunk:
   enable: true
-  host: 'splunk.prod.internal.forwarders.tools.cso-hp.com'
+  host: 'vpce-07256e7aefdcc09e1-4b79xh3d.vpce-svc-09ef3836d3c31f339.us-west-2.vpce.amazonaws.com'
   index:  team-phoenix-dev
   secret: 'arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/team-phoenix/splunk'
   secret_attr: splunk_hec_token
