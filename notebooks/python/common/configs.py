@@ -40,6 +40,12 @@ constants = {
         "prod": "s3a://dataos-core-prod-team-phoenix/",
         "reporting": "s3a://dataos-core-prod-team-phoenix/"
     },
+    "S3_FIN_BUCKET": {
+        "dev": "s3a://dataos-core-dev-team-phoenix-fin/",
+        "itg": "s3a://dataos-core-itg-team-phoenix-fin/",
+        "prod": "s3a://dataos-core-prod-team-phoenix-fin/",
+        "reporting": "s3a://dataos-core-prod-team-phoenix-fin/"
+    },
     "REDSHIFT_URL": {
         "dev": "dataos-core-dev-team-phoenix.dev.hpdataos.com",
         "itg": "dataos-core-team-phoenix-itg.hpdataos.com",

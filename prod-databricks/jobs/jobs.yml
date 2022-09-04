@@ -1,6 +1,8 @@
 ---
 Jobs:
   - actuals-hw
+  - base-usage-share
+  - create-demand-file
   - flash-load
   - hardware-ltf
   - hardware-stf

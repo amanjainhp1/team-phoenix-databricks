@@ -186,4 +186,4 @@ write_df_to_redshift(configs, third_transformation, "prod.hardware_ltf", "append
 
 # COMMAND ----------
 
-write_df_to_s3(f_report_units, "{}/{}/{}/f_report_units/".format(constants["S3_BASE_BUCKET"][stack], forecast_name_record_name, max_version), "parquet", "overwrite")
+write_df_to_s3(f_report_units, "{}/product/norm_ships/fcst/ltf/small_format/{}/{}/".format(constants["S3_BASE_BUCKET"][stack], forecast_name_record_name, max_version), "parquet", "overwrite")

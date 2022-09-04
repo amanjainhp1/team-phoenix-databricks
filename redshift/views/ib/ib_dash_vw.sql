@@ -1,6 +1,5 @@
 CREATE OR REPLACE VIEW ib.ib_dash_vw
-AS 
-
+AS
 SELECT
     ib.record AS record,
     ib.cal_date AS cal_date,

@@ -1,4 +1,3 @@
 CREATE OR REPLACE VIEW ib.decay_vw
-AS 
-
+AS
 SELECT * FROM prod.decay;

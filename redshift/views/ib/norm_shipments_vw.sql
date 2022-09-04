@@ -1,4 +1,3 @@
 CREATE OR REPLACE VIEW ib.norm_shipments_vw
-AS 
-
+AS
 SELECT * FROM prod.norm_shipments;

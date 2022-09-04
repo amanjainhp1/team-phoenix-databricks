@@ -5,6 +5,11 @@
 
 # COMMAND ----------
 
+# for interactive sessions, define widgets
+dbutils.widgets.text("datestamp", "")
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -13,7 +18,7 @@
 
 # COMMAND ----------
 
-datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
 
 # COMMAND ----------
 
@@ -73,10 +78,6 @@ override_in.createOrReplaceTempView("override_in")
 
 # COMMAND ----------
 
-display(override_in)
-
-# COMMAND ----------
-
 override_in_gp = """
     select user_name, max(load_date) as max_load_date
     from override_in
@@ -85,10 +86,6 @@ override_in_gp = """
 
 override_in_gp=spark.sql(override_in_gp)
 override_in_gp.createOrReplaceTempView("override_in_gp")
-
-# COMMAND ----------
-
-display(override_in_gp)
 
 # COMMAND ----------
 
@@ -225,10 +222,6 @@ override_table_test1.createOrReplaceTempView("override_table_test1")
 
 # COMMAND ----------
 
-display(override_table_test1)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ## Change to Months
 
@@ -273,10 +266,6 @@ override_in2 = read_sql_server_to_df(configs) \
     """) \
   .load()
 override_in2.createOrReplaceTempView("override_in2")
-
-# COMMAND ----------
-
-display(override_in2)
 
 # COMMAND ----------
 
@@ -417,7 +406,6 @@ override_table2_b.createOrReplaceTempView("override_table2_b")
 
 # COMMAND ----------
 
-
 override_table_c ="""
 SELECT * FROM override_table_b
 UNION ALL
@@ -511,7 +499,6 @@ update_table.createOrReplaceTempView("update_table")
 # MAGIC # Clean up Data
 
 # COMMAND ----------
-
 
 hw_info =  read_redshift_to_df(configs) \
   .option("query",f"""
@@ -669,5 +656,7 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-#write_df_to_redshift(configs: config(), df: convert, destination: "stage"."usage_share_staging_post_adjust", mode: str = "overwrite")
-write_df_to_s3(df=convert, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_adjusted", format="parquet", mode="overwrite", upper_strings=True)
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_adjusted"
+print("output file name: " + s3_destination)
+
+write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)

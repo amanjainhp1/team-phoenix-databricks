@@ -1,4 +1,10 @@
 # Databricks notebook source
+from pyspark.sql import Window
+import pyspark.sql.functions as f
+import time
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -6,9 +12,6 @@
 # MAGIC %run ../common/database_utils
 
 # COMMAND ----------
-
-from pyspark.sql import Window
-import pyspark.sql.functions as f
 
 hardware_ltf = read_redshift_to_df(configs) \
     .option("dbtable", "prod.hardware_ltf") \
@@ -565,15 +568,20 @@ WHERE UPPER(c.Technology) IN ('INK','LASER','PWA') AND UPPER(c.pl_category) = 'H
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, wd3_allocated_ltf_ltf_units, "stage.wd3_allocated_ltf_ltf_units", "overwrite")
+tables = [
+    [wd3_allocated_ltf_ltf_units, "stage.wd3_allocated_ltf_ltf_units", "overwrite"],
+    [wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite"],
+    [wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite"],
+    [wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite"],
+    [hardware_ltf, "prod.hardware_ltf", "append"]
+]
 
-write_df_to_redshift(configs, wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite")
-
-write_df_to_redshift(configs, wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite")
-
-write_df_to_redshift(configs, wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite")
-
-write_df_to_redshift(configs, hardware_ltf, "prod.hardware_ltf", "append")
+for table in tables:
+    start_time = time.time()
+    print("loading data to " + table[1])
+    write_df_to_redshift(configs, table[0], table[1], table[2])
+    completion_time = str(round((time.time()-start_time)/60, 1))
+    print("data loaded to " + table[1] + " in " + completion_time + " minutes")
 
 # COMMAND ----------
 

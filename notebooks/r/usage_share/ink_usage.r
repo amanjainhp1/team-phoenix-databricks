@@ -17,11 +17,49 @@ dbutils.widgets.text("usage_type", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve tasks from widgets/parameters
+# MAGIC tasks = dbutils.widgets.get("tasks") if dbutils.widgets.get("tasks") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["tasks"]
+# MAGIC tasks = tasks.split(";")
+# MAGIC 
+# MAGIC # define all relevenat task parameters to this notebook
+# MAGIC relevant_tasks = ["all", "usage_color", "usage_total"]
+# MAGIC 
+# MAGIC # exit if tasks list does not contain a relevant task i.e. "all" or "usage_*"
+# MAGIC for task in tasks:
+# MAGIC     if task not in relevant_tasks:
+# MAGIC         dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # set vars equal to widget vals for interactive sessions, else retrieve task values 
+# MAGIC datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
+# MAGIC timestamp = dbutils.widgets.get("timestamp") if dbutils.widgets.get("timestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["timestamp"]
+# MAGIC usage_type = dbutils.widgets.get("usage_type")
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve configs and export to spark.confs for usage across languages
+# MAGIC for key, val in configs.items():
+# MAGIC     spark.conf.set(key, val)
+# MAGIC 
+# MAGIC spark.conf.set('datestamp', datestamp)
+# MAGIC spark.conf.set('timestamp', timestamp)
+# MAGIC spark.conf.set('usage_type', usage_type)
+# MAGIC 
+# MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
 
@@ -36,9 +74,6 @@ packages <- c("tidyverse", "lubridate", "SparkR", "zoo", "sqldf")
 
 # MAGIC %python
 # MAGIC # load parquet data and register views
-# MAGIC datestamp = dbutils.widgets.get('datestamp')
-# MAGIC timestamp = dbutils.widgets.get('timestamp')
-# MAGIC 
 # MAGIC tables = ['bdtbl', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
 # MAGIC for table in tables:
 # MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/ink/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')

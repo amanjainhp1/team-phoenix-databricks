@@ -225,38 +225,6 @@ npi_helper_1.createOrReplaceTempView("npi_helper_1")
 
 # COMMAND ----------
 
-testib = """
-select *
-from ib_info
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD'
-order by country_alpha2
-"""
-
-testib=spark.sql(testib)
-testib.createOrReplaceTempView("testib")
-
-# COMMAND ----------
-
-testib2 = """
-select distinct geography
-from npi_in_r5
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
-order by geography
-"""
-
-testib2=spark.sql(testib2)
-testib2.createOrReplaceTempView("testib2")
-
-# COMMAND ----------
-
-display(testib)
-
-# COMMAND ----------
-
-display(testib2)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # NPI Market10 to Country
 
@@ -312,10 +280,6 @@ INNER JOIN ib_info ib
 
 npi_helper_2=spark.sql(npi_helper_2)
 npi_helper_2.createOrReplaceTempView("npi_helper_2")
-
-# COMMAND ----------
-
-display(npi_helper_2)
 
 # COMMAND ----------
 
@@ -381,10 +345,6 @@ testib3.createOrReplaceTempView("testib3")
 
 # COMMAND ----------
 
-display(testib3)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Usage Share NPI Month Num to Date
 
@@ -415,11 +375,6 @@ npi_helper_4=spark.sql(overrides_norm_landing)
 npi_helper_4=npi_helper_4.distinct()
 npi_helper_4.createOrReplaceTempView("npi_helper_4")
 
-
-# COMMAND ----------
-
-display(npi_helper_4)
-
 # COMMAND ----------
 
 testib4 = """
@@ -431,10 +386,6 @@ order by country_alpha2
 
 testib4 = spark.sql(testib4)
 testib4.createOrReplaceTempView("testib4")
-
-# COMMAND ----------
-
-display(testib4)
 
 # COMMAND ----------
 
@@ -570,10 +521,6 @@ testib5.createOrReplaceTempView("testib5")
 
 # COMMAND ----------
 
-display(testib5)
-
-# COMMAND ----------
-
 #cast constant value foreward
 fill_forecast = """
 --get last value for flatlining forecast
@@ -593,10 +540,6 @@ WHERE b.max_us_date < b.max_ib_date
 """
 fill_forecast=spark.sql(fill_forecast)
 fill_forecast.createOrReplaceTempView("fill_forecast")
-
-# COMMAND ----------
-
-display(fill_forecast)
 
 # COMMAND ----------
 
@@ -678,18 +621,10 @@ npi_norm_final_landing.createOrReplaceTempView("npi_norm_final_landing")
 
 # COMMAND ----------
 
-display(npi_norm_final_landing)
-
-# COMMAND ----------
-
 #test case--hp share had less values than usage; forecaster input ended in 2027-09-01
 npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='MORETO BASE YET1' 
     AND geography in (select country_alpha2 from country_info WHERE market10='GREATER ASIA') and measure='HP_SHARE' order by cal_date""")
 npi_tst.createOrReplaceTempView("npi_tst")
-
-# COMMAND ----------
-
-display(npi_tst)
 
 # COMMAND ----------
 
@@ -706,5 +641,5 @@ npi_norm_final_landing \
 #write_df_to_redshift(configs: config(), df: npi_norm_final_landing, destination: "stage"."usrs_npi_norm_final_landing", mode: str = "overwrite")
 write_df_to_s3(df=npi_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/npi_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
 
-dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")
-dbutils.jobs.taskValues.set(key = "ib_version", value = "{ib_version}")
+dbutils.jobs.taskValues.set(key = "datestamp", value = f"{datestamp}")
+dbutils.jobs.taskValues.set(key = "ib_version", value = f"{ib_version}")

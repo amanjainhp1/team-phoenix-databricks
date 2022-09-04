@@ -5,8 +5,11 @@
 
 # COMMAND ----------
 
-datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp")
-ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
+# for interactive sessions, define widgets
+dbutils.widgets.text("datestamp", "")
+dbutils.widgets.text("ib_version", "")
+dbutils.widgets.text("base_usage_share_version", "")
+dbutils.widgets.text("writeout", "")
 
 # COMMAND ----------
 
@@ -15,6 +18,13 @@ ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version")
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp") if dbutils.widgets.get("datestamp") == "" else dbutils.widgets.get("datestamp")
+ib_version = dbutils.jobs.taskValues.get(taskKey = "npi", key = "ib_version") if dbutils.widgets.get("ib_version") == "" else dbutils.widgets.get("ib_version")
+
+base_usage_share_version = datestamp if dbutils.widgets.get("base_usage_share_version") == "" else dbutils.widgets.get("base_usage_share_version")
 
 # COMMAND ----------
 
@@ -284,6 +294,39 @@ SELECT cal_date
 	, geography
 	, platform_subset
 	, customer_engagement
+	, 'NON_HP_PAGES' as measure
+	, total_pages-hp_pages as units
+	, source_u as source
+FROM step5
+WHERE hp_pages IS NOT NULL
+    AND hp_pages > 0
+UNION ALL
+SELECT cal_date
+	, geography
+	, platform_subset
+	, customer_engagement
+	, 'NON_HP_K_PAGES' as measure
+	, total_pages-hp_k_pages as units
+	, source_u as source
+FROM step5
+WHERE hp_pages IS NOT NULL
+    AND hp_pages > 0
+UNION ALL
+SELECT cal_date
+	, geography
+	, platform_subset
+	, customer_engagement
+	, 'NON_HP_COLOR_PAGES' as measure
+	, total_pages-hp_color_pages as units
+	, source_u as source
+FROM step5
+WHERE hp_pages IS NOT NULL
+    AND hp_pages > 0
+UNION ALL
+SELECT cal_date
+	, geography
+	, platform_subset
+	, customer_engagement
 	, 'HP_K_PAGES' as measure
 	, hp_k_pages as units
 	, source_u as source
@@ -333,6 +376,40 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/demand"
+from datetime import date
+
+# retrieve current date
+cur_date = date.today().strftime("%Y.%m.%d")
+
+#execute stored procedure to create new version and load date
+record = 'DEMAND'
+source_name = f'{record} - {cur_date}'
+max_version_info = call_redshift_addversion_sproc(configs=configs, record=record, source_name=source_name)
+
+max_version = max_version_info[0]
+max_load_date = max_version_info[1]
+
+# COMMAND ----------
+
+# retrieve ink and toner record names
+base_usage_share_source_name = read_redshift_to_df(configs) \
+    .option('query', f"SELECT source_name FROM prod.version WHERE record = 'BASE_USAGE_SHARE' AND version = '{base_usage_share_version}'") \
+    .load() \
+    .rdd.flatMap(lambda x: x).collect()[0]
+
+# insert records into scenario table to link demand back to underlying CUPSM datasets
+insert_query = f"""
+INSERT INTO prod.scenario VALUES
+('{source_name}', '{base_usage_share_source_name}', '{base_usage_share_version}', '{max_load_date}');
+"""
+submit_remote_query(configs, insert_query)
+
+# COMMAND ----------
+
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{max_version}"
 print("output file name: " + s3_destination)
+
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
+
+if dbutils.widgets.get("writeout").upper() == "TRUE":
+    write_df_to_redshift(configs=configs, df=convert, destination="prod.usage_share", mode="overwrite")

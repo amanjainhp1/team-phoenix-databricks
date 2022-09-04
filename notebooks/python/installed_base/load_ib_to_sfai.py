@@ -102,7 +102,7 @@ for table in tables.items():
             .distinct()
         
         # do a left outer join with SFAI data to prevent loading of duplicate data (primary key violation)
-        cond = [source_df .scenario_name == destination_df.scenario_name, source_df .record == destination_df.record, source_df .version == destination_df.version]
+        cond = [source_df.scenario_name == destination_df.scenario_name, source_df.record == destination_df.record, source_df.version == destination_df.version]
         source_df = source_df \
             .alias("sd") \
             .join(destination_df.alias("dd"), on = cond, how = 'left_outer') \
@@ -114,8 +114,9 @@ for table in tables.items():
     # else if ib, ib_datamart_source, filter to latest_version
     elif table[0] in ['ib', 'ib_datamart_source']:
         source_df = source_df.filter(f"version = '{max_version_ib}'")
-    # else if ib, select latest version and rename country_alpha2 col
-    elif table[0] == "ib":
+    
+    # if ib, rename country_alpha2 col
+    if table[0] == "ib":
         source_df = source_df.withColumnRenamed("country_alpha2", "country")
     
     source_df = source_df.select(destination_cols)
