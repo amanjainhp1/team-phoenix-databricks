@@ -16,8 +16,8 @@ Jobs:
   # - mdm-nightly-load
   # - odw-all-history-actuals-update
   # - odw-monthly-actuals-update
-  - odw-wd5-load
-  # - odw-wd8-load
+  # - odw-wd5-load
+  - odw-wd8-load
   # - rdma-full-load
   # - redshift-resource-creator
   # - toner-usage-share
