@@ -12,7 +12,7 @@
 # COMMAND ----------
 
 ## Old Table (SFAI - SQL Server)	                          New Table (Phoenix - Redshift)
-## [IE2_Landing].[dbo].[dbo].[usage_share_override_landing]	  prod.usage_share_override_npi
+## [IE2_Landing].[dbo].[usage_share_override_landing]	      prod.usage_share_override_npi
 ## [IE2_Prod].dbo.scenario_usage_share	                      prod.scenario_usage_share
 ## [IE2_Prod].[dbo].[working_forecast_channel_fill]           scen.working_forecast_channel_fill
 ## [IE2_Prod].[dbo].[working_forecast_mix_rate]               scen.working_forecast_mix_rate
