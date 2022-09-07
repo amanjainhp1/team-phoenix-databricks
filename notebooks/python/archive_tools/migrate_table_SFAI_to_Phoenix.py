@@ -11,13 +11,13 @@
 
 # COMMAND ----------
 
-## Old Table (SFAI)	New Table (Phoenix)
-## ie2_landing.[dbo].[usage_share_country_spin_landing]	prod.usage_share_country_spin
-## ie2_landing.[dbo].[usage_share_override_mature_landing]	prod.usage_share_override_mature
-## ie2_landing.[dbo].[dbo].[usage_share_override_landing]	prod.usage_share_override_npi
-## ie2_landing.[dbo].[usage_share_adjust]	prod.usage_share_adjust
-## ie2_prod.dbo.dbo.scenario_usage_share	prod.scenario_usage_share
-## ie2_prod.dbo.cartridge_mix_override	prod.cartridge_mix_override
+## Old Table (SFAI - SQL Server)	                          New Table (Phoenix - Redshift)
+## ie2_landing.[dbo].[usage_share_country_spin_landing]	      prod.usage_share_country_spin
+## ie2_landing.[dbo].[usage_share_override_mature_landing]	  prod.usage_share_override_mature
+## ie2_landing.[dbo].[dbo].[usage_share_override_landing]	  prod.usage_share_override_npi
+## ie2_landing.[dbo].[usage_share_adjust]	                  prod.usage_share_adjust
+## ie2_prod.dbo.scenario_usage_share	                      prod.scenario_usage_share
+## ie2_prod.dbo.cartridge_mix_override	                      prod.cartridge_mix_override
 
 
 # COMMAND ----------
