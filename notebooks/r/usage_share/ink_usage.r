@@ -158,18 +158,18 @@ ibintrodt$intro_yyyymm <- paste0(substr(ibintrodt$intro_date,1,4),substr(ibintro
 #Get Market10 Information
 country_info <- SparkR::collect(SparkR::sql("
                       WITH mkt10 AS (
-                           SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM iso_cc_rollup_xref
-                           WHERE country_scenario='MARKET10'
+                           SELECT country_alpha2, market10, developed_emerging
+                           FROM iso_country_code_xref
                       ),
                       rgn5 AS (
                             SELECT country_alpha2, region_5, developed_emerging, country 
                             FROM iso_country_code_xref
                       )
-                      SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
+                      SELECT a.country_alpha2, case when a.region_5='JP' THEN 'AP' else a.region_5 end as region_5, b.market10, a.developed_emerging, country
                             FROM rgn5 a
                             LEFT JOIN mkt10 b
                             ON a.country_alpha2=b.country_alpha2
+                            WHERE region_5 not in ('XU','XW')
                            "))
 
 # COMMAND ----------
@@ -234,10 +234,6 @@ countFACT_LP_MONTH <- sum(!is.na(zero_platformList[, c("AP","EU", "JP","LA","NA"
 paste("The total numbers of platform - region combinations that could be retrieved from the FACT PRINTER LASER MONTH table =", countFACT_LP_MONTH)
 
 head(zero)
-
-# COMMAND ----------
-
-str(zero)
 
 # COMMAND ----------
 
@@ -482,46 +478,90 @@ outcome0 <- sqldf("SELECT a.*, b.region_5
                  left join (select distinct region_5, market10 from country_info) b
                  on a.market10=b.market10")
 #Add region, get regional estimates...what else is missing for C4010 E0--India missing
-outcome_o <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, month, market10, region_5, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+outcome_o <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, market10, region_5, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome0
-                   group by platform_division_code, product_brand, developed_emerging, month, market10, region_5, rtm")
-outcome_r <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, month, region_5, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
-                   from outcome_o
-                   group by platform_division_code, product_brand, developed_emerging, month, region_5, rtm")
+                   group by platform_division_code, product_brand, developed_emerging, market10, region_5, rtm")
+outcome_o2 <- sqldf("SELECT distinct o.platform_division_code, o.product_brand, o.developed_emerging, s.month, o.market10, o.region_5, o.rtm, o.b1
+                    from stratjn s
+                    left join outcome_o o
+                    on s.platform_division_code=o.platform_division_code and s.product_brand=o.product_brand and s.developed_emerging=o.developed_emerging 
+                      and s.market10=o.market10 and s.region_5=o.region_5 and s.rtm=o.rtm")
 
-outcome_a <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+outcome_r <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, region_5, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by platform_division_code, product_brand, developed_emerging, month, rtm")
+                   group by platform_division_code, product_brand, developed_emerging, region_5, rtm")
+outcome_r2 <- sqldf("SELECT distinct r.platform_division_code, r.product_brand, r.developed_emerging, s.month, r.region_5, r.rtm, r.b1
+                    from stratjn s
+                    left join outcome_r r
+                    on s.platform_division_code=r.platform_division_code and s.product_brand=r.product_brand and s.developed_emerging=r.developed_emerging and s.region_5=r.region_5 and s.rtm=r.rtm")
 
-outcome_b <- sqldf("SELECT platform_division_code, market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+outcome_a <- sqldf("SELECT platform_division_code, product_brand, developed_emerging, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by platform_division_code, market10, developed_emerging, month, rtm")
-outcome_c <- sqldf("SELECT product_brand, market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+                   group by platform_division_code, product_brand, developed_emerging, rtm")
+outcome_a2 <- sqldf("SELECT distinct a.platform_division_code, a.product_brand, a.developed_emerging, s.month, a.rtm, a.b1
+                    from stratjn s
+                    left join outcome_a a
+                    on s.platform_division_code=a.platform_division_code and s.product_brand=a.product_brand and s.developed_emerging=a.developed_emerging and s.rtm=a.rtm")
+
+outcome_b <- sqldf("SELECT platform_division_code, market10, developed_emerging, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by product_brand, market10, developed_emerging, month, rtm")
-outcome_d <- sqldf("SELECT product_brand, market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+                   group by platform_division_code, market10, developed_emerging, rtm")
+outcome_b2 <- sqldf("SELECT distinct b.platform_division_code, b.developed_emerging, s.month, b.market10, b.rtm, b.b1
+                    from stratjn s
+                    left join outcome_b b
+                    on s.platform_division_code=b.platform_division_code and s.developed_emerging=b.developed_emerging and s.market10=b.market10 and s.rtm=b.rtm")
+
+outcome_c <- sqldf("SELECT product_brand, market10, developed_emerging, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by product_brand, market10, developed_emerging, month, rtm")
-outcome_e <- sqldf("SELECT  platform_division_code, product_brand,  market10, developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+                   group by product_brand, market10, developed_emerging, rtm")
+outcome_c2 <- sqldf("SELECT distinct c.product_brand, c.developed_emerging, s.month, c.market10, c.rtm, c.b1
+                    from stratjn s
+                    left join outcome_c c
+                    on s.product_brand=c.product_brand and s.developed_emerging=c.developed_emerging and s.market10=c.market10 and s.rtm=c.rtm")
+
+outcome_d <- sqldf("SELECT product_brand, region_5, developed_emerging, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by  platform_division_code, product_brand,  market10, developed_emerging, month, rtm")
-outcome_f <- sqldf("SELECT product_brand,  developed_emerging, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+                   group by product_brand, region_5, developed_emerging, rtm")
+outcome_d2 <- sqldf("SELECT distinct d.product_brand, d.developed_emerging, s.month, d.region_5, d.rtm, d.b1
+                    from stratjn s
+                    left join outcome_d d
+                    on s.product_brand=d.product_brand and s.developed_emerging=d.developed_emerging and s.region_5=d.region_5 and s.rtm=d.rtm")
+
+outcome_e <- sqldf("SELECT  platform_division_code, product_brand,  market10, developed_emerging, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by product_brand, developed_emerging, month, rtm")
-outcome_w <- sqldf("SELECT product_brand, month, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+                   group by  platform_division_code, product_brand,  market10, developed_emerging, rtm")
+outcome_e2 <- sqldf("SELECT distinct e.platform_division_code, e.product_brand, e.developed_emerging, s.month, e.market10, e.rtm, e.b1
+                    from stratjn s
+                    left join outcome_e e
+                    on s.platform_division_code=e.platform_division_code and s.product_brand=e.product_brand and s.developed_emerging=e.developed_emerging and s.market10=e.market10 and s.rtm=e.rtm")
+
+outcome_f <- sqldf("SELECT product_brand, developed_emerging, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
                    from outcome_o
-                   group by product_brand, month, rtm")
+                   group by product_brand, developed_emerging, rtm")
+outcome_f2 <- sqldf("SELECT distinct f.product_brand, f.developed_emerging, s.month, f.rtm, f.b1
+                    from stratjn s
+                    left join outcome_f f
+                    on s.product_brand=f.product_brand and s.developed_emerging=f.developed_emerging and s.rtm=f.rtm")
+
+
+outcome_w <- sqldf("SELECT product_brand, rtm, avg(b1) as b1, avg(seasonality) as seasonality --, avg(mo_Smooth) as mo_Smooth
+                   from outcome_o
+                   group by product_brand, rtm")
+outcome_w2 <- sqldf("SELECT distinct w.product_brand, s.month, w.rtm, w.b1
+                    from stratjn s
+                    left join outcome_w w
+                    on s.product_brand=w.product_brand and s.rtm=w.rtm")
 
 outcome <- sqldf(" SELECT distinct s.platform_division_code, s.product_brand, s.market10, s.developed_emerging, s.rtm, s.month
-                , CASE WHEN o.b1 is not null then o.b1
-                       WHEN r.b1 is not null then r.b1
-                       WHEN a.b1 is not null then a.b1
-                       WHEN b.b1 is not null then b.b1
-                       WHEN c.b1 is not null then c.b1
-                       WHEN d.b1 is not null then d.b1
-                       WHEN e.b1 is not null then e.b1
-                       WHEN f.b1 is not null then f.b1
-                       WHEN w.b1 is not null then w.b1
+                , CASE WHEN o2.b1 is not null then o2.b1
+                       WHEN r2.b1 is not null then r2.b1
+                       WHEN a2.b1 is not null then a2.b1
+                       WHEN b2.b1 is not null then b2.b1
+                       WHEN c2.b1 is not null then c2.b1
+                       WHEN d2.b1 is not null then d2.b1
+                       WHEN e2.b1 is not null then e2.b1
+                       WHEN f2.b1 is not null then f2.b1
+                       WHEN w2.b1 is not null then w2.b1
                        ELSE NULL
                   END AS b1
                 , CASE WHEN o.seasonality is not null then o.seasonality
@@ -545,48 +585,91 @@ outcome <- sqldf(" SELECT distinct s.platform_division_code, s.product_brand, s.
                        --WHEN f.mo_Smooth is not null then f.mo_Smooth
                        --ELSE NULL
                       -- END as mo_Smooth
-                , CASE WHEN o.b1 is not null then 'SELF'
-                       WHEN r.b1 is not null then 'REG5'
-                       WHEN a.b1 is not null then 'NOMKT'
-                       WHEN b.b1 is not null then 'NOCS'
-                       WHEN c.b1 is not null then 'NOPL'
-                       WHEN d.b1 is not null then 'NOMC'
-                       WHEN e.b1 is not null then 'NOPFC'
-                       WHEN f.b1 is not null then 'NOPLMKT'
-                       WHEN w.b1 is not null then 'NODE'
+                , CASE WHEN o2.b1 is not null then 'SELF'
+                       WHEN r2.b1 is not null then 'REG5'
+                       WHEN a2.b1 is not null then 'NOMKT'
+                       WHEN b2.b1 is not null then 'NOCS'
+                       WHEN c2.b1 is not null then 'NOPL'
+                       WHEN d2.b1 is not null then 'NOMC'
+                       WHEN e2.b1 is not null then 'NOPFC'
+                       WHEN f2.b1 is not null then 'NOPLMKT'
+                       WHEN w2.b1 is not null then 'NODE'
                        ELSE NULL
                   END AS src
+                  , CASE WHEN o2.b1 is not null then 'o2'
+                       WHEN r2.b1 is not null then 'r2'
+                       WHEN a2.b1 is not null then 'a2'
+                       WHEN b2.b1 is not null then 'b2'
+                       WHEN c2.b1 is not null then 'c2'
+                       WHEN d2.b1 is not null then 'd2'
+                       WHEN e2.b1 is not null then 'e2'
+                       WHEN f2.b1 is not null then 'f2'
+                       WHEN w2.b1 is not null then 'w2'
+                       ELSE NULL
+                  END AS src2
 
                 from stratjn s
 
                 left join outcome_o o
                 on s.platform_division_code=o.platform_division_code and s.product_brand=o.product_brand  
-                  and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.month=o.month and s.rtm=o.rtm
+                  and s.market10=o.market10 and s.developed_emerging=o.developed_emerging and s.rtm=o.rtm
+                left join outcome_o2 o2
+                on s.platform_division_code=o2.platform_division_code and s.product_brand=o2.product_brand  
+                  and s.market10=o2.market10 and s.developed_emerging=o2.developed_emerging and s.month=o2.month and s.rtm=o2.rtm
                 left join outcome_r r
                 on s.platform_division_code=r.platform_division_code and s.product_brand=r.product_brand  
-                  and s.developed_emerging=r.developed_emerging and s.month=r.month and s.region_5=r.region_5 and s.rtm=r.rtm
+                  and s.developed_emerging=r.developed_emerging and s.region_5=r.region_5 and s.rtm=r.rtm
+                left join outcome_r2 r2
+                on s.platform_division_code=r2.platform_division_code and s.product_brand=r2.product_brand  
+                  and s.developed_emerging=r2.developed_emerging and s.region_5=r2.region_5 and s.month=r2.month and s.rtm=r2.rtm
                 left join outcome_a a
                 on s.platform_division_code=a.platform_division_code and s.product_brand=a.product_brand 
-                  and s.developed_emerging=a.developed_emerging and s.month=a.month and s.rtm=a.rtm
+                  and s.developed_emerging=a.developed_emerging and s.rtm=a.rtm
+                left join outcome_a2 a2
+                on s.platform_division_code=a2.platform_division_code and s.product_brand=a2.product_brand 
+                  and s.developed_emerging=a2.developed_emerging and s.month=a2.month and s.rtm=a2.rtm
                 left join outcome_b b
                 on s.platform_division_code=b.platform_division_code 
-                  and s.market10=b.market10 and s.developed_emerging=b.developed_emerging and s.month=b.month and s.rtm=b.rtm
+                  and s.market10=b.market10 and s.developed_emerging=b.developed_emerging and s.rtm=b.rtm
+                left join outcome_b2 b2
+                on s.platform_division_code=b2.platform_division_code 
+                  and s.market10=b2.market10 and s.developed_emerging=b2.developed_emerging and s.month=b2.month and s.rtm=b2.rtm
                 left join outcome_c c
                 on s.product_brand=c.product_brand 
-                  and s.market10=c.market10 and s.developed_emerging=c.developed_emerging and s.month=c.month and s.rtm=c.rtm
+                  and s.market10=c.market10 and s.developed_emerging=c.developed_emerging and s.rtm=c.rtm
+                left join outcome_c2 c2
+                on s.product_brand=c2.product_brand 
+                  and s.market10=c2.market10 and s.developed_emerging=c2.developed_emerging and s.month=c2.month and s.rtm=c2.rtm
                 left join outcome_d d
                 on s.product_brand=d.product_brand  
-                  and s.market10=d.market10 and s.developed_emerging=d.developed_emerging and s.month=d.month and s.rtm=d.rtm
+                  and s.region_5=d.region_5 and s.developed_emerging=d.developed_emerging and s.rtm=d.rtm
+                left join outcome_d2 d2
+                on s.product_brand=d2.product_brand  
+                  and s.region_5=d2.region_5 and s.developed_emerging=d2.developed_emerging and s.month=d2.month and s.rtm=d2.rtm
                 left join outcome_e e
                 on s.platform_division_code=e.platform_division_code and s.product_brand=e.product_brand 
-                  and s.market10=e.market10 and s.developed_emerging=e.developed_emerging and s.month=e.month and s.rtm=e.rtm
+                  and s.market10=e.market10 and s.developed_emerging=e.developed_emerging and s.rtm=e.rtm
+                left join outcome_e2 e2
+                on s.platform_division_code=e2.platform_division_code and s.product_brand=e2.product_brand 
+                  and s.market10=e2.market10 and s.developed_emerging=e2.developed_emerging and s.rtm=e2.rtm
                 left join outcome_f f
                 on s.product_brand=f.product_brand 
-                  and s.developed_emerging=f.developed_emerging and s.month=f.month and s.rtm=f.rtm
+                  and s.developed_emerging=f.developed_emerging and s.rtm=f.rtm
+                left join outcome_f2 f2
+                on s.product_brand=f2.product_brand 
+                  and s.developed_emerging=f2.developed_emerging and s.month=f2.month and s.rtm=f2.rtm
                 left join outcome_w w
                 on s.product_brand=w.product_brand 
-                  and s.month=w.month and s.rtm=w.rtm
+                  and s.rtm=w.rtm
+                left join outcome_w2 w2
+                on s.product_brand=w2.product_brand 
+                  and s.rtm=w2.rtm and s.month=w2.month
                  ")
+
+#outcome <- sqldf("SELECT platform_division_code, product_brand, market10, developed_emerging, rtm, month, AVG(b1) as b1, AVG(seasonality) as seasonality, MAX(src) as src
+#                  from outcome
+#                  group by platform_division_code, product_brand, market10, developed_emerging, rtm, month ")
+
 outcome$strata <- apply( outcome[ , cols ] , 1 , paste , collapse = "_" )
 
   ## What to do when decay is not negative ###  
