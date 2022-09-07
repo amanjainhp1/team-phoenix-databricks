@@ -47,6 +47,7 @@ if redshift_row_count == 0:
 
 # mount S3 bucket
 dbutils.fs.unmount("/mnt/odw_document_currency/")
+
 bucket = f"dataos-core-{stack}-team-phoenix-fin"
 bucket_prefix = "landing/odw/document_currency"
 dbfs_mount = '/mnt/odw_document_currency/'
@@ -99,6 +100,9 @@ if redshift_row_count > 0:
     document_currency_df = document_currency_df.withColumn("load_date", current_date()) \
         .withColumn("Fiscal Year/Period", (document_currency_df["Fiscal Year/Period"].cast(IntegerType())).cast(StringType()))
 
+# COMMAND ----------
+
+if redshift_row_count > 0:
     write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency", "append")
 
 # COMMAND ----------
