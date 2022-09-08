@@ -37,7 +37,7 @@ constants = {
     "OZZY_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/team-phoenix/ozzy-sAlNQG",
         "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/team-phoenix/ozzy-GmMlPe",
-        "prod": ""
+        "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/team-phoenix/ozzy-YdkEtR"
     },
     "S3_BASE_BUCKET": {
         "dev": "s3a://dataos-core-dev-team-phoenix/",
