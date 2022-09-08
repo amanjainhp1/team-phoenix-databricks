@@ -130,10 +130,6 @@ mature_helper_2.createOrReplaceTempView("mature_helper_2")
 
 # COMMAND ----------
 
-display(mature_helper_2)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Fill in missing Mature data
 
@@ -249,12 +245,6 @@ AND date >= min_ib_date)
 matures_dates_fill=spark.sql(matures_dates_fill)
 matures_dates_fill.createOrReplaceTempView("matures_dates_fill")
 
-
-
-# COMMAND ----------
-
-display(matures_dates_fill)
-
 # COMMAND ----------
 
 #cast constant value foreward
@@ -294,15 +284,6 @@ WHERE b.min_ib_date < b.min_us_date
 """
 fill_backfill=spark.sql(fill_backfill)
 fill_backfill.createOrReplaceTempView("fill_backfill")
-
-
-# COMMAND ----------
-
-display(fill_forecast)
-
-# COMMAND ----------
-
-display(fill_backfill)
 
 # COMMAND ----------
 
@@ -364,12 +345,6 @@ combine_data.createOrReplaceTempView("combine_data")
 combine_data_b=spark.sql(combine_data_b)
 combine_data_b.createOrReplaceTempView("combine_data_b")
 
-
-# COMMAND ----------
-
-
-display(combine_data)
-
 # COMMAND ----------
 
 #Combine the three tables (current table, forecast, backcast)
@@ -430,10 +405,6 @@ matures_norm_final_landing.createOrReplaceTempView("matures_norm_final_landing")
 
 # COMMAND ----------
 
-display(matures_norm_final_landing)
-
-# COMMAND ----------
-
 #check for duplicates
 matures_norm_final_landing \
     .groupby(['cal_date', 'platform_subset', 'customer_engagement', 'geography', 'measure']) \
@@ -447,4 +418,4 @@ matures_norm_final_landing \
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
 write_df_to_s3(df=matures_norm_final_landing, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/matures_norm_final_landing", format="parquet", mode="overwrite", upper_strings=True)
 
-dbutils.jobs.taskValues.set(key = "datestamp", value = "{datestamp}")
+dbutils.jobs.taskValues.set(key = "datestamp", value = f"{datestamp}")

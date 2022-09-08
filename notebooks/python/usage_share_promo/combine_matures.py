@@ -105,10 +105,6 @@ current_1.createOrReplaceTempView("current_1")
 
 # COMMAND ----------
 
-display(current_1)
-
-# COMMAND ----------
-
 #Add group ID, and product lifecycle status information to mature data
 mature_1 = """
 
@@ -140,10 +136,6 @@ WHERE c.units >0
 
 mature_1=spark.sql(mature_1)
 mature_1.createOrReplaceTempView("mature_1")
-
-# COMMAND ----------
-
-display(mature_1)
 
 # COMMAND ----------
 
@@ -183,10 +175,6 @@ INNER JOIN mature_1 m
 """
 overlap_1=spark.sql(overlap_1)
 overlap_1.createOrReplaceTempView("overlap_1")
-
-# COMMAND ----------
-
-display(overlap_1)
 
 # COMMAND ----------
 
@@ -254,5 +242,41 @@ combine_1.createOrReplaceTempView("overlap_1")
 
 # COMMAND ----------
 
+from datetime import date
+
+# retrieve current date
+cur_date = date.today().strftime("%Y.%m.%d")
+
+#execute stored procedure to create new version and load date
+record = 'BASE_USAGE_SHARE'
+source_name = f'{record} - {cur_date}'
+max_version_info = call_redshift_addversion_sproc(configs=configs, record=record, source_name=source_name)
+
+max_version = max_version_info[0]
+max_load_date = max_version_info[1]
+
+# COMMAND ----------
+
+# retrieve ink and toner record names
+ink_record_name = read_redshift_to_df(configs) \
+    .option('query', f"SELECT record FROM prod.version WHERE record LIKE ('INK_Q%') AND version = '{ink_current_version}'") \
+    .load() \
+    .rdd.flatMap(lambda x: x).collect()[0]
+
+toner_record_name = read_redshift_to_df(configs) \
+    .option('query', f"SELECT record FROM prod.version WHERE record LIKE ('TONER_PROXY_LOCKED') AND version = '{toner_locked_version}'") \
+    .load() \
+    .rdd.flatMap(lambda x: x).collect()[0]
+
+# insert records into scenario table to link demand back to underlying CUPSM datasets
+insert_query = f"""
+INSERT INTO prod.scenario VALUES
+('{source_name}', '{ink_record_name}', '{ink_current_version}', '{max_load_date}'),
+('{source_name}', '{toner_record_name}', '{toner_locked_version}', '{max_load_date}');
+"""
+submit_remote_query(configs, insert_query)
+
+# COMMAND ----------
+
 #write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
-write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/matures_current_landing", format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}spectrum/base_usage_share/{max_version}", format="parquet", mode="overwrite", upper_strings=True)

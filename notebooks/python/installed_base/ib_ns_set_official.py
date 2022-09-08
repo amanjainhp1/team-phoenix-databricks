@@ -69,4 +69,6 @@ def submit_remote_sqlserver_query(configs, db, query):
     conn.commit()
     conn.close()
 
+# mark latest version of NORM_SHIPMENTS as official in SFAI
+# a scheduled sproc/function will mark latest IB as official
 submit_remote_sqlserver_query(configs, "IE2_Prod", f"UPDATE IE2_Prod.dbo.version SET official = 1 WHERE version = '{ns_version}' AND record = 'NORM_SHIPMENTS';")

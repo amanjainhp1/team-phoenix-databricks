@@ -130,7 +130,7 @@ rdma_sales_product_option_df = rdma_sales_product_option_df \
 # COMMAND ----------
 
 #write data to redshift
-write_df_to_redshift(configs, rdma_base_to_sales_df, "mdm.rdma_base_to_sales_product_map", "overwrite")
+write_df_to_redshift(configs=configs, df=rdma_base_to_sales_df, destination="mdm.rdma_base_to_sales_product_map", mode="append", preactions="TRUNCATE mdm.rdma_base_to_sales_product_map;")
 
 # COMMAND ----------
 
