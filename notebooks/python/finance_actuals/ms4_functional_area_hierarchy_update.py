@@ -85,16 +85,7 @@ ms4_latest_functional_hierarchy_df = ms4_latest_functional_hierarchy_df.withColu
 
 # COMMAND ----------
 
-ms4_latest_functional_hierarchy_df.createOrReplaceTempView("ms4_latest_functional_hierarchy_df")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select count(*) from ms4_latest_functional_hierarchy_df
-
-# COMMAND ----------
-
 # load/join latest hierarchy into pre-set schema & load to redshift
 ms4_latest_functional_hierarchy_df = ms4_functional_hierarchy_df.union(ms4_latest_functional_hierarchy_df) 
 
-write_df_to_redshift(configs, ms4_latest_functional_hierarchy_df, "mdm.ms4_functional_area_hierarchy", "append", "", "truncate mdm.ms4_functional_area_hierarchy")
+write_df_to_redshift(configs=configs, df=ms4_latest_functional_hierarchy_df, destination="mdm.ms4_functional_area_hierarchy", mode="append", postactions="", preactions="TRUNCATE mdm.ms4_functional_area_hierarchy")
