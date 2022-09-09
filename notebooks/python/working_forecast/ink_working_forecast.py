@@ -4,6 +4,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/configs 
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
 
@@ -33,7 +37,7 @@ WITH geography_mapping AS
       FROM scen.working_forecast_usage_share AS us_scen
       WHERE 1 = 1
         AND us_scen.upload_type = 'WORKING-FORECAST'
-        AND us_scen.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP'))
+        AND UPPER(us_scen.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM'))
 
    , ink_us_prep AS
     (SELECT fv.user_name
@@ -1425,7 +1429,7 @@ WITH geography_mapping     AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND smr.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP'))
+       AND UPPER(smr.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM'))
 
    , ink_mix_rate_prep   AS
     (SELECT fv.user_name
@@ -3585,7 +3589,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_supplies_spares AS ssp
      WHERE 1 = 1
        AND ssp.upload_type = 'WORKING-FORECAST'
-       AND ssp.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP')
+       AND UPPER(ssp.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3596,8 +3600,8 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_vtc_override AS v
      WHERE 1 = 1
        AND v.upload_type = 'WORKING-FORECAST'
-       AND v.user_name IN
-           ('SAIMANK', 'SONSEEAHRAYR', 'ZACP'))
+       AND UPPER(v.user_name) IN
+           ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM'))
 
    , ink_cf_prep       AS
     (SELECT fv.user_name
