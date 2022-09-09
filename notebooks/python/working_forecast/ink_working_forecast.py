@@ -37,7 +37,7 @@ WITH geography_mapping AS
       FROM scen.working_forecast_usage_share AS us_scen
       WHERE 1 = 1
         AND us_scen.upload_type = 'WORKING-FORECAST'
-        AND UPPER(us_scen.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM'))
+        AND UPPER(us_scen.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_us_prep AS
     (SELECT fv.user_name
@@ -1429,7 +1429,7 @@ WITH geography_mapping     AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND UPPER(smr.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM'))
+       AND UPPER(smr.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_mix_rate_prep   AS
     (SELECT fv.user_name
@@ -1496,10 +1496,10 @@ WITH ink_mix_rate_final AS
                , smr.base_product_number
                , smr.customer_engagement
                , smr.value                                          AS mix_rate
-               , 'pcm_21_2'                                         AS type
+               , 'PCM_21_2'                                         AS type
                , CASE
-                 WHEN s.single_multi = 'Tri-pack' THEN 'Multi'
-                                                  ELSE 'Single' END AS single_multi
+                 WHEN s.single_multi = 'TRI-PACK' THEN 'MULTI'
+                                                  ELSE 'SINGLE' END AS single_multi
           FROM scen.ink_05_mix_uploads AS smr
           JOIN mdm.supplies_xref AS s
               ON s.base_product_number = smr.base_product_number
@@ -1516,8 +1516,8 @@ WITH ink_mix_rate_final AS
                , mix.mix_rate
                , mix.type
                , CASE
-              WHEN s.single_multi = 'Tri-pack' THEN 'Multi'
-                                               ELSE 'Single' END AS single_multi
+              WHEN s.single_multi = 'TRI-PACK' THEN 'MULTI'
+                                               ELSE 'SINGLE' END AS single_multi
           FROM scen.ink_04_cc_mix AS mix
           JOIN mdm.supplies_xref AS s
               ON s.base_product_number = mix.base_product_number
@@ -3545,7 +3545,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_usage_share AS us_scen
      WHERE 1 = 1
        AND us_scen.upload_type = 'WORKING-FORECAST'
-       AND us_scen.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP')
+       AND us_scen.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3556,7 +3556,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND smr.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP')
+       AND smr.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3567,7 +3567,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_yield AS scen_y
      WHERE 1 = 1
        AND scen_y.upload_type = 'WORKING-FORECAST'
-       AND scen_y.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP')
+       AND scen_y.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3578,7 +3578,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_channel_fill AS cf
      WHERE 1 = 1
        AND cf.upload_type = 'WORKING-FORECAST'
-       AND cf.user_name IN ('SAIMANK', 'SONSEEAHRAYR', 'ZACP')
+       AND cf.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3589,7 +3589,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_supplies_spares AS ssp
      WHERE 1 = 1
        AND ssp.upload_type = 'WORKING-FORECAST'
-       AND UPPER(ssp.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM')
+       AND UPPER(ssp.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3601,7 +3601,7 @@ WITH geography_mapping   AS
      WHERE 1 = 1
        AND v.upload_type = 'WORKING-FORECAST'
        AND UPPER(v.user_name) IN
-           ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACH.PEAKE@HP.COM'))
+           ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_cf_prep       AS
     (SELECT fv.user_name
