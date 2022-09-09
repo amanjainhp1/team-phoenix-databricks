@@ -1141,7 +1141,7 @@ WITH crg_months            AS
             WHEN hw.technology = 'LASER' AND
                  CAST(cmo.load_date AS DATE) > '2021-11-15' THEN 'PAGE_MIX'
             WHEN hw.technology <> 'LASER'                   THEN 'PAGE_MIX'
-                                                            ELSE 'crg_mix' END        AS upload_type -- HARD-CODED cut-line from cartridge mix to page/ccs mix; page_mix is page/ccs mix
+                                                            ELSE 'CRG_MIX' END        AS upload_type -- HARD-CODED cut-line from cartridge mix to page/ccs mix; page_mix is page/ccs mix
           , CASE
             WHEN NOT sup.k_color IS NULL                                THEN sup.k_color
             WHEN sup.k_color IS NULL AND sup.crg_chrome IN ('K', 'BLK')
