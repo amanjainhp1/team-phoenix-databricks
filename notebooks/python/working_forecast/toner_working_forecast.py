@@ -3671,7 +3671,7 @@ WITH geography_mapping   AS
        AND NOT region_3 IS NULL
        AND NOT region_4 IS NULL
        AND NOT region_5 IS NULL
-       AND NOT market10 = 'WORDLW WIDE'
+       AND NOT market10 = 'WORLD WIDE'
        AND NOT region_4 = 'JP'
        AND NOT region_5 = 'XU')
 
