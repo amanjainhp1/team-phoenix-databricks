@@ -325,11 +325,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM phoenix_spectrum_itg.usage_share AS us
+     FROM phoenix_spectrum_prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = (SELECT MAX(version) FROM phoenix_spectrum_itg.usage_share)
+       AND us.version = (SELECT MAX(version) FROM phoenix_spectrum_prod.usage_share)
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -448,7 +448,7 @@ WITH override_filters  AS
           , MAX(us.us_version) AS us_version
      FROM prod.ib
      CROSS JOIN (SELECT MAX(version) AS us_version
-                 FROM stage.usage_share_staging) AS us)
+                 FROM prod.usage_share) AS us)
 
    , toner_usage_share AS
     (SELECT uss.geography_grain
