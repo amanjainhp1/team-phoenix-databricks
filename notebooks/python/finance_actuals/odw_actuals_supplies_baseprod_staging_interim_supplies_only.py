@@ -18,8 +18,9 @@ odw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .load()
 odw_revenue_units_sales_landing_media = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM fin_prod.odw_revenue_units_sales_actuals") \
-    .load().filter("`profit center code` IN ('PAU00', 'PUR00')") \
-    .withColumnRenamed('unit quantity (sign-flip)', 'unit_quantity')
+    .load() \
+    .filter("profit_center_code IN ('PAU00', 'PUR00')") \
+    .withColumnRenamed('unit_quantity_sign_flip', 'unit_quantity')
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_country_code_xref") \
     .load()
