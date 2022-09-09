@@ -7,58 +7,39 @@
 
 # COMMAND ----------
 
-add_version_sproc = """
-call prod.addversion_sproc('WORKING_FORECAST','SYSTEM BUILD');  
-"""
-working_forecast_toner = """
-select top 1 record, cast(cal_date as date) cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, 
-channel_fill, supplies_spares_cartridges, 0 host_cartridges, expected_cartridges, vtc, adjusted_cartridges, cast(NULL as date) load_date, 
-cast(NULL as varchar(64)) version
+def add_version_and_update_prod_sproc(record: str) -> str:
+  f"""
+  CALL prod.addversion_sproc('{record}', 'SYSTEM BUILD');
+
+  UPDATE prod.{record.lower()}
+  SET load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = '{record}'),
+  version = (SELECT MAX(version) FROM prod.version WHERE record = '{record}');
+  """
+
+def read_stage_write_prod(inputs: List):
+  for input in inputs:
+    df = read_redshift_to_df(configs) \
+      .option("query", input[1]) \
+      .load()
+    
+    write_df_to_redshift(configs=configs, df=df, destination=f"prod.{input[0].lower()}", mode="append", postactions=add_version_and_update_table_sproc(f"{input[0].upper()}"))
+
+# COMMAND ----------
+
+inputs = []
+
+working_forecast_query = """
+SELECT record, CAST(cal_date AS DATE) cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, 
+channel_fill, supplies_spares_cartridges, 0 host_cartridges, expected_cartridges, vtc, adjusted_cartridges, CAST(NULL AS DATE) load_date, 
+CAST(NULL AS varchar(64)) version
 FROM scen.toner_working_fcst
-"""
-
-
-# COMMAND ----------
-
-final_working_forecast_toner = read_redshift_to_df(configs) \
-  .option("query",working_forecast_toner) \
-  .load()
-
-# COMMAND ----------
-
-write_df_to_redshift(configs,final_working_forecast_toner, "prod.working_forecast", "append", add_version_sproc)
-
-# COMMAND ----------
-
-submit_remote_query(configs, """
-UPDATE prod.working_forecast
-SET load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'WORKING_FORECAST'),
-version = (SELECT MAX(version) FROM prod.version WHERE record = 'WORKING_FORECAST');
-""")
-
-# COMMAND ----------
-
-working_forecast_ink = """
-SELECT record, cast(cal_date as date) cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, 
-channel_fill, supplies_spares_cartridges, 0 host_cartridges, expected_cartridges, vtc, adjusted_cartridges, cast(NULL as date) load_date, 
-cast(NULL as varchar(64)) version
+UNION
+SELECT record, CAST(cal_date AS DATE) cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, 
+channel_fill, supplies_spares_cartridges, 0 host_cartridges, expected_cartridges, vtc, adjusted_cartridges, CAST(NULL AS DATE) load_date, 
+CAST(NULL as varchar(64)) version
 FROM scen.ink_working_fcst
 """
 
-# COMMAND ----------
+inputs.append(["working_forecast", working_forecast_query])
 
-final_working_forecast_ink = read_redshift_to_df(configs) \
-  .option("query",working_forecast_ink) \
-  .load()
-
-# COMMAND ----------
-
-write_df_to_redshift(configs,final_working_forecast_ink, "prod.working_forecast", "append", add_version_sproc)
-
-# COMMAND ----------
-
-submit_remote_query(configs, """
-UPDATE prod.working_forecast
-SET load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'WORKING_FORECAST'),
-version = (SELECT MAX(version) FROM prod.version WHERE record = 'WORKING_FORECAST');
-""")
+read_stage_write_prod(inputs)
