@@ -280,7 +280,12 @@ query_list.append(["scen.ink_02_us_dmd", ink_02_us_dmd, "overwrite"])
 
 # COMMAND ----------
 
-ink_demand = """
+# create spectrum schema var based on stack/env so this query works in all our envs
+spectrum_schema = phoenix_spectrum
+if stack == 'itg' or stack == 'prod':
+    spectrum_schema = spectrum_schema + "_" + stack
+
+ink_demand = f"""
 WITH dbd_01_ib_load AS
     (SELECT ib.cal_date
           , ib.platform_subset
@@ -325,11 +330,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM phoenix_spectrum_prod.usage_share AS us
+     FROM {spectrum_schema}.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = (SELECT MAX(version) FROM phoenix_spectrum_prod.usage_share)
+       AND us.version = (SELECT MAX(version) FROM {spectrum_schema}.usage_share)
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
