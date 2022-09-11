@@ -1,5 +1,6 @@
 # Databricks notebook source
 from pyspark.sql.functions import current_timestamp
+from functools import reduce
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
 
 # COMMAND ----------

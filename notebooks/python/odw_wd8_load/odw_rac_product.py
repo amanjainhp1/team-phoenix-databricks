@@ -1,6 +1,7 @@
 # Databricks notebook source
 from pyspark.sql.functions import current_timestamp
 from functools import reduce
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
 
 # COMMAND ----------
 
@@ -35,6 +36,7 @@ odw_rac_product_financials_actuals_schema = StructType([ \
             StructField("discretionary_discounts_usd", DecimalType(), True), \
             StructField("net_currency_usd", DecimalType(), True), \
             StructField("net_revenues_usd", DecimalType(), True), \
+            StructField("warr", DecimalType(), True), \
             StructField("total_cost_of_sales_usd", DecimalType(), True), \
             StructField("gross_margin_usd", DecimalType(), True), \
             StructField("load_date", TimestampType(), True)                                         
@@ -60,7 +62,7 @@ if redshift_row_count == 0:
     
     odw_rac_product_financials_df = odw_rac_product_financials_actuals_schema_df.union(odw_rac_product_financials_df)
     
-    write_df_to_redshift(configs, odw_rac_product_financials_df, "fin_prod.odw_rac_product_financials_actuals", "append")
+    write_df_to_redshift(configs, odw_rac_product_financials_df, "fin_prod.odw_report_rac_product_financials_actuals", "append")
 
 # COMMAND ----------
 
