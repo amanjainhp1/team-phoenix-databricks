@@ -39,7 +39,25 @@ odw_revenue_units_sales_actuals_schema = StructType([ \
             StructField("unit_reporting_description", StringType(), True)
         ])
 
-odw_revenue_units_sales_actuals_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_revenue_units_sales_actuals_schema)
+odw_revenue_units_sales_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_revenue_units_sales_actuals_schema)
+
+# COMMAND ----------
+
+# define odw_revenue_units_base_actuals schema
+odw_revenue_units_base_actuals_schema = StructType([ \
+            StructField("cal_date", DateType(), True), \
+            StructField("country_alpha2", StringType(), True), \
+            StructField("region_3", StringType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("base_product_number", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("base_quantity", DecimalType(), True), \
+            StructField("load_date", TimestampType(), True), \
+            StructField("unit_reporting_code", StringType(), True), \
+            StructField("unit_reporting_description", StringType(), True)
+        ])
+
+odw_revenue_units_base_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_revenue_units_base_actuals_schema)
 
 # COMMAND ----------
 
@@ -53,13 +71,33 @@ except:
     None
 
 if redshift_row_count == 0:
-    revenue_unit_df = read_sql_server_to_df(configs) \
+    revenue_unit_sales_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
         .load()
     
-    odw_revenue_units_sales_actuals_df = odw_revenue_units_sales_actuals_df.union(revenue_unit_df)
+    odw_revenue_units_sales_actuals_schema_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_sales_df)
     
-    write_df_to_redshift(configs, odw_revenue_units_sales_actuals_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+    write_df_to_redshift(configs, odw_revenue_units_sales_actuals_schema_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+
+# COMMAND ----------
+
+redshift_row_count = 0
+try:
+    redshift_row_count = read_redshift_to_df(configs) \
+        .option("dbtable", "fin_prod.odw_revenue_units_base_actuals") \
+        .load() \
+        .count()
+except:
+    None
+
+if redshift_row_count == 0:
+    revenue_unit_base_df = read_sql_server_to_df(configs) \
+        .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_base_actuals_landing") \
+        .load()
+    
+    odw_revenue_units_base_actuals_schema_df = odw_revenue_units_base_actuals_schema_df.union(revenue_unit_base_df)
+    
+    write_df_to_redshift(configs, odw_revenue_units_base_actuals_schema_df, "fin_prod.odw_revenue_units_base_actuals", "append")
 
 # COMMAND ----------
 
@@ -133,11 +171,9 @@ if redshift_row_count > 0:
 
 # COMMAND ----------
 
-query_list = []
-
-# COMMAND ----------
-
 revenue_units_base_actuals = f"""
+
+
 WITH odw_sales_product_units AS (
 SELECT 
     cal.date AS cal_date
@@ -332,8 +368,13 @@ GROUP BY cal_date,
 FROM final
 """
 
-query_list = [["fin_prod.odw_revenue_units_base_actuals", revenue_units_base_actuals , "append"]]
-
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+#Write df to redshift
+if redshift_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", revenue_units_base_actuals) \
+            .load()
+
+    dataDF = odw_revenue_units_base_actuals_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_revenue_units_base_actuals", "append")

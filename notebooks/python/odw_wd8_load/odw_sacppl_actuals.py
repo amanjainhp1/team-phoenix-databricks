@@ -810,4 +810,4 @@ if redshift_row_count > 0:
             .load()
 
     dataDF = odw_sacp_actuals_schema_df.union(dataDF)
-    write_df_to_redshift(configs, dataDF, "fin_prod.odw_document_currency", "append")
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_sacp_actuals", "append")
