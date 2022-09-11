@@ -1,6 +1,8 @@
 # Databricks notebook source
 from pyspark.sql.functions import current_timestamp
 from functools import reduce
+from pyspark.sql.functions import col, current_date, regexp_extract
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType
 
 # COMMAND ----------
 
@@ -12,7 +14,38 @@ from functools import reduce
 
 # COMMAND ----------
 
+# MAGIC 
 # MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+# define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/shipment_actuals/"
+odw_actuals_deliveries_schema = StructType([ \
+            StructField("record", StringType(), True), \
+            StructField("cal_date", DateType(), True), \
+            StructField("country_alpha2", StringType(), True), \
+            StructField("market10", StringType(), True), \
+            StructField("base_product_number", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("trade_or_non_trade", StringType(), True), \
+            StructField("base_quantity", DecimalType(), True), \
+            StructField("official", IntegerType(), True), \
+            StructField("load_date", TimestampType(), True), \
+            StructField("version", IntegerType(), True), \
+            StructField("unit_reporting_code", StringType(), True), \
+            StructField("unit_reporting_description", StringType(), True), \
+            StructField("bundled_qty", DecimalType(), True), \
+            StructField("unbundled_qty", DecimalType(), True), \
+        ])
+
+odw_actuals_deliveries_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_actuals_deliveries_schema)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC Initial SFAI Data Load
 
 # COMMAND ----------
 
@@ -26,38 +59,30 @@ except:
     None
 
 if redshift_row_count == 0:
-    odw_actuals_deliveries_df = read_sql_server_to_df(configs) \
+    actuals_deliveries = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Prod.ms4.actuals_deliveries") \
         .load()
     
-    write_df_to_redshift(configs, odw_actuals_deliveries_df, "prod.actuals_deliveries", "append")
-
-# COMMAND ----------
-
-# mount S3 bucket
-dbutils.fs.unmount("/mnt/odw_shipment_actuals/")
-
-bucket = f"dataos-core-{stack}-team-phoenix-fin"
-bucket_prefix = "landing/odw/shipment_actuals/"
-dbfs_mount = '/mnt/odw_shipment_actuals/'
-
-s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
+    odw_actuals_deliveries_schema_df = odw_actuals_deliveries_schema_df.union(actuals_deliveries)
+    
+    write_df_to_redshift(configs, odw_actuals_deliveries_schema_df, "prod.actuals_deliveries", "append")
 
 # COMMAND ----------
 
 #Load all history data
-# files = dbutils.fs.ls(dbfs_mount)
+# path = f"s3://dataos-core-{stack}-team-phoenix-fin/landing/odw/shipment_actuals/"
+# files = dbutils.fs.ls(path)
 
 # if len(files) >= 1:
 #     SeriesAppend=[]
-    
+
 #     for f in files:
 #         odw_actuals_deliveries_df = spark.read \
 #             .format("com.crealytics.spark.excel") \
 #             .option("inferSchema", "True") \
 #             .option("header","True") \
 #             .option("treatEmptyValuesAsNulls", "False") \
-#             .load(f.path)
+#             .load(f[0])
 
 #         SeriesAppend.append(odw_actuals_deliveries_df)
 
@@ -105,10 +130,6 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Unbundled Qty","unbundled_qty") 
 
     write_df_to_redshift(configs, odw_actuals_deliveries_df, "stage.odw_report_ships_deliveries_actuals", "append")
-
-# COMMAND ----------
-
-query_list = []
 
 # COMMAND ----------
 
@@ -416,8 +437,12 @@ GROUP BY cal_date,
 	pl
 """
 
-query_list.append(["prod.odw_actuals_deliveries", odw_actuals_deliveries , "append"])
-
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+if redshift_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", odw_actuals_deliveries) \
+            .load()
+
+    odw_actuals_deliveries_schema_df = odw_actuals_deliveries_schema_df.union(dataDF)
+    write_df_to_redshift(configs, odw_actuals_deliveries_schema_df, "prod.odw_actuals_deliveries", "append")

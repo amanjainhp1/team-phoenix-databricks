@@ -1,6 +1,6 @@
 # Databricks notebook source
 from pyspark.sql.functions import current_timestamp
-from functools import reduce
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
 
 # COMMAND ----------
 
@@ -13,6 +13,30 @@ from functools import reduce
 # COMMAND ----------
 
 # MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+# define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/sacp_actuals/"
+odw_sacp_actuals_schema = StructType([ \
+            StructField("record", StringType(), True), \
+            StructField("cal_date", DateType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("gross_revenue", DecimalType(), True), \
+            StructField("net_currency", DecimalType(), True), \
+            StructField("contractual_discounts", DecimalType(), True), \
+            StructField("discretionary_discounts", DecimalType(), True), \
+            StructField("net_revenue", DecimalType(), True), \
+            StructField("warranty", DecimalType(), True), \
+            StructField("other_cos", DecimalType(), True), \
+            StructField("total_cos", DecimalType(), True), \
+            StructField("gross_profit", DecimalType(), True), \
+            StructField("load_date", TimestampType(), True)
+        ])
+
+odw_sacp_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_sacp_actuals_schema)
 
 # COMMAND ----------
 
@@ -30,36 +54,28 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
         .load()
     
-    write_df_to_redshift(configs, sacp_actuals_df, "fin_prod.odw_sacp_actuals", "append")
-
-# COMMAND ----------
-
-# mount S3 bucket
-dbutils.fs.unmount("/mnt/odw_sacp_actuals/")
-bucket = f"dataos-core-{stack}-team-phoenix-fin"
-bucket_prefix = "landing/odw/sacp_actuals/"
-dbfs_mount = '/mnt/odw_sacp_actuals/'
-
-s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
-
-# COMMAND ----------
-
-files = dbutils.fs.ls(dbfs_mount)
-
-if len(files) >= 1:
-    SeriesAppend=[]
+    odw_sacp_actuals_schema_df = odw_sacp_actuals_schema_df.union(sacp_actuals_df)
     
-    for f in files:
-        odw_sacp_actuals_df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("inferSchema", "True") \
-            .option("header","True") \
-            .option("treatEmptyValuesAsNulls", "False") \
-            .load(f.path)
+    write_df_to_redshift(configs, odw_sacp_actuals_schema_df, "fin_prod.odw_sacp_actuals", "append")
 
-        SeriesAppend.append(odw_sacp_actuals_df)
+# COMMAND ----------
 
-    df_series = reduce(DataFrame.unionAll, SeriesAppend)
+#Load all history data
+# path = f"s3://dataos-core-{stack}-team-phoenix-fin/landing/odw/sacp_actuals/"
+# files = dbutils.fs.ls(path)
+
+# SeriesAppend=[]
+# for f in files:
+#     odw_sacp_actuals_df = spark.read \
+#         .format("com.crealytics.spark.excel") \
+#         .option("inferSchema", "True") \
+#         .option("header","True") \
+#         .option("treatEmptyValuesAsNulls", "False") \
+#         .load(f[0])
+
+#     SeriesAppend.append(odw_sacp_actuals_df)
+
+# df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -94,17 +110,13 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Functional Area Code","functional_area_code") \
                         .withColumnRenamed("Functional Area Name","functional_area_name") \
                         .withColumnRenamed("Sign Flip Amount","sign_flip_amount") 
-
+    
     write_df_to_redshift(configs, sacp_actuals_df, "fin_stage.odw_sacp_actuals", "append")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC financials_odw_sacp_actuals
-
-# COMMAND ----------
-
-query_list = []
 
 # COMMAND ----------
 
@@ -788,8 +800,13 @@ GROUP BY cal_date
     , pl
 """
 
-query_list.append(["fin_prod.odw_sacp_actuals", odw_sacp_actuals , "append"])
-
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+#Write df to redshift
+if redshift_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", odw_sacp_actuals) \
+            .load()
+
+    odw_sacp_actuals_schema_df = odw_sacp_actuals_schema_df.union(dataDF)
+    write_df_to_redshift(configs, odw_document_currency_schema_df, "fin_prod.odw_document_currency", "append")

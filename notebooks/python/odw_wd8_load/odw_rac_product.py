@@ -16,6 +16,34 @@ from functools import reduce
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC Initial SFAI Data Load
+
+# COMMAND ----------
+
+# define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/rac_product_financials/"
+odw_rac_product_financials_actuals_schema = StructType([ \
+            StructField("fiscal_year_period", StringType(), True), \
+            StructField("material_number", StringType(), True), \
+            StructField("profit_center_code", StringType(), True), \
+            StructField("segment_code", StringType(), True), \
+            StructField("segment_name", StringType(), True), \
+            StructField("gross_trade_revenues_usd", DecimalType(), True), \
+            StructField("contractual_discounts_usd", DecimalType(), True), \
+            StructField("discretionary_discounts_usd", DecimalType(), True), \
+            StructField("net_currency_usd", DecimalType(), True), \
+            StructField("net_revenues_usd", DecimalType(), True), \
+            StructField("total_cost_of_sales_usd", DecimalType(), True), \
+            StructField("gross_margin_usd", DecimalType(), True), \
+            StructField("load_date", TimestampType(), True)                                         
+        ])
+
+odw_rac_product_financials_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_rac_product_financials_actuals_schema)
+
+# COMMAND ----------
+
 redshift_row_count = 0
 try:
     redshift_row_count = read_redshift_to_df(configs) \
@@ -30,36 +58,28 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing") \
         .load()
     
-    write_df_to_redshift(configs, odw_rac_product_financials_df, "fin_prod.odw_rac_product_financials_actuals", "append")
-
-# COMMAND ----------
-
-# mount S3 bucket
-dbutils.fs.unmount("/mnt/odw_rac_product_financials/")
-bucket = f"dataos-core-{stack}-team-phoenix-fin"
-bucket_prefix = "landing/odw/rac_product_financials/"
-dbfs_mount = '/mnt/odw_rac_product_financials/'
-
-s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
-
-# COMMAND ----------
-
-files = dbutils.fs.ls(dbfs_mount)
-
-if len(files) >= 1:
-    SeriesAppend=[]
+    odw_rac_product_financials_actuals_schema_df = odw_rac_product_financials_actuals_schema_df.union(odw_rac_product_financials_df)
     
-    for f in files:
-        odw_rac_product_financials_df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("inferSchema", "True") \
-            .option("header","True") \
-            .option("treatEmptyValuesAsNulls", "False") \
-            .load(f.path)
+    write_df_to_redshift(configs, odw_rac_product_financials_actuals_schema_df, "fin_prod.odw_rac_product_financials_actuals", "append")
 
-        SeriesAppend.append(odw_rac_product_financials_df)
+# COMMAND ----------
 
-    df_series = reduce(DataFrame.unionAll, SeriesAppend)
+#Load all history data
+# path = f"s3://{bucket}/{bucket_prefix}"
+# files = dbutils.fs.ls(path)
+
+# SeriesAppend=[]
+# for f in files:
+#     odw_rac_product_financials_df = spark.read \
+#         .format("com.crealytics.spark.excel") \
+#         .option("inferSchema", "True") \
+#         .option("header","True") \
+#         .option("treatEmptyValuesAsNulls", "False") \
+#         .load(f[0])
+
+#     SeriesAppend.append(odw_rac_product_financials_df)
+
+# df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -98,5 +118,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Net Revenues USD","net_revenues_usd") \
                         .withColumnRenamed("TOTAL COST OF SALES USD","total_cost_of_sales_usd") \
                         .withColumnRenamed("GROSS MARGIN USD","gross_margin_usd") 
+    
+    odw_rac_product_financials_actuals_schema_df = odw_rac_product_financials_actuals_schema_df.union(rac_product_financials_df)
 
     write_df_to_redshift(configs, rac_product_financials_df, "fin_prod.odw_report_rac_product_financials_actuals", "append")

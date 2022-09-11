@@ -1,7 +1,7 @@
 # Databricks notebook source
 from functools import reduce
 from pyspark.sql.functions import current_date
-from pyspark.sql.types import IntegerType, StringType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType
 
 # COMMAND ----------
 
@@ -14,6 +14,27 @@ from pyspark.sql.types import IntegerType, StringType
 # COMMAND ----------
 
 # MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+# define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/document_currency/"
+odw_document_currency_schema = StructType([ \
+            StructField("record", StringType(), True), \
+            StructField("cal_date", DateType(), True), \
+            StructField("country_alpha2", StringType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("segment", StringType(), True), \
+            StructField("document_currency_code", StringType(), True), \
+            StructField("revenue", DecimalType(), True), \
+            StructField("official", IntegerType(), True), \
+            StructField("load_date", TimestampType(), True), \
+            StructField("version", IntegerType(), True)
+        ])
+
+odw_document_currency_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_document_currency_schema)
 
 # COMMAND ----------
 
@@ -32,11 +53,13 @@ except:
     None
 
 if redshift_row_count == 0:
-    document_currency_df = read_sql_server_to_df(configs) \
+    document_currency = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
         .load()
     
-    write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
+    odw_document_currency_schema_df = odw_document_currency_schema_df.union(document_currency)
+    
+    write_df_to_redshift(configs, odw_document_currency_schema_df, "fin_prod.odw_document_currency", "append")
 
 # COMMAND ----------
 
@@ -45,19 +68,9 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-# mount S3 bucket
-dbutils.fs.unmount("/mnt/odw_document_currency/")
-
-bucket = f"dataos-core-{stack}-team-phoenix-fin"
-bucket_prefix = "landing/odw/document_currency"
-dbfs_mount = '/mnt/odw_document_currency/'
-
-s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
-
-# COMMAND ----------
-
 # Load all history data
-# files = dbutils.fs.ls(dbfs_mount)
+# path = f"s3://dataos-core-{stack}-team-phoenix-fin/landing/odw/document_currency/"
+# files = dbutils.fs.ls(path)
 
 # if len(files) >= 1:
 #     SeriesAppend=[]
@@ -68,7 +81,7 @@ s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
 #             .option("inferSchema", "True") \
 #             .option("header","True") \
 #             .option("treatEmptyValuesAsNulls", "False") \
-#             .load(f.path)
+#             .load(f[0])
 
 #         SeriesAppend.append(document_currency_df)
 
@@ -99,20 +112,13 @@ if redshift_row_count > 0:
 
     document_currency_df = document_currency_df.withColumn("load_date", current_date()) \
         .withColumn("Fiscal Year/Period", (document_currency_df["Fiscal Year/Period"].cast(IntegerType())).cast(StringType()))
-
-# COMMAND ----------
-
-if redshift_row_count > 0:
+    
     write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency", "append")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC financials_odw_document_currency
-
-# COMMAND ----------
-
-query_list = []
 
 # COMMAND ----------
 
@@ -192,8 +198,13 @@ GROUP BY cal_date
     , document_currency_code
 """
 
-query_list.append(["fin_prod.odw_document_currency", odw_document_currency , "append"])
-
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+#Write df to redshift
+if redshift_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", odw_document_currency) \
+            .load()
+
+    odw_document_currency_schema_df = odw_document_currency_schema_df.union(dataDF)
+    write_df_to_redshift(configs, odw_document_currency_schema_df, "fin_prod.odw_document_currency", "append")
