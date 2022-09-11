@@ -54,9 +54,9 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
         .load()
     
-    odw_sacp_actuals_schema_df = odw_sacp_actuals_schema_df.union(sacp_actuals_df)
+    sacp_actuals_df = odw_sacp_actuals_schema_df.union(sacp_actuals_df)
     
-    write_df_to_redshift(configs, odw_sacp_actuals_schema_df, "fin_prod.odw_sacp_actuals", "append")
+    write_df_to_redshift(configs, sacp_actuals_df, "fin_prod.odw_sacp_actuals", "append")
 
 # COMMAND ----------
 
@@ -808,5 +808,5 @@ if redshift_row_count > 0:
             .option("query", odw_sacp_actuals) \
             .load()
 
-    odw_sacp_actuals_schema_df = odw_sacp_actuals_schema_df.union(dataDF)
-    write_df_to_redshift(configs, odw_document_currency_schema_df, "fin_prod.odw_document_currency", "append")
+    dataDF = odw_sacp_actuals_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_document_currency", "append")

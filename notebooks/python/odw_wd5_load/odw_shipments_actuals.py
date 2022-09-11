@@ -59,13 +59,13 @@ except:
     None
 
 if redshift_row_count == 0:
-    actuals_deliveries = read_sql_server_to_df(configs) \
+    actuals_deliveries_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Prod.ms4.actuals_deliveries") \
         .load()
     
-    odw_actuals_deliveries_schema_df = odw_actuals_deliveries_schema_df.union(actuals_deliveries)
+    actuals_deliveries_df = odw_actuals_deliveries_schema_df.union(actuals_deliveries_df)
     
-    write_df_to_redshift(configs, odw_actuals_deliveries_schema_df, "prod.actuals_deliveries", "append")
+    write_df_to_redshift(configs, actuals_deliveries_df, "prod.actuals_deliveries", "append")
 
 # COMMAND ----------
 
@@ -444,5 +444,5 @@ if redshift_row_count > 0:
             .option("query", odw_actuals_deliveries) \
             .load()
 
-    odw_actuals_deliveries_schema_df = odw_actuals_deliveries_schema_df.union(dataDF)
-    write_df_to_redshift(configs, odw_actuals_deliveries_schema_df, "prod.odw_actuals_deliveries", "append")
+    dataDF = odw_actuals_deliveries_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "prod.odw_actuals_deliveries", "append")

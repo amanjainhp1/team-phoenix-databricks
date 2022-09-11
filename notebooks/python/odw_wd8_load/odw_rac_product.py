@@ -58,9 +58,9 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing") \
         .load()
     
-    odw_rac_product_financials_actuals_schema_df = odw_rac_product_financials_actuals_schema_df.union(odw_rac_product_financials_df)
+    odw_rac_product_financials_df = odw_rac_product_financials_actuals_schema_df.union(odw_rac_product_financials_df)
     
-    write_df_to_redshift(configs, odw_rac_product_financials_actuals_schema_df, "fin_prod.odw_rac_product_financials_actuals", "append")
+    write_df_to_redshift(configs, odw_rac_product_financials_df, "fin_prod.odw_rac_product_financials_actuals", "append")
 
 # COMMAND ----------
 
@@ -119,6 +119,6 @@ if redshift_row_count > 0:
                         .withColumnRenamed("TOTAL COST OF SALES USD","total_cost_of_sales_usd") \
                         .withColumnRenamed("GROSS MARGIN USD","gross_margin_usd") 
     
-    odw_rac_product_financials_actuals_schema_df = odw_rac_product_financials_actuals_schema_df.union(rac_product_financials_df)
+    rac_product_financials_df = odw_rac_product_financials_actuals_schema_df.union(rac_product_financials_df)
 
     write_df_to_redshift(configs, rac_product_financials_df, "fin_prod.odw_report_rac_product_financials_actuals", "append")

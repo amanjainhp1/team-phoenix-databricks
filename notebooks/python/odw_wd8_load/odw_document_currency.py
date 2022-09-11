@@ -53,13 +53,13 @@ except:
     None
 
 if redshift_row_count == 0:
-    document_currency = read_sql_server_to_df(configs) \
+    document_currency_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
         .load()
     
-    odw_document_currency_schema_df = odw_document_currency_schema_df.union(document_currency)
+    document_currency_df = odw_document_currency_schema_df.union(document_currency_df)
     
-    write_df_to_redshift(configs, odw_document_currency_schema_df, "fin_prod.odw_document_currency", "append")
+    write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
 
 # COMMAND ----------
 
@@ -206,5 +206,5 @@ if redshift_row_count > 0:
             .option("query", odw_document_currency) \
             .load()
 
-    odw_document_currency_schema_df = odw_document_currency_schema_df.union(dataDF)
-    write_df_to_redshift(configs, odw_document_currency_schema_df, "fin_prod.odw_document_currency", "append")
+    dataDF = odw_document_currency_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_document_currency", "append")

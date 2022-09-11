@@ -66,31 +66,22 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-# mount S3 bucket
-bucket = f"dataos-core-{stack}-team-phoenix" 
-bucket_prefix = "landing/odw/odw_revenue_unit_sales_actuals"
-dbfs_mount = '/mnt/odw_revenue_unit_sales/'
+#Load all history data
+# path = f"s3://{bucket}/{bucket_prefix}"
+# files = dbutils.fs.ls(path)
 
-s3_mount(bucket, dbfs_mount)
+# SeriesAppend=[]
+# for f in files:
+#     revenue_unit_complete_data_df = spark.read \
+#         .format("com.crealytics.spark.excel") \
+#         .option("inferSchema", "True") \
+#         .option("header","True") \
+#         .option("treatEmptyValuesAsNulls", "False") \
+#         .load(f[0])
 
-# COMMAND ----------
+#     SeriesAppend.append(revenue_unit_complete_data_df)
 
-# files = dbutils.fs.ls(dbfs_mount)
-
-# if len(files) >= 1:
-#     SeriesAppend=[]
-    
-#     for f in files:
-#         revenue_unit_df = spark.read \
-#             .format("com.crealytics.spark.excel") \
-#             .option("inferSchema", "True") \
-#             .option("header","True") \
-#             .option("treatEmptyValuesAsNulls", "False")\
-#             .load(f.path) \
-
-#         SeriesAppend.append(revenue_unit_df)
-
-#     df_series = reduce(DataFrame.unionAll, SeriesAppend)
+# df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -131,7 +122,7 @@ if redshift_row_count > 0:
 
     revenue_unit_df = odw_revenue_units_sales_actuals_df.union(revenue_unit_df)    
     
-    write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+#     write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
 
 # COMMAND ----------
 
