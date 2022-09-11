@@ -23,6 +23,8 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 # COMMAND ----------
 
 # define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/revenue_unit_sales_actuals/"
 odw_revenue_units_sales_actuals_schema = StructType([ \
             StructField("fiscal_year_period", StringType(), True), \
             StructField("profit_center_hier_desc_level4", StringType(), True), \
