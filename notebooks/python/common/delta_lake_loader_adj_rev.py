@@ -34,13 +34,42 @@ cbm_st_data = read_sql_server_to_df(configs) \
     .option("dbtable", "CBM.dbo.cbm_st_data") \
     .load()
 
+#--------- fin_stage ---------
+adjusted_revenue_staging = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.adjusted_revenue_staging") \
+    .load()
+
+rev_flash_for_insights_supplies = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.rev_flash_for_insights_supplies") \
+    .load()
+
 #--------- fin_prod ---------
+adjusted_revenue_salesprod = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.adjusted_revenue_salesprod") \
+    .load()
+
 actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
     .load()
 
+ci_flash_for_insights_supplies_temp = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.ci_flash_for_insights_supplies_temp") \
+    .load()
+
+ci_history_supplies_finance_landing = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.ci_history_supplies_finance_landing") \
+    .load()
+    
 odw_document_currency = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.odw_document_currency") \
+    .load()
+
+rev_flash_for_insights_supplies_temp = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.rev_flash_for_insights_supplies_temp") \
+    .load()\
+
+supplies_finance_flash = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.supplies_finance_flash") \
     .load()
 
 #----------- mdm ------------
@@ -82,12 +111,8 @@ version = read_redshift_to_df(configs) \
     .load()
 
 #----------- parquet ------------
-edw_revenue_document_currency_landing = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_revenue_document_currency_landing")
+#edw_revenue_document_currency_landing = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_revenue_document_currency_landing")
 
-
-# COMMAND ----------
-
-cbm_st_data.withColumnRenamed("fiscal year name","fiscal_year_name").printSchema()
 
 # COMMAND ----------
 
@@ -97,15 +122,19 @@ cbm_st_data.withColumnRenamed("fiscal year name","fiscal_year_name").printSchema
 
 # COMMAND ----------
 
-
-
-
 tables = [
     ['mdm.calendar', calendar],
+    ['fin_prod.adjusted_revenue_salesprod', adjusted_revenue_salesprod],
     ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod],
+    ['fin_prod.ci_flash_for_insights_supplies_temp', ci_flash_for_insights_supplies_temp],
+    ['fin_prod.ci_history_supplies_finance_landing', ci_history_supplies_finance_landing],
     ['fin_prod.odw_document_currency', odw_document_currency],
+    ['fin_prod.rev_flash_for_insights_supplies_temp', rev_flash_for_insights_supplies_temp],
+    ['fin_prod.supplies_finance_flash', supplies_finance_flash],
+    ['fin_stage.adjusted_revenue_staging', adjusted_revenue_staging],
     ['fin_stage.cbm_st_data', cbm_st_data],
     ['fin_stage.edw_revenue_document_currency_landing', edw_revenue_document_currency_landing],
+    ['fin_stage.rev_flash_for_insights_supplies', rev_flash_for_insights_supplies],
     ['mdm.country_currency_map', country_currency_map],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.list_price_eu_countrylist', list_price_eu_countrylist],

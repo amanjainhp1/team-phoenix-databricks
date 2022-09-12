@@ -2610,7 +2610,7 @@ query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "overwrite"]
 
 # MAGIC %md
 # MAGIC 
-# MAGIC ## Adjust Revenue Salesprod
+# MAGIC ## Adjusted Revenue Salesprod
 
 # COMMAND ----------
 
