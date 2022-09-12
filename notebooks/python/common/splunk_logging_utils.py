@@ -14,11 +14,8 @@ import dataos_splunk
 #     start_timestamp: 2022-09-02 17:45:34
 # }
 
-# retrieve job data from Databricks
-job_data = dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
-
 # define function used to retrieve a timestamp
-def get_timestamp():
+def get_timestamp() -> str:
     return(str(datetime.today().strftime("%Y-%m-%d %H:%M:%S")))
 
 def create_splunk_data(app: str, run_id: str) -> dict:
@@ -32,13 +29,11 @@ def push_to_splunk(data: dict, source_type="databricks") -> None:
     dataos_splunk.send_to_splunk(metadata, json.dumps(data, indent=4))
 
 def log_job_start(app: str, run_id: str) -> dict:
-    timestamp = get_timestamp()
     data = create_splunk_data(app, run_id)
-    data["job"]["start_timestamp"] = timestamp
+    data["job"]["start_timestamp"] = get_timestamp()
     return(data)
 
 def log_job_end(data: dict, status: str) -> None:
-    timestamp = get_timestamp()
-    data["job"]["end_timestamp"] = timestamp
+    data["job"]["end_timestamp"] = get_timestamp()
     data["job"]["overall_status"] = status
     push_to_splunk(data)
