@@ -61,16 +61,16 @@ odw_revenue_units_base_actuals_schema_df = spark.createDataFrame(spark.sparkCont
 
 # COMMAND ----------
 
-redshift_row_count = 0
+redshift_sales_actuals_row_count = 0
 try:
-    redshift_row_count = read_redshift_to_df(configs) \
+    redshift_sales_actuals_row_count = read_redshift_to_df(configs) \
         .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
         .load() \
         .count()
 except:
     None
 
-if redshift_row_count == 0:
+if redshift_sales_actuals_row_count == 0:
     revenue_unit_sales_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
         .load()
@@ -81,16 +81,16 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-redshift_row_count = 0
+redshift_base_actuals_row_count = 0
 try:
-    redshift_row_count = read_redshift_to_df(configs) \
+    redshift_base_actuals_row_count = read_redshift_to_df(configs) \
         .option("dbtable", "fin_prod.odw_revenue_units_base_actuals") \
         .load() \
         .count()
 except:
     None
 
-if redshift_row_count == 0:
+if redshift_base_actuals_row_count == 0:
     revenue_unit_base_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_base_actuals_landing") \
         .load()
@@ -143,7 +143,7 @@ print(revenue_unit_latest_file)
 
 # COMMAND ----------
 
-if redshift_row_count > 0:
+if redshift_sales_actuals_row_count > 0:
     revenue_unit_df = spark.read \
         .format("com.crealytics.spark.excel") \
         .option("inferSchema", "True") \
@@ -160,9 +160,9 @@ if redshift_row_count > 0:
         .withColumn("load_date", current_date()) \
         .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
 
-    revenue_unit_df = odw_revenue_units_sales_actuals_df.union(revenue_unit_df)    
+    revenue_unit_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_df)    
     
-#     write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+    write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
 
 # COMMAND ----------
 
@@ -371,7 +371,7 @@ FROM final
 # COMMAND ----------
 
 #Write df to redshift
-if redshift_row_count > 0:
+if redshift_base_actuals_row_count > 0:
     dataDF = read_redshift_to_df(configs) \
             .option("query", revenue_units_base_actuals) \
             .load()

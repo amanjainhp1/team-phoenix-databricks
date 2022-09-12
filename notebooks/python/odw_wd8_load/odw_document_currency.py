@@ -1,7 +1,7 @@
 # Databricks notebook source
 from functools import reduce
 from pyspark.sql.functions import current_date
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType , BooleanType
 
 # COMMAND ----------
 
@@ -29,7 +29,7 @@ odw_document_currency_schema = StructType([ \
             StructField("segment", StringType(), True), \
             StructField("document_currency_code", StringType(), True), \
             StructField("revenue", DecimalType(), True), \
-            StructField("official", IntegerType(), True), \
+            StructField("official", BooleanType(), True), \
             StructField("load_date", TimestampType(), True), \
             StructField("version", IntegerType(), True)
         ])
