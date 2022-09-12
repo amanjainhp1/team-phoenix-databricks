@@ -18,6 +18,7 @@ Jobs:
   - odw-all-history-actuals-update
   - odw-monthly-actuals-update
   - odw-wd8-load
+  - ozzy-mps
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share

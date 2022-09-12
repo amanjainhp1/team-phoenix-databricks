@@ -17,10 +17,10 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
-  - mps-ww-shipped-supplies
   - odw-all-history-actuals-update
   - odw-monthly-actuals-update
   - odw-wd8-load
+  - ozzy-mps
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
@@ -33,6 +33,7 @@ DeleteJobs:
   - ink-usage-total
   - installed-base-promo
   - installed-base-scenario
+  - mps-ww-shipped-supplies
   - norm-ships
   - odw-document-currency
   - odw-revenue-unit
