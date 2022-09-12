@@ -15,7 +15,7 @@ import json
 
 # COMMAND ---------
 
-job_data = dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
+job_data = json.loads(dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
 splunk_data = log_job_start(app=job_data['tags']['jobName'], run_id=job_data['tags']['runId'])
 
 # COMMAND ----------
@@ -539,7 +539,7 @@ for result in thread:
 # COMMAND ----------
 
 if len(failed_jobs) > 0:
-    lob_job_end(splunk_data, "FAILED")
+    log_job_end(splunk_data, "FAILED")
     raise Exception("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
 else:
-    lob_job_end(splunk_data, "SUCCESS")
+    log_job_end(splunk_data, "SUCCESS")
