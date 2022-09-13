@@ -29,7 +29,7 @@ odw_document_currency_schema = StructType([ \
             StructField("segment", StringType(), True), \
             StructField("document_currency_code", StringType(), True), \
             StructField("revenue", DecimalType(), True), \
-            StructField("official", BooleanType(), True), \
+            StructField("official", IntegerType(), True), \
             StructField("load_date", TimestampType(), True), \
             StructField("version", IntegerType(), True)
         ])
