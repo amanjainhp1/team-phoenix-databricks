@@ -113,7 +113,7 @@ if redshift_row_count > 0:
 
     odw_actuals_deliveries_df = odw_actuals_deliveries_df.withColumn("load_date", current_timestamp())
 
-    odw_actuals_deliveries_df = odw_actuals_deliveries_df.withColumnRenamed("Fiscal Year/Period","fiscal_year_period") \
+    odw_actuals_deliveries_df = odw_actuals_deliveries_df.withColumnRenamed("Fiscal Year Month","fiscal_year_period") \
                         .withColumnRenamed("Calendar Year Month","calendar_year_month") \
                         .withColumnRenamed("Unit Reporting Code","unit_reporting_code") \
                         .withColumnRenamed("Unit Reporting Description","unit_reporting_description") \
