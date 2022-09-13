@@ -2,7 +2,7 @@
 from pyspark.sql.functions import current_timestamp
 from functools import reduce
 from pyspark.sql.functions import col, current_date, regexp_extract
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType , BooleanType
 
 # COMMAND ----------
 
@@ -37,7 +37,7 @@ odw_actuals_deliveries_schema = StructType([ \
             StructField("unit_reporting_code", StringType(), True), \
             StructField("unit_reporting_description", StringType(), True), \
             StructField("bundled_qty", DecimalType(), True), \
-            StructField("unbundled_qty", DecimalType(), True), \
+            StructField("unbundled_qty", DecimalType(), True)
         ])
 
 odw_actuals_deliveries_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_actuals_deliveries_schema)
