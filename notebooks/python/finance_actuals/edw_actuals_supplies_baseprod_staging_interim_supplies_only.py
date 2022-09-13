@@ -11,8 +11,13 @@
 
 # COMMAND ----------
 
-# load parquet file to df
-edw_revenue_units_sales_landing_media = spark.read.parquet("s3://dataos-core-itg-team-phoenix-fin/landing/EDW/edw_revenue_units_sales_landing")
+edw_fin_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix-fin/"
+edw_ships_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix/product/"
+
+# COMMAND ----------
+
+# load parquet files to df
+edw_revenue_units_sales_landing_media = spark.read.parquet(edw_fin_s3_bucket + "EDW/edw_revenue_units_sales_landing")
 
 
 # COMMAND ----------
