@@ -65,7 +65,7 @@ if redshift_row_count == 0:
     
     actuals_deliveries_df = odw_actuals_deliveries_schema_df.union(actuals_deliveries_df)
     
-    write_df_to_redshift(configs, actuals_deliveries_df, "prod.actuals_deliveries", "append")
+    write_df_to_redshift(configs, actuals_deliveries_df, "prod.odw_actuals_deliveries", "append")
 
 # COMMAND ----------
 
