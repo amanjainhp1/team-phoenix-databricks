@@ -1,24 +1,24 @@
 ---
 Jobs:
-  # - actuals-hw
-  # - base-usage-share
-  # - create-demand-file
-  # - flash-load
-  # - hardware-ltf
-  # - hardware-stf
-  # - ib-ns-set-official
-  # - ink-usage-share
-  # - installed-base
-  # - lf-decay
-  # - lf-ltf
-  # - lf-ltf-splits
-  # - mdm-nightly-load
+  - actuals-hw
+  - base-usage-share
+  - create-demand-file
+  - flash-load
+  - hardware-ltf
+  - hardware-stf
+  - ib-ns-set-official
+  - ink-usage-share
+  - installed-base
+  - lf-decay
+  - lf-ltf
+  - lf-ltf-splits
+  - mdm-nightly-load
   - odw-wd5-load
   - odw-wd8-load
-  # - rdma-full-load
-  # - redshift-resource-creator
-  # - toner-usage-share
-  # - wd3-load
+  - rdma-full-load
+  - redshift-resource-creator
+  - toner-usage-share
+  - wd3-load
 
 DeleteJobs:
   - ink-share

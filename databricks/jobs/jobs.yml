@@ -1,5 +1,6 @@
 ---
 Jobs:
+<<<<<<< HEAD
   # - actuals-hw
   # - ce-split
   # - flash-load
@@ -12,6 +13,20 @@ Jobs:
   # - lf-ltf
   # - lf-ltf-splits
   # - mdm-nightly-load
+=======
+  - actuals-hw
+  - ce-split
+  - flash-load
+  - hardware-ltf
+  - hardware-stf
+  - ib-ns-set-official
+  - ink-usage-share
+  - installed-base
+  - lf-decay
+  - lf-ltf
+  - lf-ltf-splits
+  - mdm-nightly-load
+>>>>>>> e023cbb7b6011d12cfd95fc56aaa5a5f5c270320
   - odw-wd5-load
   - odw-wd8-load
   # - rdma-full-load

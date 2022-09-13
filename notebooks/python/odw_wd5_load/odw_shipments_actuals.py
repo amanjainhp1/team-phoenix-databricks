@@ -2,7 +2,7 @@
 from pyspark.sql.functions import current_timestamp
 from functools import reduce
 from pyspark.sql.functions import col, current_date, regexp_extract
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType , BooleanType
 
 # COMMAND ----------
 
@@ -37,7 +37,7 @@ odw_actuals_deliveries_schema = StructType([ \
             StructField("unit_reporting_code", StringType(), True), \
             StructField("unit_reporting_description", StringType(), True), \
             StructField("bundled_qty", DecimalType(), True), \
-            StructField("unbundled_qty", DecimalType(), True), \
+            StructField("unbundled_qty", DecimalType(), True)
         ])
 
 odw_actuals_deliveries_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_actuals_deliveries_schema)
@@ -65,7 +65,7 @@ if redshift_row_count == 0:
     
     actuals_deliveries_df = odw_actuals_deliveries_schema_df.union(actuals_deliveries_df)
     
-    write_df_to_redshift(configs, actuals_deliveries_df, "prod.actuals_deliveries", "append")
+    write_df_to_redshift(configs, actuals_deliveries_df, "prod.odw_actuals_deliveries", "append")
 
 # COMMAND ----------
 
@@ -113,7 +113,7 @@ if redshift_row_count > 0:
 
     odw_actuals_deliveries_df = odw_actuals_deliveries_df.withColumn("load_date", current_timestamp())
 
-    odw_actuals_deliveries_df = odw_actuals_deliveries_df.withColumnRenamed("Fiscal Year/Period","fiscal_year_period") \
+    odw_actuals_deliveries_df = odw_actuals_deliveries_df.withColumnRenamed("Fiscal Year Month","fiscal_year_period") \
                         .withColumnRenamed("Calendar Year Month","calendar_year_month") \
                         .withColumnRenamed("Unit Reporting Code","unit_reporting_code") \
                         .withColumnRenamed("Unit Reporting Description","unit_reporting_description") \
@@ -121,7 +121,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Material Nr","material_nr") \
                         .withColumnRenamed("Material Desc","material_desc") \
                         .withColumnRenamed("Trade/Non-Trade","trade_or_non_trade") \
-                        .withColumnRenamed("Profit Center Code","profit_center_code") \
+                        .withColumnRenamed("Original Profit Center Code","profit_center_code") \
                         .withColumnRenamed("Segment Code","segment_code") \
                         .withColumnRenamed("Segment Hier Desc Level2","segment_hier_desc_level2") \
                         .withColumnRenamed("Delivery Item Qty","delivery_item_qty") \
