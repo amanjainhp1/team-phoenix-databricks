@@ -121,7 +121,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Material Nr","material_nr") \
                         .withColumnRenamed("Material Desc","material_desc") \
                         .withColumnRenamed("Trade/Non-Trade","trade_or_non_trade") \
-                        .withColumnRenamed("Profit Center Code","profit_center_code") \
+                        .withColumnRenamed("Original Profit Center Code","profit_center_code") \
                         .withColumnRenamed("Segment Code","segment_code") \
                         .withColumnRenamed("Segment Hier Desc Level2","segment_hier_desc_level2") \
                         .withColumnRenamed("Delivery Item Qty","delivery_item_qty") \
