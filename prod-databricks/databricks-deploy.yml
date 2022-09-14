@@ -10,7 +10,6 @@ resources:
       name: supplies-bd/team-phoenix-databricks-jobs-config
       endpoint: ghe
 
-
 variables:
 - group: databricks-prod
 - group: Defaults

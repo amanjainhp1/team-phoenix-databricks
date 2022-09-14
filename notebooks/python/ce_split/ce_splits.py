@@ -20,7 +20,8 @@ def get_data_by_table(table):
     
     for column in df.dtypes:
         if column[1] == 'string':
-            df = df.withColumn(column[0], upper(col(column[0]))) 
+            df = df.withColumn(column[0], f.upper(f.col(column[0]))) 
+
     return df
 
 # COMMAND ----------
@@ -29,7 +30,7 @@ max_version_info = call_redshift_addversion_sproc(configs, 'CE_SPLITS_I-INK', 'F
 
 # COMMAND ----------
 
-tables = ['prod.instant_ink_enrollees', 'mdm.iso_country_code_xref', 'mdm.hardware_xref', 'prod.norm_shipments', 'mdm.calendar' , 'stage.ce_splits_override']
+tables = ['prod.instant_ink_enrollees', 'mdm.iso_country_code_xref', 'mdm.hardware_xref', 'prod.norm_shipments', 'mdm.calendar']
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
@@ -40,11 +41,9 @@ for table in tables:
     
     # Load the data from its source.
     df = get_data_by_table(table)
-    
-    
+        
     # Write the data to its target.
     df.write \
-      .option("overwriteSchema", "true") \
       .format(write_format) \
       .mode("overwrite") \
       .save(save_path)
@@ -52,7 +51,7 @@ for table in tables:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
     # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table +  " USING DELTA LOCATION '" + save_path + "'")
+    spark.sql("CREATE TABLE " + table + " USING DELTA LOCATION '" + save_path + "'")
     
     spark.table(table).createOrReplaceTempView(table_name + "_df_view")
 
@@ -61,7 +60,7 @@ for table in tables:
 # duplicate iink enrollees data, once for I-INK and TRAD, with ce_split being calculated
 query = '''
     SELECT 
-        'CE_SPLITS_I-INK' AS record
+        'CE_SPLITS_I-INK' as record
         , platform_subset
         , c.region_5
         , i.country
@@ -78,11 +77,9 @@ query = '''
     LEFT JOIN iso_country_code_xref_df_view c 
     ON c.country_alpha2 = i.country
     WHERE i.official = 1 
-
     UNION
-
     SELECT 
-        'CE_SPLITS_I-INK' AS record
+        'CE_SPLITS_I-INK' record
         , platform_subset
         , c.region_5
         , i.country
@@ -196,7 +193,7 @@ query1 = '''
     LEFT JOIN hardware_xref_df_view hw ON hw.platform_subset = norm.platform_subset
     WHERE norm.version = (SELECT MAX(version) FROM norm_shipments_df_view)
         AND hw.technology = 'INK' 
-        AND (norm.platform_subset like '%I-INK' OR norm.platform_subset LIKE '%YET%')
+        AND (norm.platform_subset like '%I-INK' or norm.platform_subset LIKE '%YET%')
     GROUP BY norm.platform_subset, norm.country_alpha2
 '''
 
@@ -253,7 +250,7 @@ comp.createOrReplaceTempView('comp_view')
 ##################################LOAD CE SPLITS FROM ENROLEES AND NPI INTO ONE TEMP TABLE######################################
 query = '''
 SELECT 
-    'CE_SPLITS_I-INK' AS record
+    'CE_SPLITS_I-INK' record
     , comp.platform_subset
     , comp.region_5
     , comp.country_alpha2
@@ -269,11 +266,9 @@ ON ces.platform_subset=comp.predecessor
     AND comp.country_alpha2=ces.country
     AND comp.split_name=ces.split_name
 WHERE ces.record = 'CE_SPLITS_I-INK'
-
 UNION 
-
 SELECT
-    'CE_SPLITS_I-INK' AS record
+    'CE_SPLITS_I-INK' record
     , platform_subset
     , region_5
     , country
@@ -364,18 +359,14 @@ query = '''
 SELECT 
     'CE_SPLITS_I-INK' AS record
     , platform_subset
-    , region_5
-    , country_alpha2
-    , em_dm
-    , business_model
+    , region_5,country_alpha2
+    , em_dm,business_model
     , month_begin
     , split_name
     , pre_post_flag
     , value
 FROM npi_plus_enrolles_ce_splits_view
-
 UNION
-
 SELECT
     'CE_SPLITS_I-INK' AS record
     , platform_subset
@@ -398,9 +389,9 @@ final_ce.createOrReplaceTempView('final_ce_view')
 final_ce = final_ce \
     .select('record', 'platform_subset', 'region_5', 'country_alpha2', 'em_dm', 'business_model',
             'month_begin', 'split_name', 'pre_post_flag', 'value') \
-    .withColumn('official', lit(1)) \
-    .withColumn('load_date', lit(max_version_info[1])) \
-    .withColumn('version', lit(max_version_info[0]))
+    .withColumn('official', f.lit(1)) \
+    .withColumn('load_date', f.lit(max_version_info[1])) \
+    .withColumn('version', f.lit(max_version_info[0]))
 
 # COMMAND ----------
 
@@ -419,52 +410,3 @@ submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], config
 
 # write data to redshift
 write_df_to_redshift(configs, final_ce, "prod.ce_splits", "append")
-
-# COMMAND ----------
-
-##########################DELETE CE FOR OVERRIDES########################################
-delete_prod_ce_splits_table = """
-DELETE FROM prod.ce_splits
-WHERE platform_subset IN (
-SELECT DISTINCT platform_subset FROM "stage"."ce_splits_override"
-WHERE official = 1) AND official = 1
-"""
-
-submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], delete_prod_ce_splits_table)
-
-# COMMAND ----------
-
-query = '''
-SELECT 
-    record
-    , platform_subset
-    , region_5
-    , country_alpha2
-    , em_dm
-    , business_model
-    , month_begin
-    , split_name
-    , pre_post_flag
-    , value
-    , active
-    , active_at
-    , inactive_at
-FROM ce_splits_override_df_view
-WHERE official = 1
-
-'''
-updated_final_ce = spark.sql(query)
-
-# COMMAND ----------
-
-updated_final_ce = updated_final_ce \
-    .select('record', 'platform_subset', 'region_5', 'country_alpha2', 'em_dm', 'business_model',
-            'month_begin', 'split_name', 'pre_post_flag', 'value') \
-    .withColumn('official', lit(1)) \
-    .withColumn('load_date', lit(max_version_info[1])) \
-    .withColumn('version', lit(max_version_info[0]))
-
-# COMMAND ----------
-
-# write data to redshift
-write_df_to_redshift(configs, updated_final_ce, "prod.ce_splits", "append")
