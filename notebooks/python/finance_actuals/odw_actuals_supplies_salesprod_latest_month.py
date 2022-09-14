@@ -38,6 +38,77 @@ if dbutils.widgets.get("load_to_redshift").lower() == "true":
 
 # COMMAND ----------
 
+#load cbm data from sfai
+cbm_st_data = read_sql_server_to_df(configs) \
+    .option("dbtable", "CBM.dbo.cbm_st_data") \
+    .load()
+
+# COMMAND ----------
+
+# load S3 tables to df
+odw_revenue_units_sales_actuals = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
+    .load()
+odw_document_currency = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.odw_document_currency") \
+    .load()
+odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
+   .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
+   .load()
+mps_ww_shipped_supply = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.mps_ww_shipped_supply") \
+    .load()
+iso_country_code_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.iso_country_code_xref") \
+    .load()
+calendar = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.calendar") \
+    .load()
+profit_center_code_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.profit_center_code_xref") \
+    .load()
+product_line_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.product_line_xref") \
+    .load()
+itp_laser_landing = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.itp_laser_landing") \
+    .load()
+supplies_iink_units_landing = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.supplies_iink_units_landing") \
+    .load()
+supplies_manual_mcode_jv_detail_landing = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.supplies_manual_mcode_jv_detail_landing") \
+    .load()
+country_currency_map_landing = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.country_currency_map") \
+    .load()
+list_price_eu_country_list = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.list_price_eu_countrylist") \
+    .load()
+exclusion = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.exclusion") \
+    .load()
+rdma_base_to_sales_product_map = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.rdma_base_to_sales_product_map") \
+    .load()
+supplies_hw_mapping = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.supplies_hw_mapping") \
+    .load()
+ib = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.ib") \
+    .load()
+actuals_supplies_salesprod = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
+    .load()
+odw_sacp_actuals = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.odw_sacp_actuals") \
+    .load()
+supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.supplies_finance_hier_restatements_2020_2021") \
+    .load()
+
+# COMMAND ----------
+
 # delta tables
 
 import re
