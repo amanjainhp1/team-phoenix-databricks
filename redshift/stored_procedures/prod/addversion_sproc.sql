@@ -10,6 +10,8 @@ current_date_string TEXT;
 
 BEGIN
 
+LOCK TABLE prod.addversion;
+
 /* Built 1/1/2022 - Brent Merrick
 * This function adds records to the prod.version table for
 * different datasets
