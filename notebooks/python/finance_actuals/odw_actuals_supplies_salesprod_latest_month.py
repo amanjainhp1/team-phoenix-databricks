@@ -44,7 +44,7 @@ import re
 
 tables = [
     ['fin_stage.odw_revenue_units_sales_actuals', "fin_prod.odw_revenue_units_sales_actuals", "redshift"],
-    ['fin_stage.odw_document_currency', "fin_prododw_document_currency", "redshift"],
+    ['fin_stage.odw_document_currency', "fin_prod.odw_document_currency", "redshift"],
     ['fin_stage.odw_report_rac_product_financials_actuals', "fin_prod.odw_report_rac_product_financials_actuals", "redshift"],
     ['fin_stage.mps_ww_shipped_supply_staging', "prod.mps_ww_shipped_supply", "redshift"],
     ['mdm.iso_country_code_xref', "mdm.iso_country_code_xref", "redshift"],
