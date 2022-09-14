@@ -62,7 +62,7 @@ tables = [
     ['mdm.supplies_hw_mapping', "mdm.supplies_hw_mapping", "redshift"],
     ['stage.ib', "prod.ib", "redshift"],
     ['fin_stage.odw_sacp_actuals', "fin_prod.odw_sacp_actuals", "redshift"],
-    ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"]
+    ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"],
     ['fin_stage.actuals_supplies_salesprod', "fin_prod.actuals_supplies_salesprod", "redshift"]
 ]
 
