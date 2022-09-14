@@ -22,7 +22,7 @@ def create_splunk_data(app: str, run_id: str) -> dict:
     data = {}
     data["app"] = app
     data["run_id"] = run_id
-    data["jobs] = {}
+    data["jobs"] = {}
     return(data)
 
 def push_to_splunk(data: dict, source_type="databricks") -> None:
