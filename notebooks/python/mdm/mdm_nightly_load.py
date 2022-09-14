@@ -11,6 +11,15 @@ import json
 
 # COMMAND ----------
 
+# MAGIC %run ../common/splunk_logging_utils
+
+# COMMAND ---------
+
+job_data = json.loads(dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
+splunk_data = log_job_start(app=job_data['tags']['jobName'], run_id=job_data['tags']['runId'])
+
+# COMMAND ----------
+
 notebooks = []
 
 try:
@@ -298,16 +307,6 @@ except:
                 "destination_schema": "fin_prod", 
                 "destination_table": "npi_base_gru"
             },
-            "odw_sacp_actuals": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Financials",
-                "source_schema": "ms4", 
-                "source_table": "odw_sacp_actuals", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "fin_prod", 
-                "destination_table": "odw_sacp_actuals"
-            },
             "planet_actuals": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Financials",
@@ -540,4 +539,7 @@ for result in thread:
 # COMMAND ----------
 
 if len(failed_jobs) > 0:
+    log_job_end(splunk_data, "FAILED")
     raise Exception("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
+else:
+    log_job_end(splunk_data, "SUCCESS")

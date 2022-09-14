@@ -37,12 +37,6 @@ inv_curr2 = '2018-08-01'
 
 # MAGIC %md
 # MAGIC 
-# MAGIC ### Save Delta Lake Data
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
 # MAGIC ## Supplies History Constant Currency
 
 # COMMAND ----------

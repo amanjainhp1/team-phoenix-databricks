@@ -3,6 +3,7 @@ Jobs:
   - actuals-hw
   - base-usage-share
   - create-demand-file
+  - edw-all-history-actuals-update
   - flash-load
   - hardware-ltf
   - hardware-stf
@@ -15,6 +16,7 @@ Jobs:
   - mdm-nightly-load
   - odw-wd5-load
   - odw-wd8-load
+  - ozzy-mps
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share

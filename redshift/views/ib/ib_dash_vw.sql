@@ -10,6 +10,7 @@ SELECT
     CASE iso.developed_emerging WHEN 'EMERGING' THEN 'EM' WHEN 'DEVELOPED' THEN 'DM' END AS EM_DM,
     ib.platform_subset AS platform_subset,
     ib.pl AS pl,
+    plx.l6_description,
     ib.product_family AS product_family,
     ib.business_category AS business_category,
     ib.customer_engagement AS customer_engagement,
@@ -31,4 +32,5 @@ LEFT JOIN prod.norm_shipments ships ON ib.cal_date=ships.cal_date
     AND ships.version = ib.version
 LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2=ib.iso_alpha2
 LEFT JOIN mdm.hardware_xref hw ON hw.platform_subset = ib.platform_subset
+LEFT JOIN mdm.product_line_xref plx ON plx.pl = ib.pl
 WHERE ib.version IN (SELECT DISTINCT version from prod.ib_datamart_source_vw);

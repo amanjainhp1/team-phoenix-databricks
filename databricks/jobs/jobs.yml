@@ -16,6 +16,13 @@ Jobs:
 =======
   - actuals-hw
   - ce-split
+<<<<<<< HEAD
+=======
+  - create-demand-file
+  - edw-all-history-actuals-update
+  - example-job
+  - example-multitask-job
+>>>>>>> master
   - flash-load
   - hardware-ltf
   - hardware-stf
@@ -29,10 +36,18 @@ Jobs:
 >>>>>>> e023cbb7b6011d12cfd95fc56aaa5a5f5c270320
   - odw-wd5-load
   - odw-wd8-load
+<<<<<<< HEAD
   # - rdma-full-load
   # - redshift-resource-creator
   # - toner-usage-share
   # - wd3-load
+=======
+  - ozzy-mps
+  - rdma-full-load
+  - redshift-resource-creator
+  - toner-usage-share
+  - wd3-load
+>>>>>>> master
 
 DeleteJobs:
   - table-creator
@@ -41,6 +56,7 @@ DeleteJobs:
   - ink-usage-total
   - installed-base-promo
   - installed-base-scenario
+  - mps-ww-shipped-supplies
   - norm-ships
   - odw-document-currency
   - odw-revenue-unit
