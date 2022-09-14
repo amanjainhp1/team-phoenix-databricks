@@ -1,5 +1,7 @@
 # Databricks notebook source
+from datetime import datetime
 from pyspark.sql import Window
+from pyspark.sql.functions import lit
 import pyspark.sql.functions as f
 import time
 
@@ -487,6 +489,8 @@ wd3_allocated_ltf_wd3_pct.cache()
 
 # COMMAND ----------
 
+load_date = datetime.today()
+
 tables = [
     [wd3_allocated_ltf_ltf_combos, "stage.wd3_allocated_ltf_ltf_combos", "overwrite"],
     [wd3_allocated_ltf_flash_combos, "stage.wd3_allocated_ltf_flash_combos", "overwrite"],
@@ -510,6 +514,7 @@ tables = [
 for table in tables:
     start_time = time.time()
     print("loading data to " + table[1])
+    df = df.withColumn('load_date', lit(load_date)) # add a load_date column to make it easier to know age of data
     write_df_to_redshift(configs, table[0], table[1], table[2])
     completion_time = str(round((time.time()-start_time)/60, 1))
     print("data loaded to " + table[1] + " in " + completion_time + " minutes")
