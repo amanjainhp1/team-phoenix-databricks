@@ -12,11 +12,11 @@ splunk:
   index:  team-phoenix-prod
   secret: 'arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/team-phoenix/splunk'
   secret_attr: splunk_hec_token
-  libraries: 
-      private:
-        dataos-splunk:
-          version: 1.0.16
-          type: 'whl'
+#   libraries: 
+#       private:
+#         dataos-splunk:
+#           version: 1.0.16
+#           type: 'whl'
   # metrics_index: dataos-phoenix-metrics-cd
   # metrics_secret: 'splunk/dataos-phoenix-metrics-cd'
   # metrics_secret_attr: splunk_hec_token
