@@ -77,7 +77,9 @@ query = '''
     LEFT JOIN iso_country_code_xref_df_view c 
     ON c.country_alpha2 = i.country
     WHERE i.official = 1 
+
     UNION
+    
     SELECT 
         'CE_SPLITS_I-INK' record
         , platform_subset
@@ -266,7 +268,9 @@ ON ces.platform_subset=comp.predecessor
     AND comp.country_alpha2=ces.country
     AND comp.split_name=ces.split_name
 WHERE ces.record = 'CE_SPLITS_I-INK'
+
 UNION 
+
 SELECT
     'CE_SPLITS_I-INK' record
     , platform_subset
@@ -366,7 +370,9 @@ SELECT
     , pre_post_flag
     , value
 FROM npi_plus_enrolles_ce_splits_view
+
 UNION
+
 SELECT
     'CE_SPLITS_I-INK' AS record
     , platform_subset
