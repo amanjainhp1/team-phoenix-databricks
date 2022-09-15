@@ -10,7 +10,7 @@ current_date_string TEXT;
 
 BEGIN
 
-LOCK TABLE prod.addversion;
+LOCK TABLE prod.version;
 
 /* Built 1/1/2022 - Brent Merrick
 * This function adds records to the prod.version table for
