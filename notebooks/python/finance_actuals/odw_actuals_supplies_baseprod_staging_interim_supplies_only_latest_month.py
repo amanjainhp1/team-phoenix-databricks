@@ -9,7 +9,7 @@
 
 # load S3 tables to df
 odw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_actuals_supplies_salesprod") \
+    .option("query", "SELECT * FROM fin_prod.odw_actuals_supplies_salesprod WHERE version = (SELECT MAX(version) FROM fin_prod.odw_actuals_supplies_salesprod)") \
     .load()
 odw_revenue_units_sales_landing_media = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM fin_prod.odw_revenue_units_sales_actuals") \
@@ -51,7 +51,6 @@ def df_remove_special_chars(df: DataFrame) -> DataFrame:
 df_remove_special_chars(odw_revenue_units_sales_landing_media)
 odw_revenue_units_sales_landing_media = df_remove_special_chars(odw_revenue_units_sales_landing_media)
 
-
 # COMMAND ----------
 
 tables = [
@@ -76,9 +75,11 @@ for table in tables:
     # Load the data from its source.
     df = table[1]
     print(f'loading {table[0]}...')
+    
     # Write the data to its target.
     df.write \
       .format(write_format) \
+      .option("overwriteSchema", "true") \
       .mode("overwrite") \
       .save(save_path)
 

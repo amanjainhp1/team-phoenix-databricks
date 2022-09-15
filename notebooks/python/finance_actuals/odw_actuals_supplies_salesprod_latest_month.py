@@ -75,7 +75,7 @@ for table in tables:
             .option("dbtable", table[1]) \
             .load()
     else:
-        df = read_sqlserver_to_df(configs) \
+        df = read_sql_server_to_df(configs) \
             .option("dbtable", table[1]) \
             .load()
 
