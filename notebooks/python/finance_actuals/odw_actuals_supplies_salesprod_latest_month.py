@@ -55,7 +55,7 @@ tables = [
     ['mdm.calendar', "mdm.calendar", "redshift"],
     ['mdm.product_line_xref', "mdm.product_line_xref", "redshift"],
     ['fin_stage.supplies_manual_mcode_jv_detail_landing', "fin_stage.supplies_manual_mcode_jv_detail_landing", "redshift"],
-    ['fin_stage.country_currency_map_landing', "mdm.country_currency_map"],
+    ['fin_stage.country_currency_map_landing', "mdm.country_currency_map", "redshift"],
     ['mdm.list_price_eu_country_list', "mdm.list_price_eu_country_list", "redshift"],
     ['fin_stage.cbm_st_data', "CBM.dbo.cbm_st_data", "sqlserver"],
     ['mdm.exclusion', "mdm.exclusion", "redshift"],
@@ -91,7 +91,6 @@ for table in tables:
     for column in df.dtypes:
         renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
         df = df.withColumnRenamed(column[0], renamed_column)
-        print(renamed_column) 
         
     # Write the data to its target.
     df.write \
