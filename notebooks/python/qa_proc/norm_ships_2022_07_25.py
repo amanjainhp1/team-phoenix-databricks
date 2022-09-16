@@ -29,7 +29,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions
-prev_version = '2022.07.26.3'
+prev_version = '2022.08.23.1'
 
 # COMMAND ----------
 
@@ -360,7 +360,7 @@ fcst_to_decay_df = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-fcst_to_decay_df.show()
+fcst_to_decay_df.display()
 
 # COMMAND ----------
 
