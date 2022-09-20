@@ -333,18 +333,6 @@ npi_helper_3.createOrReplaceTempView("npi_helper_3")
 
 # COMMAND ----------
 
-testib3 = """
-select distinct country_alpha2
-from npi_helper_3
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
-order by country_alpha2
-"""
-
-testib3 = spark.sql(testib3)
-testib3.createOrReplaceTempView("testib3")
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC # Usage Share NPI Month Num to Date
 
@@ -374,18 +362,6 @@ FROM npi_helper_3
 npi_helper_4=spark.sql(overrides_norm_landing)
 npi_helper_4=npi_helper_4.distinct()
 npi_helper_4.createOrReplaceTempView("npi_helper_4")
-
-# COMMAND ----------
-
-testib4 = """
-select distinct country_alpha2
-from npi_helper_4
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
-order by country_alpha2
-"""
-
-testib4 = spark.sql(testib4)
-testib4.createOrReplaceTempView("testib4")
 
 # COMMAND ----------
 
@@ -509,18 +485,6 @@ npi_dates_fill.createOrReplaceTempView("npi_dates_fill")
 
 # COMMAND ----------
 
-testib5 = """
-select distinct country_alpha2
-from npi_dates_fill
-where platform_subset='MORETO BASE YET1' AND customer_engagement='TRAD' AND measure='HP_SHARE'
-order by country_alpha2
-"""
-
-testib5 = spark.sql(testib5)
-testib5.createOrReplaceTempView("testib5")
-
-# COMMAND ----------
-
 #cast constant value foreward
 fill_forecast = """
 --get last value for flatlining forecast
@@ -618,13 +582,6 @@ FROM combine_data fl
 npi_norm_final_landing=spark.sql(npi_norm_final_landing)
 npi_norm_final_landing=npi_norm_final_landing.distinct()
 npi_norm_final_landing.createOrReplaceTempView("npi_norm_final_landing")
-
-# COMMAND ----------
-
-#test case--hp share had less values than usage; forecaster input ended in 2027-09-01
-npi_tst=spark.sql("""select * from npi_norm_final_landing where platform_subset ='MORETO BASE YET1' 
-    AND geography in (select country_alpha2 from country_info WHERE market10='GREATER ASIA') and measure='HP_SHARE' order by cal_date""")
-npi_tst.createOrReplaceTempView("npi_tst")
 
 # COMMAND ----------
 
