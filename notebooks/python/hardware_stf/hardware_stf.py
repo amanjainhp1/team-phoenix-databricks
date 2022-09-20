@@ -514,8 +514,9 @@ tables = [
 for table in tables:
     start_time = time.time()
     print("loading data to " + table[1])
+    df = table[0]
     df = df.withColumn('load_date', lit(load_date)) # add a load_date column to make it easier to know age of data
-    write_df_to_redshift(configs, table[0], table[1], table[2])
+    write_df_to_redshift(configs, df, table[1], table[2])
     completion_time = str(round((time.time()-start_time)/60, 1))
     print("data loaded to " + table[1] + " in " + completion_time + " minutes")
 
