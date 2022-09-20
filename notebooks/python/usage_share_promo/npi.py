@@ -286,8 +286,8 @@ npi_helper_2.createOrReplaceTempView("npi_helper_2")
 #combine data from market10 and region5---currently preferring market10 to region5-need to update shiny tool to go to market 10, or write for load date
 npi_helper_3 = """
 with step1 as (
-SELECT *, concat(country_alpha2,month_num,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
-step2 as (SELECT *, concat(country_alpha2,month_num,platform_subset,customer_engagement) as gpid FROM npi_helper_1)
+SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
+step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1)
 SELECT record
         ,min_sys_dt
         ,ib_strt_dt
