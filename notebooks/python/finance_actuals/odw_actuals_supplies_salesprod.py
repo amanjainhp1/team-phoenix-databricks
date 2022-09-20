@@ -17,41 +17,7 @@ dbutils.widgets.text("load_to_redshift", "")
 
 if dbutils.widgets.get("load_to_redshift").lower() == "true": 
     
-    #odw_revenue_units_sales_actuals = read_sql_server_to_df(configs) \
-    #   .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
-    #   .load()
-
-    #write_df_to_redshift(configs, odw_revenue_units_sales_actuals, "fin_prod.odw_revenue_units_sales_actuals", "append", "", "truncate fin_prod.odw_revenue_units_sales_actuals")
-    
-    
-    #odw_report_rac_product_financials_actuals = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing") \
-    #    .load()
-
-    #write_df_to_redshift(configs, odw_report_rac_product_financials_actuals, "fin_prod.odw_report_rac_product_financials_actuals", "append", "", "truncate fin_prod.odw_report_rac_product_financials_actuals") 
-    
-    
-    #odw_document_currency = read_sql_server_to_df(configs) \
-    #   .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
-    #   .load()
-
-    #write_df_to_redshift(configs, odw_document_currency, "fin_prod.odw_document_currency", "append", "", "truncate fin_prod.odw_document_currency") 
-    
-    
-    #odw_sacp_actuals = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
-    #    .load()
-
-    #write_df_to_redshift(configs, odw_sacp_actuals, "fin_prod.odw_sacp_actuals", "append", "", "truncate fin_prod.odw_sacp_actuals") 
-    
-    
-    #mps_ww_shipped_supply = read_sql_server_to_df(configs) \
-    #    .option("dbtable", "IE2_Prod.dbo.mps_ww_shipped_supply") \
-    #    .load()
-
-    #write_df_to_redshift(configs, mps_ww_shipped_supply, "prod.mps_ww_shipped_supply", "append", "", "truncate prod.mps_ww_shipped_supply") 
-    
-
+  
     itp_laser_landing = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.dbo.itp_laser_landing") \
         .load()
@@ -120,7 +86,7 @@ country_currency_map_landing = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.country_currency_map") \
     .load()
 list_price_eu_country_list = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.list_price_eu_countrylist") \
+    .option("dbtable", "mdm.list_price_eu_country_list") \
     .load()
 exclusion = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.exclusion") \
