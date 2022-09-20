@@ -3081,7 +3081,7 @@ itp_ib.createOrReplaceTempView("itp_ib")
 itp_country_mkt10 = f"""    
 SELECT distinct market10, country_alpha2, country 
 FROM iso_country_code_xref
-WHERE country_alpha2 IN ('DE', 'NL', 'PR', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
+WHERE country_alpha2 IN ('DE', 'NL', 'MX', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
 """
 
 itp_country_mkt10 = spark.sql(itp_country_mkt10)
