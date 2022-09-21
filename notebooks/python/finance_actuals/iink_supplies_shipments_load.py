@@ -28,21 +28,22 @@ spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
 
-tables = ['iink_salesprod_units']
+files = [['iink_salesprod_units.csv', 'iink_units_raw']]
 
-for table in tables:
-  spark.read.csv(f'{constants["S3_BASE_BUCKET"][stack]}/product/supplies_iink/{table}/').createOrReplaceTempView('iink_units_raw')
+for file in files:
+  spark.read.csv(f'{constants["S3_BASE_BUCKET"][stack]}/product/supplies_iink/{file[0]}').createOrReplaceTempView(file[1])
 
 # COMMAND ----------
 
 # MAGIC %r
-# MAGIC path <- "s3://dataos-core-itg-team-phoenix/product/supplies_iink/iink_salesprod_units.csv"
+# MAGIC path <- paste0(sparkR.conf('aws_bucket_name'), "product/supplies_iink/iink_salesprod_units.csv")
 # MAGIC spark_df <- read.csv(path)
 
 # COMMAND ----------
 
-iink_units_r_table = SparkR::collect(SparkR::sql(
-"SELECT * FROM iink_units_raw"))
+# MAGIC %r
+# MAGIC iink_units_r_table = SparkR::collect(SparkR::sql(
+# MAGIC "SELECT * FROM iink_units_raw"))
 
 # COMMAND ----------
 
@@ -91,5 +92,11 @@ iink_units_r_table = SparkR::collect(SparkR::sql(
 
 # COMMAND ----------
 
+# MAGIC %r
+# MAGIC iink_units = SparkR::as.DataFrame(iink_units)
+# MAGIC createOrReplaceTempView(iink_units, "iink_units")
+
+# COMMAND ----------
+
 #LOAD TO DB
-write_df_to_redshift(configs, iink_units, "fin_prod.iink_units", "append", postactions = "", preactions = "truncate fin_prod.iink_units")
+write_df_to_redshift(configs, spark.sql('SELECT * FROM iink_units'), "fin_prod.iink_units", "append", postactions = "", preactions = "truncate fin_prod.iink_units")
