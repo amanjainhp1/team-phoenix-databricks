@@ -79,7 +79,7 @@ query = '''
     WHERE i.official = 1 
 
     UNION
-    
+
     SELECT 
         'CE_SPLITS_I-INK' record
         , platform_subset
