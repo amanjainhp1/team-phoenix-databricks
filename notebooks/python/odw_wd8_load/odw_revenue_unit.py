@@ -23,6 +23,8 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType, 
 # COMMAND ----------
 
 # define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/revenue_unit_sales_actuals/"
 odw_revenue_units_sales_actuals_schema = StructType([ \
             StructField("fiscal_year_period", StringType(), True), \
             StructField("profit_center_hier_desc_level4", StringType(), True), \
@@ -37,27 +39,65 @@ odw_revenue_units_sales_actuals_schema = StructType([ \
             StructField("unit_reporting_description", StringType(), True)
         ])
 
-odw_revenue_units_sales_actuals_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_revenue_units_sales_actuals_schema)
+odw_revenue_units_sales_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_revenue_units_sales_actuals_schema)
 
 # COMMAND ----------
 
-redshift_row_count = 0
+# define odw_revenue_units_base_actuals schema
+odw_revenue_units_base_actuals_schema = StructType([ \
+            StructField("cal_date", DateType(), True), \
+            StructField("country_alpha2", StringType(), True), \
+            StructField("region_3", StringType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("base_product_number", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("base_quantity", DecimalType(), True), \
+            StructField("load_date", TimestampType(), True), \
+            StructField("unit_reporting_code", StringType(), True), \
+            StructField("unit_reporting_description", StringType(), True)
+        ])
+
+odw_revenue_units_base_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_revenue_units_base_actuals_schema)
+
+# COMMAND ----------
+
+redshift_sales_actuals_row_count = 0
 try:
-    redshift_row_count = read_redshift_to_df(configs) \
+    redshift_sales_actuals_row_count = read_redshift_to_df(configs) \
         .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
         .load() \
         .count()
 except:
     None
 
-if redshift_row_count == 0:
-    revenue_unit_df = read_sql_server_to_df(configs) \
+if redshift_sales_actuals_row_count == 0:
+    revenue_unit_sales_df = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
         .load()
     
-    odw_revenue_units_sales_actuals_df = odw_revenue_units_sales_actuals_df.union(revenue_unit_df)
+    odw_revenue_units_sales_actuals_schema_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_sales_df)
     
-    write_df_to_redshift(configs, odw_revenue_units_sales_actuals_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+    write_df_to_redshift(configs, odw_revenue_units_sales_actuals_schema_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+
+# COMMAND ----------
+
+redshift_base_actuals_row_count = 0
+try:
+    redshift_base_actuals_row_count = read_redshift_to_df(configs) \
+        .option("dbtable", "fin_prod.odw_revenue_units_base_actuals") \
+        .load() \
+        .count()
+except:
+    None
+
+if redshift_base_actuals_row_count == 0:
+    revenue_unit_base_df = read_sql_server_to_df(configs) \
+        .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_base_actuals_landing") \
+        .load()
+    
+    odw_revenue_units_base_actuals_schema_df = odw_revenue_units_base_actuals_schema_df.union(revenue_unit_base_df)
+    
+    write_df_to_redshift(configs, odw_revenue_units_base_actuals_schema_df, "fin_prod.odw_revenue_units_base_actuals", "append")
 
 # COMMAND ----------
 
@@ -66,31 +106,22 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-# mount S3 bucket
-bucket = f"dataos-core-{stack}-team-phoenix" 
-bucket_prefix = "landing/odw/odw_revenue_unit_sales_actuals"
-dbfs_mount = '/mnt/odw_revenue_unit_sales/'
+#Load all history data
+# path = f"s3://{bucket}/{bucket_prefix}"
+# files = dbutils.fs.ls(path)
 
-s3_mount(bucket, dbfs_mount)
+# SeriesAppend=[]
+# for f in files:
+#     revenue_unit_complete_data_df = spark.read \
+#         .format("com.crealytics.spark.excel") \
+#         .option("inferSchema", "True") \
+#         .option("header","True") \
+#         .option("treatEmptyValuesAsNulls", "False") \
+#         .load(f[0])
 
-# COMMAND ----------
+#     SeriesAppend.append(revenue_unit_complete_data_df)
 
-# files = dbutils.fs.ls(dbfs_mount)
-
-# if len(files) >= 1:
-#     SeriesAppend=[]
-    
-#     for f in files:
-#         revenue_unit_df = spark.read \
-#             .format("com.crealytics.spark.excel") \
-#             .option("inferSchema", "True") \
-#             .option("header","True") \
-#             .option("treatEmptyValuesAsNulls", "False")\
-#             .load(f.path) \
-
-#         SeriesAppend.append(revenue_unit_df)
-
-#     df_series = reduce(DataFrame.unionAll, SeriesAppend)
+# df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -112,7 +143,7 @@ print(revenue_unit_latest_file)
 
 # COMMAND ----------
 
-if redshift_row_count > 0:
+if redshift_sales_actuals_row_count > 0:
     revenue_unit_df = spark.read \
         .format("com.crealytics.spark.excel") \
         .option("inferSchema", "True") \
@@ -129,7 +160,7 @@ if redshift_row_count > 0:
         .withColumn("load_date", current_date()) \
         .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
 
-    revenue_unit_df = odw_revenue_units_sales_actuals_df.union(revenue_unit_df)    
+    revenue_unit_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_df)    
     
     write_df_to_redshift(configs, revenue_unit_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
 
@@ -140,14 +171,8 @@ if redshift_row_count > 0:
 
 # COMMAND ----------
 
-query_list = []
-
-# COMMAND ----------
-
 revenue_units_base_actuals = f"""
-
 WITH odw_sales_product_units AS (
-
 SELECT 
     cal.date AS cal_date
     , profit_center_code
@@ -168,7 +193,6 @@ GROUP BY cal.date
     , material_number
     , segment_code
 ), change_profit_center_hierarchy as (
-
 SELECT
 	cal_date
 	, w.profit_center_code
@@ -186,7 +210,6 @@ GROUP BY cal_date
     , material_number
     , w.profit_center_code
 ), add_seg_hierarchy as (
-
 SELECT
 	cal_date
 	, pl
@@ -207,7 +230,6 @@ GROUP BY cal_date
 ) 
 -- translate material number (sales product with option) to sales product number
 , sales_material_number as (
-
 SELECT
 	cal_date
 	, pl
@@ -229,8 +251,6 @@ GROUP BY cal_date
 	, region_5
 	, material_number
 ), sales_product_number as (
-
-
 SELECT
 	cal_date
 	, pl
@@ -251,7 +271,6 @@ GROUP BY cal_date
 	, sales_product_number
 	, sales_prod_nr
 ), base_product_number as (
-
 SELECT
 	cal_date
 	, pl
@@ -276,7 +295,6 @@ GROUP BY cal_date
 	, sales_product_line_code
 	, base_product_line_code
 ), base_product_number2 as (
-
 SELECT
 	cal_date
 	, pl
@@ -302,8 +320,6 @@ GROUP BY cal_date
 	, sales_product_line_code
 	, base_product_line_code
 ), odw_base_product_etl as (
-
-
 SELECT
 	cal_date
 	, pl
@@ -321,7 +337,6 @@ GROUP BY
 	, region_5
 	, base_product_number
 ), final as (
-
 SELECT
 	cal_date
 	, country_alpha2
@@ -351,8 +366,13 @@ GROUP BY cal_date,
 FROM final
 """
 
-query_list = [["fin_prod.odw_revenue_units_base_actuals", revenue_units_base_actuals , "append"]]
-
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+#Write df to redshift
+if redshift_base_actuals_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", revenue_units_base_actuals) \
+            .load()
+
+    dataDF = odw_revenue_units_base_actuals_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_revenue_units_base_actuals", "append")

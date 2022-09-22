@@ -19,6 +19,7 @@ Jobs:
   - mdm-nightly-load
   - odw-all-history-actuals-update
   - odw-monthly-actuals-update
+  - odw-wd5-load
   - odw-wd8-load
   - ozzy-mps
   - rdma-full-load
