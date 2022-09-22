@@ -24,8 +24,8 @@ query_list = []
 
 # COMMAND ----------
 
-add_record = 'forecast - supplies finance flash'
-add_source = 'from finance spreadsheet'
+add_record = 'FORECAST - SUPPLIES FINANCE FLASH'
+add_source = 'FROM FINANCE SPREADSHEET'
 
 # COMMAND ----------
 
@@ -47,13 +47,14 @@ ci_flash = spark.sql("""
       , pl 
       , business_description 
       , market 
-      , channel inv $k 
-      , ink/toner 
-      , getdate() as  load_date 
-      , getdate() as  version 
+      , channel_inv_k
+      , ink_toner 
+      , current_date() as  load_date 
+      , current_date() as  version 
 	from fin_prod.ci_flash_for_insights_supplies_temp
 """)
 
+ci_flash.createOrReplaceTempView("ci_flash_for_insights_supplies")
 write_df_to_redshift(configs, ci_flash, "fin_stage.ci_flash_for_insights_supplies", "append")
 
 # COMMAND ----------
@@ -61,18 +62,19 @@ write_df_to_redshift(configs, ci_flash, "fin_stage.ci_flash_for_insights_supplie
 rev_flash = spark.sql("""
 	select fiscal_year_qtr
       , pl
-      , ink/toner
+      , ink_toner
       , market
       , business_description
-      , net_revenues $k
-      , hedge $k
+      , net_revenues_k
+      , hedge_k
       , concatenate
-      , getdate() as load_date
-      , getdate() as version
+      , current_date() as load_date
+      , current_date() as version
 	from fin_prod.rev_flash_for_insights_supplies_temp
 	where pl is not null
 """)
 
+rev_flash.createOrReplaceTempView("rev_flash_for_insights_supplies")
 write_df_to_redshift(configs, ci_flash, "fin_stage.rev_flash_for_insights_supplies", "append")
 
 # COMMAND ----------
@@ -94,18 +96,18 @@ supplies_revenue_flash as
 		technology,
 		ltrim(market) as market,
 		l6_description,
-		 net_revenues $k  * 1000 as net_revenue,
-		coalesce( hedge $k , 0.0) * 1000 as hedge
-	from fin_stage.rev_flash_for_insights_supplies flash
+		 net_revenues_k  * 1000 as net_revenue,
+		coalesce(hedge_k , 0.0) * 1000 as hedge
+	from rev_flash_for_insights_supplies flash
 	join mdm.product_line_xref plx on
 		flash.pl =  plx.plxx
 	where 1=1
-	and flash.load_date = (select max(load_date) from fin_stage.rev_flash_for_insights_supplies)
+	and flash.load_date = (select max(load_date) from rev_flash_for_insights_supplies)
 	-- fiscal year where clause is a 'cheat' to prevent timing overlap between flash and history
-	and flash.fiscal_year_qtr <> (select min(fiscal_year_qtr) from fin_stage.ci_flash_for_insights_supplies)
+	and flash.fiscal_year_qtr <> (select min(fiscal_year_qtr) from ci_flash_for_insights_supplies)
 	and flash.pl <> 'AU00' and flash.pl <> 'AU'
 	and flash.pl <> 'N600' and flash.pl <> 'N6'
-	and  ink/toner  <> 'MEDIA'
+	and  ink_toner  <> 'MEDIA'
 ),
 supplies_revenue_flash2 as
 (
@@ -142,19 +144,19 @@ supplies_ci_flash as
 		technology,
 		ltrim(market) as market,
 		l6_description,
-		 channel inv $k  * 1000 as channel_inventory
-	from fin_stage.ci_flash_for_insights_supplies flash
+		 channel_inv_k  * 1000 as channel_inventory
+	from ci_flash_for_insights_supplies flash
 	join mdm.calendar cal on cal.fiscal_year_qtr = flash.fiscal_year_qtr
 	join mdm.product_line_xref plx on
 		flash.pl =  plx.plxx
 	where 1=1 
-		and flash.load_date = (select max(load_date) from fin_stage.ci_flash_for_insights_supplies)
+		and flash.load_date = (select max(load_date) from ci_flash_for_insights_supplies)
 		and plx.pl <> 'AU00' and plx.pl <> 'AU'
 and plx.pl <> 'N600' and plx.pl <> 'N6'
-and ink/toner  <> 'MEDIA'
+and ink_toner  <> 'MEDIA'
 and day_of_month = 1
 and fiscal_month in ('3.0', '6.0', '9.0', '12.0')
-		and  channel inv $k  is not null
+		and  channel_inv_k  is not null
 ),
 supplies_ci_flash2 as
 (
@@ -250,7 +252,7 @@ ci_flash_time_series as
 			hq_flag,
 			l6_description,
 			channel_inventory,
-			case when min_cal_date < cast(getdate() - day(getdate()) + 1 as date) then 1 else 0 end as actuals_flag,
+			case when min_cal_date < cast(current_date() - day(current_date()) + 1 as date) then 1 else 0 end as actuals_flag,
 			count(cal_date) over (partition by market, pl
                     order by cal_date rows between unbounded preceding and current row) as running_count
 		from fill_gap2
@@ -343,8 +345,8 @@ select distinct fiscal_year_qtr,
 from mdm.calendar cal
 where day_of_month = 1
 and fiscal_yr > '2015'
-and fiscal_year_qtr <= (select max(fiscal_year_qtr) from fin_stage.rev_flash_for_insights_supplies
-								where version = (select max(version) from fin_stage.rev_flash_for_insights_supplies))
+and fiscal_year_qtr <= (select max(fiscal_year_qtr) from rev_flash_for_insights_supplies
+								where version = (select max(version) from rev_flash_for_insights_supplies))
 ),
 selected_ie2_market10 as
 (
@@ -356,12 +358,12 @@ selected_ie2_market10 as
 		s.market10 as market,
 		'non-hq' as hq_flag,
 	l6_description
-from fin_prod.adjusted_revenue_staging s
+from fin_stage.adjusted_revenue_staging s
 join mdm.calendar cal on cal.date = s.cal_date
 join mdm.product_line_xref plx on s.pl = plx.pl
 join mdm.iso_country_code_xref iso on iso.country_alpha2 = s.country_alpha2
 where 1=1
-	and s.version = (select max(version) from fin_prod.adjusted_revenue_staging)
+	and s.version = (select max(version) from fin_stage.adjusted_revenue_staging)
 	and day_of_month = 1
 	and region_3 in ('EMEA', 'APJ', 'WORLD WIDE')
 ),

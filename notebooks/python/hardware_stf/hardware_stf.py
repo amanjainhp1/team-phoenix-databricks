@@ -1,5 +1,7 @@
 # Databricks notebook source
+from datetime import datetime
 from pyspark.sql import Window
+from pyspark.sql.functions import lit
 import pyspark.sql.functions as f
 import time
 
@@ -487,6 +489,39 @@ wd3_allocated_ltf_wd3_pct.cache()
 
 # COMMAND ----------
 
+load_date = datetime.today()
+
+tables = [
+    [wd3_allocated_ltf_ltf_combos, "stage.wd3_allocated_ltf_ltf_combos", "overwrite"],
+    [wd3_allocated_ltf_flash_combos, "stage.wd3_allocated_ltf_flash_combos", "overwrite"],
+    [wd3_allocated_ltf_wd3_combos, "stage.wd3_allocated_ltf_wd3_combos", "overwrite"],
+    [wd3_allocated_ltf_missing_ltf_combos, "stage.wd3_allocated_ltf_missing_ltf_combos", "overwrite"],
+    [wd3_allocated_ltf_missing_flash_combos, "stage.wd3_allocated_ltf_missing_flash_combos", "overwrite"],
+    [wd3_allocated_ltf_ltf_units, "stage.wd3_allocated_ltf_ltf_units", "overwrite"],
+    [wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite"],
+    [wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite"],
+    [wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite"],
+    [wd3_allocated_ltf_allocated_ltf_units, "stage.wd3_allocated_ltf_allocated_ltf_units", "overwrite"],
+    [wd3_allocated_ltf_allocated_flash_units, "stage.wd3_allocated_ltf_allocated_flash_units", "overwrite"],
+    [wd3_allocated_ltf_unallocated_ltf_units, "stage.wd3_allocated_ltf_unallocated_ltf_units", "overwrite"],
+    [wd3_allocated_ltf_unallocated_flash_units, "stage.wd3_allocated_ltf_unallocated_flash_units", "overwrite"],
+    [wd3_allocated_ltf_final, "stage.wd3_allocated_ltf_final", "overwrite"], 
+    [allocated_ltf_landing, "stage.wd3_allocated_allocated_ltf_landing", "overwrite"], 
+    [hardware_stf_landing, "stage.wd3_allocated_ltf_hardware_stf_landing", "overwrite"],    
+    [hardware_stf_staging, "stage.wd3_allocated_ltf_hardware_stf_staging", "overwrite"]
+]
+
+for table in tables:
+    start_time = time.time()
+    print("loading data to " + table[1])
+    df = table[0]
+    df = df.withColumn('load_date', lit(load_date)) # add a load_date column to make it easier to know age of data
+    write_df_to_redshift(configs, df, table[1], table[2])
+    completion_time = str(round((time.time()-start_time)/60, 1))
+    print("data loaded to " + table[1] + " in " + completion_time + " minutes")
+
+# COMMAND ----------
+
 mdm_check = spark.sql("""
     WITH wd3_records AS
     (
@@ -568,20 +603,7 @@ WHERE UPPER(c.Technology) IN ('INK','LASER','PWA') AND UPPER(c.pl_category) = 'H
 
 # COMMAND ----------
 
-tables = [
-    [wd3_allocated_ltf_ltf_units, "stage.wd3_allocated_ltf_ltf_units", "overwrite"],
-    [wd3_allocated_ltf_flash_units, "stage.wd3_allocated_ltf_flash_units", "overwrite"],
-    [wd3_allocated_ltf_wd3_units, "stage.wd3_allocated_ltf_wd3_units", "overwrite"],
-    [wd3_allocated_ltf_wd3_pct, "stage.wd3_allocated_ltf_wd3_pct", "overwrite"],
-    [hardware_ltf, "prod.hardware_ltf", "append"]
-]
-
-for table in tables:
-    start_time = time.time()
-    print("loading data to " + table[1])
-    write_df_to_redshift(configs, table[0], table[1], table[2])
-    completion_time = str(round((time.time()-start_time)/60, 1))
-    print("data loaded to " + table[1] + " in " + completion_time + " minutes")
+write_df_to_redshift(configs, hardware_ltf, "prod.hardware_ltf", "append")
 
 # COMMAND ----------
 

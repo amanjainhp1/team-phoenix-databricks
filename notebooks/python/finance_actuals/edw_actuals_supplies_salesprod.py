@@ -17,13 +17,7 @@ dbutils.widgets.text("load_to_redshift", "")
 
 if dbutils.widgets.get("load_to_redshift").lower() == "true": 
     
-   # mps_ww_shipped_supply = read_sql_server_to_df(configs) \
-   #     .option("dbtable", "IE2_Prod.dbo.mps_ww_shipped_supply") \
-   #     .load()
-
-   # write_df_to_redshift(configs, mps_ww_shipped_supply, "prod.mps_ww_shipped_supply", "append", "", "truncate prod.mps_ww_shipped_supply") 
-    
-
+  
     itp_laser_landing = read_sql_server_to_df(configs) \
         .option("dbtable", "IE2_Landing.dbo.itp_laser_landing") \
         .load()
@@ -99,7 +93,7 @@ country_currency_map_landing = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.country_currency_map") \
     .load()
 list_price_eu_country_list = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.list_price_eu_countrylist") \
+    .option("dbtable", "mdm.list_price_eu_country_list") \
     .load()
 exclusion = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.exclusion") \
@@ -4312,7 +4306,7 @@ itp_ib.createOrReplaceTempView("itp_ib")
 itp_country_mkt10 = f"""    
 SELECT distinct market10, country_alpha2, country 
 FROM iso_country_code_xref
-WHERE country_alpha2 IN ('DE', 'NL', 'PR', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
+WHERE country_alpha2 IN ('DE', 'NL', 'MX', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
 """
 
 itp_country_mkt10 = spark.sql(itp_country_mkt10)

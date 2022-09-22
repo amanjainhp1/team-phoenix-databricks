@@ -41,10 +41,11 @@ if dbutils.widgets.get("load_to_redshift").lower() == "true":
 # delta tables
 
 import re
+from pyspark.sql.types import *
 
 tables = [
     ['fin_stage.odw_revenue_units_sales_actuals', "fin_prod.odw_revenue_units_sales_actuals", "redshift"],
-    ['fin_stage.odw_document_currency', "fin_prododw_document_currency", "redshift"],
+    ['fin_stage.odw_document_currency', "fin_prod.odw_document_currency", "redshift"],
     ['fin_stage.odw_report_rac_product_financials_actuals', "fin_prod.odw_report_rac_product_financials_actuals", "redshift"],
     ['fin_stage.mps_ww_shipped_supply_staging', "prod.mps_ww_shipped_supply", "redshift"],
     ['mdm.iso_country_code_xref', "mdm.iso_country_code_xref", "redshift"],
@@ -54,7 +55,7 @@ tables = [
     ['mdm.calendar', "mdm.calendar", "redshift"],
     ['mdm.product_line_xref', "mdm.product_line_xref", "redshift"],
     ['fin_stage.supplies_manual_mcode_jv_detail_landing', "fin_stage.supplies_manual_mcode_jv_detail_landing", "redshift"],
-    ['fin_stage.country_currency_map_landing', "mdm.country_currency_map"],
+    ['fin_stage.country_currency_map_landing', "mdm.country_currency_map", "redshift"],
     ['mdm.list_price_eu_country_list', "mdm.list_price_eu_country_list", "redshift"],
     ['fin_stage.cbm_st_data', "CBM.dbo.cbm_st_data", "sqlserver"],
     ['mdm.exclusion', "mdm.exclusion", "redshift"],
@@ -62,19 +63,19 @@ tables = [
     ['mdm.supplies_hw_mapping', "mdm.supplies_hw_mapping", "redshift"],
     ['stage.ib', "prod.ib", "redshift"],
     ['fin_stage.odw_sacp_actuals', "fin_prod.odw_sacp_actuals", "redshift"],
-    ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"]
+    ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"],
     ['fin_stage.actuals_supplies_salesprod', "fin_prod.actuals_supplies_salesprod", "redshift"]
 ]
 
 for table in tables:
 
-    df = spark.createDataFrame(spark.sparkContext.emptyRDD())
+    df = spark.createDataFrame(spark.sparkContext.emptyRDD(), StructType([]))
     if table[2] == "redshift":
         df = read_redshift_to_df(configs) \
             .option("dbtable", table[1]) \
             .load()
     else:
-        df = read_sqlserver_to_df(configs) \
+        df = read_sql_server_to_df(configs) \
             .option("dbtable", table[1]) \
             .load()
 
@@ -90,7 +91,6 @@ for table in tables:
     for column in df.dtypes:
         renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
         df = df.withColumnRenamed(column[0], renamed_column)
-        print(renamed_column) 
         
     # Write the data to its target.
     df.write \
@@ -3081,7 +3081,7 @@ itp_ib.createOrReplaceTempView("itp_ib")
 itp_country_mkt10 = f"""    
 SELECT distinct market10, country_alpha2, country 
 FROM iso_country_code_xref
-WHERE country_alpha2 IN ('DE', 'NL', 'PR', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
+WHERE country_alpha2 IN ('DE', 'NL', 'MX', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
 """
 
 itp_country_mkt10 = spark.sql(itp_country_mkt10)

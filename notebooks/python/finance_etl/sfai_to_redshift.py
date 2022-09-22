@@ -37,6 +37,10 @@ edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_sql_server_to
     .select("cal_date", "country_alpha2", "market10", "base_product_number", "pl", "l5_description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "total_cos", "gross_profit", "revenue_units", "equivalent_units", "yield_x_units", "yield_x_units_black_only", "warranty", "other_cos")
 
 #--------- fin_prod ---------
+ci_history_supplies_finance_landing = read_sql_server_to_df(configs) \
+    .option("dbtable", "ie2_landing.dbo.ci_history_supplies_finance_landing") \
+    .load()
+
 odw_sacp_actuals = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
     .load()
@@ -115,6 +119,30 @@ actuals_supplies_baseprod = read_sql_server_to_df(configs) \
     .load()\
     .select("record", "cal_date", "country_alpha2", "market10", "platform_subset", "base_product_number", "pl", "L5_Description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "equivalent_units", "yield_x_units", "yield_x_units_black_only", "official", "load_date", "version")
 
+ci_flash_for_insights_supplies_temp = read_sql_server_to_df(configs) \
+    .option("dbtable", "IE2_Landing.dbo.ci_flash_for_insights_supplies_temp") \
+    .load()\
+    .select(col("Fiscal_Year_Qtr").alias("fiscal_year_qtr ")
+            , col("PL").alias("pl")
+            , col("Business_description").alias("business_description")
+            , col("Market").alias("market")
+            , col("Channel Inv $K").alias("channel_inv_k")
+            , col("Ink/Toner").alias("ink_toner")
+           )
+
+rev_flash_for_insights_supplies_temp = read_sql_server_to_df(configs) \
+    .option("dbtable", "IE2_Landing.dbo.rev_flash_for_insights_supplies_temp") \
+    .load()\
+    .select(col("Fiscal_Year_Qtr").alias("fiscal_year_qtr")
+            , col("PL").alias("pl")
+            , col("Business_description").alias("business_description")
+            , col("Market").alias("market")
+            , col("Net_Revenues $K").alias("net_revenues_k")
+            , col("Ink/Toner").alias("ink_toner")
+            , col("Hedge $K").alias("hedge_k")
+            , col("Concatenate").alias("concatenate")
+           )
+
 #--------- mdm ---------
 ms4_functional_area_hierarchy = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Landing.ms4.HP_simplify_functional_area_hierarchy_v1") \
@@ -165,6 +193,7 @@ tables = [
     ['fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only, "overwrite"],
     ['fin_stage.itp_laser_landing', itp_laser_landing, "overwrite"],
     ['fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only', edw_actuals_supplies_baseprod_staging_interim_supplies_only, "overwrite"],
+    ['fin_prod.ci_history_supplies_finance_landing', ci_history_supplies_finance_landing, "overwrite"],
     ['fin_prod.odw_sacp_actuals', odw_sacp_actuals, "overwrite"],
     ['fin_prod.odw_revenue_units_sales_actuals', odw_revenue_units_sales_actuals, "overwrite"],
     ['fin_prod.odw_revenue_units_base_actuals', odw_revenue_units_base_actuals, "overwrite"],
@@ -177,6 +206,8 @@ tables = [
     ['fin_prod.edw_actuals_supplies_baseprod', edw_actuals_supplies_baseprod, "overwrite"],
     ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod, "overwrite"],
     ['fin_prod.actuals_supplies_baseprod', actuals_supplies_baseprod, "overwrite"],
+    ['fin_prod.ci_flash_for_insights_supplies_temp', ci_flash_for_insights_supplies_temp, "overwrite"],
+    ['fin_prod.rev_flash_for_insights_supplies_temp', rev_flash_for_insights_supplies_temp, "overwrite"],
 ]
 
 # COMMAND ----------
