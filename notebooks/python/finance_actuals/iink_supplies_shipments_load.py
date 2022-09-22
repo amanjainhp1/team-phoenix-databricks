@@ -31,19 +31,18 @@ spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 files = [['iink_salesprod_units.csv', 'iink_units_raw']]
 
 for file in files:
-  spark.read.csv(f'{constants["S3_BASE_BUCKET"][stack]}/product/supplies_iink/{file[0]}').createOrReplaceTempView(file[1])
-
-# COMMAND ----------
-
-# MAGIC %r
-# MAGIC path <- paste0(sparkR.conf('aws_bucket_name'), "product/supplies_iink/iink_salesprod_units.csv")
-# MAGIC spark_df <- read.csv(path)
+  spark.read.csv(f'{constants["S3_BASE_BUCKET"][stack]}/product/supplies_iink/{file[0]}', header=True).createOrReplaceTempView(file[1])
 
 # COMMAND ----------
 
 # MAGIC %r
 # MAGIC iink_units_r_table = SparkR::collect(SparkR::sql(
 # MAGIC "SELECT * FROM iink_units_raw"))
+
+# COMMAND ----------
+
+# MAGIC %r
+# MAGIC str(iink_units_r_table)
 
 # COMMAND ----------
 
@@ -58,12 +57,12 @@ for file in files:
 # MAGIC   dplyr::group_by(
 # MAGIC     SKU, Region, cal_date
 # MAGIC   ) %>%
-# MAGIC   summarize(
+# MAGIC   dplyr::summarize(
 # MAGIC     Units = sum(Units)
 # MAGIC   ) %>%
-# MAGIC   ungroup()
+# MAGIC   dplyr::ungroup()
 # MAGIC 
-# MAGIC iink_select %>% summarize(Units = sum(Units))
+# MAGIC iink_select %>% dplyr::summarize(Units = sum(Units))
 
 # COMMAND ----------
 
@@ -93,10 +92,10 @@ for file in files:
 # COMMAND ----------
 
 # MAGIC %r
-# MAGIC iink_units = SparkR::as.DataFrame(iink_units)
-# MAGIC createOrReplaceTempView(iink_units, "iink_units")
+# MAGIC iink_units <- SparkR::as.DataFrame(iink_units)
+# MAGIC SparkR::createOrReplaceTempView(iink_units, "iink_units")
 
 # COMMAND ----------
 
 #LOAD TO DB
-write_df_to_redshift(configs, spark.sql('SELECT * FROM iink_units'), "fin_prod.iink_units", "append", postactions = "", preactions = "truncate fin_prod.iink_units")
+write_df_to_redshift(configs, spark.sql('SELECT * FROM iink_units'), "fin_stage.supplies_iink_units_landing", "append", postactions = "", preactions = "truncate fin_stage.supplies_iink_units_landing")
