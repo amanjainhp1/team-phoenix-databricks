@@ -118,14 +118,15 @@ rdma_sales_product_full_df = rdma_sales_product_full_df \
 
 # COMMAND ----------
 
-# data type change in rdma_sales_product_full_df
+# data type change in rdma_sales_product_option_df
 rdma_sales_product_option_df = rdma_sales_product_option_df \
     .withColumn("SALES_PROD_ID", rdma_sales_product_option_df["SALES_PROD_ID"].cast(IntegerType())) \
     .withColumn("SALES_PROD_W_OPTION_KY", rdma_sales_product_option_df["SALES_PROD_W_OPTION_KY"].cast(IntegerType())) \
     .withColumn("INSERT_TS", dynamic_date(func.col("INSERT_TS"))) \
     .withColumn("UPDATE_TS", dynamic_date(func.col("UPDATE_TS"))) \
     .withColumn("MODIFIED_TS", dynamic_date(func.col("MODIFIED_TS"))) \
-    .withColumn("load_date", dynamic_date(func.col("load_date")))
+    .withColumn("load_date", dynamic_date(func.col("load_date"))) \
+    .withColumnRenamed(" insert_user_nm", "insert_user_nm")
 
 # COMMAND ----------
 
@@ -352,6 +353,7 @@ write_df_to_redshift(configs, rdma_sales_product_option_df, "mdm.rdma_sales_prod
 
 # COMMAND ----------
 
+# set up connection to SFAI for data write-back
 import pymssql
 
 def submit_remote_sqlserver_query(configs, db, query):
@@ -360,6 +362,8 @@ def submit_remote_sqlserver_query(configs, db, query):
     cursor.execute(query)
     conn.commit()
     conn.close()
+
+# COMMAND ----------
 
 # write rdma data out to SFAI
 rdma = read_redshift_to_df(configs) \
@@ -372,3 +376,40 @@ rdma = read_redshift_to_df(configs) \
 submit_remote_sqlserver_query(configs, "IE2_Prod", "TRUNCATE TABLE IE2_Prod.dbo.rdma;")
 
 write_df_to_sqlserver(configs=configs, df=rdma, destination="IE2_Prod.dbo.rdma", mode="append")
+
+# COMMAND ----------
+
+# write rdma_base_to_sales_product_map data out to SFAI
+rdma_base_to_sales_product_map = read_redshift_to_df(configs) \
+    .option('dbtable', 'mdm.rdma_base_to_sales_product_map') \
+    .load()
+
+submit_remote_sqlserver_query(configs, "IE2_Prod", "TRUNCATE TABLE IE2_Prod.dbo.rdma_base_to_sales_product_map;")
+
+write_df_to_sqlserver(configs=configs, df=rdma_base_to_sales_product_map, destination="IE2_Prod.dbo.rdma_base_to_sales_product_map", mode="append")
+
+# COMMAND ----------
+
+   
+# write rdma_sales_product data out to SFAI
+rdma_sales_product = read_redshift_to_df(configs) \
+    .option('dbtable', 'mdm.rdma_sales_product') \
+    .load()
+
+rdma_sales_product = rdma_sales_product \
+    .withColumn("update_ts", col("update_ts").cast("timestamp"))
+
+submit_remote_sqlserver_query(configs, "IE2_Prod", "TRUNCATE TABLE IE2_Prod.dbo.rdma_sales_product;")
+
+write_df_to_sqlserver(configs=configs, df=rdma_sales_product, destination="IE2_Prod.dbo.rdma_sales_product", mode="append")
+
+# COMMAND ----------
+
+# write rdma_sales_product_option data out to SFAI
+rdma_sales_product_option = read_redshift_to_df(configs) \
+    .option('dbtable', 'mdm.rdma_sales_product_option') \
+    .load()
+
+submit_remote_sqlserver_query(configs, "IE2_Prod", "TRUNCATE TABLE IE2_Prod.dbo.rdma_sales_product_option;")
+
+write_df_to_sqlserver(configs=configs, df=rdma_sales_product_option, destination="IE2_Prod.dbo.rdma_sales_product_option", mode="append")
