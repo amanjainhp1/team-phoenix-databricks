@@ -349,3 +349,26 @@ write_df_to_redshift(configs, rdma_sales_product_full_df, "mdm.rdma_sales_produc
 
 # write data to redshift
 write_df_to_redshift(configs, rdma_sales_product_option_df, "mdm.rdma_sales_product_option", "overwrite")
+
+# COMMAND ----------
+
+import pymssql
+
+def submit_remote_sqlserver_query(configs, db, query):
+    conn = pymssql.connect(server="sfai.corp.hpicloud.net", user=configs["sfai_username"], password=configs["sfai_password"], database=db)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    conn.commit()
+    conn.close()
+
+# write rdma data out to SFAI
+rdma = read_redshift_to_df(configs) \
+    .option('dbtable', 'mdm.rdma') \
+    .load() \
+    .drop(col("rdma_id")) \
+    .drop(col("official")) \
+    .drop(col("load_date"))
+
+submit_remote_sqlserver_query(configs, "IE2_Prod", "TRUNCATE TABLE IE2_Prod.dbo.rdma;")
+
+write_df_to_sqlserver(configs=configs, df=rdma, destination="IE2_Prod.dbo.rdma", mode="append")
