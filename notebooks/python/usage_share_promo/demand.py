@@ -358,7 +358,7 @@ WHERE hp_pages IS NOT NULL
 )
 SELECT "USAGE_SHARE" as record
       ,cal_date
-      ,"MARKET 10" as geography_grain
+      ,"MARKET10" as geography_grain
       ,geography
       ,platform_subset
       ,customer_engagement
@@ -366,7 +366,7 @@ SELECT "USAGE_SHARE" as record
       ,units
       ,'{ib_version}' as ib_version
       ,source
-      ,CONCAT(CAST(current_date() AS DATE),".1") as version
+      ,CONCAT(CONVERT(varchar(10),CAST(current_date() AS DATE),102),".1") as version
       ,CAST(current_date() AS DATE) AS load_date
       FROM step6
                
