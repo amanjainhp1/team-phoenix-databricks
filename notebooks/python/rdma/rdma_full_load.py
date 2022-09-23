@@ -390,13 +390,10 @@ write_df_to_sqlserver(configs=configs, df=rdma_base_to_sales_product_map, destin
 
 # COMMAND ----------
 
-   
 # write rdma_sales_product data out to SFAI
 rdma_sales_product = read_redshift_to_df(configs) \
     .option('dbtable', 'mdm.rdma_sales_product') \
-    .load()
-
-rdma_sales_product = rdma_sales_product \
+    .load() \
     .withColumn("update_ts", col("update_ts").cast("timestamp"))
 
 submit_remote_sqlserver_query(configs, "IE2_Prod", "TRUNCATE TABLE IE2_Prod.dbo.rdma_sales_product;")
