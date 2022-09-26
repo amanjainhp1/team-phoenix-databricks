@@ -267,7 +267,7 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "list_price_eoq"
             },
-            "list_price_eu_countrylist": {
+            "list_price_eu_country_list": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
                 "source_schema": "dbo",
@@ -275,7 +275,7 @@ except:
                 "destination_system": "redshift", 
                 "destination_database": "", 
                 "destination_schema": "mdm", 
-                "destination_table": "list_price_eu_countrylist"
+                "destination_table": "list_price_eu_country_list"
             },
             "list_price_term_codes": {
                 "source_system": "sqlserver", 
