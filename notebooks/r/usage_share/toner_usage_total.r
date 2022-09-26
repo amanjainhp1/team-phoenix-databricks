@@ -2872,7 +2872,7 @@ old <- SparkR::collect(SparkR::sql(paste("
       ibset ib
     ON (ref.platform_subset=ib.platform_subset)
     WHERE ref.platform_subset != '?' and (upper(ref.technology) ='LASER' or (ref.technology='PWA' and (upper(ref.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                            or ref.platform_subset like 'PANTHER%' or ref.platform_subset like 'JAGUAR%')) and ref.pl not in ('E0','E4','ED','GW')
+                            or ref.platform_subset like 'PANTHER%' or ref.platform_subset like 'JAGUAR%')) 
     GROUP BY ref.mono_color
     , ib.platform_subset
     , ib.region_code
