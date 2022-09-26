@@ -1,10 +1,7 @@
 # Databricks notebook source
 from pyspark.sql.functions import current_timestamp
 from functools import reduce
-
-# COMMAND ----------
-
-# MAGIC %run ../common/configs
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
 
 # COMMAND ----------
 
@@ -12,7 +9,35 @@ from functools import reduce
 
 # COMMAND ----------
 
+# MAGIC %run ../common/configs
+
+# COMMAND ----------
+
 # MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+# define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/sacp_actuals/"
+odw_sacp_actuals_schema = StructType([ \
+            StructField("record", StringType(), True), \
+            StructField("cal_date", DateType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("gross_revenue", DecimalType(), True), \
+            StructField("net_currency", DecimalType(), True), \
+            StructField("contractual_discounts", DecimalType(), True), \
+            StructField("discretionary_discounts", DecimalType(), True), \
+            StructField("net_revenue", DecimalType(), True), \
+            StructField("warranty", DecimalType(), True), \
+            StructField("other_cos", DecimalType(), True), \
+            StructField("total_cos", DecimalType(), True), \
+            StructField("gross_profit", DecimalType(), True), \
+            StructField("load_date", TimestampType(), True)
+        ])
+
+odw_sacp_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_sacp_actuals_schema)
 
 # COMMAND ----------
 
@@ -30,35 +55,28 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
         .load()
     
+    sacp_actuals_df = odw_sacp_actuals_schema_df.union(sacp_actuals_df)
+    
     write_df_to_redshift(configs, sacp_actuals_df, "fin_prod.odw_sacp_actuals", "append")
 
 # COMMAND ----------
 
-# mount S3 bucket
-bucket = f"dataos-core-{stack}-team-phoenix"
-bucket_prefix = "landing/odw/odw_sacp_actuals/"
-dbfs_mount = '/mnt/odw_sacp_actuals/'
+#Load all history data
+# path = f"s3://dataos-core-{stack}-team-phoenix-fin/landing/odw/sacp_actuals/"
+# files = dbutils.fs.ls(path)
 
-s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
+# SeriesAppend=[]
+# for f in files:
+#     odw_sacp_actuals_df = spark.read \
+#         .format("com.crealytics.spark.excel") \
+#         .option("inferSchema", "True") \
+#         .option("header","True") \
+#         .option("treatEmptyValuesAsNulls", "False") \
+#         .load(f[0])
 
-# COMMAND ----------
+#     SeriesAppend.append(odw_sacp_actuals_df)
 
-files = dbutils.fs.ls(dbfs_mount)
-
-if len(files) >= 1:
-    SeriesAppend=[]
-    
-    for f in files:
-        odw_sacp_actuals_df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("inferSchema", "True") \
-            .option("header","True") \
-            .option("treatEmptyValuesAsNulls", "False") \
-            .load(f.path)
-
-        SeriesAppend.append(odw_sacp_actuals_df)
-
-    df_series = reduce(DataFrame.unionAll, SeriesAppend)
+# df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -93,17 +111,13 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Functional Area Code","functional_area_code") \
                         .withColumnRenamed("Functional Area Name","functional_area_name") \
                         .withColumnRenamed("Sign Flip Amount","sign_flip_amount") 
-
+    
     write_df_to_redshift(configs, sacp_actuals_df, "fin_stage.odw_sacp_actuals", "append")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC financials_odw_sacp_actuals
-
-# COMMAND ----------
-
-query_list = []
 
 # COMMAND ----------
 
@@ -204,7 +218,7 @@ SELECT
 	"func_area_hier_desc_level12" fa_level_12_description,
 	SUM(amount) as amount
 FROM add_seg_hierarchy w
-LEFT JOIN "mdm"."hp_simplify_functional_area_hierarchy_v1" f ON w.fa_code = f.functional_area_code
+LEFT JOIN "mdm"."ms4_functional_area_hierarchy" f ON w.fa_code = f.functional_area_code
 WHERE func_area_hier_desc_level6 IN ('NET REVENUES', 'TOTAL COST OF SALES')
 GROUP BY cal_date
     , pl
@@ -233,12 +247,12 @@ SELECT
 	fa_level_9_description,
 	fa_level_12_description,
 	CASE
-		WHEN fa_level_7_description = 'GROSS TRADE REVENUES' THEN 'GROSS REVENUE'
-		WHEN fa_level_7_description = 'NET CURRENCY' THEN 'NET CURRENCY'
-		WHEN fa_level_12_description = 'CONTRACTUAL DISCOUNTS' THEN 'CONTRACTUAL DISCOUNTS'
-		WHEN fa_level_7_description = 'TRADE DISCOUNTS' AND fa_level_12_description <> 'CONTRACTUAL DISCOUNTS' THEN 'DISCRETIONARY DISCOUNTS'
+		WHEN fa_level_7_description = 'GROSS TRADE REVENUES' THEN 'GROSS_REVENUE'
+		WHEN fa_level_7_description = 'NET CURRENCY' THEN 'NET_CURRENCY'
+		WHEN fa_level_12_description IN ('CONTRACTUAL UPFRONT', 'CONTRACTUAL BACKEND') THEN 'CONTRACTUAL_DISCOUNTS'
+		WHEN fa_level_7_description = 'TRADE DISCOUNTS' AND fa_level_12_description NOT IN ('CONTRACTUAL UPFRONT', 'CONTRACTUAL BACKEND') THEN 'DISCRETIONARY_DISCOUNTS'
 		WHEN fa_level_8_description = 'WARRANTY' THEN 'WARRANTY'
-		ELSE 'OTHER COS'	
+		ELSE 'OTHER_COS'	
 	END AS finance11,
 	SUM(amount) as amount
 FROM add_financial_hierarchy
@@ -309,7 +323,7 @@ SELECT
 	pl,
 	SUM(dollars) as gross_revenue
 FROM webi_financials_narrow
-WHERE finance11 = 'GROSS REVENUE'
+WHERE finance11 = 'GROSS_REVENUE'
 GROUP BY cal_date
     , region_5
     , pl
@@ -322,7 +336,7 @@ SELECT
 	pl,
 	SUM(dollars) as net_currency
 FROM webi_financials_narrow
-WHERE finance11 = 'NET CURRENCY'
+WHERE finance11 = 'NET_CURRENCY'
 GROUP BY cal_date
     , region_5
     , pl
@@ -335,7 +349,7 @@ SELECT
 	pl,
 	SUM(dollars) as contractual_discounts
 FROM webi_financials_narrow
-WHERE finance11 = 'CONTRACTUAL DISCOUNTS'
+WHERE finance11 = 'CONTRACTUAL_DISCOUNTS'
 GROUP BY cal_date
     , region_5
     , pl
@@ -348,7 +362,7 @@ SELECT
 	pl,
 	SUM(dollars) as discretionary_discounts
 FROM webi_financials_narrow
-WHERE finance11 = 'DISCRETIONARY DISCOUNTS'
+WHERE finance11 = 'DISCRETIONARY_DISCOUNTS'
 GROUP BY cal_date
     , region_5
     , pl
@@ -374,7 +388,7 @@ SELECT
 	pl,
 	SUM(dollars) as other_cos
 FROM webi_financials_narrow
-WHERE finance11 = 'OTHER COS'
+WHERE finance11 = 'OTHER_COS'
 GROUP BY cal_date
     , region_5
     , pl
@@ -787,12 +801,13 @@ GROUP BY cal_date
     , pl
 """
 
-query_list.append(["fin_prod.odw_sacp_actuals", odw_sacp_actuals , "append"])
-
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+#Write df to redshift
+if redshift_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", odw_sacp_actuals) \
+            .load()
 
-# COMMAND ----------
-
-
+    dataDF = odw_sacp_actuals_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_sacp_actuals", "append")

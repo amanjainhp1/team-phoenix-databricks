@@ -1,11 +1,7 @@
 # Databricks notebook source
 from functools import reduce
 from pyspark.sql.functions import current_date
-from pyspark.sql.types import IntegerType, StringType
-
-# COMMAND ----------
-
-# MAGIC %run ../common/configs
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType , BooleanType
 
 # COMMAND ----------
 
@@ -13,7 +9,32 @@ from pyspark.sql.types import IntegerType, StringType
 
 # COMMAND ----------
 
+# MAGIC %run ../common/configs
+
+# COMMAND ----------
+
 # MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+# define odw_revenue_units_sales_actuals schema
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/document_currency/"
+odw_document_currency_schema = StructType([ \
+            StructField("record", StringType(), True), \
+            StructField("cal_date", DateType(), True), \
+            StructField("country_alpha2", StringType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("pl", StringType(), True), \
+            StructField("segment", StringType(), True), \
+            StructField("document_currency_code", StringType(), True), \
+            StructField("revenue", DecimalType(), True), \
+            StructField("official", IntegerType(), True), \
+            StructField("load_date", TimestampType(), True), \
+            StructField("version", IntegerType(), True)
+        ])
+
+odw_document_currency_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), odw_document_currency_schema)
 
 # COMMAND ----------
 
@@ -36,6 +57,8 @@ if redshift_row_count == 0:
         .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
         .load()
     
+    document_currency_df = odw_document_currency_schema_df.union(document_currency_df)
+    
     write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
 
 # COMMAND ----------
@@ -45,31 +68,24 @@ if redshift_row_count == 0:
 
 # COMMAND ----------
 
-# mount S3 bucket
-bucket = f"dataos-core-{stack}-team-phoenix"
-bucket_prefix = "landing/odw/odw_document_currency"
-dbfs_mount = '/mnt/odw_document_currency/'
+# Load all history data
+# path = f"s3://dataos-core-{stack}-team-phoenix-fin/landing/odw/document_currency/"
+# files = dbutils.fs.ls(path)
 
-s3_mount(f'{bucket}/{bucket_prefix}', dbfs_mount)
-
-# COMMAND ----------
-
-files = dbutils.fs.ls(dbfs_mount)
-
-if len(files) >= 1:
-    SeriesAppend=[]
+# if len(files) >= 1:
+#     SeriesAppend=[]
     
-    for f in files:
-        document_currency_df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("inferSchema", "True") \
-            .option("header","True") \
-            .option("treatEmptyValuesAsNulls", "False") \
-            .load(f.path)
+#     for f in files:
+#         document_currency_df = spark.read \
+#             .format("com.crealytics.spark.excel") \
+#             .option("inferSchema", "True") \
+#             .option("header","True") \
+#             .option("treatEmptyValuesAsNulls", "False") \
+#             .load(f[0])
 
-        SeriesAppend.append(document_currency_df)
+#         SeriesAppend.append(document_currency_df)
 
-    df_series = reduce(DataFrame.unionAll, SeriesAppend)
+#     df_series = reduce(DataFrame.unionAll, SeriesAppend)
 
 # COMMAND ----------
 
@@ -96,17 +112,13 @@ if redshift_row_count > 0:
 
     document_currency_df = document_currency_df.withColumn("load_date", current_date()) \
         .withColumn("Fiscal Year/Period", (document_currency_df["Fiscal Year/Period"].cast(IntegerType())).cast(StringType()))
-
-    write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency_report", "append")
+    
+    write_df_to_redshift(configs, document_currency_df, "fin_stage.odw_document_currency", "append")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC financials_odw_document_currency
-
-# COMMAND ----------
-
-query_list = []
 
 # COMMAND ----------
 
@@ -120,10 +132,10 @@ SELECT "Fiscal Year/Period" as ms4_fiscal_year_period
       , "Transaction Currency Code" as document_currency_code
       , "Profit Center Code" as profit_center_code
       , SUM("Net K$") * 1000 AS amount
-  FROM  fin_stage.odw_document_currency_report w
+  FROM  fin_stage.odw_document_currency w
   WHERE 1=1
 	AND "Net K$" is not null
-	AND "Fiscal Year/Period" = (SELECT MAX("Fiscal Year/Period") FROM "fin_stage"."odw_document_currency_report")
+	AND "Fiscal Year/Period" = (SELECT MAX("Fiscal Year/Period") FROM "fin_stage"."odw_document_currency")
 	AND "Net K$" <> 0
 	AND "Func Area Hier Desc Level6" = 'NET REVENUES' -- edw report filters to revenue
   GROUP BY "Fiscal Year/Period", "Profit Center Code", "Segment Code","Transaction Currency Code"
@@ -141,7 +153,10 @@ LEFT JOIN "mdm"."calendar" cal ON w.ms4_fiscal_year_period = cal.ms4_fiscal_year
 LEFT JOIN "prod"."ms4_profit_center_hierarchy" plx ON w.profit_center_code = plx.profit_center_code    
 WHERE 1=1
 	AND Day_of_Month = 1
-GROUP BY cal.Date, pl, segment, document_currency_code
+GROUP BY cal.Date
+    , pl
+    , segment
+    , document_currency_code
 ), add_seg_hierarchy as (
 
 
@@ -156,7 +171,12 @@ SELECT
 FROM change_date_and_profit_center_hierarchy w
 LEFT JOIN "mdm"."profit_center_code_xref" s ON w.segment = s.profit_center_code
 LEFT JOIN "mdm"."iso_country_code_xref" iso ON s.country_alpha2 = iso.country_alpha2
-GROUP BY cal_date, pl, iso.country_alpha2, iso.region_5, document_currency_code, segment
+GROUP BY cal_date
+    , pl
+    , iso.country_alpha2
+    , iso.region_5
+    , document_currency_code
+    , segment
 )SELECT
     'ACTUALS - DOCUMENT CURRENCY' as record
     , cal_date
@@ -170,11 +190,21 @@ GROUP BY cal_date, pl, iso.country_alpha2, iso.region_5, document_currency_code,
 	, current_date as load_date
     , null as version
 FROM add_seg_hierarchy
-GROUP BY cal_date, country_alpha2, region_5, pl, segment, document_currency_code
+GROUP BY cal_date
+    , country_alpha2
+    , region_5
+    , pl
+    , segment
+    , document_currency_code
 """
-
-query_list.append(["fin_prod.odw_document_currency", odw_document_currency , "append"])
 
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+#Write df to redshift
+if redshift_row_count > 0:
+    dataDF = read_redshift_to_df(configs) \
+            .option("query", odw_document_currency) \
+            .load()
+
+    dataDF = odw_document_currency_schema_df.union(dataDF)
+    write_df_to_redshift(configs, dataDF, "fin_prod.odw_document_currency", "append")

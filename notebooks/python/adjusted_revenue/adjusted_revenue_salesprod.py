@@ -133,7 +133,7 @@ supp_hist_2 = spark.sql("""
 					when currency = 'EURO' then 'EUR'
 					else 'USD'
 				end as currency
-			from mdm.list_price_eu_countrylist
+			from mdm.list_price_eu_country_list
 			where country_alpha2 not in ('ZM', 'ZW')
 		),
 		row_currency_table as
