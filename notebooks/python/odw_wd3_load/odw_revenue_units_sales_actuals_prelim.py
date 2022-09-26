@@ -63,4 +63,39 @@ if redshift_sales_actuals_prelim_row_count == 0:
 
 # COMMAND ----------
 
+revenue_unit_latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucket_prefix)
+
+revenue_unit_latest_file = revenue_unit_latest_file.split("/")[len(revenue_unit_latest_file.split("/"))-1]
+
+print(revenue_unit_latest_file)
+
+# COMMAND ----------
+
+if redshift_sales_actuals_prelim_row_count > 0:
+    revenue_unit_prelim_df = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{bucket}/{bucket_prefix}/{revenue_unit_latest_file}")
+    
+    revenue_unit_prelim_df = revenue_unit_prelim_df \
+        .withColumn("unit quantity (sign-flip)", revenue_unit_prelim_df["unit quantity (sign-flip)"].cast(DecimalType(38,6))) \
+        .withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
+
+    revenue_unit_prelim_df = revenue_unit_prelim_df \
+        .withColumn("unit quantity (sign-flip)", revenue_unit_prelim_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
+        .withColumn("load_date", current_date()) \
+        .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
+
+    revenue_unit_prelim_df = odw_revenue_units_sales_actuals_prelim_schema_df.union(revenue_unit_prelim_df)    
+    
+    write_df_to_redshift(configs, revenue_unit_prelim_df, "fin_prod.odw_revenue_units_sales_actuals_prelim", "append")
+
+# COMMAND ----------
+
+revenue_unit_prelim_df.count()
+
+# COMMAND ----------
+
 
