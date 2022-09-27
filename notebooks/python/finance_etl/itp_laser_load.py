@@ -1,6 +1,6 @@
 # Databricks notebook source
 from functools import reduce
-from pyspark.sql.functions import col, current_date, regexp_extract, lit
+from pyspark.sql.functions import col, current_date, regexp_extract, lit, to_date
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
 
 # COMMAND ----------
