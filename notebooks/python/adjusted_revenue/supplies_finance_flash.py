@@ -50,9 +50,9 @@ ci_flash = spark.sql("""
       , channel_inv_k
       , ink_toner 
       , current_date() as  load_date 
-      , current_date() as  version 
+      , '{}' as  version 
 	from fin_prod.ci_flash_for_insights_supplies_temp
-""")
+""".format(version))
 
 ci_flash.createOrReplaceTempView("ci_flash_for_insights_supplies")
 write_df_to_redshift(configs, ci_flash, "fin_stage.ci_flash_for_insights_supplies", "append")
@@ -69,13 +69,13 @@ rev_flash = spark.sql("""
       , hedge_k
       , concatenate
       , current_date() as load_date
-      , current_date() as version
+      ,'{}' as version
 	from fin_prod.rev_flash_for_insights_supplies_temp
 	where pl is not null
-""")
+""".format(version))
 
 rev_flash.createOrReplaceTempView("rev_flash_for_insights_supplies")
-write_df_to_redshift(configs, ci_flash, "fin_stage.rev_flash_for_insights_supplies", "append")
+write_df_to_redshift(configs, rev_flash, "fin_stage.rev_flash_for_insights_supplies", "append")
 
 # COMMAND ----------
 
