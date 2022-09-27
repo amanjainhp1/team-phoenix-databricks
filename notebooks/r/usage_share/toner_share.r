@@ -2803,5 +2803,11 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 
 # COMMAND ----------
 
+# MAGIC %python
+# MAGIC # for proxy_locking pass usage_share_current_version
+# MAGIC dbutils.jobs.taskValues.set(key = "usage_share_current_version", value = version[0])
+
+# COMMAND ----------
+
 notebook_end_time <- Sys.time()
 notebook_total_time <- notebook_end_time - notebook_start_time;notebook_total_time
