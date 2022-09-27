@@ -88,16 +88,16 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # MAGIC %python
 # MAGIC # load parquet data and register views
-# MAGIC datestamp = dbutils.widgets.get('datestamp')
-# MAGIC timestamp = dbutils.widgets.get('timestamp')
 # MAGIC 
 # MAGIC tables = ['bdtbl', 'calendar', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
 # MAGIC for table in tables:
 # MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
 
 # COMMAND ----------
-
+datestamp <- sparkR.conf("datestamp")
+timestamp <- sparkR.conf("timestamp")
 cutoff_date <- sparkR.conf("cutoff_dt")
+
 table_month0 <- SparkR::collect(SparkR::sql(paste0("
            SELECT  tpmib.printer_group  
            , tpmib.printer_platform_name as platform_name 
@@ -1663,8 +1663,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 #Uncomment when ready to run
-UPM <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), "usage_total", sep="/"))
-UPMC <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), "usage_color", sep="/"))
+UPM <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", datestamp, timestamp, "usage_total", sep="/"))
+UPMC <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", datestamp, timestamp, "usage_color", sep="/"))
 
 createOrReplaceTempView(UPM, "UPM")
 createOrReplaceTempView(UPMC, "UPMC")
@@ -2449,7 +2449,7 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 final_list8$dm_version <- dm_version
-today <- dbutils.widgets.get("datestamp")
+today <- datestamp
 vsn <- '2022.01.19.1'  #for DUPSM
 rec1 <- 'usage_share'
 geog1 <- 'country'
