@@ -339,7 +339,7 @@ INSERT INTO mdm.rdma
     SELECT * FROM stage.rdma_staging;
 """
 
-write_df_to_redshift(configs = configs, df = rdma_df, destination = "stage.rdma_staging", mode = "overwrite", postactions = rdma_sproc)
+write_df_to_redshift(configs = configs, df = rdma_df, destination = "stage.rdma_staging", mode = "append", postactions = rdma_sproc, preactions="TRUNCATE TABLE stage.rdma_staging")
 
 # COMMAND ----------
 
