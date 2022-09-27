@@ -233,9 +233,9 @@ SELECT dmd.cal_date
       , dmd.platform_subset
       , dmd.customer_engagement
       , dmd.measure
-      , SUM(dmd.units)
+      , SUM(dmd.units) units
  FROM prod.usage_share AS dmd
- WHERE measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_C_PAGES, NON_HP_C_PAGES, TOTAL_C_PAGES, TOTAL_K_PAGES)
+ WHERE measure IN ('IB', 'HP_K_PAGES', 'NON_HP_K_PAGES', 'HP_C_PAGES', 'NON_HP_C_PAGES', 'TOTAL_C_PAGES', 'TOTAL_K_PAGES')
  GROUP BY dmd.cal_date
       , dmd.geography
       , dmd.platform_subset
