@@ -193,7 +193,8 @@ supp_hist_3 = spark.sql("""
 				effectivedate as accounting_rate,
 				accountingrate
 			from accounting_rates_table
-			where effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
+			where effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
+            --(select distinct '{cur_period}' as current_period from prod.acct_rates)
 """)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")

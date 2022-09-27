@@ -35,6 +35,10 @@ print(version)
 
 # COMMAND ----------
 
+print("'{}'".format(version))
+
+# COMMAND ----------
+
 adj_rev_data = spark.sql("""
 with adjusted_revenue_staging as
          (select fiscal_year_qtr,
@@ -1160,7 +1164,7 @@ select record,
        sum(cbm_ci_dollars_prior_quarter)  as cbm_ci_dollars_prior_quarter,
        1                                  as official,
        load_date,
-       version
+       '{}' as version
 from adjusted_revenue_flash_output
 group by record,
          record_description,
@@ -1178,7 +1182,7 @@ group by record,
          official,
          load_date,
          version
-""")
+""".format(version))
 
 write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
 
