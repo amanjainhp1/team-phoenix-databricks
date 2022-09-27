@@ -30,7 +30,7 @@ for task in tasks:
 # COMMAND ----------
 
 # set vars equal to widget vals for job/interactive sessions, else retrieve task values 
-usage_share_current_version = dbutils.widgets.get("usage_share_current_version") if dbutils.widgets.get("usage_share_current_version") != "" else dbutils.jobs.taskValues.get(taskKey = "toner_share", key = "args")["usage_share_current_version"]
+usage_share_current_version = dbutils.widgets.get("usage_share_current_version") if dbutils.widgets.get("usage_share_current_version") != "" else dbutils.jobs.taskValues.get(taskKey = "toner_share", key = "usage_share_current_version")
 
 # set vars equal to widget vals for job/interactive sessions
 usage_share_locked_version = dbutils.widgets.get("usage_share_locked_version") if dbutils.widgets.get("usage_share_locked_version") != "" else usage_share_current_version
