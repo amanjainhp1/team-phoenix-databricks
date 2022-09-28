@@ -89,9 +89,9 @@ except:
             },
             "country_currency_map": {
                 "source_system": "sqlserver", 
-                "source_database":"IE2_Landing",
+                "source_database":"IE2_Staging",
                 "source_schema": "dbo",
-                "source_table": "country_currency_map_landing",
+                "source_table": "country_currency_map_staging",
                 "destination_system": "redshift", 
                 "destination_database": "", 
                 "destination_schema": "mdm", 
