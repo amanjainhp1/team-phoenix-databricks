@@ -35,7 +35,20 @@ print(version)
 
 # COMMAND ----------
 
-print("'{}'".format(version))
+# Cells 7-8: Refreshes version table in delta lakes, to bring in new version from previous step, above.
+version = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.version") \
+    .load()
+
+tables = [['prod.version', version, "overwrite"]]
+
+# COMMAND ----------
+
+# MAGIC %run "../finance_etl/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
+spark.sql("""select max(version) from prod.version where record='ADJ REV PLUS FLASH'""").show()
 
 # COMMAND ----------
 
@@ -320,14 +333,14 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                  product_line_id                                                as pl,
                  partner,
                  rtm_2                                                          as rtm2,
-                 sum(cast(coalesce(`sell-thru_usd`, 0) as float))               as sell_thru_usd,
-                 sum(cast(coalesce(`sell-thru_qty`, 0) as float))               as sell_thru_qty,
+                 sum(cast(coalesce(`sell_thru_usd`, 0) as float))               as sell_thru_usd,
+                 sum(cast(coalesce(`sell_thru_qty`, 0) as float))               as sell_thru_qty,
                  sum(cast(coalesce(channel_inventory_usd, 0) as float))         as channel_inventory_usd,
                  (sum(cast(coalesce(channel_inventory_qty, 0) as float)) + 0.0) as channel_inventory_qty
           from fin_stage.cbm_st_data st
           where month > '2015-10-01'
-    and (coalesce (`sell-thru_usd`
-        , 0) + coalesce (`sell-thru_qty`
+    and (coalesce (`sell_thru_usd`
+        , 0) + coalesce (`sell_thru_qty`
         , 0) + coalesce (channel_inventory_usd
         , 0) +
     coalesce (channel_inventory_qty
