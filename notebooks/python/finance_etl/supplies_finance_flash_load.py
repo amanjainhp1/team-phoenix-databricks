@@ -1,6 +1,6 @@
 # Databricks notebook source
 from functools import reduce
-from pyspark.sql.functions import col, current_date, regexp_extract, lit
+from pyspark.sql.functions import col, current_date, regexp_extract, lit, to_date
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
 
 # COMMAND ----------
@@ -71,7 +71,14 @@ print(ci_latest_file)
         .option("inferSchema", "True") \
         .option("header","True") \
         .option("treatEmptyValuesAsNulls", "False")\
-        .load(f"s3a://{bucket}/{bucket_prefix}/{ci_latest_file}")
+        .load(f"s3a://{bucket}/{bucket_prefix}/{ci_latest_file}") \
+        .select(col("Fiscal_Year_Qtr").alias("fiscal_year_qtr")
+               , col("PL").alias("pl")
+               , col("Business_description").alias("business_description")
+               , col("Market").alias("market")
+               , col("Channel Inv $K").alias("channel_inv_k")
+               , col("Ink/Toner").alias("ink_toner")
+               )
 
 # COMMAND ----------
 
@@ -108,7 +115,7 @@ print(rev_latest_file)
                , col("PL").alias("pl")
                , col("Business_description").alias("business_description")
                , col("Market").alias("market")
-               , col("Net_Revenues $K").alias("channel_inv_k")
+               , col("Net_Revenues $K").alias("net_revenue_k")
                , col("Ink/Toner").alias("ink_toner")
                , col("Hedge $K").alias("hedge_k")
                , col("Concatenate").alias("concatenate")
@@ -120,3 +127,7 @@ print(rev_latest_file)
 revenue_load = revenue_flash_for_insights_supplies_df.union(revenue_latest_df) 
 
 write_df_to_redshift(configs=configs, df=revenue_load, destination="fin_prod.rev_flash_for_insights_supplies_temp", mode="append", postactions="", preactions="TRUNCATE fin_prod.rev_flash_for_insights_supplies_temp")
+
+# COMMAND ----------
+
+
