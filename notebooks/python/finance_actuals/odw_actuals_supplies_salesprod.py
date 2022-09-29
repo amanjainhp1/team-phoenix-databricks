@@ -1,8 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -12,32 +8,6 @@ dbutils.widgets.text("load_to_redshift", "")
 # COMMAND ----------
 
 # MAGIC %run ../common/s3_utils
-
-# COMMAND ----------
-
-if dbutils.widgets.get("load_to_redshift").lower() == "true": 
-    
-  
-    itp_laser_landing = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.dbo.itp_laser_landing") \
-        .load()
-
-    write_df_to_redshift(configs, itp_laser_landing, "fin_stage.itp_laser_landing", "append", "", "truncate fin_stage.itp_laser_landing") 
-    
-    
-    supplies_iink_units_landing = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.dbo.supplies_iink_units_landing") \
-        .load()
-
-    write_df_to_redshift(configs, supplies_iink_units_landing, "fin_stage.supplies_iink_units_landing", "append", "", "truncate fin_stage.supplies_iink_units_landing") 
-    
-    
-    supplies_manual_mcode_jv_detail_landing = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.dbo.supplies_manual_mcode_jv_detail_landing") \
-        .load()
-
-    write_df_to_redshift(configs, supplies_manual_mcode_jv_detail_landing, "fin_stage.supplies_manual_mcode_jv_detail_landing", "append", "", "truncate fin_stage.supplies_manual_mcode_jv_detail_landing") 
-    
 
 # COMMAND ----------
 
@@ -6905,7 +6875,7 @@ SELECT
     country_alpha2,
     currency,
     sp.pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     ce_split AS customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -6923,7 +6893,7 @@ SELECT
 FROM ALL_salesprod2 AS sp
 JOIN product_line_xref AS plx ON sp.pl = plx.pl 
 WHERE total_rows <> 0
-GROUP BY sp.cal_date, country_alpha2, sp.pl, sales_product_number, ce_split, L5_Description, currency
+GROUP BY sp.cal_date, country_alpha2, sp.pl, sales_product_number, ce_split, l5_description, currency
 """
 
 all_salesprod3 = spark.sql(all_salesprod3)
@@ -6936,7 +6906,7 @@ SELECT
     country_alpha2,
     currency,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -6958,7 +6928,7 @@ WHERE pl IN (
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
         )
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement, L5_Description, version, load_date, currency
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement, l5_description, version, load_date, currency
 """
 
 all_salesprod4 = spark.sql(all_salesprod4)
@@ -6971,7 +6941,7 @@ SELECT
     country_alpha2,
     currency,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -6987,7 +6957,7 @@ SELECT
     version,
     load_date
 FROM ALL_salesprod4
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement, L5_Description, version, load_date, currency
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement, l5_description, version, load_date, currency
 """
 
 salesprod_planet_precurrency = spark.sql(salesprod_planet_precurrency)
@@ -7003,7 +6973,7 @@ SELECT
     country_alpha2,
     currency,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -7024,7 +6994,7 @@ GROUP BY cal_date,
     country_alpha2,
     currency,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     version,
@@ -7041,7 +7011,7 @@ SELECT
     pre.country_alpha2,
     region_5,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -7062,7 +7032,7 @@ WHERE pl = 'GD' AND sales_product_number LIKE 'EDW%'
 GROUP BY cal_date,
     pre.country_alpha2,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     pre.version,
@@ -7079,7 +7049,7 @@ SELECT
     cal_date,
     region_5,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -7097,7 +7067,7 @@ SELECT
 FROM data_with_plgd_dollars_only
 GROUP BY cal_date,
     pl,
-    L5_Description,
+    l5_description,
     sales_product_number,
     customer_engagement,
     version,
@@ -7160,7 +7130,7 @@ update_plgd_country = f"""
         mix.country_alpha2,
         gd.region_5,
         gd.pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         sum(gross_revenue) * COALESCE(country_mix, 1) AS gross_revenue,
@@ -7180,7 +7150,7 @@ update_plgd_country = f"""
         gd.cal_date = mix.cal_date AND
         gd.region_5 = mix.region_5 AND
         gd.pl = mix.pl
-    group by gd.cal_date, mix.country_alpha2, gd.region_5, gd.pl, L5_Description, sales_product_number, customer_engagement, country_mix, version, load_date
+    group by gd.cal_date, mix.country_alpha2, gd.region_5, gd.pl, l5_description, sales_product_number, customer_engagement, country_mix, version, load_date
 """
 
 update_plgd_country = spark.sql(update_plgd_country)
@@ -7196,7 +7166,7 @@ SELECT
         END AS country_alpha2,
         region_5,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         gross_revenue,
@@ -7271,7 +7241,7 @@ update_plgd_currency = f"""
         gd.region_5,
         currency,
         gd.pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         gross_revenue * COALESCE(gd_proxy_mix, 1) AS gross_revenue,
@@ -7307,7 +7277,7 @@ update_plgd_currency2 = f"""
             ELSE currency
         END AS currency,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
@@ -7327,7 +7297,7 @@ update_plgd_currency2 = f"""
         country_alpha2,
         currency,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         version,
@@ -7344,7 +7314,7 @@ data_with_plgd_currency_adjusted = f"""
         country_alpha2,
         currency,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         SUM(gross_revenue) AS gross_revenue,
@@ -7364,7 +7334,7 @@ data_with_plgd_currency_adjusted = f"""
         country_alpha2,
         currency,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         version,
@@ -7377,7 +7347,7 @@ data_with_plgd_currency_adjusted = f"""
         country_alpha2,
         currency,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         SUM(gross_revenue) AS gross_revenue,
@@ -7397,7 +7367,7 @@ data_with_plgd_currency_adjusted = f"""
         country_alpha2,
         currency,
         pl,
-        L5_Description,
+        l5_description,
         sales_product_number,
         customer_engagement,
         version,
@@ -7418,7 +7388,7 @@ SELECT distinct
     currency,
     sales_product_number,
     pl,
-    L5_Description,
+    l5_description,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -7435,7 +7405,7 @@ SELECT distinct
     '{addversion_info[0]}' AS version
 FROM data_with_plgd_currency_adjusted final
 LEFT JOIN iso_country_code_xref iso ON final.country_alpha2 = iso.country_alpha2
-GROUP BY cal_date, final.country_alpha2, pl, sales_product_number, customer_engagement, L5_Description, currency, market10
+GROUP BY cal_date, final.country_alpha2, pl, sales_product_number, customer_engagement, l5_description, currency, market10
 """
 
 salesprod_financials = spark.sql(salesprod_financials)

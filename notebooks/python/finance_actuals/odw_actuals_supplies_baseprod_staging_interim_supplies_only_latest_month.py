@@ -999,7 +999,7 @@ SELECT
     market10,
     base_product_number,
     bp.pl,
-    L5_Description,
+    l5_description,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -1016,7 +1016,7 @@ SELECT
     SUM(other_cos) AS other_cos
 FROM baseprod_actuals_with_yields AS bp
 JOIN product_line_xref AS plx ON bp.pl = plx.pl
-GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagement, market10, l5_description
 """
                 
 baseprod_actuals_yields = spark.sql(baseprod_actuals_yields)

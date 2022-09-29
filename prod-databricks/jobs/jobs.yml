@@ -4,6 +4,7 @@ Jobs:
   - base-usage-share
   - create-demand-file
   - edw-all-history-actuals-update
+  - finance-etl-wd8-load
   - flash-load
   - hardware-ltf
   - hardware-stf
@@ -14,6 +15,8 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
+  - odw-all-history-actuals-update
+  - odw-monthly-actuals-update
   - odw-wd3-load
   - odw-wd5-load
   - odw-wd8-load

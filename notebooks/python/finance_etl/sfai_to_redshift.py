@@ -182,12 +182,18 @@ exclusion = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Prod.dbo.exclusion") \
     .load()
 
+#--------- prod ---------
+actuals_supplies = read_sql_server_to_df(configs) \
+    .option("dbtable", "IE2_Prod.dbo.actuals_supplies") \
+    .load()
+
 
 # COMMAND ----------
 
 tables = [
     ['mdm.ms4_functional_area_hierarchy', ms4_functional_area_hierarchy, "overwrite"],
     ['mdm.exclusion', exclusion, "overwrite"],
+    ['prod.actuals_supplies', actuals_supplies, "overwrite"],
     ['fin_stage.supplies_manual_mcode_jv_detail_landing', supplies_manual_mcode_jv_detail_landing, "overwrite"],
     ['fin_stage.supplies_iink_units_landing', supplies_iink_units_landing, "overwrite"],
     ['fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only, "overwrite"],
@@ -214,7 +220,3 @@ tables = [
 
 for t_name, df, mode in tables:
     write_df_to_redshift(configs, df, t_name, mode)
-
-# COMMAND ----------
-
-

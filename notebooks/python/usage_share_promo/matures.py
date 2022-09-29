@@ -362,7 +362,7 @@ SELECT nl.record
     , nl.measure
     , nl.units
     , nl.proxy_used
-    , nl.ib_version
+    , '{ib_version}' as ib_version
     , nl.load_date
 FROM mature_helper_2 nl
 UNION ALL
@@ -379,7 +379,7 @@ SELECT fl.record
     , fl.measure
     , fl.units
     , fl.proxy_used
-    , fl.ib_version
+    , '{ib_version}' as ib_version
     , fl.load_date
 FROM combine_data fl
 UNION ALL
@@ -396,7 +396,7 @@ SELECT bl.record
     , bl.measure
     , bl.units
     , bl.proxy_used
-    , bl.ib_version
+    , '{ib_version}' as ib_version
     , bl.load_date
 FROM combine_data_b bl
 """
