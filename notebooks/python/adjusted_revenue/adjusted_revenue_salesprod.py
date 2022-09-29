@@ -421,7 +421,8 @@ chann_inv_ams = spark.sql("""
 			select 
 				case
 					when st.data_type = 'Actuals' then 'ACTUALS - CBM_ST_SALES_QTY'
-					when st.data_type = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
+					when st.data_type = 'Proxy Adjustment' then 'PROXY ADJUSTMENT'
+                 else st.data_type
 				 end as record,
 				cast(st.month as date) as cal_date,  
 				case
@@ -432,20 +433,20 @@ chann_inv_ams = spark.sql("""
 				else st.country_code
 				end as country_alpha2,
                 case
-					when st.product_number = 'Actuals' then 'ACTUALS - CBM_ST_SALES_QTY'
-					when st.product_number = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
-				 end as sales_product_number,
+                    when st.product_number = 'Proxy Adjustment' then 'PROXY ADJUSTMENT'
+                else st.product_number
+                end as sales_product_number,
 				st.product_line_id as pl, 
 				st.partner,
 				st.rtm_2 as rtm2,
-				sum(cast(coalesce(st.`sell-thru_usd`,0) as float)) as sell_thru_usd,
-				sum(cast(coalesce(st.`sell-thru_qty`,0) as float)) as sell_thru_qty,
+				sum(cast(coalesce(st.sell_thru_usd,0) as float)) as sell_thru_usd,
+				sum(cast(coalesce(st.sell_thru_qty,0) as float)) as sell_thru_qty,
 				sum(cast(coalesce(st.channel_inventory_usd,0) as float)) as channel_inventory_usd,
 				(sum(cast(coalesce(st.channel_inventory_qty,0) as float)) + 0.0) as channel_inventory_qty
 			from fin_stage.cbm_st_data st
 			where 1=1
 				and	st.month > '{}'
-				and (coalesce(st.`sell-thru_usd`,0) + coalesce(st.`sell-thru_qty`,0) + coalesce(st.channel_inventory_usd,0) + coalesce(st.channel_inventory_qty,0)) <> 0
+				and (coalesce(st.sell_thru_usd,0) + coalesce(st.sell_thru_qty,0) + coalesce(st.channel_inventory_usd,0) + coalesce(st.channel_inventory_qty,0)) <> 0
 			group by st.data_type, st.month, st.country_code, st.product_number, st.product_line_id, st.partner, st.rtm_2
 		),
 		channel_inventory as
@@ -522,7 +523,11 @@ chann_inv_ams = spark.sql("""
 			select
 				cal_date,
 				country_alpha2,
-				sales_product_number,
+				CASE
+					WHEN sales_product_number = 'PROXY ADJUSTMENT'
+					THEN 'PROXY_ADJUSTMENT'
+					ELSE sales_product_number
+				END AS sales_product_number,
 				case 
 					when rdma_pl is null then st_pl
 					else rdma_pl
@@ -560,7 +565,7 @@ chann_inv_ams = spark.sql("""
 				st.country_alpha2,
 				case
 					when sales_product_number = 'PROXY_ADJUSTMENT'
-					then sales_product_number + pl
+					then concat('PROXY_ADJUSTMENT', pl)
 					else sales_product_number
 				end as sales_product_number,
 				pl,
@@ -601,7 +606,7 @@ ch_inv_prep_1 = spark.sql("""
 			select 
 				case
 					when st.data_type = 'Actuals' then 'ACTUALS - CBM_ST_BASE_QTY'
-					when st.data_type = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
+					when st.data_type = 'Proxy Adjustment' then 'PROXY ADJUSTMENT'
 				 end as record,
 				cast(st.month as date) as cal_date,  
 				case
@@ -613,18 +618,18 @@ ch_inv_prep_1 = spark.sql("""
 				end as country_alpha2,
 				case
 					when st.product_number = 'Actuals' then 'ACTUALS - CBM_ST_BASE_QTY'
-					when st.product_number = 'Proxy Adjustment' then 'PROXY_ADJUSTMENT'
+					when st.product_number = 'Proxy Adjustment' then 'PROXY ADJUSTMENT'
 				 end as sales_product_number,
 				st.product_line_id as pl, 
 				st.partner,
 				st.rtm_2 as rtm2,
-				sum(cast(coalesce(st.`sell-thru_usd`,0) as float)) as sell_thru_usd,
-				sum(cast(coalesce(st.`sell-thru_qty`,0) as float)) as sell_thru_qty,
+				sum(cast(coalesce(st.sell_thru_usd,0) as float)) as sell_thru_usd,
+				sum(cast(coalesce(st.sell_thru_qty,0) as float)) as sell_thru_qty,
 				sum(cast(coalesce(st.channel_inventory_usd,0) as float)) as channel_inventory_usd,
 				(sum(cast(coalesce(st.channel_inventory_qty,0) as float)) + 0.0) as channel_inventory_qty
 			from fin_stage.cbm_st_data st
 			where month > '{}'
-				and (coalesce(st.`sell-thru_usd`,0) + coalesce(st.`sell-thru_qty`,0) + coalesce(st.channel_inventory_usd,0) + coalesce(st.channel_inventory_qty,0)) <> 0
+				and (coalesce(st.sell_thru_usd,0) + coalesce(st.sell_thru_qty,0) + coalesce(st.channel_inventory_usd,0) + coalesce(st.channel_inventory_qty,0)) <> 0
 				and product_line_id in 
 				(	select distinct pl 
 					from mdm.product_line_xref 
