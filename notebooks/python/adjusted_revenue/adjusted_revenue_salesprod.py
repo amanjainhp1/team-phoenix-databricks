@@ -37,6 +37,37 @@ inv_curr2 = '2018-08-01'
 
 # MAGIC %md
 # MAGIC 
+# MAGIC ## Add Version
+
+# COMMAND ----------
+
+add_record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT'
+add_source = 'ADDS CURRENCY AND CI ADJUSTS'
+
+# COMMAND ----------
+
+supp_flsh_add_version = call_redshift_addversion_sproc(configs, add_record, add_source)
+
+version = supp_flsh_add_version[0]
+print(version)
+
+# COMMAND ----------
+
+# Cells 9-10: Refreshes version table in delta lakes, to bring in new version from previous step, above.
+version = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.version") \
+    .load()
+
+tables = [['prod.version', version, "overwrite"]]
+
+# COMMAND ----------
+
+# MAGIC %run "../finance_etl/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
 # MAGIC ## Supplies History Constant Currency
 
 # COMMAND ----------
@@ -2605,7 +2636,18 @@ adj_rev_6 = spark.sql("""
  """)
 
 adj_rev_6.createOrReplaceTempView("adjusted_revenue_staging")
-query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
+query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "append"])
+
+# COMMAND ----------
+
+test_version = spark.sql("""
+
+			select
+				'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT' as record,
+                (select max(load_date) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') as load_date,
+				(select max(version) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') as version
+            from adjusted_revenue4
+""").show()
 
 # COMMAND ----------
 
@@ -2661,7 +2703,7 @@ select  record
   from adjusted_revenue_staging
 """)
 
-query_list.append(["fin_prod.adjusted_revenue_salesprod", adj_rev_sales, "overwrite"])
+query_list.append(["fin_prod.adjusted_revenue_salesprod", adj_rev_sales, "append"])
 
 # COMMAND ----------
 

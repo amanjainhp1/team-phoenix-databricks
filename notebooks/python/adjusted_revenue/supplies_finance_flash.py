@@ -36,6 +36,19 @@ print(version)
 
 # COMMAND ----------
 
+# Cells 8-9: Refreshes version table in delta lakes, to bring in new version from previous step, above.
+version = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.version") \
+    .load()
+
+tables = [['prod.version', version, "overwrite"]]
+
+# COMMAND ----------
+
+# MAGIC %run "../finance_etl/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Flash for Insights Supplies
@@ -43,7 +56,7 @@ print(version)
 # COMMAND ----------
 
 ci_flash = spark.sql("""
-	select  fiscal_year_qtr 
+	select  fiscal_year_qtr_ as fiscal_year_qtr
       , pl 
       , business_description 
       , market 
@@ -56,6 +69,10 @@ ci_flash = spark.sql("""
 
 ci_flash.createOrReplaceTempView("ci_flash_for_insights_supplies")
 write_df_to_redshift(configs, ci_flash, "fin_stage.ci_flash_for_insights_supplies", "append")
+
+# COMMAND ----------
+
+spark.sql("""select * from ci_flash_for_insights_supplies""").show()
 
 # COMMAND ----------
 
@@ -76,6 +93,10 @@ rev_flash = spark.sql("""
 
 rev_flash.createOrReplaceTempView("rev_flash_for_insights_supplies")
 write_df_to_redshift(configs, rev_flash, "fin_stage.rev_flash_for_insights_supplies", "append")
+
+# COMMAND ----------
+
+spark.sql("""select * from rev_flash_for_insights_supplies""").show()
 
 # COMMAND ----------
 
@@ -533,6 +554,10 @@ flash_transform.createOrReplaceTempView("flash")
 
 # COMMAND ----------
 
+spark.sql("""select * from flash""").show()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Write Supplies Finance Flash Table
@@ -577,3 +602,7 @@ supp_fin_flash = spark.sql("""
 """)
 
 write_df_to_redshift(configs, supp_fin_flash, "fin_prod.supplies_finance_flash", "append")
+
+# COMMAND ----------
+
+
