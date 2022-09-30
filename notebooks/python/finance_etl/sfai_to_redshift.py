@@ -102,7 +102,8 @@ edw_summary_actuals_plau = read_sql_server_to_df(configs) \
 
 edw_actuals_supplies_salesprod = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_salesprod") \
-    .load()
+    .load()\
+    .select("record", "cal_date", "country_alpha2", "currency", "market10", "sales_product_number", "pl", "l5_description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "official", "load_date", "version")
 
 edw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_baseprod") \
