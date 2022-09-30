@@ -40,7 +40,11 @@ version = read_redshift_to_df(configs) \
     .option("dbtable", "prod.version") \
     .load()
 
-tables = [['prod.version', version, "overwrite"]]
+supplies_finance_flash = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.supplies_finance_flash") \
+    .load()
+
+tables = [['prod.version', version, "overwrite"], ['fin_prod.supplies_finance_flash', supplies_finance_flash, "overwrite"]]
 
 # COMMAND ----------
 
