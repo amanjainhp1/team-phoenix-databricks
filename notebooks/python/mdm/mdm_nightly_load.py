@@ -77,6 +77,16 @@ except:
                 "destination_schema": "mdm",
                 "destination_table": "calendar"
             },
+            "cartridge_demand_volumes": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "cartridge_demand_volumes",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod",
+                "destination_table": "cartridge_demand_volumes"
+            },
             "ce_splits": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -126,6 +136,16 @@ except:
                 "destination_database": "",
                 "destination_schema": "prod", 
                 "destination_table": "decay"
+            },
+            "demand": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo", 
+                "source_table": "demand",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod", 
+                "destination_table": "demand"
             },
             "forecast_contra_input": {
                 "source_system": "sqlserver",
@@ -206,6 +226,16 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm", 
                 "destination_table": "hardware_xref"
+            },
+            "hw_product_family_ink_forecaster_mapping": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "hw_product_family_ink_forecaster_mapping", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "hw_product_family_ink_forecaster_mapping"
             },
             "ibp_supplies_forecast": {
                 "source_system": "sqlserver", 
@@ -306,6 +336,16 @@ except:
                 "destination_database": "", 
                 "destination_schema": "fin_prod", 
                 "destination_table": "npi_base_gru"
+            },
+            "pl_toner_forecaster_mapping": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo", 
+                "source_table": "pl_toner_forecaster_mapping", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "pl_toner_forecaster_mapping"
             },
             "planet_actuals": {
                 "source_system": "sqlserver", 
