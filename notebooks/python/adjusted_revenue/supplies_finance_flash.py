@@ -41,7 +41,11 @@ version = read_redshift_to_df(configs) \
     .option("dbtable", "prod.version") \
     .load()
 
-tables = [['prod.version', version, "overwrite"]]
+adjusted_revenue_staging = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.adjusted_revenue_staging") \
+    .load()
+
+tables = [['prod.version', version, "overwrite"], ['fin_stage.adjusted_revenue_staging', adjusted_revenue_staging, "overwrite"]]
 
 # COMMAND ----------
 
