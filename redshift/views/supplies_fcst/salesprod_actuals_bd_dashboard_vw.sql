@@ -20,11 +20,11 @@ WITH
 			FROM fin_prod.actuals_supplies_salesprod AS salesprod
 			JOIN mdm.calendar AS cal ON salesprod.cal_date = cal.Date
 			JOIN mdm.iso_country_code_xref geo ON geo.country_alpha2 = salesprod.country_alpha2
-			WHERE Day_of_Month = 1
+			WHERE day_of_month = 1
 			-- exclude LF PL's for now (in development)
 			and pl NOT IN ('IE', 'IX', 'UK', 'TX')
 			GROUP BY
-				calendar_Yr_Mo,
+				calendar_yr_mo,
 				pl,
 				sales_product_number,
 				region_3,
@@ -38,10 +38,10 @@ WITH
 				yearmon,
 				pl,
 				salesProdNbr,
-				Region_3,
-				Region_4,
-				Country,
-				Route_to_market,
+				region_3,
+				region_4,
+				country,
+				route_to_market,
 				SUM(gross_revenue) AS gross_revenue,
 				SUM(net_currency) AS net_currency,
 				SUM(contractual_discounts) AS contractual_discounts,
