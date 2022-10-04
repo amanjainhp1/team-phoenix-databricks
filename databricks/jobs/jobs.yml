@@ -9,6 +9,7 @@ Jobs:
   - example-multitask-job
   - finance-etl-wd8-load
   - flash-load
+  - gpsy-list-price
   - hardware-ltf
   - hardware-stf
   - ib-ns-set-official

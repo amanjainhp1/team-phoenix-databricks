@@ -7,6 +7,7 @@ Jobs:
   - edw-all-history-actuals-update
   - finance-etl-wd8-load
   - flash-load
+  - gpsy-list-price
   - hardware-ltf
   - hardware-stf
   - ib-ns-set-official
