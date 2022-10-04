@@ -1,9 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-dbutils.widgets.text("refresh_db_data", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
