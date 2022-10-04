@@ -206,7 +206,7 @@ FROM prod.actuals_supplies AS acts
                   AND cref.country_scenario = 'MARKET10'
 WHERE 1 = 1
   AND acts.customer_engagement IN ('EST_INDIRECT_FULFILLMENT', 'I-INK', 'TRAD')
-  AND NOT xref.crg_chrome IN ('HEAD',UNK') 
+  AND NOT xref.crg_chrome IN ('HEAD', 'UNK') 
 GROUP BY acts.cal_date
        , acts.base_product_number
        , cref.country_scenario 
