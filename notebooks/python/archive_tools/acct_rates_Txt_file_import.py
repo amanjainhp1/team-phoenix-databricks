@@ -14,7 +14,8 @@ from pyspark.sql import SparkSession
 
 # File location and type
 #file_location = "/FileStore/tables/T0000047_O.txt"
-file_location = "s3://dataos-core-dev-team-phoenix/landing/Accounting_Rates/T0000047_O"
+# file_location = "s3://dataos-core-dev-team-phoenix/landing/Accounting_Rates/T0000047_O"
+file_location = "s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O"
 file_type = "txt"
   
 spark = SparkSession.builder.appName("DataFrame").getOrCreate()
@@ -151,3 +152,7 @@ sfai_acct_rates = sfai_acct_rates.withColumnRenamed("record","Record")
 
 # Write to SFAI
 write_df_to_sqlserver(configs, sfai_acct_rates, "IE2_Prod.dbo.acct_rates", "overwrite")
+
+# COMMAND ----------
+
+
