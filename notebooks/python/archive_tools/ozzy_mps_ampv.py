@@ -36,7 +36,7 @@ SELECT
     ,[Pages_Rptd_Mono] as pages_rptd_mono
     ,[Pages_Rptd_Color] as pages_rptd_color
     ,[Pages_Rptd_MonoColor] as pages_rptd_monocolor
-    ,[Devices_Rptd] as devices_rptd
+    ,[Devices] as devices
     ,[AMPV_MonoColor] as ampv_monocolor
 FROM ozzy.dbo.Planning_Install_Base_AMPVs
 WHERE BusinessTypeGrp <> 'cMPS'
