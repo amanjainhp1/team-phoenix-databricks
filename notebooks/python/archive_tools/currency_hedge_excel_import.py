@@ -1,5 +1,6 @@
 # Databricks notebook source
 # 10/6/2022 - Brent Merrick
+# You should receive an email from julio-cesar.quintero-cornejo@hp.com, with the currency hedge Excel workbook
 # Before running this notebook, copy the "Oct FY21 Hedge G-L FX Impact HPI 03.10.2022_NoLINKS - Reviewed.xlsx" file
 # to the /landing/currency_hedge/ bucket.
 # The file listed above will not be that name, EXACTLY, but will be very close
@@ -23,14 +24,15 @@ def get_dir_content(ls_path):
   subdir_paths = [get_dir_content(p.path) for p in dir_paths if p.isDir() and p.path != ls_path]
   flat_subdir_paths = [p for subdir in subdir_paths for p in subdir]
   return list(map(lambda p: p.path, dir_paths)) + flat_subdir_paths
-    
-paths = get_dir_content('s3://dataos-core-dev-team-phoenix/landing/currency_hedge/')
+
+paths = get_dir_content('s3://dataos-core-prod-team-phoenix/landing/currency_hedge/')
 #[print(p) for p in paths]
 for p in paths:
   latest_file = p
 
 #  latest_file = latest_file.split("/")[len(latest_file.split("/"))-1]
 #  print(latest_file)
+
 
 # COMMAND ----------
 
@@ -111,9 +113,6 @@ unpivotDF_records = unpivotDF \
     .withColumn("version", lit(max_version)) \
     .withColumn("revenue_currency_hedge",col("revenue_currency_hedge").cast("double"))
 
-#df.withColumn("salary",col("salary").cast("int"))
-#testDF = testDF.withColumn("d_idTmp", testDF["d_id"].cast(IntegerType())).drop(" d_id").withColumnRenamed("d_idTmp", "d_id")
-
 unpivotDF_records = unpivotDF_records.filter(unpivotDF_records.product_category.isNotNull())
 unpivotDF_records = unpivotDF_records.filter(unpivotDF_records.revenue_currency_hedge.isNotNull())
 unpivotDF_records = unpivotDF_records.filter("revenue_currency_hedge <> 0")
@@ -166,8 +165,13 @@ new_location = 'archive/currency_hedge/' + working_file
 s3_client = boto3.client('s3')
 
 s3 = boto3.resource('s3')
-s3.Object('dataos-core-dev-team-phoenix', new_location).copy_from(CopySource='dataos-core-dev-team-phoenix/' + file_to_delete)
-s3.Object('dataos-core-dev-team-phoenix',file_to_delete).delete()
+# s3.Object('dataos-core-dev-team-phoenix', new_location).copy_from(CopySource='dataos-core-dev-team-phoenix/' + file_to_delete)
+# s3.Object('dataos-core-dev-team-phoenix',file_to_delete).delete()
 
+s3.Object('dataos-core-prod-team-phoenix', new_location).copy_from(CopySource='dataos-core-prod-team-phoenix/' + file_to_delete)
+s3.Object('dataos-core-prod-team-phoenix',file_to_delete).delete()
+
+
+# COMMAND ----------
 
 
