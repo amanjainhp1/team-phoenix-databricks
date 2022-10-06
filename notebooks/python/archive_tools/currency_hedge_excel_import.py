@@ -1,4 +1,11 @@
 # Databricks notebook source
+# 10/6/2022 - Brent Merrick
+# Before running this notebook, copy the "Oct FY21 Hedge G-L FX Impact HPI 03.10.2022_NoLINKS - Reviewed.xlsx" file
+# to the /landing/currency_hedge/ bucket.
+# The file listed above will not be that name, EXACTLY, but will be very close
+
+# COMMAND ----------
+
 dbutils.widgets.text("spreadsheet_startdate", "")
 
 # COMMAND ----------
@@ -11,8 +18,25 @@ dbutils.widgets.text("spreadsheet_startdate", "")
 
 # COMMAND ----------
 
+def get_dir_content(ls_path):
+  dir_paths = dbutils.fs.ls(ls_path)
+  subdir_paths = [get_dir_content(p.path) for p in dir_paths if p.isDir() and p.path != ls_path]
+  flat_subdir_paths = [p for subdir in subdir_paths for p in subdir]
+  return list(map(lambda p: p.path, dir_paths)) + flat_subdir_paths
+    
+paths = get_dir_content('s3://dataos-core-dev-team-phoenix/landing/currency_hedge/')
+#[print(p) for p in paths]
+for p in paths:
+  latest_file = p
+
+#  latest_file = latest_file.split("/")[len(latest_file.split("/"))-1]
+#  print(latest_file)
+
+# COMMAND ----------
+
 #Location of Excel sheet
-sampleDataFilePath = "s3://dataos-core-dev-team-phoenix/landing/currency_hedge/Oct FY21 Hedge G-L FX Impact HPI 03.10.2022_NoLINKS - Reviewed.xlsx"
+#sampleDataFilePath = "s3://dataos-core-dev-team-phoenix/landing/currency_hedge/Oct FY21 Hedge G-L FX Impact HPI 03.10.2022_NoLINKS - Reviewed.xlsx"
+sampleDataFilePath = latest_file
 
 #flags required for reading the excel
 isHeaderOn = "true"
@@ -37,10 +61,10 @@ today = datetime.today()
 today_as_string = f"{str(today.year)[2:4]}-{today.month}" if dbutils.widgets.get("spreadsheet_startdate") == "" else dbutils.widgets.get("spreadsheet_startdate")
 
 sample1DF = sample1DF \
-  .withColumnRenamed("Product Category", "productcategory") \
+  .withColumnRenamed("Product Category", "product_category") \
   .withColumnRenamed("Currency", "currency") \
   .withColumnRenamed(sample1DF.columns[2], today_as_string) # messed up column will always be 3rd position and be current month and year e.g. Oct 
-display(sample1DF)
+#display(sample1DF)
 
 # COMMAND ----------
 
@@ -67,15 +91,83 @@ for month in months_list:
 unpivotExpr = unpivotExpr + ") as (month,revenue_currency_hedge)"
 
 unpivotDF = filtered_sample1DF \
-  .select("productcategory", "currency", expr(unpivotExpr)) \
-  .select("productcategory", "currency", to_date(col("month"),"yy-MM").alias("month"), "revenue_currency_hedge")
+  .select("product_category", "currency", expr(unpivotExpr)) \
+  .select("product_category", "currency", to_date(col("month"),"yy-MM").alias("month"), "revenue_currency_hedge")
 
 unpivotDF.display()
 
 # COMMAND ----------
 
-# To do:
-# create version in version table
-# load data to redshift database, with version and load_date from version table
-# copy data to S3 bucket
-# load back to SFAI
+# Add record to version table for 'CURRENCY_HEDGE'
+max_info = call_redshift_addversion_sproc(configs, 'CURRENCY_HEDGE', 'Excel File')
+max_version = max_info[0]
+max_load_date = str(max_info[1])
+
+# COMMAND ----------
+
+# Add load_date and verison to Dataframe
+unpivotDF_records = unpivotDF \
+    .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
+    .withColumn("version", lit(max_version)) \
+    .withColumn("revenue_currency_hedge",col("revenue_currency_hedge").cast("double"))
+
+#df.withColumn("salary",col("salary").cast("int"))
+#testDF = testDF.withColumn("d_idTmp", testDF["d_id"].cast(IntegerType())).drop(" d_id").withColumnRenamed("d_idTmp", "d_id")
+
+unpivotDF_records = unpivotDF_records.filter(unpivotDF_records.product_category.isNotNull())
+unpivotDF_records = unpivotDF_records.filter(unpivotDF_records.revenue_currency_hedge.isNotNull())
+unpivotDF_records = unpivotDF_records.filter("revenue_currency_hedge <> 0")
+
+# unpivotDF_records.display()
+
+# COMMAND ----------
+
+# write the updated dataframe to the prod.acct_rates table
+write_df_to_redshift(configs, unpivotDF_records, "prod.currency_hedge", "overwrite")
+
+# COMMAND ----------
+
+# output dataset to S3 for archival purposes
+# s3a://dataos-core-dev-team-phoenix/product/currency_hedge/[version]/
+
+# set the bucket name
+s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/currency_hedge/" + max_version
+
+# write the data out in parquet format
+write_df_to_s3(unpivotDF_records, s3_output_bucket, "parquet", "overwrite")
+
+
+# COMMAND ----------
+
+
+# # Rename the columns to match SFAI
+unpivotDF_records = unpivotDF_records.withColumnRenamed("product_category","Product_Category")
+unpivotDF_records = unpivotDF_records.withColumnRenamed("currency","Currency")
+unpivotDF_records = unpivotDF_records.withColumnRenamed("month","Month")
+unpivotDF_records = unpivotDF_records.withColumnRenamed("revenue_currency_hedge","Revenue_Currency_Hedge")
+
+# display(unpivotDF_records)
+
+# COMMAND ----------
+
+# # Write to SFAI
+write_df_to_sqlserver(configs, unpivotDF_records, "IE2_Prod.dbo.currency_hedge", "overwrite")
+
+# COMMAND ----------
+
+# copy the file from the landing bucket to an archive bucket, then delete from the landing bucket
+
+import boto3
+
+working_file = latest_file.split("/")[len(latest_file.split("/"))-1]
+file_to_delete = 'landing/currency_hedge/' + working_file
+new_location = 'archive/currency_hedge/' + working_file
+
+s3_client = boto3.client('s3')
+
+s3 = boto3.resource('s3')
+s3.Object('dataos-core-dev-team-phoenix', new_location).copy_from(CopySource='dataos-core-dev-team-phoenix/' + file_to_delete)
+s3.Object('dataos-core-dev-team-phoenix',file_to_delete).delete()
+
+
+
