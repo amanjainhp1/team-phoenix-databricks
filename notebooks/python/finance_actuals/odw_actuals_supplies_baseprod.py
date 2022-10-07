@@ -53,7 +53,7 @@ tables = [
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['mdm.calendar', calendar],
     ['mdm.product_line_xref', product_line_xref],
-    ['prod.ib', ib],
+    #['prod.ib', ib],
     ['fin_prod.odw_actuals_supplies_salesprod', odw_actuals_supplies_salesprod],
     ['mdm.hardware_xref', hardware_xref]
 ]
@@ -82,6 +82,10 @@ for table in tables:
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+ib.createOrReplaceTempView("ib")
 
 # COMMAND ----------
 
@@ -174,12 +178,13 @@ SELECT cal_date,
     platform_subset,
     ib.country_alpha2,
     market10,
-    sum(units) as units
+    sum(units) as units,
+    ib.version
 FROM ib ib
 LEFT JOIN iso_country_code_xref iso
     ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
-AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
+--AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
 AND units <> 0
 AND units IS NOT NULL
 AND cal_date <= (SELECT MAX(cal_date) FROM odw_actuals_supplies_salesprod)
@@ -187,7 +192,8 @@ GROUP BY
     cal_date,
     platform_subset,
     market10,
-    ib.country_alpha2    
+    ib.country_alpha2,
+    ib.version
 """
 
 installed_base_history = spark.sql(installed_base_history)
