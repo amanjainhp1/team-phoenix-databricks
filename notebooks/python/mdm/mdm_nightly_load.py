@@ -13,7 +13,7 @@ import json
 
 # MAGIC %run ../common/splunk_logging_utils
 
-# COMMAND ---------
+# COMMAND ----------
 
 job_data = json.loads(dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
 splunk_data = log_job_start(app=job_data['tags']['jobName'], run_id=job_data['tags']['runId'])
@@ -106,16 +106,6 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm", 
                 "destination_table": "country_currency_map"
-            },
-            "currency_hedge": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "currency_hedge",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "currency_hedge"
             },
             "current_stf_dollarization": {
                 "source_system": "sqlserver",
