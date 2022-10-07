@@ -306,6 +306,7 @@ SELECT record
         ,ib_version
         ,load_date
 FROM step1
+where gpid not in (select distinct gpid from step2)
 UNION ALL
 SELECT record
         ,min_sys_dt
@@ -326,6 +327,25 @@ SELECT record
         ,load_date
 FROM step2
 WHERE gpid not in (select distinct gpid from step1)
+UNION ALL
+SELECT step1.record
+        ,CASE WHEN step1.load date > step2.load date THEN step1.min_sys_dt ELSE step2.min_sys_dt END as min_sys_dt
+        ,CASE WHEN step1.load date > step2.load date THEN step1.ib_strt_dt ELSE step2.ib_strt_dt END as ib_strt_dt
+        ,CASE WHEN step1.load date > step2.load date THEN step1.month_num ELSE step2.month_num END as month_num
+        ,CASE WHEN step1.load date > step2.load date THEN step1.geography_grain ELSE step2.geography_grain END as geography_grain
+        ,CASE WHEN step1.load date > step2.load date THEN step1.country_alpha2 ELSE step2.country_alpha2 END as country_alpha2
+        ,CASE WHEN step1.load date > step2.load date THEN step1.platform_subset ELSE step2.platform_subset END as platform_subset
+        ,CASE WHEN step1.load date > step2.load date THEN step1.customer_engagement ELSE step2.customer_engagement END as customer_engagement
+        ,CASE WHEN step1.load date > step2.load date THEN step1.forecast_process_note ELSE step2.forecast_process_note END as forecast_process_note
+        ,CASE WHEN step1.load date > step2.load date THEN step1.post_processing_note ELSE step2.post_processing_note END as post_processing_note
+        ,CASE WHEN step1.load date > step2.load date THEN step1.data_source ELSE step2.data_source END as data_source
+        ,CASE WHEN step1.load date > step2.load date THEN step1.version ELSE step2.version END as version
+        ,CASE WHEN step1.load date > step2.load date THEN step1.measure ELSE step2.measure END as measure
+        ,CASE WHEN step1.load date > step2.load date THEN step1.units ELSE step2.units END as units
+        ,CASE WHEN step1.load date > step2.load date THEN step1.proxy_used ELSE step2.proxy_used END as proxy_used
+        ,CASE WHEN step1.load date > step2.load date THEN step1.ib_version ELSE step2.ib_version END as ib_version
+        ,CASE WHEN step1.load date > step2.load date THEN step1.load_date ELSE step2.load_date END as load_date
+FROM step1 INNER JOIN step2 on step1.gpid=step2.gpid
 """
 
 npi_helper_3=spark.sql(npi_helper_3)
