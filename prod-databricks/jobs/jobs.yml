@@ -2,6 +2,7 @@
 Jobs:
   - actuals-hw
   - base-usage-share
+  - base-forecast
   - create-demand-file
   - edw-all-history-actuals-update
   - finance-etl-wd8-load

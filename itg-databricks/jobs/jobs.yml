@@ -2,6 +2,7 @@
 Jobs:
   - actuals-hw
   - base-usage-share
+  - base-forecast
   - ce-split
   - create-demand-file
   - edw-all-history-actuals-update
