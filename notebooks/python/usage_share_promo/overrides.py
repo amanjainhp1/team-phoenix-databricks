@@ -24,7 +24,7 @@ datestamp = dbutils.jobs.taskValues.get(taskKey = "npi", key = "datestamp") if d
 
 # Read in Current data
 #current_table=need to get step 01 results
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_market10")
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/usage_share_country")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
@@ -35,13 +35,14 @@ us_table.createOrReplaceTempView("us_table")
 # COMMAND ----------
 
 #read in override data
+#need to update this to Redshift Table, wrong table in RS
 override_in = read_sql_server_to_df(configs) \
   .option("query","""
     SELECT UPPER(user_name) as user_name, upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
     FROM ie2_landing.dbo.scenario_usage_share_landing
     WHERE 1=1 
-        AND user_name != 'BRENTT'
+        AND user_name != 'BRENTT' AND user_name != 'GRETCHENE'
         AND upper(upload_type) = 'WORKING-FORECAST'
     """) \
   .load()
@@ -61,9 +62,7 @@ override_in2.createOrReplaceTempView("override_in2")
 # COMMAND ----------
 
 override_in=spark.sql("""select
-        CASE WHEN user_name = 'GRETCHENE' THEN 'GRETCHENB'
-            ELSE user_name
-            END AS user_name
+        user_name
         , geography_grain
         , geography
         , platform_subset
@@ -131,94 +130,199 @@ override_table_m10.createOrReplaceTempView("override_table_m10")
 
 country_info = read_redshift_to_df(configs) \
   .option("query","""
-    SELECT distinct region_5, market10
+    SELECT distinct region_5, market10, country_alpha2
     FROM "mdm"."iso_country_code_xref"
     """) \
   .load()
 country_info.createOrReplaceTempView("country_info")
 
-r5_to_m10 = f"""
-with ap_jp_combos as (
-    SELECT DISTINCT platform_subset
-        , customer_engagement
-        , geography
+fix_japan = f"""
+with step1 as (
+    SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , 'JP'  as geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+    , CONCAT(user_name, geography, platform_subset, customer_engagement, measure) as grp
     FROM override_table_r5
-    WHERE geography IN ('AP','JP')
-),  ap_jp_combos2 as (
-    SELECT platform_subset
-        , customer_engagement
-        , COUNT(*) AS column_count
-    FROM ap_jp_combos
-    GROUP BY platform_subset
-        , customer_engagement
-    HAVING COUNT(*) > 1
-), ap_jp_combos3 as (
-    SELECT platform_subset,customer_engagement, 'JP' as geography, 'DUP' as apjp
-    FROM ap_jp_combos2
-),
-stp1 as (SELECT ot1.user_name
-        , ot1.geography_grain
-        , ot1.geography
-        , cc.market10
-        , ot1.platform_subset
-        , ot1.customer_engagement
-        , ot1.measure
-        , ot1.min_sys_date
-        , ot1.month_num
-        , ot1.value
-        , ot1.load_date
-        , CASE WHEN dup.apjp='DUP' THEN 'DUP'
-            ELSE 'KEEP'
-            END AS apjpkeep
-FROM override_table_r5 ot1
- LEFT JOIN  country_info cc
-      ON upper(ot1.geography)=upper(cc.region_5)
- LEFT JOIN ap_jp_combos3 dup
-     ON ot1.platform_subset=dup.platform_subset AND ot1.customer_engagement=dup.customer_engagement AND ot1.geography=dup.geography
+    WHERE geography = 'AP'
+), step2 as (
+    SELECT *, CONCAT(user_name, geography, platform_subset, customer_engagement, measure) as grp
+    FROM override_table_r5
+    WHERE geography = 'JP'
+), step3 as (SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM step2
+UNION 
+SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+ FROM step1
+ 	WHERE grp not in (SELECT DISTINCT grp FROM step2)
   ),
-stp2 as (SELECT user_name
-        , 'MARKET10' as geography_grain
-        , market10 as geography
-        , platform_subset
-        , customer_engagement
-        , measure
-        , min_sys_date
-        , month_num
-        , value
-        , load_date
-FROM stp1 
-WHERE apjpkeep = 'KEEP'
+step4 as (SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM override_table_r5
+WHERE geography != 'JP'
   )
-  select * from stp2
+  select * from step3
+  UNION ALL
+  select * from step4
 """
 
-r5_to_m10=spark.sql(r5_to_m10)
-r5_to_m10.createOrReplaceTempView("r5_to_m10")
+
+r5_to_c = spark.sql(fix_japan)
+r5_to_c.createOrReplaceTempView("r5_to_c")
+
+override_helper_1 = f"""
+	SELECT r5.user_name
+    	, r5.load_date
+    	, r5.upload_type
+    	, r5.scenario_name
+    	, 'COUNTRY' as geography_grain
+    	, c.county_alpha2 as geography
+    	, upper(r5.platform_subset) as platform_subset
+    	, upper(r5.customer_engagement) as customer_engagement
+    	, r5.base_product_number
+    	, upper(r5.measure) as measure
+    	, r5.min_sys_date
+    	, r5.month_num
+    	, r5.value
+	FROM r5_to_c r5
+	LEFT JOIN country_info c
+	ON upper(r5.geography)=upper(c.region_5)
+	"""
+override_helper_1 = spark.sql(override_helper_1)
+override_helper_1.createOrReplaceTempView("override_helper_1")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Market10 to Country
+
+# COMMAND ----------
+
+override_helper_2 = f"""
+	SELECT m10.user_name
+    	, m10.load_date
+    	, m10.upload_type
+    	, m10.scenario_name
+    	, 'COUNTRY' as geography_grain
+    	, c.country_alpha2 as geography
+    	, upper(m10.platform_subset) as platform_subset
+    	, upper(m10.customer_engagement) as customer_engagement
+    	, m10.base_product_number
+    	, upper(m10.measure) as measure
+    	, m10.min_sys_date
+    	, m10.month_num
+    	, m10.value
+	FROM override_table_m10 m10
+	LEFT JOIN country_info c
+	ON upper(m10.geography)=upper(c.region_5)
+	"""
+override_helper_2 = spark.sql(override_helper_2)
+override_helper_2.createOrReplaceTempView("override_helper_2")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # combine data from market10 and region5
 
 # COMMAND ----------
 
 override_table_a = """
-SELECT * FROM override_table_m10
+with step1 as (SELECT *, concat(user_name, geography, platform_subset, customer_engagent, measure, month_num) as gpid FROM override_helper_1),
+step2 as  (SELECT *, concat(user_name, geography, platform_subset, customer_engagent, measure, month_num) as gpid FROM override_helper_2),
+step3 as (SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM step1
+WHERE gpid not in (select distinct gpid from step2)
 UNION ALL
-SELECT * FROM r5_to_m10
+SELECT SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM step2
+WHERE gpid not in (select distinct gpid from step1)
+UNION ALL
+SELECT step1.user_name
+    , CASE WHEN step1.load_date> step2.load_date THEN step1.load_date ELSE step2.load_date END as load_date
+    , step1.upload_type
+    , step1.scenario_name
+    , step1.geography_grain
+    , step1.geography
+    , step1.platform_subset
+    , step1.customer_engagement
+    , step1.base_product_number
+    , step1.measure
+    , CASE WHEN step1.load_date> step2.load_date THEN step1.min_sys_date ELSE step2.min_sys_date END AS min_sys_date
+    , step1.month_num
+    , CASE WHEN step1.load_date> step2.load_date THEN step1.value ELSE step2.value END as value
+    FROM step1 INNER JOIN step2 on gpid
 """
 
 override_table_a=spark.sql(override_table_a)
 override_table_a.createOrReplaceTempView("override_table_a")
-
-# COMMAND ----------
-
-###Overwrite data as pulled from override table, and then adjust total usage after overriding (ink usage=color_usage+k_usage, toner usage=k_usage)
-
-override_table_test1 = """
-SELECT platform_subset, customer_engagement, measure, geography, count(*) as numocc
-FROM override_table_a
-WHERE value=0
-group by platform_subset, customer_engagement, measure, geography
-"""
-
-override_table_test1=spark.sql(override_table_test1)
-override_table_test1.createOrReplaceTempView("override_table_test1")
 
 # COMMAND ----------
 
@@ -227,7 +331,7 @@ override_table_test1.createOrReplaceTempView("override_table_test1")
 
 # COMMAND ----------
 
-override_table_b = """
+override_table_a2 = """
 
 --create dates from min_sys_date and month_num
 SELECT  'overrides' as record
@@ -244,9 +348,9 @@ SELECT  'overrides' as record
 FROM override_table_a
 """
 
-override_table_b=spark.sql(override_table_b)
-override_table_b=override_table_b.distinct()
-override_table_b.createOrReplaceTempView("override_table_b")
+override_table_a2=spark.sql(override_table_a2)
+override_table_a2=override_table_a2.distinct()
+override_table_a2.createOrReplaceTempView("override_table_a2")
 
 # COMMAND ----------
 
@@ -294,82 +398,201 @@ override_table2.createOrReplaceTempView("override_table2")
 
 # COMMAND ----------
 
-override_table2_r5=spark.sql("""select * from override_table2 where geography_grain ='REGION_5' """)
-override_table2_r5.createOrReplaceTempView("override_table2_r5")
+override_table_r5b=spark.sql("""select * from override_table2 where geography_grain ='REGION_5' """)
+override_table_r5b.createOrReplaceTempView("override_table_r5b")
 
-override_table_m102=spark.sql("""select * from override_table2 where geography_grain ='MARKET10' """)
-override_table_m102.createOrReplaceTempView("override_table2_m10")
+override_table_m10b=spark.sql("""select * from override_table2 where geography_grain ='MARKET10' """)
+override_table_m10b.createOrReplaceTempView("override_table_m10b")
 
 # COMMAND ----------
 
-r5_to_m10_2 = f"""
-with ap_jp_combos as (
-    SELECT DISTINCT platform_subset
-        , customer_engagement
-        , geography
-    FROM override_table2_r5
-    WHERE geography IN ('AP','JP')
-),  ap_jp_combos2 as (
-    SELECT platform_subset
-        , customer_engagement
-        , COUNT(*) AS column_count
-    FROM ap_jp_combos
-    GROUP BY platform_subset
-        , customer_engagement
-    HAVING COUNT(*) > 1
-), ap_jp_combos3 as (
-    SELECT platform_subset,customer_engagement, 'JP' as geography, 'DUP' as apjp
-    FROM ap_jp_combos2
-),
-stp1 as (SELECT ot1.user_name
-        , ot1.geography_grain
-        , ot1.geography
-        , cc.market10
-        , ot1.platform_subset
-        , ot1.customer_engagement
-        , ot1.measure
-        , ot1.min_sys_date
-        , ot1.month_num
-        , ot1.value
-        , ot1.load_date
-        , CASE WHEN dup.apjp='DUP' THEN 'DUP'
-            ELSE 'KEEP'
-            END AS apjpkeep
-FROM override_table2_r5 ot1
- LEFT JOIN  country_info cc
-      ON upper(ot1.geography)=upper(cc.region_5)
- LEFT JOIN ap_jp_combos3 dup
-     ON ot1.platform_subset=dup.platform_subset AND ot1.customer_engagement=dup.customer_engagement AND ot1.geography=dup.geography
+fix_japanb = f"""
+with step1 as (
+    SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , 'JP'  as geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+    , CONCAT(user_name, geography, platform_subset, customer_engagement, measure) as grp
+    FROM override_table_r5b
+    WHERE geography = 'AP'
+), step2 as (
+    SELECT *, CONCAT(user_name, geography, platform_subset, customer_engagement, measure) as grp
+    FROM override_table_r5b
+    WHERE geography = 'JP'
+), step3 as (SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM step2
+UNION 
+SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+ FROM step1
+ 	WHERE grp not in (SELECT DISTINCT grp FROM step2)
   ),
-stp2 as (SELECT user_name
-        , 'MARKET10' as geography_grain
-        , market10 as geography
-        , platform_subset
-        , customer_engagement
-        , measure
-        , min_sys_date
-        , month_num
-        , value
-        , load_date
-FROM stp1 
-WHERE apjpkeep = 'KEEP'
+step4 as (SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM override_table_r5b
+WHERE geography != 'JP'
   )
-  select * from stp2
+  select * from step3
+  UNION ALL
+  select * from step4
 """
 
-r5_to_m10_2=spark.sql(r5_to_m10_2)
-r5_to_m10_2.createOrReplaceTempView("r5_to_m10_2")
+
+r5_to_cb = spark.sql(fix_japanb)
+r5_to_cb.createOrReplaceTempView("r5_to_cb")
+
+override_helper_1b = f"""
+	SELECT r5.user_name
+    	, r5.load_date
+    	, r5.upload_type
+    	, r5.scenario_name
+    	, 'COUNTRY' as geography_grain
+    	, c.county_alpha2 as geography
+    	, upper(r5.platform_subset) as platform_subset
+    	, upper(r5.customer_engagement) as customer_engagement
+    	, r5.base_product_number
+    	, upper(r5.measure) as measure
+    	, r5.min_sys_date
+    	, r5.month_num
+    	, r5.value
+	FROM r5_to_cb r5
+	LEFT JOIN country_info c
+	ON upper(r5.geography)=upper(c.region_5)
+	"""
+override_helper_1b = spark.sql(override_helper_1b)
+override_helper_1b.createOrReplaceTempView("override_helper_1b")
 
 # COMMAND ----------
 
-override_table2_a = """
-SELECT * FROM override_table_m10
+# MAGIC %md
+# MAGIC # Market10 to Country
+
+# COMMAND ----------
+
+override_helper_2b = f"""
+	SELECT m10.user_name
+    	, m10.load_date
+    	, m10.upload_type
+    	, m10.scenario_name
+    	, 'COUNTRY' as geography_grain
+    	, c.country_alpha2 as geography
+    	, upper(m10.platform_subset) as platform_subset
+    	, upper(m10.customer_engagement) as customer_engagement
+    	, m10.base_product_number
+    	, upper(m10.measure) as measure
+    	, m10.min_sys_date
+    	, m10.month_num
+    	, m10.value
+	FROM override_table_m10b m10
+	LEFT JOIN country_info c
+	ON upper(m10.geography)=upper(c.region_5)
+	"""
+override_helper_2b = spark.sql(override_helper_2b)
+override_helper_2b.createOrReplaceTempView("override_helper_2b")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # combine data from market10 and region5
+
+# COMMAND ----------
+
+override_table_b = """
+with step1 as (SELECT *, concat(geography, platform_subset, customer_engagent, measure, month_num) as gpid FROM override_helper_1b),
+step2 as  (SELECT *, concat(geography, platform_subset, customer_engagent, measure, month_num) as gpid FROM override_helper_2b),
+step3 as (SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM step1
+WHERE gpid not in (select distinct gpid from step2)
 UNION ALL
-SELECT * FROM r5_to_m10_2
+SELECT SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+FROM step2
+WHERE gpid not in (select distinct gpid from step1)
+UNION ALL
+SELECT step1.user_name
+    , CASE WHEN step1.load_date> step2.load_date THEN step1.load_date ELSE step2.load_date END as load_date
+    , step1.upload_type
+    , step1.scenario_name
+    , step1.geography_grain
+    , step1.geography
+    , step1.platform_subset
+    , step1.customer_engagement
+    , step1.base_product_number
+    , step1.measure
+    , CASE WHEN step1.load_date> step2.load_date THEN step1.min_sys_date ELSE step2.min_sys_date END AS min_sys_date
+    , step1.month_num
+    , CASE WHEN step1.load_date> step2.load_date THEN step1.value ELSE step2.value END as value
+    FROM step1 INNER JOIN step2 on gpid
 """
 
-override_table2_a=spark.sql(override_table2_a)
-override_table2_a.createOrReplaceTempView("override_table2_a")
+override_table_b=spark.sql(override_table_b)
+override_table_b.createOrReplaceTempView("override_table_b")
 
 # COMMAND ----------
 
@@ -392,7 +615,7 @@ SELECT  'overrides' as record
       ,'overwrite' as ib_version
       ,'EPA-DRIVERS OVERRIDE' as source
       ,CAST(current_date() AS DATE) AS load_date
-FROM override_table2_a
+FROM override_table_b
 """
 
 override_table2_b=spark.sql(override_table2_b)
@@ -407,13 +630,13 @@ override_table2_b.createOrReplaceTempView("override_table2_b")
 # COMMAND ----------
 
 override_table_c ="""
-SELECT * FROM override_table_b
+SELECT * FROM override_table_a2
 UNION ALL
 SELECT * FROM override_table2_b
 """
 
 override_table_c2 ="""
-SELECT * FROM override_table_b
+SELECT * FROM override_table_a2
 """
 
 if override_table2_b.count() > 0:
