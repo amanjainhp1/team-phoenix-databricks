@@ -1937,7 +1937,7 @@ query_list.append(["stage.page_cc_mix", page_cc_mix, "overwrite"])
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list
 
 # COMMAND ----------
 
