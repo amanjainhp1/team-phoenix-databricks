@@ -1213,11 +1213,63 @@ ci_rates_2.createOrReplaceTempView("ci_currency_emea2")
 
 # COMMAND ----------
 
+edw_fin_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix-fin/"
+edw_ships_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix/product/"
+
+# COMMAND ----------
+
+# load parquet files to df
+edw_revenue_document_currency_landing = spark.read.parquet(edw_fin_s3_bucket + "EDW/edw_revenue_document_currency_landing")
+
+# COMMAND ----------
+
+# delta tables
+
+import re
+
+tables = [
+    ['fin_stage.edw_revenue_document_currency_staging', edw_revenue_document_currency_landing]
+    ]
+
+for table in tables:
+    # Define the input and output formats and paths and the table name.
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
+    write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    # Load the data from its source.
+    df = table[1]    
+    print(f'loading {table[0]}...')
+    
+    for column in df.dtypes:
+         renamed_column = re.sub('\$', '_dollars', re.sub(' ', '_', column[0])).lower()
+         df = df.withColumnRenamed(column[0], renamed_column)
+         print(renamed_column) 
+        
+     # Write the data to its target.
+    df.write \
+       .format(write_format) \
+       .option("overwriteSchema", "true") \
+       .mode("overwrite") \
+       .save(save_path)
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+     # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    
+    spark.table(table[0]).createOrReplaceTempView(table_name)
+    
+    print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
 ci_rates_3 = spark.sql("""
 /** allocate document currency to country for row (apj, ams) **/
 -- raw data out of edw report
 
-select
+select 'edw' as record,
 	cal.date as cal_date,
 	cal.fiscal_year_qtr,
 	cal.fiscal_yr,
@@ -1225,15 +1277,15 @@ select
 	iso.country_alpha2,
 	iso.region_5,
 	doc.document_currency_code,
-	sum(`net_K$`) * 1000 as revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-from fin_stage.edw_revenue_document_currency_landing doc
+	cast(sum(net_k_dollars) * 1000 as double) as revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
+from fin_stage.edw_revenue_document_currency_staging doc
 left join mdm.calendar cal on fiscal_year_month_code = edw_fiscal_yr_mo
 left join mdm.profit_center_code_xref pcx on pcx.profit_center_code = doc.profit_center_code
 left join mdm.iso_country_code_xref iso on pcx.country_alpha2 = iso.country_alpha2
 left join mdm.product_line_xref plx on plx.plxx = doc.business_area_code
 where 1=1
 	and cal.day_of_month = 1
-	and `net_K$` <> 0
+	and net_k_dollars <> 0
 	and iso.country_alpha2 <> 'XW'
 	and doc.document_currency_code <> '?'
 group by cal.date, iso.country_alpha2, doc.document_currency_code, plx.pl, iso.region_5, cal.fiscal_year_qtr, cal.fiscal_yr
@@ -1246,7 +1298,7 @@ ci_rates_3.createOrReplaceTempView("edw_document_currency_raw_original")
 ci_rates_4 = spark.sql("""
 -- raw data out of odw report
 
-select 
+select 'odw' as record,
 	cal_date,
 	fiscal_year_qtr,
 	fiscal_yr,
@@ -1272,46 +1324,37 @@ ci_rates_4.createOrReplaceTempView("odw_document_currency_raw")
 
 ci_rates_5 = spark.sql("""
  
-with document_currency_join as
+with document_currency as
 (
-select 	cal_date,
+select 
+    record, 
+    cal_date,
 	fiscal_year_qtr,
 	fiscal_yr,
 	pl,
 	country_alpha2,
 	region_5,
 	document_currency_code,
-	sum(revenue) as revenue
+	revenue
 from edw_document_currency_raw_original
-group by cal_date,
-	fiscal_year_qtr,
-	fiscal_yr,
-	pl,
-	country_alpha2,
-	region_5,
-	document_currency_code
 
 union all
 
-select 	cal_date,
+select
+    record,
+    cal_date,
 	fiscal_year_qtr,
 	fiscal_yr,
 	pl,
 	country_alpha2,
 	region_5,
 	document_currency_code,
-	sum(revenue) as revenue
+	revenue
 from odw_document_currency_raw
-group by cal_date,
-	fiscal_year_qtr,
-	fiscal_yr,
-	pl,
-	country_alpha2,
-	region_5,
-	document_currency_code
 )
 
-select 	cal_date,
+select 	record,
+    cal_date,
 	fiscal_year_qtr,
 	fiscal_yr,
 	pl,
@@ -1319,8 +1362,9 @@ select 	cal_date,
 	region_5,
 	document_currency_code,
 	coalesce(sum(revenue), 0) as revenue
-from document_currency_join
-group by cal_date,
+from document_currency
+group by record,
+    cal_date,
 	fiscal_year_qtr,
 	fiscal_yr,
 	pl,
@@ -1329,11 +1373,11 @@ group by cal_date,
 	document_currency_code
  """)
 
-ci_rates_4.createOrReplaceTempView("edw_document_currency_raw")
+ci_rates_5.createOrReplaceTempView("edw_document_currency_raw")
 
 # COMMAND ----------
 
-ci_rates_5 = spark.sql("""
+ci_rates_6 = spark.sql("""
 -- where is revenue at a country level essentially zero?
 select
 	cal_date,
@@ -1350,11 +1394,11 @@ where 1=1
 group by cal_date, country_alpha2, pl
 """)
 
-ci_rates_5.createOrReplaceTempView("country_revenue")
+ci_rates_6.createOrReplaceTempView("country_revenue")
 
 # COMMAND ----------
 
- ci_rates_5 = spark.sql("""
+ ci_rates_7 = spark.sql("""
  select
 	cal_date,
 	pl,
@@ -1369,11 +1413,11 @@ where 1=1
 group by cal_date, country_alpha2, pl, filter_me
  """)
     
-ci_rates_5.createOrReplaceTempView("above_zero_country_revenue1")
+ci_rates_7.createOrReplaceTempView("above_zero_country_revenue1")
 
 # COMMAND ----------
 
- ci_rates_6 = spark.sql("""
+ ci_rates_8 = spark.sql("""
  -- eliminate corner cases 
 select
 	cal_date,
@@ -1393,11 +1437,11 @@ where 1=1
 group by cal_date, country_alpha2, document_currency_code, pl, region_5, fiscal_year_qtr, fiscal_yr
  """)
     
-ci_rates_6.createOrReplaceTempView("edw_document_currency1")
+ci_rates_8.createOrReplaceTempView("edw_document_currency1")
 
 # COMMAND ----------
 
-ci_rates_7 = spark.sql("""
+ci_rates_9 = spark.sql("""
 -- calculate the currency as a mix of a region
 
 
@@ -1420,11 +1464,11 @@ group by cal_date, document_currency_code, pl, region_5, fiscal_year_qtr, fiscal
 -- absolute value
 """)
 
-ci_rates_7.createOrReplaceTempView("doc_currency_mix1")
+ci_rates_9.createOrReplaceTempView("doc_currency_mix1")
 
 # COMMAND ----------
 
-ci_rates_8 = spark.sql("""
+ci_rates_10 = spark.sql("""
  select
 	cal_date,
 	fiscal_year_qtr,
@@ -1439,11 +1483,11 @@ from doc_currency_mix1
 group by cal_date, document_currency_code, pl, region_5, fiscal_year_qtr, fiscal_yr, revenue, doc_date
  """)
 
-ci_rates_8.createOrReplaceTempView("doc_currency_mix2_absval")
+ci_rates_10.createOrReplaceTempView("doc_currency_mix2_absval")
 
 # COMMAND ----------
 
-ci_rates_9 = spark.sql("""
+ci_rates_11 = spark.sql("""
  -- exclude outlier currencies
 
 --declare @currency_value_threshold document_currency_mix1 = 0.01
@@ -1462,11 +1506,11 @@ where document_currency_mix1 > 0.01
 group by cal_date, document_currency_code, pl, region_5, fiscal_year_qtr, fiscal_yr, revenue, doc_date
  """)
 
-ci_rates_9.createOrReplaceTempView("doc_currency_mix3")
+ci_rates_11.createOrReplaceTempView("doc_currency_mix3")
 
 # COMMAND ----------
 
-ci_rates_10 = spark.sql("""
+ci_rates_12 = spark.sql("""
  -- edw currency mix excluding emea
 select
 	cal_date,
@@ -1482,11 +1526,11 @@ where 1=1
 group by cal_date, country_alpha2, document_currency_code, pl, revenue, region_5
  """)
 
-ci_rates_10.createOrReplaceTempView("edw_doc_currency_non_eu")
+ci_rates_12.createOrReplaceTempView("edw_doc_currency_non_eu")
 
 # COMMAND ----------
 
-ci_rates_11 = spark.sql("""
+ci_rates_13 = spark.sql("""
  -- calc currency mix for countries
 
 select
@@ -1506,11 +1550,11 @@ where 1=1
 group by cal_date, country_alpha2, document_currency_code, pl, revenue, region_5
  """)
 
-ci_rates_11.createOrReplaceTempView("country_currency_mix")
+ci_rates_13.createOrReplaceTempView("country_currency_mix")
 
 # COMMAND ----------
 
-ci_rates_12 = spark.sql("""
+ci_rates_14 = spark.sql("""
  --select * from #country_currency_mix
 
 -- mix only
@@ -1527,32 +1571,32 @@ group by cal_date, country_alpha2, document_currency_code, pl, region_5
 --select * from #country_currency_mix2
  """)
 
-ci_rates_12.createOrReplaceTempView("country_currency_mix2")
+ci_rates_14.createOrReplaceTempView("country_currency_mix2")
 
 # COMMAND ----------
 
-ci_rates_13 = spark.sql("""
+ci_rates_15 = spark.sql("""
  -- build out history from edw for ie2 history
 select distinct cal_date
 from country_currency_mix2
  """)
 
-ci_rates_13.createOrReplaceTempView("document_currency_time_availability")
+ci_rates_15.createOrReplaceTempView("document_currency_time_availability")
 
 # COMMAND ----------
 
-ci_rates_14 = spark.sql("""
+ci_rates_16 = spark.sql("""
  select distinct sales.cal_date
 from fin_prod.actuals_supplies_salesprod sales
 left join document_currency_time_availability doc on doc.cal_date = sales.cal_date
 where doc.cal_date is null
  """)
 
-ci_rates_14.createOrReplaceTempView("currency_history_needed")
+ci_rates_16.createOrReplaceTempView("currency_history_needed")
 
 # COMMAND ----------
 
-ci_rates_15 = spark.sql("""
+ci_rates_17 = spark.sql("""
  select
 	cal_date,
 	country_alpha2,
@@ -1565,11 +1609,11 @@ where cal_date = (select min(cal_date) from country_currency_mix2)
 group by cal_date, country_alpha2, currency, region_5, pl
  """)
 
-ci_rates_15.createOrReplaceTempView("placeholder_mix")
+ci_rates_17.createOrReplaceTempView("placeholder_mix")
 
 # COMMAND ----------
 
-ci_rates_16 = spark.sql("""
+ci_rates_18 = spark.sql("""
  select history.cal_date,
 	country_alpha2,
 	currency,
@@ -1580,11 +1624,11 @@ from placeholder_mix pm
 cross join currency_history_needed history
  """)
 
-ci_rates_16.createOrReplaceTempView("currency_history_needed2")
+ci_rates_18.createOrReplaceTempView("currency_history_needed2")
 
 # COMMAND ----------
 
-ci_rates_17 = spark.sql("""
+ci_rates_19 = spark.sql("""
  with
 
 country_currency_mix3 as
@@ -1622,11 +1666,11 @@ from country_currency_mix3 c
 group by cal_date, country_alpha2, currency, region_5, pl
  """)
 
-ci_rates_16.createOrReplaceTempView("country_currency_mix4")
+ci_rates_19.createOrReplaceTempView("country_currency_mix4")
 
 # COMMAND ----------
 
-ci_rates_17 = spark.sql("""
+ci_rates_20 = spark.sql("""
  select
 	cal_date,
 	country_alpha2,
@@ -1641,11 +1685,11 @@ group by cal_date, country_alpha2, currency, region_5, pl
 --select * from #country_currency_mix5
  """)
 
-ci_rates_17.createOrReplaceTempView("country_currency_mix5")
+ci_rates_20.createOrReplaceTempView("country_currency_mix5")
 
 # COMMAND ----------
 
-ci_rates_18 = spark.sql("""
+ci_rates_21 = spark.sql("""
  -- transition back to adjusted revenue code
 			select
 				c.cal_date,
@@ -1669,11 +1713,11 @@ ci_rates_18 = spark.sql("""
 	
                 """)
 
-ci_rates_18.createOrReplaceTempView("ci_before_constant_currency")
+ci_rates_21.createOrReplaceTempView("ci_before_constant_currency")
 
 # COMMAND ----------
 
-ci_rates_18 = spark.sql("""
+ci_rates_22 = spark.sql("""
  -- transition back to adjusted revenue code
 
 with
@@ -1823,11 +1867,11 @@ with
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency, region_5
  """)
 
-ci_rates_18.createOrReplaceTempView("ci_before_constant_currency")
+ci_rates_22.createOrReplaceTempView("ci_before_constant_currency")
 
 # COMMAND ----------
 
-ci_rates_19 = spark.sql("""
+ci_rates_23 = spark.sql("""
  with
 
 		date_helper as
@@ -1941,11 +1985,11 @@ ci_rates_19 = spark.sql("""
 			from channel_inventory_time_series
  """)
 
-ci_rates_19.createOrReplaceTempView("channel_inventory_full_calendar")
+ci_rates_23.createOrReplaceTempView("channel_inventory_full_calendar")
 
 # COMMAND ----------
 
-ci_rates_20 = spark.sql("""
+ci_rates_24 = spark.sql("""
  with
 		
 		data_prep as
@@ -1999,11 +2043,11 @@ ci_rates_20 = spark.sql("""
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
  """)
 
-ci_rates_20.createOrReplaceTempView("lagged_data_cte3")
+ci_rates_24.createOrReplaceTempView("lagged_data_cte3")
 
 # COMMAND ----------
 
-ci_rates_21 = spark.sql("""
+ci_rates_25 = spark.sql("""
  select
 				cal_date,
 				region_5,
@@ -2024,11 +2068,11 @@ ci_rates_21 = spark.sql("""
 			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement, currency
  """)
 
-ci_rates_21.createOrReplaceTempView("ci_calc_unit_change")
+ci_rates_25.createOrReplaceTempView("ci_calc_unit_change")
 
 # COMMAND ----------
 
-ci_rates_22 = spark.sql("""
+ci_rates_26 = spark.sql("""
  select
 				cal_date,
 				country_alpha2,
@@ -2048,11 +2092,11 @@ ci_rates_22 = spark.sql("""
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency
  """)
 
-ci_rates_22.createOrReplaceTempView("ci_calc_unit_change2")
+ci_rates_26.createOrReplaceTempView("ci_calc_unit_change2")
 
 # COMMAND ----------
 
-ci_rates_23 = spark.sql("""
+ci_rates_27 = spark.sql("""
  select
 				cal_date,
 				country_alpha2,
@@ -2077,11 +2121,11 @@ ci_rates_23 = spark.sql("""
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, currency, reported_inventory_valuation_rate
  """)
 
-ci_rates_23.createOrReplaceTempView("ci_calc_unit_change3")
+ci_rates_27.createOrReplaceTempView("ci_calc_unit_change3")
 
 # COMMAND ----------
 
-ci_rates_24 = spark.sql("""
+ci_rates_28 = spark.sql("""
  select
 				cal_date,
 				ci.country_alpha2,
@@ -2103,11 +2147,11 @@ ci_rates_24 = spark.sql("""
 			group by cal_date, ci.country_alpha2, sales_product_number, pl, customer_engagement, region_5, currency
  """)
 
-ci_rates_24.createOrReplaceTempView("ci_calc_unit_change4")
+ci_rates_28.createOrReplaceTempView("ci_calc_unit_change4")
 
 # COMMAND ----------
 
-ci_rates_25 = spark.sql("""
+ci_rates_29 = spark.sql("""
  select
 				act.cal_date,
 				region_5,
@@ -2135,11 +2179,11 @@ ci_rates_25 = spark.sql("""
 				customer_engagement, act.currency, curr_rate.accountingrate, rate.accountingrate, region_5		
  """)
 
-ci_rates_25.createOrReplaceTempView("ci_with_accounting_rates")
+ci_rates_29.createOrReplaceTempView("ci_with_accounting_rates")
 
 # COMMAND ----------
 
-ci_rates_26 = spark.sql("""
+ci_rates_30 = spark.sql("""
  select
 				cal_date,
 				region_5,
@@ -2176,11 +2220,11 @@ ci_rates_26 = spark.sql("""
 				customer_engagement, currency, original_rate, current_rate, region_5
  """)
 
-ci_rates_26.createOrReplaceTempView("ci_with_accounting_rates2")
+ci_rates_30.createOrReplaceTempView("ci_with_accounting_rates2")
 
 # COMMAND ----------
 
-ci_rates_27 = spark.sql("""
+ci_rates_31 = spark.sql("""
  select
 				cal_date,
 				region_5,
@@ -2207,7 +2251,7 @@ ci_rates_27 = spark.sql("""
 				customer_engagement, currency, original_rate, current_rate, region_5
  """)
 
-ci_rates_27.createOrReplaceTempView("ci_with_accounting_rates3")
+ci_rates_31.createOrReplaceTempView("ci_with_accounting_rates3")
 
 # COMMAND ----------
 
