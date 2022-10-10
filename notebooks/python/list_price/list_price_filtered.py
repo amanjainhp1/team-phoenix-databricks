@@ -210,19 +210,6 @@ for table in tables:
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
-    spark.table(table).createOrReplaceTempView(table_name)
-
-# COMMAND ----------
-
-tables = ['fin_prod.actuals_supplies_baseprod', 'fin_prod.actuals_supplies_salesprod', 'prod.working_forecast_country', 'prod.ibp_supplies_forecast', 'prod.list_price_gpsy', 'prod.acct_rates' , 'mdm.calendar' , 'mdm.product_line_xref' , 'mdm.hardware_xref' , 'mdm.rdma' , 'mdm.iso_country_code_xref' , 'mdm.list_price_term_codes' , 'mdm.list_price_eu_countrylist' , 'mdm.country_currency_map' , 'prod.list_price_eoq' , 'mdm.rdma_base_to_sales_product_map' , 'mdm.iso_cc_rollup_xref']
-
-for table in tables:
-    # Define the input and output formats and paths and the table name.
-    schema = table.split(".")[0]
-    table_name = table.split(".")[1]
-    write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
     # Load the data from its source.
     df = get_data_by_table(table)
         

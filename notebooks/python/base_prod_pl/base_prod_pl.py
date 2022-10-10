@@ -3,15 +3,8 @@ dbutils.widgets.text("tasks","base_prod_pl;all")
 
 # COMMAND ----------
 
-dbutils.widgets.text("sales_gru_version", "2022.08.09.1")
-dbutils.widgets.text("currency_hedge_version", "2022.08.03.1")
-
-# COMMAND ----------
-
-tasks = dbutils.widgets.get("tasks").split(";")
-
-if 'base_prod_pl' or 'all' not in tasks:
-    dbutils.notebook.exit("notebook skipped")
+dbutils.widgets.text("sales_gru_version", "2022.09.14.1")
+dbutils.widgets.text("currency_hedge_version", "2022.09.02.1")
 
 # COMMAND ----------
 
@@ -27,66 +20,186 @@ query_list = []
 
 # COMMAND ----------
 
-bpp_01_base_gru_insights = f"""
+rdma = """
+SELECT *
+FROM ie2_financials.dbo.forecast_gru_override
+"""
+
+f_report_units = read_sql_server_to_df(configs) \
+    .option("query", rdma) \
+    .load()
+
+write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_gru_override", "overwrite")
+
+# COMMAND ----------
+
+forecast_fixed_cost_input = """
+SELECT record
+    , fixedcost_desc as fixed_cost_desc
+    , pl
+    , region_3
+    , country_code
+    , fiscal_yr_qtr
+    , fixedcost_k_qtr as fixed_cost_k_qtr
+    , official
+    , version
+    , load_date
+FROM ie2_financials.dbo.forecast_fixedcost_input
+"""
+
+f_report_units = read_sql_server_to_df(configs) \
+    .option("query", forecast_fixed_cost_input) \
+    .load()
+
+write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_fixed_cost_input", "overwrite")
+
+# COMMAND ----------
+
+forecast_variablecost_ink = """
+SELECT *
+FROM ie2_financials.dbo.forecast_variablecost_ink
+"""
+
+f_report_units = read_sql_server_to_df(configs) \
+    .option("query", forecast_variablecost_ink) \
+    .load()
+
+write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_variable_cost_ink", "overwrite")
+
+# COMMAND ----------
+
+forecast_variablecost_toner = """
+SELECT *
+FROM ie2_financials.dbo.forecast_variablecost_toner
+"""
+
+f_report_units = read_sql_server_to_df(configs) \
+    .option("query", forecast_variablecost_toner) \
+    .load()
+
+write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_variable_cost_toner", "overwrite")
+
+# COMMAND ----------
+
+forecast_variablecost_toner = """
+SELECT *
+FROM ie2_financials.dbo.forecast_variablecost_toner
+"""
+
+f_report_units = read_sql_server_to_df(configs) \
+    .option("query", forecast_variablecost_toner) \
+    .load()
+
+write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_variable_cost_toner", "overwrite")
+
+# COMMAND ----------
 
 
-WITH __dbt__CTE__lpf_01_filter_vars as (
+
+# COMMAND ----------
+
+tables = ['mdm.calendar', 'mdm.iso_country_code_xref', 'mdm.rdma', 'prod.supplies_xref', 'fin_prod.forecast_fixed_cost_input', 'prod.currency_hedge' , 'mdm.product_line_scenario_xref' , 'fin_prod.forecast_variable_cost_ink' , 'fin_prod.forecast_variable_cost_toner' , 'prod.ibp_supplies_forecast' , 'fin_prod.lpf_01_ibp_combined' , 'fin_prod.forecast_sales_gru' , 'prod.working_forecast_country' , 'fin_prod.npi_base_gru' , 'fin_prod.forecast_gru_override' , 'fin_prod.forecast_contra_input' . "mdm"."country_currency_map"]
+
+for table in tables:
+    # Define the input and output formats and paths and the table name.
+    schema = table.split(".")[0]
+    table_name = table.split(".")[1]
+    write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    # Load the data from its source.
+    df = get_data_by_table(table)
+        
+    # Write the data to its target.
+    df.write \
+      .format(write_format) \
+      .mode("overwrite") \
+      .save(save_path)
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table + " USING DELTA LOCATION '" + save_path + "'")
+    
+    spark.table(table).createOrReplaceTempView(table_name)
+    
+    print(f'{table_name} loaded')
+
+# COMMAND ----------
+
+list_price_filter_vars = f"""
 
 
 SELECT 'ACTUALS_SUPPLIES_BASEPROD' AS record
     , MAX(version) AS version
-FROM "fin_prod"."actuals_supplies_baseprod"
+FROM actuals_supplies_baseprod
 
 UNION ALL
 
 SELECT 'ACTUALS_SUPPLIES_SALESPROD' AS record
     , MAX(version) AS version
-FROM "fin_prod"."actuals_supplies_salesprod"
+FROM actuals_supplies_salesprod
 
 UNION ALL
 
 SELECT 'IBP_SUPPLIES_FORECAST' AS record
     , MAX(version) AS version
-FROM "prod"."ibp_supplies_forecast"
+FROM ibp_supplies_forecast
 
 UNION ALL
 
 SELECT 'INSIGHTS_UNITS' AS record
     , MAX(version) AS version
-FROM "prod"."working_forecast_country"
+FROM working_forecast_country
 
 UNION ALL
 
 SELECT 'LIST_PRICE_GPSY' AS record
     , MAX(version) AS version
-FROM "prod"."list_price_gpsy"
+FROM list_price_gpsy
 
 UNION ALL
 
 SELECT 'ACCT_RATES' AS record
     , MAX(version) AS version
-FROM "prod"."acct_rates"
-),  __dbt__CTE__bpp_02_filter_dates as (
+FROM acct_rates
+"""
 
+list_price_filter_vars = spark.sql(list_price_filter_vars)
+list_price_filter_vars.createOrReplaceTempView("list_price_filter_vars")
+
+# COMMAND ----------
+
+base_product_filter_dates = """
 
 SELECT 'MIN_IBP_DATE' AS record
     , MIN(cal_date) AS cal_date
-FROM "prod"."ibp_supplies_forecast"
+FROM ibp_supplies_forecast
 WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST')
 
 UNION ALL
 
 SELECT 'MAX_IBP_DATE' AS record
     , MAX(cal_date) AS cal_date
-FROM "prod"."ibp_supplies_forecast"
+FROM ibp_supplies_forecast
 WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST')
 
 UNION ALL
 
 SELECT 'CURRENCY_HEDGE_MONTH' AS record
     ,MAX(currency_hedge.Month) AS cal_date
-FROM "prod"."currency_hedge"                
-),  __dbt__CTE__bpp_03_Base_GRU_Gpsy as (
+FROM currency_hedge
+"""
+
+base_product_filter_dates = spark.sql(base_product_filter_dates)
+base_product_filter_dates.createOrReplaceTempView("base_product_filter_dates")
+
+# COMMAND ----------
+
+bpp_01_base_gru_insights = f"""
+
+
+ __dbt__CTE__bpp_03_Base_GRU_Gpsy as (
 
 
 SELECT
@@ -100,9 +213,9 @@ SELECT
 		, SUM((ibp_sales_units.units * sales_gru_gpsy.salesproduct_gru*ibp_sales_units.base_product_amount_percent)/100)/sum(ibp_sales_units.base_prod_fcst_revenue_units) AS base_gru
 		, MAX(ibp_sales_units.cal_date) OVER (PARTITION BY ibp_sales_units.base_product_number, ibp_sales_units.country_alpha2) AS max_cal_date
 	FROM
-		"fin_stage"."lpf_01_ibp_combined" ibp_sales_units
+		lpf_01_ibp_combined ibp_sales_units
 		INNER JOIN
-		"fin_prod"."forecast_sales_gru" sales_gru_gpsy
+		forecast_sales_gru sales_gru_gpsy
 			ON ibp_sales_units.sales_product_number = sales_gru_gpsy.sales_product_number
 			AND ibp_sales_units.country_alpha2 = sales_gru_gpsy.country_alpha2
 	WHERE sales_gru_gpsy.version = '{dbutils.widgets.get("sales_gru_version")}'
@@ -130,7 +243,7 @@ SELECT distinct
 SELECT
 		calendar.Date AS cal_date
 	FROM
-		"mdm"."calendar" calendar
+		calendar calendar
 	WHERE
 		calendar.Day_of_Month = 1
 		AND calendar.Date >
@@ -149,7 +262,7 @@ SELECT
 		__dbt__CTE__bpp_04_all_months all_months
 		    ON 1 = 1
 		WHERE exists
-		(SELECT 1 FROM "prod"."working_forecast_country" insights_units
+		(SELECT 1 FROM working_forecast_country insights_units
 			WHERE insights_units.base_product_number = last_GRU.base_product_number
 				AND insights_units.country = last_GRU.country_alpha2
 				AND insights_units.cal_date = all_months.cal_date
@@ -184,12 +297,12 @@ SELECT distinct
 		, insights_units_ibp.cal_date
 		, ff_uat_npi_base_gru.gru
 	FROM
-		(SELECT base_product_number, country, cal_date FROM "prod"."working_forecast_country" WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'INSIGHTS_UNITS')) insights_units_ibp
+		(SELECT base_product_number, country, cal_date FROM working_forecast_country WHERE version = (SELECT version FROM __dbt__CTE__lpf_01_filter_vars WHERE record = 'INSIGHTS_UNITS')) insights_units_ibp
 		INNER JOIN
-		"mdm"."iso_country_code_xref" iso_country_code_xref
+		iso_country_code_xref iso_country_code_xref
 			ON insights_units_ibp.country = iso_country_code_xref.country_alpha2
 		INNER JOIN
-		"fin_prod"."npi_base_gru" ff_uat_npi_base_gru         
+		npi_base_gru ff_uat_npi_base_gru         
 			ON ff_uat_npi_base_gru.base_product_number = insights_units_ibp.base_product_number
 			AND ff_uat_npi_base_gru.region_5 = iso_country_code_xref.region_5
 	WHERE 
@@ -232,10 +345,10 @@ SELECT distinct
 	FROM
 		__dbt__CTE__bpp_09_Base_GRU base_gru_ibp
 		LEFT JOIN
-		"mdm"."iso_country_code_xref" ctry
+		iso_country_code_xref ctry
 			ON ctry.country_alpha2 = Base_GRU_ibp.country_alpha2
 		LEFT JOIN
-		"fin_prod"."forecast_gru_override" gru_override                          
+		forecast_gru_override gru_override                          
 			ON base_gru_ibp.base_product_number = gru_override.base_product_number
 			AND ctry.region_5 = gru_override.region_5
 			AND gru_override.official = 1
@@ -250,7 +363,7 @@ SELECT distinct
 												, insights_units.cal_date) AS cartridges
 		, base_gru
 	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM "prod"."working_forecast_country"
+		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
 		WHERE cal_date >= (SELECT cal_date FROM __dbt__CTE__bpp_02_filter_dates WHERE record = 'MIN_IBP_DATE')
 		AND cal_date <= (SELECT cal_date FROM __dbt__CTE__bpp_02_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
@@ -271,7 +384,7 @@ SELECT distinct
 												, insights_units.cal_date) AS cartridges
 		, base_gru
 	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM "prod"."working_forecast_country"
+		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
 		WHERE --cal_date >= (SELECT cal_date FROM __dbt__CTE__bpp_02_filter_dates WHERE record = 'MIN_IBP_DATE')
 		cal_date > (SELECT cal_date FROM __dbt__CTE__bpp_02_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
@@ -318,17 +431,19 @@ SELECT
 	FROM
 		__dbt__CTE__bpp_48_Base_GRU_C2C_Merge base_gru_c2c
 	    INNER JOIN
-	    "mdm"."calendar" calendar
+	    calendar calendar
 	        ON calendar.date = base_gru_c2c.cal_date
 	    INNER JOIN
-	    "mdm"."iso_country_code_xref" iso_country_code_xref
+	    iso_country_code_xref iso_country_code_xref
 	        ON iso_country_code_xref.country_alpha2 = base_gru_c2c.country_alpha2
 		INNER JOIN
-		"mdm"."rdma" rdma
+		rdma rdma
 			ON rdma.base_prod_number = base_gru_c2c.base_product_number
 """
 
-query_list.append(["fin_stage.bpp_01_base_gru_insights", bpp_01_base_gru_insights, "overwrite"])
+bpp_01_base_gru_insights = spark.sql(bpp_01_base_gru_insights)
+write_df_to_redshift(configs, bpp_01_base_gru_insights, "fin_stage.bpp_01_base_gru_insights", "overwrite")
+bpp_01_base_gru_insights.createOrReplaceTempView("bpp_01_base_gru_insights")
 
 # COMMAND ----------
 
@@ -346,7 +461,7 @@ SELECT
 		, forecast_contra.contra_per_qtr
 		, forecast_contra.version AS fin_version
 	FROM
-		 "fin_prod"."forecast_contra_input" forecast_contra    
+		 forecast_contra_input forecast_contra    
 	WHERE official = 1
 ),  __dbt__CTE__bpp_14_last_Contra_per AS (
 
@@ -365,7 +480,7 @@ SELECT
 
 SELECT distinct
     fiscal_year_qtr
-FROM "mdm"."calendar"
+FROM calendar
 WHERE
 	fiscal_year_qtr <= (SELECT max(base_gru.fiscal_year_qtr) FROM "fin_stage"."bpp_01_base_gru_insights" base_gru)
 	and fiscal_year_qtr > (SELECT max(contra.fiscal_yr_qtr) FROM __dbt__CTE__bpp_12_Contra_Region contra)
@@ -409,7 +524,7 @@ SELECT base_product_line_code
 	, base_gru.base_gru
 	, fin_version
 FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights base_gru
 	INNER JOIN
 	__dbt__CTE__bpp_16_Contra_combine contra_extend
 		ON base_gru.base_product_line_code = contra_extend.base_product_line_code
@@ -417,45 +532,16 @@ FROM
 		AND base_gru.region_5 = contra_extend.region_5
 """
 
-query_list.append(["fin_stage.bpp_02_contra_insights", bpp_02_contra_insights, "overwrite"])
+bpp_02_contra_insights = spark.sql(bpp_02_contra_insights)
+write_df_to_redshift(configs, bpp_02_contra_insights, "fin_stage.bpp_02_contra_insights", "overwrite")
+bpp_02_contra_insights.createOrReplaceTempView("bpp_02_contra_insights")
 
 # COMMAND ----------
 
 bpp_03_base_currency_hedge_insights =  f"""
 
 
-with __dbt__CTE__bpp_01_filter_vars as (
-
-
-SELECT 'FIXEDCOST' AS record
-    , MAX(version) AS version
-FROM "fin_prod"."forecast_fixed_cost_input"
-
-UNION ALL
-
-SELECT 'CURRENCYHEDGE' AS record
-    , MAX(version) AS version
-FROM "prod"."currency_hedge"
-
-UNION ALL
-
-SELECT 'PRODUCT_LINE_SCENARIOS' AS record
-    , MAX(version) AS version
-FROM "mdm"."product_line_scenarios_xref" WHERE pl_scenario = 'FINANCE-HEDGE'
-
-UNION ALL
-
-SELECT 'VARIABLE_COST_INK' as record
-    , MAX(version) as version
-FROM "fin_prod"."forecast_variable_cost_ink"
-
-
-UNION ALL
-
-SELECT 'VARIABLE_COST_TONER' as record
-   , MAX(version) as version
-FROM "fin_prod"."forecast_variable_cost_toner"
-),   __dbt__CTE__bpp_18_revenue_sum AS (
+with  __dbt__CTE__bpp_18_revenue_sum AS (
 
 
 SELECT
@@ -464,12 +550,12 @@ SELECT
 		, base_gru.cal_date
 		, SUM(coalesce(base_gru.cartridges, 0) * coalesce(base_gru.base_gru, 0)) AS revenue_sum
 	FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights base_gru
 	INNER JOIN
-	"mdm"."country_currency_map" country_currency_map
+	country_currency_map country_currency_map
 		ON country_currency_map.country_alpha2 = base_gru.country_alpha2
 	INNER JOIN
-	"mdm"."product_line_scenarios_xref" product_line_scenarios_xref
+	product_line_scenarios_xref product_line_scenarios_xref
 		ON product_line_scenarios_xref.pl = base_gru.base_product_line_code
 	WHERE
 		product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
@@ -490,7 +576,7 @@ SELECT
 	FROM
 		__dbt__CTE__bpp_18_revenue_sum revenue_sum
 		INNER JOIN
-		"prod"."currency_hedge" currency_hedge                
+		currency_hedge currency_hedge                
 			on currency_hedge.Product_category = revenue_sum.pl_level_1
 			and currency_hedge.currency = revenue_sum.currency_iso_code
 			and revenue_sum.cal_date = currency_hedge.month
@@ -502,12 +588,12 @@ SELECT
 		, coalesce(base_gru.base_gru, 0) * coalesce(revenue_currency_per.hedge_per, 0) as baseprod_revenue_currency_hedge_unit
 		, revenue_currency_per.version
 	FROM
-		"fin_stage"."bpp_01_base_gru_insights" base_gru
+		bpp_01_base_gru_insights base_gru
 		INNER JOIN
-		"mdm"."country_currency_map" country_currency_map
+		country_currency_map country_currency_map
 			ON country_currency_map.country_alpha2 = base_gru.country_alpha2
 		INNER JOIN
-		"mdm"."product_line_scenarios_xref" product_line_scenarios_xref
+		product_line_scenarios_xref product_line_scenarios_xref
 			ON product_line_scenarios_xref.pl = base_gru.base_product_line_code
 		INNER JOIN
 		__dbt__CTE__bpp_19_revenue_currency_per revenue_currency_per
@@ -535,9 +621,9 @@ SELECT distinct
 		, base_gru.fiscal_year_qtr
 		, sum(base_gru.base_gru * base_gru.cartridges) AS base_gr
 	FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights base_gru
 	INNER JOIN
-	"mdm"."iso_country_code_xref" iso_country_code_xref
+	iso_country_code_xref iso_country_code_xref
 		ON Base_GRU.country_alpha2 = iso_country_code_xref.country_alpha2
 	GROUP BY
 		base_gru.base_product_line_code
@@ -557,7 +643,7 @@ SELECT DISTINCT
 		, SUM(fixed_cost_k_qtr) * 1000 AS fixed_cost_qtr
 		, version AS fin_version
 	FROM
-		"fin_prod"."forecast_fixed_cost_input"          
+		forecast_fixed_cost_input          
 	WHERE official = 1
 	group by
 		pl
@@ -598,9 +684,9 @@ SELECT distinct
 
 SELECT distinct
     fiscal_year_qtr
-FROM "mdm"."calendar"
+FROM calendar
 WHERE
-	fiscal_year_qtr <= (SELECT MAX(base_gru.fiscal_year_qtr) FROM "fin_stage"."bpp_01_base_gru_insights" base_gru)
+	fiscal_year_qtr <= (SELECT MAX(base_gru.fiscal_year_qtr) FROM bpp_01_base_gru_insights base_gru)
 	and fiscal_year_qtr > (SELECT MAX(fixed_cost.fiscal_yr_qtr) FROM __dbt__CTE__bpp_21_FixedCost_Region fixed_cost)
 ),  __dbt__CTE__bpp_26_extend_FixedCost_per AS (
 
@@ -639,12 +725,12 @@ SELECT base_product_line_code
 	, coalesce(base_gru.base_gru, 0) * coalesce(fixed_cost_Per.per, 0) AS baseprod_fixed_cost_per_unit
 	, fixed_cost_per.fin_version
 FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights base_gru
 	INNER JOIN
-	"mdm"."calendar" calendar
+	calendar calendar
 		ON calendar.date = base_gru.cal_date
 	INNER JOIN
-	"mdm"."iso_country_code_xref" iso_country_code_xref
+	iso_country_code_xref iso_country_code_xref
 		ON iso_country_code_xref.country_alpha2 = base_gru.country_alpha2
 	INNER JOIN
 	__dbt__CTE__bpp_27_FixedCost_combine fixed_cost_per
@@ -667,9 +753,9 @@ SELECT
 		distinct base_gru.base_product_number
 		, rdma.Product_Family
 	FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights" base_gru
 	INNER JOIN
-	"mdm"."rdma" rdma
+	rdma rdma
 		on rdma.Base_Prod_Number = base_gru.base_product_number
 ),  __dbt__CTE__bpp_30_Ink_Qtr_costs as (
 
@@ -686,7 +772,7 @@ SELECT
 	FROM
 		__dbt__CTE__bpp_29_Base_Product_family base_family
 		inner join
-		"fin_prod"."forecast_variable_cost_ink" forecast_variable_cost_ink_landing
+		forecast_variable_cost_ink forecast_variable_cost_ink_landing
 			on forecast_variablecost_ink_landing.Product_Family = upper(base_family.Product_Family)
 	WHERE base_family.official = 1
 */
@@ -700,9 +786,9 @@ SELECT
 		, MAX(fiscal_yr_qtr) over
 		    (partition by forecast_variable_cost_ink.product_family, forecast_variable_cost_ink.region_5) as max_qtr
 	FROM
-		"fin_prod"."forecast_variable_cost_ink" forecast_variable_cost_ink
+		forecast_variable_cost_ink forecast_variable_cost_ink
 		INNER JOIN
-		"mdm"."rdma" rdma
+		rdma rdma
 			on upper(forecast_variable_cost_ink.product_family) = upper(rdma.product_family)
 	WHERE forecast_variable_cost_ink.official = 1
 ),  __dbt__CTE__bpp_31_Toner_Qtr_costs as (
@@ -716,9 +802,9 @@ SELECT
 		, forecast_variable_cost_toner.version as fin_version
 		, MAX(fiscal_yr_qtr) over (partition by forecast_variable_cost_toner.base_product_number, forecast_variable_cost_toner.region_5) as max_qtr
 	FROM
-	"fin_prod"."forecast_variable_cost_toner" forecast_variable_cost_toner
+	forecast_variable_cost_toner forecast_variable_cost_toner
 	INNER JOIN
-	"mdm"."supplies_xref" supplies_xref
+	supplies_xref supplies_xref
 	  on supplies_xref.base_product_number = forecast_variable_cost_toner.base_product_number
 	WHERE supplies_xref.technology = 'LASER' and forecast_variable_cost_toner.official = 1
 ),  __dbt__CTE__bpp_32_Ink_Toner_Qtr_costs as (
@@ -761,9 +847,9 @@ SELECT
 
 SELECT distinct
     fiscal_year_qtr
-FROM "mdm"."calendar"
+FROM calendar
 WHERE
-	fiscal_year_qtr <= (SELECT MAX(base_gru.fiscal_year_qtr) FROM "fin_stage"."bpp_01_base_gru_insights" base_gru)
+	fiscal_year_qtr <= (SELECT MAX(base_gru.fiscal_year_qtr) FROM bpp_01_base_gru_insights base_gru)
 	and fiscal_year_qtr > (SELECT MAX(var_cost.fiscal_yr_qtr) FROM __dbt__CTE__bpp_32_Ink_Toner_Qtr_costs var_cost)
 ),  __dbt__CTE__bpp_35_extend_VarCost as (
 
@@ -807,10 +893,10 @@ SELECT var_cost.base_product_number
 		, iso_country_code.country_alpha2
 FROM __dbt__CTE__bpp_36_VariableCost_combine var_cost
 INNER JOIN
-    "mdm"."calendar" calendar
+    calendar calendar
     ON var_cost.fiscal_yr_qtr = calendar.fiscal_year_qtr
 INNER JOIN
-    "mdm"."iso_country_code_xref" iso_country_code
+    iso_country_code_xref iso_country_code
     on var_cost.region_5 = iso_country_code.region_5
 WHERE
     calendar.day_of_month = 1
@@ -822,9 +908,9 @@ SELECT
 		, variable_cost_extend.variable_cost as variable_cost_usd
 		, variable_cost_extend.fin_version
 	FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights base_gru
 	INNER JOIN
-	"mdm"."calendar" calendar
+	calendar calendar
 		on calendar.Date = base_gru.cal_date
 	INNER JOIN
 	__dbt__CTE__bpp_36_VariableCost_combine variable_cost_extend
@@ -840,7 +926,7 @@ SELECT
 		, variable_cost_extend.Variable_Cost as variable_cost_usd
 		, variable_cost_extend.fin_version
 	FROM
-	"fin_stage"."bpp_01_base_gru_insights" base_gru
+	bpp_01_base_gru_insights base_gru
 	INNER JOIN
 	__dbt__CTE__bpp_36a_VariableCost_build_out variable_cost_extend
 		on base_gru.base_product_number = variable_cost_extend.base_product_number
@@ -867,9 +953,9 @@ select distinct
 	--, (base_gru.base_gru * contra_extend.contra_per_qtr) base_product_contra_usd
 	, fin_version
 from
-	"fin_stage"."bpp_02_contra_insights" base_gru
+	bpp_02_contra_insights base_gru
 	LEFT JOIN
-	(select * from "fin_prod"."forecast_contra_input" where official = 1 and base_product_number is not null) contra_override
+	(select * from forecast_contra_input where official = 1 and base_product_number is not null) contra_override
 		on base_gru.base_product_number = contra_override.base_product_number
 		and base_gru.fiscal_year_qtr = contra_override.fiscal_yr_qtr
 		and base_gru.region_5 = contra_override.region_5
@@ -887,7 +973,7 @@ select distinct
 	, contra.base_product_contra_usd as baseprod_contra_per_unit
 	, contra.fin_version as contra_version
 from
-	"fin_stage"."bpp_01_base_gru_insights" gru
+	bpp_01_base_gru_insights gru
 	LEFT JOIN
 	__dbt__CTE__bpp_49_Base_Contra_Insights_Override contra
 		on contra.base_product_number = gru.base_product_number
@@ -911,7 +997,7 @@ select distinct
 from
 	__dbt__CTE__bpp_38_Base_PL_Contra gru
 	LEFT JOIN
-	"fin_stage"."bpp_03_base_currency_hedge_insights" currency_hedge
+	bpp_03_base_currency_hedge_insights currency_hedge
 		on currency_hedge.base_product_number = gru.base_product_number
 		and currency_hedge.country_alpha2 = gru.country_alpha2
 		and currency_hedge.cal_date = gru.cal_date
@@ -935,7 +1021,7 @@ select distinct
 from
 	__dbt__CTE__bpp_39_Base_PL_Hedge gru
 	LEFT JOIN
-	"fin_stage"."bpp_04_base_fixed_cost_insights" fcost
+	bpp_04_base_fixed_cost_insights fcost
 		on fcost.base_product_number = gru.base_product_number
 		and fcost.country_alpha2 = gru.country_alpha2
 		and fcost.cal_date = gru.cal_date
@@ -961,7 +1047,7 @@ from
 from
 	__dbt__CTE__bpp_40_Base_PL_FCost gru
 	LEFT JOIN
-	"fin_stage"."bpp_05_base_variable_cost_insights" vcost
+	bpp_05_base_variable_cost_insights vcost
 		on vcost.base_product_number = gru.base_product_number
 		and vcost.country_alpha2 = gru.country_alpha2
 		and vcost.cal_date = gru.cal_date
@@ -972,7 +1058,3 @@ query_list.append(["fin_stage.forecast_base_pl", forecast_base_pl, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-
