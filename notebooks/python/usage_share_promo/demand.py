@@ -128,11 +128,11 @@ GROUP BY us.cal_date
 	  ,SUM(u.usage_k) AS usage_k
       ,SUM(i.units) as ib
 FROM step1 u
-LEFT JOIN ib_m10 i
+LEFT JOIN ib i
     ON 1=1
     AND u.platform_subset=i.platform_subset
     AND u.customer_engagement=i.customer_engagement
-    AND u.geography=i.market10
+    AND u.geography=i.country_alpha2
     AND u.cal_date=i.cal_date
 GROUP BY 
        u.cal_date
