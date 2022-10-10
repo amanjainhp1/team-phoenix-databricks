@@ -70,9 +70,25 @@ odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
       , col("gross_margin_usd").alias("GROSS MARGIN USD")
       , col("load_date").alias("load_date"))
 
-#odw_report_ships_deliveries_actuals_landing = read_redshift_to_df(configs) \
-#    .option("dbtable", "prod.odw_actuals_deliveries") \
-#    .load()
+#odw_report_ships_deliveries_actuals = read_redshift_to_df(configs) \
+#    .option("dbtable", "stage.odw_report_ships_deliveries_actuals") \
+#    .load() \
+#    .select(col("fiscal_year_period").alias("Fiscal Year Month")
+#        , col("calendar_year_month").alias("Calendar Year Month")
+#        , col("unit_reporting_code").alias("Unit Reporting Code")
+#        , col("unit_reporting_description").alias("Unit Reporting Description"))
+#        , col("parent_explosion").alias("Parent Explosion")
+#        , col("material_nr").alias("Material Nr")
+#        , col("material_desc").alias("Material Desc")
+#        , col("trade_or_non_trade").alias("Trade/Non-Trade")
+#        , col("profit_center_code").alias("Profit Center Code")
+#        , col("segment_code").alias("Segment Code")
+#        , col("segment_hier_desc_level2").alias("Segment Hier Desc Level2")
+#        , col("delivery_item_qty").alias("Delivery Item Qty")
+#        , col("load_date").alias("load_date")
+#        , col("delivery_item").alias("Delivery Item")
+#        , col("bundled_qty").alias("Bundled Qty")
+#        , col("unbundled_qty").alias("Unbundled Qty")
 
 odw_revenue_units_sales_actuals_prelim = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals_prelim") \
@@ -168,7 +184,7 @@ tables = [
     ['IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing', odw_report_rac_product_financials_actuals, "overwrite"],
     ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing', odw_revenue_units_sales_actuals, "overwrite"],
     ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_prelim_landing', odw_revenue_units_sales_actuals_prelim, "overwrite"],
-   # ['IE2_Landing.ms4.odw_report_ships_deliveries_actuals_landing', odw_report_ships_deliveries_actuals_landing, "overwrite"],
+   # ['IE2_Landing.ms4.odw_report_ships_deliveries_actuals_landing', odw_report_ships_deliveries_actuals, "overwrite"],
     ['IE2_Financials.ms4.odw_sacp_actuals', odw_sacp_actuals, "overwrite"],
     ['IE2_Financials.dbo.actuals_supplies_baseprod', actuals_supplies_baseprod, "overwrite"],
     ['IE2_Financials.dbo.actuals_supplies_salesprod', actuals_supplies_salesprod, "overwrite"],
