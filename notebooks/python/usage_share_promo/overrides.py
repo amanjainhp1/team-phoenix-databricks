@@ -290,9 +290,9 @@ step5 as (SELECT
     , customer_engagement
     , measure),
 step6 as (SELECT step4.* from step4 left join step5 using (geography, platform_subset, customer_engagement, measure) 
-	where step4.load_date=step5.max_date and step4.value is not null),
+	where step4.load_date=step5.max_date and step4.value is not null)
 --join tables 
-step3 as (SELECT user_name
+SELECT user_name
     , load_date
     , upload_type
     , scenario_name
