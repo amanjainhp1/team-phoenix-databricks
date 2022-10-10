@@ -271,8 +271,27 @@ override_helper_2.createOrReplaceTempView("override_helper_2")
 # COMMAND ----------
 
 override_table_a = """
+--get market10 data
 with step1 as (SELECT *, concat(user_name, geography, platform_subset, customer_engagent, measure, month_num) as gpid FROM override_helper_1),
+--get region_5 data
 step2 as  (SELECT *, concat(user_name, geography, platform_subset, customer_engagent, measure, month_num) as gpid FROM override_helper_2),
+--get where have both market10 and region_5
+step4 as (SELECT * from step1 FULL JOIN step2 on gpid),
+step5 as (SELECT 
+    geography
+    , platform_subset
+    , customer_engagement
+    , measure
+    , max(load_date) as max_date
+    FROM step4
+    group by 
+    geography
+    , platform_subset
+    , customer_engagement
+    , measure),
+step6 as (SELECT step4.* from step4 left join step5 using (geography, platform_subset, customer_engagement, measure) 
+	where step4.load_date=step5.max_date and step4.value is not null),
+--join tables 
 step3 as (SELECT user_name
     , load_date
     , upload_type
@@ -289,7 +308,7 @@ step3 as (SELECT user_name
 FROM step1
 WHERE gpid not in (select distinct gpid from step2)
 UNION ALL
-SELECT SELECT user_name
+SELECT user_name
     , load_date
     , upload_type
     , scenario_name
@@ -305,20 +324,20 @@ SELECT SELECT user_name
 FROM step2
 WHERE gpid not in (select distinct gpid from step1)
 UNION ALL
-SELECT step1.user_name
-    , CASE WHEN step1.load_date> step2.load_date THEN step1.load_date ELSE step2.load_date END as load_date
-    , step1.upload_type
-    , step1.scenario_name
-    , step1.geography_grain
-    , step1.geography
-    , step1.platform_subset
-    , step1.customer_engagement
-    , step1.base_product_number
-    , step1.measure
-    , CASE WHEN step1.load_date> step2.load_date THEN step1.min_sys_date ELSE step2.min_sys_date END AS min_sys_date
-    , step1.month_num
-    , CASE WHEN step1.load_date> step2.load_date THEN step1.value ELSE step2.value END as value
-    FROM step1 INNER JOIN step2 on gpid
+SELECT user_name
+    , load_date
+    , upload_type
+    , scenario_name
+    , geography_grain
+    , geography
+    , platform_subset
+    , customer_engagement
+    , base_product_number
+    , measure
+    , min_sys_date
+    , month_num
+    , value
+    FROM step6
 """
 
 override_table_a=spark.sql(override_table_a)
