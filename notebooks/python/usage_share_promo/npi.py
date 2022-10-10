@@ -285,9 +285,27 @@ npi_helper_2.createOrReplaceTempView("npi_helper_2")
 
 #combine data from market10 and region5---currently preferring market10 to region5-need to update shiny tool to go to market 10, or write for load date
 npi_helper_3 = """
-with step1 as (
-SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
-step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1)
+--get market10 data
+with step1 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
+--get region_5 data
+step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1),
+--get where have both market10 and region_5
+step4 as (SELECT * from step1 FULL JOIN step2 on gpid),
+step5 as (SELECT 
+    country_alpha2
+    , platform_subset
+    , customer_engagement
+    , measure
+    , max(load_date) as max_date
+    FROM step4
+    group by 
+    country_alpha2
+    , platform_subset
+    , customer_engagement
+    , measure),
+step6 as (SELECT step4.* from step4 left join step5 using (country_alpha2, platform_subset, customer_engagement, measure) 
+	where step4.load_date=step5.max_date and step4.value is not null)
+--join tables 
 SELECT record
         ,min_sys_dt
         ,ib_strt_dt
@@ -328,24 +346,24 @@ SELECT record
 FROM step2
 WHERE gpid not in (select distinct gpid from step1)
 UNION ALL
-SELECT step1.record
-        ,CASE WHEN step1.load date > step2.load date THEN step1.min_sys_dt ELSE step2.min_sys_dt END as min_sys_dt
-        ,CASE WHEN step1.load date > step2.load date THEN step1.ib_strt_dt ELSE step2.ib_strt_dt END as ib_strt_dt
-        ,CASE WHEN step1.load date > step2.load date THEN step1.month_num ELSE step2.month_num END as month_num
-        ,CASE WHEN step1.load date > step2.load date THEN step1.geography_grain ELSE step2.geography_grain END as geography_grain
-        ,CASE WHEN step1.load date > step2.load date THEN step1.country_alpha2 ELSE step2.country_alpha2 END as country_alpha2
-        ,CASE WHEN step1.load date > step2.load date THEN step1.platform_subset ELSE step2.platform_subset END as platform_subset
-        ,CASE WHEN step1.load date > step2.load date THEN step1.customer_engagement ELSE step2.customer_engagement END as customer_engagement
-        ,CASE WHEN step1.load date > step2.load date THEN step1.forecast_process_note ELSE step2.forecast_process_note END as forecast_process_note
-        ,CASE WHEN step1.load date > step2.load date THEN step1.post_processing_note ELSE step2.post_processing_note END as post_processing_note
-        ,CASE WHEN step1.load date > step2.load date THEN step1.data_source ELSE step2.data_source END as data_source
-        ,CASE WHEN step1.load date > step2.load date THEN step1.version ELSE step2.version END as version
-        ,CASE WHEN step1.load date > step2.load date THEN step1.measure ELSE step2.measure END as measure
-        ,CASE WHEN step1.load date > step2.load date THEN step1.units ELSE step2.units END as units
-        ,CASE WHEN step1.load date > step2.load date THEN step1.proxy_used ELSE step2.proxy_used END as proxy_used
-        ,CASE WHEN step1.load date > step2.load date THEN step1.ib_version ELSE step2.ib_version END as ib_version
-        ,CASE WHEN step1.load date > step2.load date THEN step1.load_date ELSE step2.load_date END as load_date
-FROM step1 INNER JOIN step2 on step1.gpid=step2.gpid
+SELECT record
+        ,min_sys_dt
+        ,ib_strt_dt
+        ,month_num
+        ,geography_grain
+        ,country_alpha2
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+FROM step6
 """
 
 npi_helper_3=spark.sql(npi_helper_3)
