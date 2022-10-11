@@ -45,7 +45,18 @@ ci_flash_for_insights_supplies = read_redshift_to_df(configs) \
 
 rev_flash_for_insights_supplies = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.rev_flash_for_insights_supplies") \
-    .load()
+    .load()\
+    .select(
+        col('fiscal_year_qtr'), 
+        col('pl'), 
+        col('ink_toner'), 
+        col('market'), 
+        col('business_description'), 
+        col('net_revenues_k'), 
+        col('hedge_k'), 
+        col('concatenate'), 
+        col('version').cast('date')
+    )
 
 #--------- fin_prod ---------
 adjusted_revenue_salesprod = read_redshift_to_df(configs) \
