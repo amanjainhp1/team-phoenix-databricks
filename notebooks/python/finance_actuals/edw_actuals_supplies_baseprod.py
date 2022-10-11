@@ -1,5 +1,5 @@
 # Databricks notebook source
-# MAGIC %run ..common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
@@ -57,7 +57,7 @@ tables = [
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['mdm.calendar', calendar],
     ['mdm.product_line_xref', product_line_xref],
-    ['prod.ib', ib],
+    #['prod.ib', ib],
     ['fin_prod.edw_actuals_supplies_salesprod', edw_actuals_supplies_salesprod],
     ['mdm.hardware_xref', hardware_xref]
 ]
@@ -87,6 +87,10 @@ for table in tables:
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+ib.createOrReplaceTempView("ib")
 
 # COMMAND ----------
 
@@ -178,12 +182,13 @@ SELECT cal_date,
     platform_subset,
     ib.country_alpha2,
     market10,
-    sum(units) as units
+    sum(units) as units,
+    ib.version
 FROM ib ib
 LEFT JOIN iso_country_code_xref iso
     ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
-AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
+--AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
 AND units <> 0
 AND units IS NOT NULL
 AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
@@ -191,7 +196,8 @@ GROUP BY
     cal_date,
     platform_subset,
     market10,
-    ib.country_alpha2    
+    ib.country_alpha2,
+    ib.version
 """
 
 installed_base_history = spark.sql(installed_base_history)
@@ -857,7 +863,7 @@ SELECT
     platform_subset,
     base_product_number,
     bp.pl,
-    L5_Description,
+    l5_description,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -874,7 +880,7 @@ SELECT
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM all_baseprod_with_platform_subsets AS bp
 JOIN product_line_xref AS plx ON bp.pl = plx.pl
-GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, l5_description
 """
 
 baseprod_financials_preplanet_table = spark.sql(baseprod_financials_preplanet_table)
@@ -1256,7 +1262,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	p.pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1274,7 +1280,7 @@ SELECT
 FROM baseprod_planet_tieout AS p
 JOIN iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
 JOIN product_line_xref AS plx ON p.pl = plx.pl
-GROUP BY cal_date, p.country_alpha2, market10, platform_subset, base_product_number, p.pl, L5_Description, customer_engagement
+GROUP BY cal_date, p.country_alpha2, market10, platform_subset, base_product_number, p.pl, l5_description, customer_engagement
 """
 
 planet_adjusts = spark.sql(planet_adjusts)
@@ -1289,7 +1295,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	CASE	
 		WHEN pl = 'GD' THEN 'I-INK'
 		ELSE 'TRAD'
@@ -1315,7 +1321,7 @@ WHERE pl IN
 		WHERE Technology IN ('INK', 'LASER', 'PWA') 
 			AND PL_category IN ('SUP')
 	)
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 """
 final_planet_adjust_to_baseprod_supplies = spark.sql(final_planet_adjust_to_baseprod_supplies)
 final_planet_adjust_to_baseprod_supplies.createOrReplaceTempView("final_planet_adjust_to_baseprod_supplies")
@@ -1329,7 +1335,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1355,7 +1361,7 @@ WHERE pl IN
     )
 and Fiscal_Yr NOT IN ('2016', '2017', '2018')
 and day_of_month = 1
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 """
 
 final_planet_adjust_to_baseprod_largeformat = spark.sql(final_planet_adjust_to_baseprod_largeformat)
@@ -1370,7 +1376,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1396,7 +1402,7 @@ and pl IN
 		AND PL_category IN ('LLC')
 	)
 and Fiscal_Yr NOT IN ('2016', '2017', '2018')
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 """
 
 final_planet_adjust_to_baseprod_llcs = spark.sql(final_planet_adjust_to_baseprod_llcs)
@@ -1414,7 +1420,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1430,7 +1436,7 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM final_planet_adjust_to_baseprod_supplies
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 		
 UNION ALL
 
@@ -1441,7 +1447,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1457,7 +1463,7 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM final_planet_adjust_to_baseprod_largeformat
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 					
 UNION ALL
 			
@@ -1468,7 +1474,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1484,7 +1490,7 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM final_planet_adjust_to_baseprod_llcs
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 """
 
 final_planet_adjust_to_baseprod = spark.sql(final_planet_adjust_to_baseprod)
@@ -1500,7 +1506,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1516,7 +1522,7 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM baseprod_financials_preplanet_table
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement
 			
 UNION ALL
 			
@@ -1527,7 +1533,7 @@ SELECT
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	SUM(gross_revenue) AS gross_revenue,
 	SUM(net_currency) AS net_currency,
@@ -1543,7 +1549,7 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM final_planet_adjust_to_baseprod
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 """
 
 baseprod_add_planet_adjusts = spark.sql(baseprod_add_planet_adjusts)
@@ -1559,7 +1565,7 @@ SELECT 'actuals - edw supplies base product financials' AS record,
 	platform_subset,
 	base_product_number,
 	pl,
-	L5_Description,
+	l5_description,
 	customer_engagement,
 	COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
 	COALESCE(SUM(net_currency), 0) AS net_currency,
@@ -1578,7 +1584,7 @@ SELECT 'actuals - edw supplies base product financials' AS record,
     '{addversion_info[1]}' AS load_date,
 	'{addversion_info[0]}' AS version
 FROM baseprod_add_planet_adjusts
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, L5_Description, customer_engagement
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement
 """
 
 baseprod_load_financials = spark.sql(baseprod_load_financials)

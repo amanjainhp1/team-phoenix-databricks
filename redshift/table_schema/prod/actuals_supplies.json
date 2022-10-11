@@ -1,14 +1,6 @@
 {
     "fields": [
         {
-            "description": "actuals_supplies_id",
-            "name": "actuals_supplies_id",
-            "type": "IDENTITY",
-            "nullable": false,
-            "encode": "raw",
-            "sort_key": true
-        },
-        {
             "description": "record",
             "name": "record",
             "type": "VARCHAR(256)",

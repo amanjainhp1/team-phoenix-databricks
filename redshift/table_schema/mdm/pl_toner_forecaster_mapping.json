@@ -1,0 +1,32 @@
+{
+    "fields": [
+        {
+            "description": "pl",
+            "name": "pl",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "forecaster",
+            "name": "forecaster",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

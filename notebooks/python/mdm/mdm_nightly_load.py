@@ -11,6 +11,15 @@ import json
 
 # COMMAND ----------
 
+# MAGIC %run ../common/splunk_logging_utils
+
+# COMMAND ----------
+
+job_data = json.loads(dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson())
+splunk_data = log_job_start(app=job_data['tags']['jobName'], run_id=job_data['tags']['runId'])
+
+# COMMAND ----------
+
 notebooks = []
 
 try:
@@ -68,6 +77,16 @@ except:
                 "destination_schema": "mdm",
                 "destination_table": "calendar"
             },
+            "cartridge_demand_volumes": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo",
+                "source_table": "cartridge_demand_volumes",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod",
+                "destination_table": "cartridge_demand_volumes"
+            },
             "ce_splits": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -80,23 +99,13 @@ except:
             },
             "country_currency_map": {
                 "source_system": "sqlserver", 
-                "source_database":"IE2_Landing",
+                "source_database":"IE2_Staging",
                 "source_schema": "dbo",
-                "source_table": "country_currency_map_landing",
+                "source_table": "country_currency_map_staging",
                 "destination_system": "redshift", 
                 "destination_database": "", 
                 "destination_schema": "mdm", 
                 "destination_table": "country_currency_map"
-            },
-            "currency_hedge": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "currency_hedge",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "currency_hedge"
             },
             "current_stf_dollarization": {
                 "source_system": "sqlserver",
@@ -117,6 +126,16 @@ except:
                 "destination_database": "",
                 "destination_schema": "prod", 
                 "destination_table": "decay"
+            },
+            "demand": {
+                "source_system": "sqlserver",
+                "source_database":"IE2_Prod", 
+                "source_schema": "dbo", 
+                "source_table": "demand",
+                "destination_system": "redshift",
+                "destination_database": "",
+                "destination_schema": "prod", 
+                "destination_table": "demand"
             },
             "forecast_contra_input": {
                 "source_system": "sqlserver",
@@ -198,6 +217,16 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "hardware_xref"
             },
+            "hw_product_family_ink_forecaster_mapping": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "hw_product_family_ink_forecaster_mapping", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "hw_product_family_ink_forecaster_mapping"
+            },
             "ibp_supplies_forecast": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -258,7 +287,7 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "list_price_eoq"
             },
-            "list_price_eu_countrylist": {
+            "list_price_eu_country_list": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
                 "source_schema": "dbo",
@@ -266,7 +295,7 @@ except:
                 "destination_system": "redshift", 
                 "destination_database": "", 
                 "destination_schema": "mdm", 
-                "destination_table": "list_price_eu_countrylist"
+                "destination_table": "list_price_eu_country_list"
             },
             "list_price_term_codes": {
                 "source_system": "sqlserver", 
@@ -298,15 +327,15 @@ except:
                 "destination_schema": "fin_prod", 
                 "destination_table": "npi_base_gru"
             },
-            "odw_sacp_actuals": {
+            "pl_toner_forecaster_mapping": {
                 "source_system": "sqlserver", 
-                "source_database":"IE2_Financials",
-                "source_schema": "ms4", 
-                "source_table": "odw_sacp_actuals", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo", 
+                "source_table": "pl_toner_forecaster_mapping", 
                 "destination_system": "redshift", 
                 "destination_database": "", 
-                "destination_schema": "fin_prod", 
-                "destination_table": "odw_sacp_actuals"
+                "destination_schema": "mdm", 
+                "destination_table": "pl_toner_forecaster_mapping"
             },
             "planet_actuals": {
                 "source_system": "sqlserver", 
@@ -540,4 +569,7 @@ for result in thread:
 # COMMAND ----------
 
 if len(failed_jobs) > 0:
+    log_job_end(splunk_data, "FAILED")
     raise Exception("Job failed. " + str(failed_jobs) + " contains a FAILED status.")
+else:
+    log_job_end(splunk_data, "SUCCESS")
