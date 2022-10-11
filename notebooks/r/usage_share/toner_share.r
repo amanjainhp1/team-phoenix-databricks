@@ -94,6 +94,7 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 # MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
 
 # COMMAND ----------
+
 datestamp <- sparkR.conf("datestamp")
 timestamp <- sparkR.conf("timestamp")
 cutoff_date <- sparkR.conf("cutoff_dt")
@@ -140,15 +141,6 @@ table_month0 <- SparkR::collect(SparkR::sql(paste0("
              bdtbl tpmib
             WHERE 1=1 
             AND printer_route_to_market_ib='AFTERMARKET'
-            AND printer_platform_name not in ('CICADA PLUS ROW',
-                                      'TSUNAMI 4:1 ROW',
-                                      'CRICKET',
-                                      'LONE PINE',
-                                      'MANTIS',
-                                      'CARACAL',
-                                      'EAGLE EYE',
-                                      'SID',
-                                      'TSUNAMI 4:1 CH/IND')
             GROUP BY tpmib.printer_group  
            , tpmib.printer_platform_name
            , tpmib.platform_std_name  
@@ -2195,6 +2187,7 @@ final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(fina
 #final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
 final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD",ifelse(final_list7$lagUsage_Source=="DASHBOARD",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
+final_list7$hd_mchange_use_j <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
 
 
 createOrReplaceTempView(final_list7, "final_list7")
@@ -2206,6 +2199,7 @@ final_list7 <- SparkR::sql("
                         ,min(hd_mchange_ps_j) as hd_mchange_ps_j
                         --,max(hd_mchange_cu_i) as hd_mchange_cu_i
                         ,max(hd_mchange_use_i) as hd_mchange_use_i
+                        ,min(hd_mchange_use_j) as hd_mchange_use_j
                         FROM final_list7
                         GROUP BY Platform_Subset_Nm,Country_Cd
                 )
@@ -2272,12 +2266,12 @@ final_list7 <- SparkR::sql("
                           and final_list7.index1 = sub0.hd_mchange_use_i 
                   )
                   , sub1used as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo,sub0.hd_mchange_use_i
-                        ,final_list7.Usage-final_list7.lagShare_Usage AS hd_mchange_used
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo,sub0.hd_mchange_use_j
+                        ,final_list7.MPV_Raw-final_list7.MPV_TD AS hd_mchange_used
                         FROM final_list7
                         INNER JOIN 
                         sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
-                          and final_list7.index1=sub0.hd_mchange_use_i-1
+                          and final_list7.index1=sub0.hd_mchange_use_j
                   )
                   , sub1used2 as( 
                     SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo, subusev4.avgUsage, sub1use.hd_mchange_use_i,final_list7.Usage
@@ -2377,7 +2371,7 @@ final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final
 ###ADJUST USAGE
 final_list7$adjust_use_i <- ifelse(isNull(final_list7$adjust_use_i),0,final_list7$adjust_use_i)
 #final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+0.95*final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), final_list7$Usage), final_list7$Usage)
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
 
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 

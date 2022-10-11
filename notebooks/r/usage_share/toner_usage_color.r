@@ -148,15 +148,6 @@ zeroi = SparkR::collect(SparkR::sql(" SELECT  tpmib.printer_platform_name as pla
                   bdtbl tpmib
                 WHERE 1=1 
                   AND printer_route_to_market_ib='AFTERMARKET'
-                  AND printer_platform_name not in ('CICADA PLUS ROW',
-                                          'TSUNAMI 4:1 ROW',
-                                          'CRICKET',
-                                          'LONE PINE',
-                                          'MANTIS',
-                                          'CARACAL',
-                                          'EAGLE EYE',
-                                          'SID',
-                                          'TSUNAMI 4:1 CH/IND')
                 GROUP BY tpmib.printer_platform_name  
                , tpmib.platform_std_name  
                , tpmib.printer_country_iso_code  
