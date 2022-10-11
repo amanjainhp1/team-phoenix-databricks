@@ -90,20 +90,20 @@ odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
 #        , col("bundled_qty").alias("Bundled Qty")
 #        , col("unbundled_qty").alias("Unbundled Qty")
 
-odw_revenue_units_sales_actuals_prelim = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals_prelim") \
-    .load()\
-    .select(col("fiscal_year_period").alias("Fiscal Year/Period")
-        , col("profit_center_hier_desc_level4").alias("Profit Center Hier Desc Level4")
-        , col("segment_hier_desc_level4").alias("Segment Hier Desc Level4")
-        , col("segment_code").alias("Segment Code")
-        , col("segment_name").alias("Segment Name")
-        , col("profit_center_code").alias("Profit Center Code")
-        , col("material_number").alias("Material Number")
-        , col("unit_quantity_sign_flip").alias("Unit Quantity (Sign-Flip)")
-        , col("load_date").alias("load_date")
-        , col("unit_reporting_code").alias("Unit Reporting Code")
-        , col("unit_reporting_description").alias("Unit Reporting Description"))
+#odw_revenue_units_sales_actuals_prelim = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals_prelim") \
+#    .load()\
+#    .select(col("fiscal_year_period").alias("Fiscal Year/Period")
+#        , col("profit_center_hier_desc_level4").alias("Profit Center Hier Desc Level4")
+#        , col("segment_hier_desc_level4").alias("Segment Hier Desc Level4")
+#        , col("segment_code").alias("Segment Code")
+#        , col("segment_name").alias("Segment Name")
+#        , col("profit_center_code").alias("Profit Center Code")
+#        , col("material_number").alias("Material Number")
+#        , col("unit_quantity_sign_flip").alias("Unit Quantity (Sign-Flip)")
+#        , col("load_date").alias("load_date")
+#        , col("unit_reporting_code").alias("Unit Reporting Code")
+#        , col("unit_reporting_description").alias("Unit Reporting Description"))
 
 odw_revenue_units_sales_actuals = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
@@ -183,7 +183,7 @@ actuals_supplies = read_redshift_to_df(configs) \
 tables = [
     ['IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing', odw_report_rac_product_financials_actuals, "overwrite"],
     ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing', odw_revenue_units_sales_actuals, "overwrite"],
-    ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_prelim_landing', odw_revenue_units_sales_actuals_prelim, "overwrite"],
+   # ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_prelim_landing', odw_revenue_units_sales_actuals_prelim, "overwrite"],
    # ['IE2_Landing.ms4.odw_report_ships_deliveries_actuals_landing', odw_report_ships_deliveries_actuals, "overwrite"],
     ['IE2_Financials.ms4.odw_sacp_actuals', odw_sacp_actuals, "overwrite"],
     ['IE2_Financials.dbo.actuals_supplies_baseprod', actuals_supplies_baseprod, "overwrite"],

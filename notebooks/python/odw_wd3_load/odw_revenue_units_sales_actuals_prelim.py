@@ -98,4 +98,30 @@ revenue_unit_prelim_df.count()
 
 # COMMAND ----------
 
+# copy back data to SFAI
+odw_revenue_units_sales_actuals_prelim = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals_prelim") \
+    .load()\
+    .select(col("fiscal_year_period").alias("Fiscal Year/Period")
+        , col("profit_center_hier_desc_level4").alias("Profit Center Hier Desc Level4")
+        , col("segment_hier_desc_level4").alias("Segment Hier Desc Level4")
+        , col("segment_code").alias("Segment Code")
+        , col("segment_name").alias("Segment Name")
+        , col("profit_center_code").alias("Profit Center Code")
+        , col("material_number").alias("Material Number")
+        , col("unit_quantity_sign_flip").alias("Unit Quantity (Sign-Flip)")
+        , col("load_date").alias("load_date")
+        , col("unit_reporting_code").alias("Unit Reporting Code")
+        , col("unit_reporting_description").alias("Unit Reporting Description"))
 
+# COMMAND ----------
+
+tables = [
+    ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_prelim_landing', odw_revenue_units_sales_actuals_prelim, "overwrite"]
+]
+
+# COMMAND ----------
+
+# write to SFAI
+for t_name, df, mode in tables:
+    write_df_to_sqlserver(configs, df, t_name, mode)
