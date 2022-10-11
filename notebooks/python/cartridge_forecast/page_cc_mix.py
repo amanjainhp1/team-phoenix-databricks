@@ -233,9 +233,9 @@ SELECT dmd.cal_date
       , dmd.platform_subset
       , dmd.customer_engagement
       , dmd.measure
-      , SUM(dmd.units) units 
+      , SUM(dmd.units) units
  FROM prod.usage_share AS dmd
- WHERE measure IN ('IB', 'HP_K_PAGES', 'NON_HP_K_PAGES', 'HP_C_PAGES', 'NON_HP_C_PAGES', 'TOTAL_C_PAGES', 'TOTAL_K_PAGES')
+ WHERE measure IN ('IB', 'HP_K_PAGES', 'NON_HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'TOTAL_COLOR_PAGES', 'TOTAL_K_PAGES')
  GROUP BY dmd.cal_date
       , dmd.geography
       , dmd.platform_subset
@@ -262,9 +262,9 @@ WITH pcm_02_hp_demand AS
                     WHEN UPPER(d.measure) = 'HP_K_PAGES'
                         THEN units END)                                       AS black_demand
           , MAX(CASE
-                    WHEN UPPER(d.measure) = 'HP_C_PAGES'
+                    WHEN UPPER(d.measure) = 'HP_COLOR_PAGES'
                         THEN units END)                                       AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END *
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)                                                            AS cmy_demand
      FROM stage.demand AS d
               JOIN mdm.hardware_xref AS hw
@@ -828,8 +828,8 @@ WITH pcm_02_hp_demand AS
           , d.platform_subset
           , d.customer_engagement
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END)     AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END)     AS color_demand
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END * 3) AS cmy_demand
      FROM stage.demand AS d
      JOIN mdm.hardware_xref AS hw
         ON hw.platform_subset = d.platform_subset
@@ -1937,4 +1937,103 @@ query_list.append(["stage.page_cc_mix", page_cc_mix, "overwrite"])
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Apply EOL Update
+
+# COMMAND ----------
+
+submit_remote_query(configs, """with reg5_m10 as
+(
+select distinct region_5,market10
+from mdm.iso_country_code_xref
+where region_5 is not null and region_5 not in ('XU','XW')
+),
+
+reg_8_m10 as 
+(
+select distinct cc.country_alpha2,cc.country_level_1,c.market10
+from mdm.iso_cc_rollup_xref cc
+left join mdm.iso_country_code_xref c on c.country_alpha2 = cc.country_alpha2
+where cc.country_scenario = 'HOST_REGION_8'
+),
+
+swm_m10 as 
+(
+select swm.geography
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+  from mdm.supplies_hw_mapping swm
+  where geography_grain = 'MARKET10' and swm.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
+
+  union 
+
+  select distinct r5.market10
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+  from mdm.supplies_hw_mapping swm
+  left join reg5_m10 r5 on r5.region_5 = swm.geography
+  where geography_grain = 'REGION_5' and geography != 'JP' and swm.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
+  group by r5.market10
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+
+	union
+
+  select distinct r5.market10
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+  from mdm.supplies_hw_mapping swm
+  left join reg5_m10 r5 on r5.region_5 = swm.geography
+  where geography_grain = 'REGION_5' and geography = 'JP'
+  and not exists (select 1 from mdm.supplies_hw_mapping s where s.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
+  and s.base_product_number = swm.base_product_number and s.customer_engagement = swm.customer_engagement and s.platform_subset = swm.platform_subset
+  and s.geography IN ('AP - EM','AP - DM', 'AP'))
+ group by r5.market10
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+
+	union 
+	
+  select distinct r8.market10
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+  from mdm.supplies_hw_mapping swm
+  left join reg_8_m10 r8 on r8.country_level_1 = swm.geography
+  where geography_grain = 'REGION_8' and swm.eol_date is not null and swm.eol_date != '2100-01-01'
+ group by r8.market10
+      ,swm.base_product_number
+      ,swm.customer_engagement
+      ,swm.platform_subset
+      ,swm.eol
+      ,swm.eol_date
+)
+
+update stage.page_cc_mix 
+set mix_rate = null 
+from stage.page_cc_mix pg
+inner join swm_m10 swm on swm.geography = pg.geography and swm.base_product_number = pg.base_product_number and pg.platform_subset = swm.platform_subset 
+						  and pg.customer_engagement = swm.customer_engagement 
+where pg.cal_date >= swm.eol_date 
+""")

@@ -1,9 +1,4 @@
 # Databricks notebook source
-dbutils.widgets.text("load_to_redshift", "")
-dbutils.widgets.text("refresh_db_data", "")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -18,8 +13,9 @@ odw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .load()
 odw_revenue_units_sales_landing_media = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM fin_prod.odw_revenue_units_sales_actuals") \
-    .load().filter("`profit center code` IN ('PAU00', 'PUR00')") \
-    .withColumnRenamed('unit quantity (sign-flip)', 'unit_quantity')
+    .load() \
+    .filter("profit_center_code IN ('PAU00', 'PUR00')") \
+    .withColumnRenamed('unit_quantity_sign_flip', 'unit_quantity')
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_country_code_xref") \
     .load()
@@ -1003,7 +999,7 @@ SELECT
     market10,
     base_product_number,
     bp.pl,
-    L5_Description,
+    l5_description,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -1020,7 +1016,7 @@ SELECT
     SUM(other_cos) AS other_cos
 FROM baseprod_actuals_with_yields AS bp
 JOIN product_line_xref AS plx ON bp.pl = plx.pl
-GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagement, market10, L5_Description
+GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagement, market10, l5_description
 """
                 
 baseprod_actuals_yields = spark.sql(baseprod_actuals_yields)

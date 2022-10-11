@@ -3,7 +3,7 @@
         {
             "description": "record",
             "name": "record",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
@@ -17,35 +17,35 @@
         {
             "description": "geography_grain",
             "name": "geography_grain",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
         {
             "description": "geography",
             "name": "geography",
-            "type": "VARCHAR(50)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
         {
             "description": "platform_subset",
             "name": "platform_subset",
-            "type": "VARCHAR(150)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
         {
             "description": "customer_engagement",
             "name": "customer_engagement",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
         {
             "description": "measure",
             "name": "measure",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
@@ -59,21 +59,21 @@
         {
             "description": "ib_version",
             "name": "ib_version",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "source",
             "name": "source",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": false,
             "encode": "lzo"
         },
         {
             "description": "version",
             "name": "version",
-            "type": "VARCHAR(20)",
+            "type": "VARCHAR(256)",
             "nullable": true,
             "encode": "lzo"
         },

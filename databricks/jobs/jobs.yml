@@ -2,11 +2,15 @@
 Jobs:
   - actuals-hw
   - base-usage-share
+  - base-forecast
   - ce-split
   - create-demand-file
+  - edw-all-history-actuals-update
   - example-job
   - example-multitask-job
+  - finance-etl-wd8-load
   - flash-load
+  - gpsy-list-price
   - hardware-ltf
   - hardware-stf
   - ib-ns-set-official
@@ -18,7 +22,10 @@ Jobs:
   - mdm-nightly-load
   - odw-all-history-actuals-update
   - odw-monthly-actuals-update
+  - odw-wd3-load
+  - odw-wd5-load
   - odw-wd8-load
+  - ozzy-mps
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
@@ -31,6 +38,7 @@ DeleteJobs:
   - ink-usage-total
   - installed-base-promo
   - installed-base-scenario
+  - mps-ww-shipped-supplies
   - norm-ships
   - odw-document-currency
   - odw-revenue-unit

@@ -264,7 +264,7 @@ ink_record_name = read_redshift_to_df(configs) \
     .rdd.flatMap(lambda x: x).collect()[0]
 
 toner_record_name = read_redshift_to_df(configs) \
-    .option('query', f"SELECT record FROM prod.version WHERE record LIKE ('TONER_PROXY_LOCKED') AND version = '{toner_locked_version}'") \
+    .option('query', f"SELECT record FROM prod.version WHERE record LIKE ('TONER_LOCKED_VERSION') AND version = '{toner_locked_version}'") \
     .load() \
     .rdd.flatMap(lambda x: x).collect()[0]
 

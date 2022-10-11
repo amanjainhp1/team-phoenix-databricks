@@ -1344,4 +1344,4 @@ query_list.append(["stage.vtc", vtc, "overwrite"])
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list
