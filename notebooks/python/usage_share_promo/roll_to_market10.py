@@ -35,21 +35,8 @@ country_info.createOrReplaceTempView("country_info")
 
 # COMMAND ----------
 
-# Get ib
-ib = read_redshift_to_df(configs) \
-  .option("query",f"""
-    SELECT country_alpha2, platform_subset, customer_engagement, cal_date, units
-    FROM "prod"."ib"
-    WHERE 1=1
-       AND version = '{ib_version}'
-    """) \
-  .load()
-ib.createOrReplaceTempView("ib")
-
-# COMMAND ----------
-
 # Read in U/S data
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/usage_share_country*")
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{datestamp}/*")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
@@ -70,15 +57,23 @@ with step1 as (
 		ELSE 0 END) AS data_source_u_o
     , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MODELED' THEN 1
 		ELSE 0 END) AS data_source_u_m
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='WORKING-FORECAST OVERRIDE' THEN 1
+		ELSE 0 END) AS data_source_u_w
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='EPA-DRIVERS OVERRIDE' THEN 1
+		ELSE 0 END) AS data_source_u_e	
     --color usage
 	, SUM(CASE WHEN us.measure='COLOR_USAGE'AND us.data_source='TELEMETRY' THEN 1
 		ELSE 0 END) AS data_source_c
     , SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='NPI' THEN 1
 		ELSE 0 END) AS data_source_c_n
-	, SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='MATURE' THEN 1
+    , SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='MATURE' THEN 1
 		ELSE 0 END) AS data_source_c_o
-	, SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='MODELED' THEN 1
+    , SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='MODELED' THEN 1
 		ELSE 0 END) AS data_source_c_m
+    , SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='WORKING-FORECAST OVERRIDE' THEN 1
+		ELSE 0 END) AS data_source_c_w
+    , SUM(CASE WHEN us.measure='COLOR_USAGE' AND us.data_source='EPA-DRIVERS OVERRIDE' THEN 1
+		ELSE 0 END) AS data_source_c_e	
     --black usage
 	, SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='TELEMETRY' THEN 1
 		ELSE 0 END) AS data_source_k
@@ -88,6 +83,10 @@ with step1 as (
 		ELSE 0 END) AS data_source_k_o
     , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='MODELED' THEN 1
 		ELSE 0 END) AS data_source_k_m
+    , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='WORKING-FORECAST OVERRIDE' THEN 1
+		ELSE 0 END) AS data_source_k_w
+    , SUM(CASE WHEN us.measure='K_USAGE' AND us.data_source='EPA-DRIVERS OVERRIDE' THEN 1
+		ELSE 0 END) AS data_source_k_e		
     --share     
 	, SUM(CASE WHEN us.measure='USAGE' AND us.data_source='TELEMETRY' AND us.customer_engagement='I-INK' THEN 1
         WHEN us.measure='HP_SHARE' AND us.data_source='TELEMETRY' AND us.customer_engagement !='I-INK' THEN 1
@@ -101,11 +100,29 @@ with step1 as (
     , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='MODELED' AND us.customer_engagement='I-INK' THEN 1
         WHEN us.measure='HP_SHARE' AND us.data_source='MODELED' AND us.customer_engagement !='I-INK' THEN 1
 		ELSE 0 END) AS data_source_s_m
-	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='WORKING-FORECAST OVERRIDE' AND us.customer_engagement='I-INK' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='WORKING-FORECAST OVERRIDE' AND us.customer_engagement !='I-INK' THEN 1
+		ELSE 0 END) AS data_source_s_w
+    , SUM(CASE WHEN us.measure='USAGE' AND us.data_source='EPA-DRIVERS OVERRIDE' AND us.customer_engagement='I-INK' THEN 1
+        WHEN us.measure='HP_SHARE' AND us.data_source='EPA-DRIVERS OVERRIDE' AND us.customer_engagement !='I-INK' THEN 1
+		ELSE 0 END) AS data_source_s_e
+		
+    , SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
     , SUM(CASE WHEN us.measure='USAGE' AND us.customer_engagement='I-INK' THEN 1 
                WHEN us.measure='HP_SHARE' AND us.customer_engagement !='I-INK' THEN us.units ELSE 0 END) AS page_share
     , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
-	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
+    , SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
+    , SUM(CASE WHEN us.measure='TOTAL_PAGES' THEN us.units ELSE 0 END) as total_pages
+    , SUM(CASE WHEN us.measure='TOTAL_COLOR_PAGES' THEN us.units ELSE 0 END) as total_color_pages
+    , SUM(CASE WHEN us.measure='TOTAL_K_PAGES' THEN us.units ELSE 0 END) as total_k_pages
+    , SUM(CASE WHEN us.measure='HP_PAGES' THEN us.units ELSE 0 END) as hp_pages
+    , SUM(CASE WHEN us.measure='NON_HP_PAGES' THEN us.units ELSE 0 END) as non_hp_pages
+    , SUM(CASE WHEN us.measure='NON_HP_K_PAGES' THEN us.units ELSE 0 END) as non_hp_k_pages
+    , SUM(CASE WHEN us.measure='NON_HP_COLOR_PAGES' THEN us.units ELSE 0 END) as non_hp_color_pages
+    , SUM(CASE WHEN us.measure='HP_K_PAGES' THEN us.units ELSE 0 END) as hp_k_pages
+    , SUM(CASE WHEN us.measure='HP_COLOR_PAGES' THEN us.units ELSE 0 END) as hp_color_pages
+    , SUM(CASE WHEN us.measure='IB' THEN us.units ELSE 0 END) as ib
+    
 FROM us_table us 
 GROUP BY us.cal_date
 	, us.geography
@@ -121,6 +138,8 @@ GROUP BY us.cal_date
       ,SUM(u.data_source_c) as data_source_c
       ,SUM(u.data_source_k) as data_source_k
       ,SUM(u.data_source_s) as data_source_s
+      ,SUM(u.data_source_w) as data_source_w
+      ,SUM(u.data_source_e) as data_source_e
       ,SUM(u.data_source_u_n) as data_source_u_n
       ,SUM(u.data_source_c_n) as data_source_c_n
       ,SUM(u.data_source_k_n) as data_source_k_n
@@ -133,19 +152,30 @@ GROUP BY us.cal_date
       ,SUM(u.data_source_c_m) as data_source_c_m
       ,SUM(u.data_source_k_m) as data_source_k_m
       ,SUM(u.data_source_s_m) as data_source_s_m
+      ,SUM(u.data_source_u_w) as data_source_u_w
+      ,SUM(u.data_source_c_w) as data_source_c_w
+      ,SUM(u.data_source_k_w) as data_source_k_w
+      ,SUM(u.data_source_s_w) as data_source_s_w
+      ,SUM(u.data_source_u_e) as data_source_u_e
+      ,SUM(u.data_source_c_e) as data_source_c_e
+      ,SUM(u.data_source_k_e) as data_source_k_e
+      ,SUM(u.data_source_s_e) as data_source_s_e
       ,SUM(u.usage) AS usage
       ,SUM(u.page_share) AS page_share
       ,SUM(u.usage_c) AS usage_c
-	  ,SUM(u.usage_k) AS usage_k
-      ,SUM(i.units) as ib
+      ,SUM(u.usage_k) AS usage_k
+      ,SUM(u.total_pages) AS total_pages
+      ,SUM(u.total_color_pages) AS total_color_pages
+      ,SUM(u.total_k_pages) AS total_k_pages
+      ,SUM(u.hp_pages) AS hp_pages
+      ,SUM(u.non_hp_pages) AS non_hp_pages
+      ,SUM(u.non_hp_color_pages) AS non_hp_color_pages
+      ,SUM(u.non_hp_k_pages) AS non_hp_k_pages
+      ,SUM(u.hp_k_pages) AS hp_k_pages
+      ,SUM(u.hp_color_pages) AS hp_color_pages
+      ,SUM(u.units) as ib
       ,c.market10
 FROM step1 u
-LEFT JOIN ib i
-    ON 1=1
-    AND u.platform_subset=i.platform_subset
-    AND u.customer_engagement=i.customer_engagement
-    AND u.geography=i.country_alpha2
-    AND u.cal_date=i.cal_date
  LEFT JOIN country_info c
     ON u.geography=c.country_alpha2
 GROUP BY 
@@ -163,6 +193,8 @@ GROUP BY
       ,SUM(u.data_source_c*coalesce(ib,0)) as data_source_c
       ,SUM(u.data_source_k*coalesce(ib,0)) as data_source_k
       ,SUM(u.data_source_s*coalesce(ib,0)) as data_source_s
+      ,SUM(u.data_source_w*coalesce(ib,0)) as data_source_w
+      ,SUM(u.data_source_e*coalesce(ib,0)) as data_source_e
       ,SUM(u.data_source_u_n*coalesce(ib,0)) as data_source_u_n
       ,SUM(u.data_source_c_n*coalesce(ib,0)) as data_source_c_n
       ,SUM(u.data_source_k_n*coalesce(ib,0)) as data_source_k_n
@@ -175,10 +207,24 @@ GROUP BY
       ,SUM(u.data_source_c_m*coalesce(ib,0)) as data_source_c_m
       ,SUM(u.data_source_k_m*coalesce(ib,0)) as data_source_k_m
       ,SUM(u.data_source_s_m*coalesce(ib,0)) as data_source_s_m
-      ,SUM(u.usage*coalesce(ib,0)) AS pages
-      ,SUM(u.page_share*usage*coalesce(ib,0)) AS hp_pages
-      ,SUM(u.usage_c*coalesce(ib,0)) AS color_pages
-	  ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
+      ,SUM(u.data_source_u_w*coalesce(ib,0)) as data_source_u_w
+      ,SUM(u.data_source_c_w*coalesce(ib,0)) as data_source_c_w
+      ,SUM(u.data_source_k_w*coalesce(ib,0)) as data_source_k_w
+      ,SUM(u.data_source_s_w*coalesce(ib,0)) as data_source_s_w
+      ,SUM(u.data_source_u_e*coalesce(ib,0)) as data_source_u_e
+      ,SUM(u.data_source_c_e*coalesce(ib,0)) as data_source_c_e
+      ,SUM(u.data_source_k_e*coalesce(ib,0)) as data_source_k_e
+      ,SUM(u.data_source_s_e*coalesce(ib,0)) as data_source_s_e
+      ,SUM(u.total_pages) AS pages
+      ,SUM(u.hp_pages) AS hp_pages
+      ,SUM(u.total_color_pages) AS color_pages
+      ,SUM(u.total_k_pages) AS black_pages
+      ,SUM(u.hp_pages) AS hp_pages
+      ,SUM(u.non_hp_pages) AS non_hp_pages
+      ,SUM(u.non_hp_color_pages) AS non_hp_color_pages
+      ,SUM(u.non_hp_k_pages) AS non_hp_k_pages
+      ,SUM(u.hp_k_pages) AS hp_k_pages
+      ,SUM(u.hp_color_pages) AS hp_color_pages
       ,SUM(coalesce(ib,0)) as ib
       ,u.market10
     FROM step2 u
@@ -196,6 +242,8 @@ GROUP BY
       ,SUM(u.data_source_c) as data_source_c
       ,SUM(u.data_source_k) as data_source_k
       ,SUM(u.data_source_s) as data_source_s
+      ,SUM(u.data_source_w) as data_source_w
+      ,SUM(u.data_source_e) as data_source_e
       ,SUM(u.data_source_u_n) as data_source_u_n
       ,SUM(u.data_source_c_n) as data_source_c_n
       ,SUM(u.data_source_k_n) as data_source_k_n
@@ -208,10 +256,24 @@ GROUP BY
       ,SUM(u.data_source_c_m) as data_source_c_m
       ,SUM(u.data_source_k_m) as data_source_k_m
       ,SUM(u.data_source_s_m) as data_source_s_m
+      ,SUM(u.data_source_u_w) as data_source_u_w
+      ,SUM(u.data_source_c_w) as data_source_c_w
+      ,SUM(u.data_source_k_w) as data_source_k_w
+      ,SUM(u.data_source_s_w) as data_source_s_w
+      ,SUM(u.data_source_u_e) as data_source_u_e
+      ,SUM(u.data_source_c_e) as data_source_c_e
+      ,SUM(u.data_source_k_e) as data_source_k_e
+      ,SUM(u.data_source_s_e) as data_source_s_e
       ,SUM(u.pages) AS pages
       ,SUM(u.hp_pages) AS hp_pages
       ,SUM(u.color_pages) AS color_pages
-	  ,SUM(u.black_pages) AS black_pages
+      ,SUM(u.black_pages) AS black_pages
+      ,SUM(u.hp_pages) AS hp_pages
+      ,SUM(u.non_hp_pages) AS non_hp_pages
+      ,SUM(u.non_hp_color_pages) AS non_hp_color_pages
+      ,SUM(u.non_hp_k_pages) AS non_hp_k_pages
+      ,SUM(u.hp_k_pages) AS hp_k_pages
+      ,SUM(u.hp_color_pages) AS hp_color_pages
       ,SUM(u.ib) as ib
       ,u.market10
     FROM step3 u
@@ -228,6 +290,8 @@ GROUP BY
 	, h4.data_source_s/nullif(ib,0) as data_source_s
 	, h4.data_source_c/nullif(ib,0) as data_source_c
 	, h4.data_source_k/nullif(ib,0) as data_source_k
+	, h4.data_source_w/nullif(ib,0) as data_source_w
+	, h4.data_source_e/nullif(ib,0) as data_source_e
     , h4.data_source_u_n/nullif(ib,0) as data_source_u_n
 	, h4.data_source_s_n/nullif(ib,0) as data_source_s_n
 	, h4.data_source_c_n/nullif(ib,0) as data_source_c_n
@@ -240,12 +304,30 @@ GROUP BY
 	, h4.data_source_s_m/nullif(ib,0) as data_source_s_m
 	, h4.data_source_c_m/nullif(ib,0) as data_source_c_m
 	, h4.data_source_k_m/nullif(ib,0) as data_source_k_m
+    , h4.data_source_u_w/nullif(ib,0) as data_source_u_w
+	, h4.data_source_s_w/nullif(ib,0) as data_source_s_w
+	, h4.data_source_c_w/nullif(ib,0) as data_source_c_w
+	, h4.data_source_k_w/nullif(ib,0) as data_source_k_w
+    , h4.data_source_u_e/nullif(ib,0) as data_source_u_e
+	, h4.data_source_s_e/nullif(ib,0) as data_source_s_e
+	, h4.data_source_c_e/nullif(ib,0) as data_source_c_e
+	, h4.data_source_k_e/nullif(ib,0) as data_source_k_e
 	, h4.platform_subset
 	, h4.customer_engagement
 	, h4.pages/nullif(ib,0) AS usage
 	, h4.hp_pages/nullif(pages,0) AS page_share
 	, h4.color_pages/nullif(ib,0) AS usage_c
 	, h4.black_pages/nullif(ib,0) AS usage_k
+	, h4.pages total_pages
+      	, h4.hp_pages AS hp_pages
+      	, h4.color_pages AS total_color_pages
+        , h4.black_pages AS total_k_pages
+      	, h4.hp_pages AS hp_pages
+      	, h4.non_hp_pages AS non_hp_pages
+      	, h4.non_hp_color_pages AS non_hp_color_pages
+      	, h4.non_hp_k_pages AS non_hp_k_pages
+      	, h4.hp_k_pages AS hp_k_pages
+      	, h4.hp_color_pages AS hp_color_pages
 FROM step4 h4
 
 ), step6 as (
@@ -255,8 +337,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD") as source
-    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m,1) as test_src
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_u_w*100,0),"% WF",round(data_source_u_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
 FROM step5
 WHERE usage IS NOT NULL
     AND usage > 0
@@ -267,8 +349,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% MA, ",round(data_source_s_m*100,0),"% MD") as source
-    , round(data_source_s+data_source_s_n+data_source_s_o+data_source_s_m,1) as test_src
+	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% MA, ",round(data_source_s_m*100,0),"% MD",round(data_source_s_w*100,0),"% WF",round(data_source_s_e*100,0),"% EP") as source
+    , round(data_source_s+data_source_s_n+data_source_s_o+data_source_s_m+data_source_s_w+data_source_s_e,1) as test_src
 FROM step5
 WHERE page_share IS NOT NULL
     AND page_share > 0
@@ -279,8 +361,8 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% MA, ",round(data_source_c_m*100,0),"% MD") as source
-    , round(data_source_c+data_source_c_n+data_source_c_o+data_source_c_m,1) as test_src
+	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% MA, ",round(data_source_c_m*100,0),"% MD",round(data_source_c_w*100,0),"% WF",round(data_source_c_e*100,0),"% EP") as source
+    , round(data_source_c+data_source_c_n+data_source_c_o+data_source_c_m+data_source_c_w+data_source_c_e,1) as test_src
 FROM step5
 WHERE usage_c IS NOT NULL
     AND usage_c > 0
@@ -291,11 +373,119 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% MA, ",round(data_source_k_m*100,0),"% MD") as source
-    , round(data_source_k+data_source_k_n+data_source_k_o+data_source_k_m,1) as test_src
+	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% MA, ",round(data_source_k_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_k+data_source_k_n+data_source_k_o+data_source_k_m+data_source_k_w+data_source_k_e,1) as test_src
 FROM step5
 WHERE usage_k IS NOT NULL
     AND usage_k > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'TOTAL_PAGES' as measure
+	, total_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE total_pages IS NOT NULL
+    AND total_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'TOTAL_COLOR_PAGES' as measure
+	, total_color_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE total_color_pages IS NOT NULL
+    AND total_color_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'TOTAL_K_PAGES' as measure
+	, total_k_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE total_k_pages IS NOT NULL
+    AND total_k_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'HP_PAGES' as measure
+	, hp_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE hp_pages IS NOT NULL
+    AND hp_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'NON_HP_PAGES' as measure
+	, non_hp_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE non_hp_pages IS NOT NULL
+    AND non_hp_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'NON_HP_K_PAGES' as measure
+	, non_hp_k_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE non_hp_k_pages IS NOT NULL
+    AND non_hp_k_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'NON_HP_COLOR_PAGES' as measure
+	, non_hp_color_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE non_hp_color_pages IS NOT NULL
+    AND non_hp_color_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'HP_K_PAGES' as measure
+	, hp_k_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE hp_k_pages IS NOT NULL
+    AND hp_k_pages > 0
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'HP_COLOR_PAGES' as measure
+	, hp_color_pages as units
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+    , round(data_source_u+data_source_u_n+data_source_u_o+data_source_u_m+data_source_u_w+data_source_u_e,1) as test_src
+FROM step5
+WHERE hp_color_pages IS NOT NULL
+    AND hp_color_pages > 0
 
 )
 , final_step as (SELECT "USAGE_SHARE" as record
@@ -320,7 +510,7 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/us_market10"
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/usage_share/{datestamp}"
 print("output file name: " + s3_destination)
 
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
