@@ -468,7 +468,7 @@ odw_report_ships_deliveries_actuals = read_redshift_to_df(configs) \
         , col("load_date").alias("load_date")
         , col("delivery_item").alias("Delivery Item")
         , col("bundled_qty").alias("Bundled Qty")
-        , col("unbundled_qty").alias("Unbundled Qty")
+        , col("unbundled_qty").alias("Unbundled Qty"))
 
 # COMMAND ----------
 
