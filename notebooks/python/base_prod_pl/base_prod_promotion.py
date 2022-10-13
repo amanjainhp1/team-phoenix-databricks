@@ -25,8 +25,8 @@ SELECT 'FORECAST_SUPPLIES_BASEPROD' AS record
       ,baseprod_gru
       ,baseprod_contra_per_unit
       ,baseprod_revenue_currency_hedge_unit
-      ,baseprod_variablecost_per_unit
-      ,baseprod_fixedcost_per_unit
+      ,baseprod_variable_cost_per_unit
+      ,baseprod_fixed_cost_per_unit
       ,(SELECT load_date from prod.version WHERE record = 'FORECAST_SUPPLIES_BASEPROD' 
 				AND load_date = (SELECT MAX(load_date) FROM "prod"."version" WHERE record = 'FORECAST_SUPPLIES_BASEPROD')) AS load_date,
 	   (SELECT version from prod.version WHERE record = 'FORECAST_SUPPLIES_BASEPROD' 
