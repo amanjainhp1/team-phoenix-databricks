@@ -456,7 +456,7 @@ odw_report_ships_deliveries_actuals = read_redshift_to_df(configs) \
     .select(col("fiscal_year_period").alias("Fiscal Year Month")
         , col("calendar_year_month").alias("Calendar Year Month")
         , col("unit_reporting_code").alias("Unit Reporting Code")
-        , col("unit_reporting_description").alias("Unit Reporting Description"))
+        , col("unit_reporting_description").alias("Unit Reporting Description")
         , col("parent_explosion").alias("Parent Explosion")
         , col("material_nr").alias("Material Nr")
         , col("material_desc").alias("Material Desc")
