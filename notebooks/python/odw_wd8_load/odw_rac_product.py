@@ -118,6 +118,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Discretionary Discounts USD","discretionary_discounts_usd") \
                         .withColumnRenamed("Net Currency USD","net_currency_usd") \
                         .withColumnRenamed("Net Revenues USD","net_revenues_usd") \
+                        .withColumnRenamed("WARR","warr") \
                         .withColumnRenamed("TOTAL COST OF SALES USD","total_cost_of_sales_usd") \
                         .withColumnRenamed("GROSS MARGIN USD","gross_margin_usd") 
     
