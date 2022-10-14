@@ -429,5 +429,3 @@ print("output file name: " + s3_destination)
 
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
 
-if dbutils.widgets.get("writeout").upper() == "TRUE":
-    write_df_to_redshift(configs=configs, df=convert, destination="prod.usage_share", mode="overwrite")
