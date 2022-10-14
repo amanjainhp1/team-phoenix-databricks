@@ -173,7 +173,7 @@ GROUP BY us.cal_date
       ,SUM(u.non_hp_k_pages) AS non_hp_k_pages
       ,SUM(u.hp_k_pages) AS hp_k_pages
       ,SUM(u.hp_color_pages) AS hp_color_pages
-      ,SUM(u.units) as ib
+      ,SUM(u.ib) as ib
       ,c.market10
 FROM step1 u
  LEFT JOIN country_info c
@@ -486,7 +486,16 @@ SELECT cal_date
 FROM step5
 WHERE hp_color_pages IS NOT NULL
     AND hp_color_pages > 0
-
+UNION ALL
+SELECT cal_date
+	, market10
+	, platform_subset
+	, customer_engagement
+	, 'IB' as measure
+	, ib as units
+	, 'IB' as test_src
+FROM step5
+WHERE ib IS NOT NULL
 )
 , final_step as (SELECT "USAGE_SHARE" as record
       ,cal_date
@@ -514,3 +523,7 @@ s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/usage_share/{dat
 print("output file name: " + s3_destination)
 
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
+
+
+if dbutils.widgets.get("writeout").upper() == "TRUE":
+    write_df_to_redshift(configs=configs, df=convert, destination="prod.usage_share", mode="overwrite")
