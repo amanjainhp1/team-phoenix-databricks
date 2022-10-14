@@ -2,10 +2,12 @@
 Jobs:
   - actuals-hw
   - base-usage-share
+  - base-forecast
   - create-demand-file
   - edw-all-history-actuals-update
   - finance-etl-wd8-load
   - flash-load
+  - gpsy-list-price
   - hardware-ltf
   - hardware-stf
   - ib-ns-set-official

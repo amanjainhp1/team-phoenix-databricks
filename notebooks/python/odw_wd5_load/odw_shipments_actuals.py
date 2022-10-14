@@ -446,3 +446,37 @@ if redshift_row_count > 0:
 
     dataDF = odw_actuals_deliveries_schema_df.union(dataDF)
     write_df_to_redshift(configs, dataDF, "prod.odw_actuals_deliveries", "append")
+
+# COMMAND ----------
+
+# copy back to SFAI
+odw_report_ships_deliveries_actuals = read_redshift_to_df(configs) \
+    .option("dbtable", "stage.odw_report_ships_deliveries_actuals") \
+    .load() \
+    .select(col("fiscal_year_period").alias("Fiscal Year Month")
+        , col("calendar_year_month").alias("Calendar Year Month")
+        , col("unit_reporting_code").alias("Unit Reporting Code")
+        , col("unit_reporting_description").alias("Unit Reporting Description")
+        , col("parent_explosion").alias("Parent Explosion")
+        , col("material_nr").alias("Material Nr")
+        , col("material_desc").alias("Material Desc")
+        , col("trade_or_non_trade").alias("Trade/Non-Trade")
+        , col("profit_center_code").alias("Profit Center Code")
+        , col("segment_code").alias("Segment Code")
+        , col("segment_hier_desc_level2").alias("Segment Hier Desc Level2")
+        , col("delivery_item_qty").alias("Delivery Item Qty")
+        , col("load_date").alias("load_date")
+        , col("delivery_item").alias("Delivery Item")
+        , col("bundled_qty").alias("Bundled Qty")
+        , col("unbundled_qty").alias("Unbundled Qty"))
+
+# COMMAND ----------
+
+tables = [
+    ['IE2_Landing.ms4.odw_report_ships_deliveries_actuals_landing', odw_report_ships_deliveries_actuals, "overwrite"]
+]
+
+# COMMAND ----------
+
+for t_name, df, mode in tables:
+    write_df_to_sqlserver(configs, df, t_name, mode)

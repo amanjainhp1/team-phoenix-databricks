@@ -36,11 +36,15 @@ print(version)
 # COMMAND ----------
 
 # Cells 7-8: Refreshes version table in delta lakes, to bring in new version from previous step, above.
-version = read_redshift_to_df(configs) \
+version_df = read_redshift_to_df(configs) \
     .option("dbtable", "prod.version") \
     .load()
 
-tables = [['prod.version', version, "overwrite"]]
+supplies_finance_flash = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.supplies_finance_flash") \
+    .load()
+
+tables = [['prod.version', version_df, "overwrite"], ['fin_prod.supplies_finance_flash', supplies_finance_flash, "overwrite"]]
 
 # COMMAND ----------
 
@@ -753,9 +757,8 @@ combined_adj_rev_flash_data.createOrReplaceTempView("combined_adj_rev_flash_data
 adj_rev_flash_lagged_2 = spark.sql("""
 with date_helper as
     (select date_key
-          ,
-    date as cal_date
-   , fiscal_year_qtr
+    , date as cal_date
+    , fiscal_year_qtr
 from mdm.calendar
 where day_of_month = 1
   and fiscal_month in ('3.0'
@@ -789,7 +792,6 @@ select distinct d.cal_date,
     d.fiscal_year_qtr,
     market10,
     pl,
-    ar.record_description,
     hq_flag
 from date_helper d
     cross join yoy_analytic_setup ar
@@ -811,7 +813,7 @@ select c.cal_date,
     ci_currency_impact,
     total_inventory_impact,
     adjusted_revenue,
-    c.record_description
+    record_description
 from yoy_full_cross_join c
     left join yoy_analytic_setup s
 on
@@ -839,7 +841,70 @@ select cal_date,
     coalesce (sum (adjusted_revenue), 0) as adjusted_revenue,
     min (cal_date) over (partition by market10, pl order by cal_date) as min_cal_date
 from fill_gap1
+where 1=1
+and fiscal_year_qtr in (select distinct fiscal_year_qtr from adjusted_revenue_data)
 group by cal_date, fiscal_year_qtr, market10, pl, record_description, hq_flag)
+, fill_gap3 as
+    (
+select cal_date,
+    fiscal_year_qtr,
+    market10,
+    pl,
+    record_description,
+    hq_flag,
+    coalesce (sum (reported_revenue), 0) as reported_revenue,
+    coalesce (sum (hedge), 0) as hedge,
+    coalesce (sum (currency), 0) as currency,
+    coalesce (sum (revenue_in_cc), 0) as revenue_in_cc,
+    coalesce (sum (cbm_ci_dollars), 0) as cbm_ci_dollars,
+    coalesce (sum (inventory_change), 0) as inventory_change,
+    coalesce (sum (ci_currency_impact), 0) as ci_currency_impact,
+    coalesce (sum (total_inventory_impact), 0) as total_inventory_impact,
+    coalesce (sum (adjusted_revenue), 0) as adjusted_revenue,
+    min (cal_date) over (partition by market10, pl order by cal_date) as min_cal_date
+from fill_gap1
+where 1=1
+and fiscal_year_qtr in (select distinct fiscal_year_qtr from flash_data)
+group by cal_date, fiscal_year_qtr, market10, pl, record_description, hq_flag)
+, fill_gap4 as
+    (
+select cal_date,
+    fiscal_year_qtr,
+    market10,
+    pl,
+    'ACTUALS' as record_description,
+    hq_flag,
+    reported_revenue,
+    hedge,
+    currency,
+    revenue_in_cc,
+    cbm_ci_dollars,
+    inventory_change,
+    ci_currency_impact,
+    total_inventory_impact,
+    adjusted_revenue,
+    min_cal_date
+from fill_gap2
+
+union all
+
+select cal_date,
+    fiscal_year_qtr,
+    market10,
+    pl,
+    'FLASH' as record_description,
+    hq_flag,
+    reported_revenue,
+    hedge,
+    currency,
+    revenue_in_cc,
+    cbm_ci_dollars,
+    inventory_change,
+    ci_currency_impact,
+    total_inventory_impact,
+    adjusted_revenue,
+    min_cal_date
+from fill_gap3)
         , adjusted_rev_staging_time_series as
     (
 select cal_date,
@@ -861,7 +926,7 @@ select cal_date,
     case when min_cal_date < cast (current_date () - day (current_date ()) + 1 as date) then 1 else 0 end as actuals_flag,
     count (cal_date) over (partition by market10, pl
     order by cal_date rows between unbounded preceding and current row) as running_count
-from fill_gap2)
+from fill_gap4)
         , adjusted_revenue_full_calendar as
     (
 select cal_date,
@@ -1177,7 +1242,7 @@ select record,
        sum(cbm_ci_dollars_prior_quarter)  as cbm_ci_dollars_prior_quarter,
        1                                  as official,
        load_date,
-       '{}' as version
+       version
 from adjusted_revenue_flash_output
 group by record,
          record_description,
@@ -1195,10 +1260,6 @@ group by record,
          official,
          load_date,
          version
-""".format(version))
+""")
 
 write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
-
-# COMMAND ----------
-
-

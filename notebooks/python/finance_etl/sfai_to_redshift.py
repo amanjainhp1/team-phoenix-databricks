@@ -89,12 +89,12 @@ odw_document_currency = read_sql_server_to_df(configs) \
 odw_actuals_supplies_salesprod = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.ms4.odw_actuals_supplies_salesprod") \
     .load()\
-    .select("record", "cal_date", "country_alpha2", "market10", "currency", "sales_product_number", "pl", "L5_Description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "official", "load_date", "version")
+    .select("record", "cal_date", "country_alpha2", "market10", "currency", "sales_product_number", "pl", "l5_Description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "official", "load_date", "version")
 
 odw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.ms4.odw_actuals_supplies_baseprod") \
     .load()\
-    .select("record", "cal_date", "country_alpha2", "market10", "platform_subset", "base_product_number", "pl", "L5_Description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "equivalent_units", "yield_x_units", "yield_x_units_black_only", "official", "load_date", "version")
+    .select("record", "cal_date", "country_alpha2", "market10", "platform_subset", "base_product_number", "pl", "l5_Description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "equivalent_units", "yield_x_units", "yield_x_units_black_only", "official", "load_date", "version")
 
 edw_summary_actuals_plau = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Landing.dbo.actuals_edw_plau_bigdata_dashboard_landing") \
@@ -102,7 +102,8 @@ edw_summary_actuals_plau = read_sql_server_to_df(configs) \
 
 edw_actuals_supplies_salesprod = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_salesprod") \
-    .load()
+    .load()\
+    .select("record", "cal_date", "country_alpha2", "market10", "currency", "sales_product_number", "pl", "l5_description", "customer_engagement", "gross_revenue", "net_currency", "contractual_discounts", "discretionary_discounts", "net_revenue", "warranty", "other_cos", "total_cos", "gross_profit", "revenue_units", "official", "load_date", "version")
 
 edw_actuals_supplies_baseprod = read_sql_server_to_df(configs) \
     .option("dbtable", "IE2_Financials.dbo.edw_actuals_supplies_baseprod") \
@@ -207,10 +208,10 @@ tables = [
     ['fin_prod.odw_document_currency', odw_document_currency, "overwrite"],
     ['fin_prod.odw_actuals_supplies_salesprod', odw_actuals_supplies_salesprod, "overwrite"],
     ['fin_prod.odw_actuals_supplies_baseprod', odw_actuals_supplies_baseprod, "overwrite"],
-    ['fin_prod.edw_summary_actuals_plau', edw_summary_actuals_plau, "overwrite"],
+    #['fin_prod.edw_summary_actuals_plau', edw_summary_actuals_plau, "overwrite"],
     ['fin_prod.edw_actuals_supplies_salesprod', edw_actuals_supplies_salesprod, "overwrite"],
     ['fin_prod.edw_actuals_supplies_baseprod', edw_actuals_supplies_baseprod, "overwrite"],
-    ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod, "overwrite"],
+    #['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod, "overwrite"],
     ['fin_prod.actuals_supplies_baseprod', actuals_supplies_baseprod, "overwrite"],
     ['fin_prod.ci_flash_for_insights_supplies_temp', ci_flash_for_insights_supplies_temp, "overwrite"],
     ['fin_prod.rev_flash_for_insights_supplies_temp', rev_flash_for_insights_supplies_temp, "overwrite"],
