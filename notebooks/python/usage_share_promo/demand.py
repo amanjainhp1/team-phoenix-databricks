@@ -376,7 +376,7 @@ WHERE hp_pages IS NOT NULL
 )
 SELECT "USAGE_SHARE" as record
       ,cal_date
-      ,"MARKET10" as geography_grain
+      ,"COUNTRY" as geography_grain
       ,geography
       ,platform_subset
       ,customer_engagement
