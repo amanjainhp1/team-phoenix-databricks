@@ -285,9 +285,27 @@ npi_helper_2.createOrReplaceTempView("npi_helper_2")
 
 #combine data from market10 and region5---currently preferring market10 to region5-need to update shiny tool to go to market 10, or write for load date
 npi_helper_3 = """
-with step1 as (
-SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
-step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1)
+--get market10 data
+with step1 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_2),
+--get region_5 data
+step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1),
+--get where have both market10 and region_5
+step4 as (SELECT * from step1 FULL JOIN step2 on gpid),
+step5 as (SELECT 
+    country_alpha2
+    , platform_subset
+    , customer_engagement
+    , measure
+    , max(load_date) as max_date
+    FROM step4
+    group by 
+    country_alpha2
+    , platform_subset
+    , customer_engagement
+    , measure),
+step6 as (SELECT step4.* from step4 left join step5 using (country_alpha2, platform_subset, customer_engagement, measure) 
+	where step4.load_date=step5.max_date and step4.value is not null)
+--join tables 
 SELECT record
         ,min_sys_dt
         ,ib_strt_dt
@@ -306,6 +324,7 @@ SELECT record
         ,ib_version
         ,load_date
 FROM step1
+where gpid not in (select distinct gpid from step2)
 UNION ALL
 SELECT record
         ,min_sys_dt
@@ -326,6 +345,25 @@ SELECT record
         ,load_date
 FROM step2
 WHERE gpid not in (select distinct gpid from step1)
+UNION ALL
+SELECT record
+        ,min_sys_dt
+        ,ib_strt_dt
+        ,month_num
+        ,geography_grain
+        ,country_alpha2
+        ,platform_subset
+        ,customer_engagement
+        ,forecast_process_note
+        ,post_processing_note
+        ,data_source
+        ,version
+        ,measure
+        ,units
+        ,proxy_used
+        ,ib_version
+        ,load_date
+FROM step6
 """
 
 npi_helper_3=spark.sql(npi_helper_3)

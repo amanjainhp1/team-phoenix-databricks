@@ -114,7 +114,7 @@ GROUP BY us.cal_date
 	, us.customer_engagement
     , us.measure
     , us.source
-	) , step2 as (
+	) , step2a as (
     SELECT 
        u.cal_date
       ,u.geography
@@ -125,14 +125,32 @@ GROUP BY us.cal_date
       ,SUM(u.usage) AS usage
       ,SUM(u.page_share) AS page_share
       ,SUM(u.usage_c) AS usage_c
-	  ,SUM(u.usage_k) AS usage_k
-      ,SUM(i.units) as ib
+      ,SUM(u.usage_k) AS usage_k
 FROM step1 u
-LEFT JOIN ib_m10 i
+GROUP BY 
+       u.cal_date
+      ,u.geography
+      ,u.platform_subset
+      ,u.customer_engagement
+) , step2 as 
+(SELECT 
+       u.cal_date
+      ,u.geography
+      ,u.platform_subset
+      ,u.customer_engagement
+      ,MAX(u.source_s) as source_s
+      ,MAX(u.source_u) as source_u
+      ,SUM(u.usage) AS usage
+      ,SUM(u.page_share) AS page_share
+      ,SUM(u.usage_c) AS usage_c
+      ,SUM(u.usage_k) AS usage_k
+      ,SUM(i.units) AS ib
+FROM step2a u
+LEFT JOIN ib i
     ON 1=1
     AND u.platform_subset=i.platform_subset
     AND u.customer_engagement=i.customer_engagement
-    AND u.geography=i.market10
+    AND u.geography=i.country_alpha2
     AND u.cal_date=i.cal_date
 GROUP BY 
        u.cal_date
@@ -149,7 +167,7 @@ GROUP BY
       ,SUM(u.usage*coalesce(ib,0)) AS pages
       ,SUM(u.page_share*usage*coalesce(ib,0)) AS hp_pages
       ,SUM(u.usage_c*coalesce(ib,0)) AS color_pages
-	  ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
+      ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
       ,SUM(u.page_share*usage_k*coalesce(ib,0)) AS hp_k_pages
       ,SUM(u.page_share*usage_c*coalesce(ib,0)) AS hp_c_pages
       ,SUM(coalesce(ib,0)) as ib
@@ -168,9 +186,9 @@ GROUP BY
       ,SUM(u.pages) AS pages
       ,SUM(u.hp_pages) AS hp_pages
       ,SUM(u.color_pages) AS color_pages
-	  ,SUM(u.black_pages) AS black_pages
+      ,SUM(u.black_pages) AS black_pages
       ,SUM(u.hp_k_pages) AS hp_k_pages
-	  ,SUM(u.hp_c_pages) AS hp_c_pages
+      ,SUM(u.hp_c_pages) AS hp_c_pages
       ,SUM(u.ib) as ib
       ,u.geography
     FROM step3 u
@@ -358,7 +376,7 @@ WHERE hp_pages IS NOT NULL
 )
 SELECT "USAGE_SHARE" as record
       ,cal_date
-      ,"MARKET10" as geography_grain
+      ,"COUNTRY" as geography_grain
       ,geography
       ,platform_subset
       ,customer_engagement
@@ -411,5 +429,3 @@ print("output file name: " + s3_destination)
 
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
 
-if dbutils.widgets.get("writeout").upper() == "TRUE":
-    write_df_to_redshift(configs=configs, df=convert, destination="prod.usage_share", mode="overwrite")
