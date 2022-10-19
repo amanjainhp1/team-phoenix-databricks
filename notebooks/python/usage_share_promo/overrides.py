@@ -268,7 +268,7 @@ with step1 as (SELECT *, concat(geography, platform_subset, customer_engagent, m
 --get region_5 data
 step2 as  (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_2),
 --get where have both market10 and region_5
-step4 as (SELECT * from step1 INNER JOIN step2 on gpid),
+step4 as (SELECT * from step1 where gpid in (select distinct gpid from step2) UNION SELECT * from step2 where gpid in (select distinct gpid from step1),
 step5 as (SELECT 
     geography
     , platform_subset
@@ -546,7 +546,7 @@ override_table_b = """
 with step1 as (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_1b),
 step2 as  (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_2b),
 --get where have both market10 and region_5
-step4 as (SELECT * from step1 INNER JOIN step2 on gpid),
+step4 as (SELECT * from step1 where gpid in (select distinct gpid from step2) UNION SELECT * from step2 where gpid in (select distinct gpid from step1),
 step5 as (SELECT 
     geography
     , platform_subset
