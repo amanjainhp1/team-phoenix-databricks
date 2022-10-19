@@ -290,7 +290,10 @@ with step1 as (SELECT *, concat(country_alpha2,platform_subset,customer_engageme
 --get region_5 data
 step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1),
 --get where have both market10 and region_5
-step4 as (SELECT * from step1 FULL JOIN step2 on step1.gpid=step2.gpid),
+step4 as (SELECT step1.* from step1 where step1.gpid in (select distinct gpid from step2)
+	UNION
+	SELECT step2.* from step2
+	where step2.gpid in (select distinct gpid from step1)),
 step5 as (SELECT 
     country_alpha2
     , platform_subset
@@ -304,7 +307,7 @@ step5 as (SELECT
     , customer_engagement
     , measure),
 step6 as (SELECT step4.* from step4 left join step5 on step4.country_alpha2=step5.country_alpha2 and step4.platform_subset=step5.platform_subset and step4.customer_engagement=step5.customer_engagement and step4.measure=step5.measure 
-	where step4.load_date=step5.max_date and step4.value is not null)
+	where step4.load_date=step5.max_date and step4.units is not null)
 --join tables 
 SELECT record
         ,min_sys_dt
