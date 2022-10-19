@@ -303,7 +303,7 @@ step5 as (SELECT
     , platform_subset
     , customer_engagement
     , measure),
-step6 as (SELECT step4.* from step4 left join step5 using (country_alpha2, platform_subset, customer_engagement, measure) 
+step6 as (SELECT step4.* from step4 left join step5 on step4.country_alpha2=step5.country_alpha2 and step4.platform_subset=step5.platform_subset and step4.customer_engagement=step5.customer_engagement and step4.measure=step5.measure) 
 	where step4.load_date=step5.max_date and step4.value is not null)
 --join tables 
 SELECT record
