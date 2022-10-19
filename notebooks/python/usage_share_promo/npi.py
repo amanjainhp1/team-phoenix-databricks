@@ -290,7 +290,7 @@ with step1 as (SELECT *, concat(country_alpha2,platform_subset,customer_engageme
 --get region_5 data
 step2 as (SELECT *, concat(country_alpha2,platform_subset,customer_engagement) as gpid FROM npi_helper_1),
 --get where have both market10 and region_5
-step4 as (SELECT * from step1 FULL JOIN step2 on gpid),
+step4 as (SELECT * from step1 FULL JOIN step2 on step1.gpid=step2.gpid),
 step5 as (SELECT 
     country_alpha2
     , platform_subset
