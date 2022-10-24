@@ -137,8 +137,6 @@ country_info.createOrReplaceTempView("country_info")
 fix_japan = f"""
 with step1 as (
     SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , 'JP'  as geography
     , platform_subset
@@ -156,8 +154,6 @@ with step1 as (
     FROM override_table_r5
     WHERE geography = 'JP'
 ), step3 as (SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -170,8 +166,6 @@ with step1 as (
 FROM step2
 UNION 
 SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -185,8 +179,6 @@ SELECT load_date
  	WHERE grp not in (SELECT DISTINCT grp FROM step2)
   ),
 step4 as (SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -210,8 +202,6 @@ r5_to_c.createOrReplaceTempView("r5_to_c")
 
 override_helper_1 = f"""
 	SELECT r5.load_date
-    	, r5.upload_type
-    	, r5.scenario_name
     	, 'COUNTRY' as geography_grain
     	, c.county_alpha2 as geography
     	, upper(r5.platform_subset) as platform_subset
@@ -237,8 +227,6 @@ override_helper_1.createOrReplaceTempView("override_helper_1")
 
 override_helper_2 = f"""
 	SELECT m10.load_date
-    	, m10.upload_type
-    	, m10.scenario_name
     	, 'COUNTRY' as geography_grain
     	, c.country_alpha2 as geography
     	, upper(m10.platform_subset) as platform_subset
@@ -285,8 +273,6 @@ step6 as (SELECT step4.* from step4 left join step5 on step4.geography=step5.geo
 	where step4.load_date=step5.max_date and step4.value is not null),
 --join tables 
 SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -300,8 +286,6 @@ FROM step1
 WHERE gpid not in (select distinct gpid from step2)
 UNION ALL
 SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -315,8 +299,6 @@ FROM step2
 WHERE gpid not in (select distinct gpid from step1)
 UNION ALL
 SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -416,8 +398,6 @@ override_table_m10b.createOrReplaceTempView("override_table_m10b")
 fix_japanb = f"""
 with step1 as (
     SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , 'JP'  as geography
     , platform_subset
@@ -449,8 +429,6 @@ with step1 as (
 FROM step2
 UNION 
 SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -464,8 +442,6 @@ SELECT load_date
  	WHERE grp not in (SELECT DISTINCT grp FROM step2)
   ),
 step4 as (SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -489,8 +465,6 @@ r5_to_cb.createOrReplaceTempView("r5_to_cb")
 
 override_helper_1b = f"""
 	SELECT r5.load_date
-    	, r5.upload_type
-    	, r5.scenario_name
     	, 'COUNTRY' as geography_grain
     	, c.county_alpha2 as geography
     	, upper(r5.platform_subset) as platform_subset
@@ -517,8 +491,6 @@ override_helper_1b.createOrReplaceTempView("override_helper_1b")
 override_helper_2b = f"""
 	SELECT m10.user_name
     	, m10.load_date
-    	, m10.upload_type
-    	, m10.scenario_name
     	, 'COUNTRY' as geography_grain
     	, c.country_alpha2 as geography
     	, upper(m10.platform_subset) as platform_subset
@@ -563,8 +535,6 @@ step6 as (SELECT step4.* from step4 left join step5 on step4.geography=step5.geo
 	where step4.load_date=step5.max_date and step4.value is not null),
 --join tables 
 step3 as (SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -578,8 +548,6 @@ FROM step1
 WHERE gpid not in (select distinct gpid from step2)
 UNION ALL
 SELECT SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -593,8 +561,6 @@ FROM step2
 WHERE gpid not in (select distinct gpid from step1)
 UNION ALL
 SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
