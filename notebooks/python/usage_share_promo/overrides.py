@@ -520,7 +520,7 @@ step5 as (SELECT
 step6 as (SELECT step4.* from step4 left join step5 on step4.geography=step5.geography and step4.platform_subset=step5.platform_subset and step4.customer_engagement=step5.customer_engagement and step4.measure=step5.measure
 	where step4.load_date=step5.max_date and step4.value is not null)
 --join tables 
-step3 as (SELECT load_date
+SELECT load_date
     , geography_grain
     , geography
     , platform_subset
