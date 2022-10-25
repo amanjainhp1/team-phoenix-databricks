@@ -1,5 +1,7 @@
 # Databricks notebook source
+
 from pyspark.sql.functions import trim, col, lit
+
 
 # COMMAND ----------
 
@@ -61,6 +63,7 @@ SELECT
     , list_price
     , product_line
 FROM stage.gpsy_list_price_stage
+where price_start_effective_date is not null
 """
 
 redshift_gpsy_prod_list_price_records = read_redshift_to_df(configs) \
@@ -73,7 +76,7 @@ redshift_gpsy_prod_list_price_records = redshift_gpsy_prod_list_price_records \
     .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
     .withColumn("version", lit(max_version))
 
-write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "append")
+write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "overwrite")
 
 # COMMAND ----------
 
@@ -81,6 +84,7 @@ write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_
 # write to parquet file in s3
 
 # s3a://dataos-core-dev-team-phoenix/product/list_price_gpsy/
+
 s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "product/list_price_gpsy/" + max_version
 
 write_df_to_s3(redshift_gpsy_prod_list_price_records, s3_output_bucket, "parquet", "overwrite")
@@ -93,6 +97,7 @@ write_df_to_sqlserver(configs, redshift_gpsy_prod_list_price_records, "ie2_landi
 
 # COMMAND ----------
 
+# ~ 7 mins to complete
 import pymssql
 
 def submit_remote_sqlserver_query(configs, db, query):
@@ -103,3 +108,4 @@ def submit_remote_sqlserver_query(configs, db, query):
     conn.close()
 
 submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC ie2_prod.dbo.p_load_list_price_gpsy;")
+
