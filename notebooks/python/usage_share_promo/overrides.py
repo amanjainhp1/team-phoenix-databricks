@@ -246,9 +246,9 @@ override_helper_2.createOrReplaceTempView("override_helper_2")
 
 override_table_a = """
 --get market10 data
-with step1 as (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_1),
+with step1 as (SELECT *, concat(geography, platform_subset, customer_engagement, measure) as gpid FROM override_helper_1),
 --get region_5 data
-step2 as  (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_2),
+step2 as  (SELECT *, concat(geography, platform_subset, customer_engagement, measure) as gpid FROM override_helper_2),
 --get where have both market10 and region_5
 step4 as (SELECT step1.* from step1 where gpid in (select distinct gpid from step2) 
 	UNION 
@@ -502,8 +502,8 @@ override_helper_2b.createOrReplaceTempView("override_helper_2b")
 # COMMAND ----------
 
 override_table_b = """
-with step1 as (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_1b),
-step2 as  (SELECT *, concat(geography, platform_subset, customer_engagent, measure) as gpid FROM override_helper_2b),
+with step1 as (SELECT *, concat(geography, platform_subset, customer_engagement, measure) as gpid FROM override_helper_1b),
+step2 as  (SELECT *, concat(geography, platform_subset, customer_engagement, measure) as gpid FROM override_helper_2b),
 --get where have both market10 and region_5
 step4 as (SELECT step1.* from step1 where gpid in (select distinct gpid from step2) 
 	UNION 
