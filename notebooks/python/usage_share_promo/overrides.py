@@ -532,7 +532,7 @@ SELECT load_date
 FROM step1
 WHERE gpid not in (select distinct gpid from step2)
 UNION ALL
-SELECT SELECT load_date
+SELECT load_date
     , geography_grain
     , geography
     , platform_subset
