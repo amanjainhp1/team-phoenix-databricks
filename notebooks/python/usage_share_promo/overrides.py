@@ -264,7 +264,7 @@ step5 as (SELECT
     , customer_engagement
     , measure),
 step6 as (SELECT step4.* from step4 left join step5 on step4.geography=step5.geography and step4.platform_subset=step5.platform_subset and step4.customer_engagement=step5.customer_engagement and step4.measure=step5.measure 
-	where step4.load_date=step5.max_date and step4.value is not null),
+	where step4.load_date=step5.max_date and step4.value is not null)
 --join tables 
 SELECT load_date
     , geography_grain
@@ -517,7 +517,7 @@ step5 as (SELECT
     , customer_engagement
     , measure),
 step6 as (SELECT step4.* from step4 left join step5 on step4.geography=step5.geography and step4.platform_subset=step5.platform_subset and step4.customer_engagement=step5.customer_engagement and step4.measure=step5.measure
-	where step4.load_date=step5.max_date and step4.value is not null),
+	where step4.load_date=step5.max_date and step4.value is not null)
 --join tables 
 step3 as (SELECT load_date
     , geography_grain
