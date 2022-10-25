@@ -38,7 +38,7 @@ us_table.createOrReplaceTempView("us_table")
 #need to update this to Redshift Table, wrong table in RS
 override_in = read_sql_server_to_df(configs) \
   .option("query","""
-    SELECT UPPER(user_name) as user_name, upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
+    SELECT upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
     FROM ie2_landing.dbo.scenario_usage_share_landing
     WHERE 1=1 
@@ -53,7 +53,7 @@ override_in.createOrReplaceTempView("override_in")
 #read in override data
 override_in2 = read_redshift_to_df(configs) \
   .option("query","""
-    SELECT user_name, geography_grain, geography, platform_subset, customer_engagement, measure, min_sys_date,month_num, value, load_date
+    SELECT geography_grain, geography, platform_subset, customer_engagement, measure, min_sys_date,month_num, value, load_date
     FROM "prod"."epa_drivers_usage_share"
     """) \
   .load()
@@ -342,9 +342,9 @@ override_table_a2.createOrReplaceTempView("override_table_a2")
 
 # COMMAND ----------
 
-override_in2 = read_sql_server_to_df(configs) \
+override_ine = read_sql_server_to_df(configs) \
   .option("query","""
-    SELECT UPPER(user_name) as user_name, upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
+    SELECT upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
     FROM ie2_landing.dbo.scenario_usage_share_landing
     WHERE 1=1 
@@ -352,11 +352,11 @@ override_in2 = read_sql_server_to_df(configs) \
         AND upper(upload_type) = 'EPA_DRIVERS'
     """) \
   .load()
-override_in2.createOrReplaceTempView("override_in2")
+override_ine.createOrReplaceTempView("override_ine")
 
 # COMMAND ----------
 
-override_table2 = """
+override_table2e = """
     select  geography_grain
         , geography
         , platform_subset
@@ -366,12 +366,12 @@ override_table2 = """
         , month_num
         , value
         , load_date
-    from override_in2
-    where load_date = (select max(load_date) from override_in2)
+    from override_ine
+    where load_date = (select max(load_date) from override_ine)
 """
 
-override_table2=spark.sql(override_table2)
-override_table2.createOrReplaceTempView("override_table2")
+override_table2e=spark.sql(override_table2e)
+override_table2e.createOrReplaceTempView("override_table2e")
 
 # COMMAND ----------
 
@@ -380,10 +380,10 @@ override_table2.createOrReplaceTempView("override_table2")
 
 # COMMAND ----------
 
-override_table_r5b=spark.sql("""select * from override_table2 where geography_grain ='REGION_5' """)
+override_table_r5b=spark.sql("""select * from override_table2e where geography_grain ='REGION_5' """)
 override_table_r5b.createOrReplaceTempView("override_table_r5b")
 
-override_table_m10b=spark.sql("""select * from override_table2 where geography_grain ='MARKET10' """)
+override_table_m10b=spark.sql("""select * from override_table2e where geography_grain ='MARKET10' """)
 override_table_m10b.createOrReplaceTempView("override_table_m10b")
 
 # COMMAND ----------
@@ -475,8 +475,7 @@ override_helper_1b.createOrReplaceTempView("override_helper_1b")
 # COMMAND ----------
 
 override_helper_2b = f"""
-	SELECT m10.user_name
-    	, m10.load_date
+	SELECT m10.load_date
     	, 'COUNTRY' as geography_grain
     	, c.country_alpha2 as geography
     	, upper(m10.platform_subset) as platform_subset
