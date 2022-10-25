@@ -141,7 +141,6 @@ with step1 as (
     , 'JP'  as geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -158,7 +157,6 @@ with step1 as (
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -170,7 +168,6 @@ SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -183,7 +180,6 @@ step4 as (SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -206,7 +202,6 @@ override_helper_1 = f"""
     	, c.county_alpha2 as geography
     	, upper(r5.platform_subset) as platform_subset
     	, upper(r5.customer_engagement) as customer_engagement
-    	, r5.base_product_number
     	, upper(r5.measure) as measure
     	, r5.min_sys_date
     	, r5.month_num
@@ -231,7 +226,6 @@ override_helper_2 = f"""
     	, c.country_alpha2 as geography
     	, upper(m10.platform_subset) as platform_subset
     	, upper(m10.customer_engagement) as customer_engagement
-    	, m10.base_product_number
     	, upper(m10.measure) as measure
     	, m10.min_sys_date
     	, m10.month_num
@@ -277,7 +271,6 @@ SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -290,7 +283,6 @@ SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -303,7 +295,6 @@ SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -402,7 +393,6 @@ with step1 as (
     , 'JP'  as geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -421,7 +411,6 @@ with step1 as (
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -433,7 +422,6 @@ SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -446,7 +434,6 @@ step4 as (SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -469,7 +456,6 @@ override_helper_1b = f"""
     	, c.county_alpha2 as geography
     	, upper(r5.platform_subset) as platform_subset
     	, upper(r5.customer_engagement) as customer_engagement
-    	, r5.base_product_number
     	, upper(r5.measure) as measure
     	, r5.min_sys_date
     	, r5.month_num
@@ -495,7 +481,6 @@ override_helper_2b = f"""
     	, c.country_alpha2 as geography
     	, upper(m10.platform_subset) as platform_subset
     	, upper(m10.customer_engagement) as customer_engagement
-    	, m10.base_product_number
     	, upper(m10.measure) as measure
     	, m10.min_sys_date
     	, m10.month_num
@@ -539,7 +524,6 @@ step3 as (SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -552,7 +536,6 @@ SELECT SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -565,7 +548,6 @@ SELECT load_date
     , geography
     , platform_subset
     , customer_engagement
-    , base_product_number
     , measure
     , min_sys_date
     , month_num
@@ -665,7 +647,7 @@ new as (
            ,source
            ,load_date
            ,CONCAT(platform_subset,customer_engagement,geography,cal_date,measure) AS grp
-           FROM override_table2_b
+           FROM override_table2_c
 )
    SELECT record
            ,cal_date
