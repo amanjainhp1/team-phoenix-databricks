@@ -199,7 +199,7 @@ r5_to_c.createOrReplaceTempView("r5_to_c")
 override_helper_1 = f"""
 	SELECT r5.load_date
     	, 'COUNTRY' as geography_grain
-    	, c.county_alpha2 as geography
+    	, c.country_alpha2 as geography
     	, upper(r5.platform_subset) as platform_subset
     	, upper(r5.customer_engagement) as customer_engagement
     	, upper(r5.measure) as measure
@@ -453,7 +453,7 @@ r5_to_cb.createOrReplaceTempView("r5_to_cb")
 override_helper_1b = f"""
 	SELECT r5.load_date
     	, 'COUNTRY' as geography_grain
-    	, c.county_alpha2 as geography
+    	, c.country_alpha2 as geography
     	, upper(r5.platform_subset) as platform_subset
     	, upper(r5.customer_engagement) as customer_engagement
     	, upper(r5.measure) as measure
