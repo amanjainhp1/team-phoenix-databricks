@@ -407,8 +407,6 @@ with step1 as (
     FROM override_table_r5b
     WHERE geography = 'JP'
 ), step3 as (SELECT load_date
-    , upload_type
-    , scenario_name
     , geography_grain
     , geography
     , platform_subset
@@ -722,13 +720,13 @@ with step1 as (
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
 FROM us_table us 
 GROUP BY us.cal_date
-    , us.geography_grain
+    	, us.geography_grain
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-    , us.ib_version
-    , us.measure
-    , us.source
+    	, us.ib_version
+    	, us.measure
+    	, us.source
 	) , step2 as (
     SELECT 
        u.cal_date
@@ -776,7 +774,7 @@ GROUP BY
 ,step6 as (
 SELECT cal_date
 	, geography_grain
-    , geography
+    	, geography
 	, platform_subset
 	, customer_engagement
 	, 'USAGE' as measure
@@ -789,7 +787,7 @@ WHERE usage IS NOT NULL
 UNION ALL
 SELECT cal_date
 	, geography_grain
-    , geography
+    	, geography
 	, platform_subset
 	, customer_engagement
 	, 'HP_SHARE' as measure
@@ -802,7 +800,7 @@ WHERE page_share IS NOT NULL
 UNION ALL
 SELECT cal_date
 	, geography_grain
-    , geography
+    	, geography
 	, platform_subset
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
@@ -815,7 +813,7 @@ WHERE usage_c IS NOT NULL
 UNION ALL
 SELECT cal_date
 	,geography_grain
-    ,geography
+        ,geography
 	, platform_subset
 	, customer_engagement
 	, 'K_USAGE' as measure
