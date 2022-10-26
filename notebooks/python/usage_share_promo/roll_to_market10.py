@@ -42,7 +42,6 @@ us_table.createOrReplaceTempView("us_table")
 # COMMAND ----------
 
 #roll up to market10 -- changing source to % of source, need to find way to roll up other notes (forecast process note, proxy used)
-
 convert = f"""
 with step1 as (
     SELECT us.cal_date
@@ -139,8 +138,6 @@ GROUP BY us.cal_date
       ,SUM(u.data_source_c) as data_source_c
       ,SUM(u.data_source_k) as data_source_k
       ,SUM(u.data_source_s) as data_source_s
-      ,SUM(u.data_source_w) as data_source_w
-      ,SUM(u.data_source_e) as data_source_e
       ,SUM(u.data_source_u_n) as data_source_u_n
       ,SUM(u.data_source_c_n) as data_source_c_n
       ,SUM(u.data_source_k_n) as data_source_k_n
@@ -264,7 +261,6 @@ GROUP BY
       ,SUM(u.hp_pages) AS hp_pages
       ,SUM(u.color_pages) AS color_pages
       ,SUM(u.black_pages) AS black_pages
-      ,SUM(u.hp_pages) AS hp_pages
       ,SUM(u.non_hp_pages) AS non_hp_pages
       ,SUM(u.non_hp_color_pages) AS non_hp_color_pages
       ,SUM(u.non_hp_k_pages) AS non_hp_k_pages
@@ -316,13 +312,12 @@ GROUP BY
       	, h4.hp_pages AS hp_pages
       	, h4.color_pages AS total_color_pages
         , h4.black_pages AS total_k_pages
-      	, h4.hp_pages AS hp_pages
       	, h4.non_hp_pages AS non_hp_pages
       	, h4.non_hp_color_pages AS non_hp_color_pages
       	, h4.non_hp_k_pages AS non_hp_k_pages
       	, h4.hp_k_pages AS hp_k_pages
       	, h4.hp_color_pages AS hp_color_pages
-		, h4.ib
+        , h4.ib
 FROM step4 h4
 
 ), step6 as (
