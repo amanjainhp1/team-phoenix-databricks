@@ -76,7 +76,7 @@ def submit_spectrum_query(dbname, port, user, password, host, sql_query):
     con = psycopg2.connect(conn_string)
     con.autocommit = True
     cur = con.cursor()
-    cur.execute(query)
+    cur.execute(sql_query)
     con.commit()
     cur.close()
 
@@ -91,5 +91,5 @@ submit_spectrum_query("prod", configs["redshift_port"], configs["redshift_userna
 
 # for reporting cluster
 
-submit_spectrum_query("prod", reporting_configs["redshift_port"], reporting_configs["redshift_username"], reporting_configs["redshift_password"], reporting_configs["redshift_url"], reporing_query)
+submit_spectrum_query("prod", reporting_configs["redshift_port"], reporting_configs["redshift_username"], reporting_configs["redshift_password"], reporting_configs["redshift_url"], reporting_query)
 

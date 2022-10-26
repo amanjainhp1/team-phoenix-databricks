@@ -73,7 +73,7 @@ SELECT
       ,[min_sys_date]
       ,[month_num]
       ,[value]
-  FROM [IE2_Prod].[dbo].[scenario_usage_share]
+  FROM [IE2_Landing].[dbo].[scenario_usage_share_landing]
 """
 
 scenario_usage_share_records = read_sql_server_to_df(configs) \
