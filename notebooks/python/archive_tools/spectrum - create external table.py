@@ -47,7 +47,7 @@ load_date timestamp,
 version varchar(255)
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/list_price_gpsy_historical/';
+location 's3://dataos-core-prod-team-phoenix/spectrum/list_price_gpsy_historical/'
 """
 
 # COMMAND ----------
