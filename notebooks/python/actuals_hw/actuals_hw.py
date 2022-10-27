@@ -175,20 +175,17 @@ if initial_data_load == False and destination_table_exists:
         #retrieve large format SFAI data
         odw_revenue_units_base_landing_query = """
         SELECT
-        cal_date,
-        country_alpha2,
-        base_product_number,
-        base_quantity
-        FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
-        WHERE cal_date = (
-            SELECT 
-            MAX(cal_date) 
-            FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
-        )
-        AND base_quantity <> 0
+            cal_date,
+            country_alpha2,
+            base_product_number,
+            base_quantity
+        FROM fin_prod.odw_revenue_units_base_actuals
+        WHERE 1=1
+            and cal_date = (SELECT MAX(cal_date) FROM fin_prod.odw_revenue_units_base_actuals)
+            AND base_quantity <> 0
         """
         
-        odw_revenue_units_base_landing = read_sql_server_to_df(configs) \
+        odw_revenue_units_base_landing = read_redshift_to_df(configs) \
             .option("query", odw_revenue_units_base_landing_query) \
             .load()
 
