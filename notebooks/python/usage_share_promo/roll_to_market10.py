@@ -36,7 +36,14 @@ country_info.createOrReplaceTempView("country_info")
 # COMMAND ----------
 
 # Read in U/S data
-us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{datestamp}.1/*")
+# retrieve demand record names
+demand_version = read_redshift_to_df(configs) \
+    .option('query', f"SELECT max(version) as version FROM prod.version WHERE record = 'DEMAND'") \
+    .load() \
+    .rdd.flatMap(lambda x: x).collect()[0]
+
+
+us_table = spark.read.parquet(f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{demand_version}/*")
 us_table.createOrReplaceTempView("us_table")
 
 # COMMAND ----------
@@ -476,7 +483,7 @@ WHERE ib IS NOT NULL
 )
 , final_step as (SELECT "USAGE_SHARE" as record
       ,cal_date
-      ,"MARKET 10" as geography_grain
+      ,"MARKET10" as geography_grain
       ,market10 as geography
       ,platform_subset
       ,customer_engagement
@@ -495,7 +502,34 @@ convert.createOrReplaceTempView("convert")
 
 # COMMAND ----------
 
-s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/usage_share/{datestamp}"
+from datetime import date
+
+# retrieve current date
+cur_date = date.today().strftime("%Y.%m.%d")
+
+#execute stored procedure to create new version and load date
+record = 'USAGE_SHARE'
+source_name = f'{record} - {cur_date}'
+max_version_info = call_redshift_addversion_sproc(configs=configs, record=record, source_name=source_name)
+
+max_version = max_version_info[0]
+max_load_date = max_version_info[1]
+
+# retrieve ink and toner record names
+demand_source_name = read_redshift_to_df(configs) \
+    .option('query', f"SELECT source_name FROM prod.version WHERE record = 'DEMAND' AND version = '{demand_version}'") \
+    .load() \
+    .rdd.flatMap(lambda x: x).collect()[0]
+
+# insert records into scenario table to link usage_share back to underlying CUPSM datasets
+insert_query = f"""
+INSERT INTO prod.scenario VALUES
+('{source_name}', '{demand_source_name}', '{demand_version}' ,'{max_load_date}');
+"""
+submit_remote_query(configs, insert_query)
+
+
+s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/usage_share/{max_version}"
 print("output file name: " + s3_destination)
 
 write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
