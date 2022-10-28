@@ -709,7 +709,7 @@ SELECT iiel.platform_subset
     , cc.region_5
     , cc.market10
     , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_kitless_enrollments * 0.8) AS p2_kitless_enroll_mod
+    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_mod
     , SUM(iiel.cum_enrollees_month) AS cum_enrollees_month
 FROM "prod"."instant_ink_enrollees" AS iiel
 JOIN "mdm"."calendar" AS c
@@ -916,7 +916,7 @@ SELECT month_begin
     , ib
 FROM "stage"."ib_03_iink_complete"
 WHERE 1=1
-    AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE)
+    AND CAST(month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
 ),  ib_14_iink_act_stf as (
 
 
@@ -931,7 +931,7 @@ SELECT iiel.platform_subset
     , cc.region_5
     , cc.market10
     , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_kitless_enrollments * 0.8) AS p2_kitless_enroll_mod
+    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_mod
     , SUM(iiel.cum_enrollees_month) AS cum_enrollees_month
 FROM "prod"."instant_ink_enrollees" AS iiel
 JOIN "mdm"."calendar" AS c
@@ -960,7 +960,7 @@ SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.0
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
     , MAX(CASE WHEN ltf.metric = 'P2 ENROLLEES' THEN ltf.value END) AS p2_enrollees
-    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END)) AS p2_cumulative
+    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) AS p2_cumulative
     , MAX(CASE WHEN ltf.metric = 'CUMULATIVE' THEN ltf.value END) AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
 JOIN "stage"."ib_staging_inputs" AS fv
@@ -1000,7 +1000,7 @@ JOIN ib_23_iink_ltf_prep AS ltf
     ON ltf.geography = sp.geography
     AND ltf.month_begin = sp.month_begin
 WHERE 1=1
-    AND CAST(ltf.month_begin AS DATE) > CAST('2022-10-01' AS DATE)
+    AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
 ),  ib_25_sys_delta as (
 
 
@@ -1012,7 +1012,7 @@ FROM "stage"."ib_03_iink_complete" AS comb
 WHERE 1=1
     AND comb.p2_attach > 0
     AND NOT comb.p2_attach IS NULL
-    AND CAST(comb.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
+    AND CAST(comb.month_begin AS DATE) <= (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
 
 UNION ALL
 
@@ -1074,7 +1074,7 @@ FROM "stage"."ib_03_iink_complete" AS iink
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 WHERE 1=1
-    AND CAST(iink.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
+    AND CAST(iink.month_begin AS DATE) <= (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
     AND hw.technology IN ('LASER','INK','PWA','LF')
 
 UNION ALL
