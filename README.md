@@ -2,30 +2,16 @@
 
 This repository contains all Team Phoenix Databricks notebooks used in jobs that are deployed by Azure DevOps.
 
-## Infrastructure Status
-
-|Name|Technology|Dev Status|ITG Status |Prod Status|
-|---|---|---|---|---|
-|app_bm_instant_ink_bi|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|cumulus_prod02_ref_enrich|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|cumulus_prod02_biz_trans|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|cumulus_prod04_dashboard|Redshift (data share)|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|dataos-`<env>`-team-phoenix|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|dataos-`<env>`-team-phoenix-fin|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|enrich-data-lake-restricted-prod/gpsy|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|hp-bigdata-prod-enrichment/ie2_deliverables/rdma/rdma_base_to_sales|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-|insights-environment-sandbox|S3|:white_check_mark:|:white_check_mark:|:white_check_mark:|
-
 ## New Job Checklist
 
-1. Clone repo, fetch/pull latest, and checkout new branch from master e.g.
+1. Clone this repo, fetch/pull latest, and checkout new branch from master e.g.
 ```
 git fetch
 git checkout master
 git pull
 git checkout -b new-branch-name
 ```
-2. If creating a new job, add new job to relevant job files e.g. https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks/blob/master/databricks/jobs/springboard.yml
+2. If creating a new job, add new job name to relevant job files e.g. for dev: https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks/blob/master/databricks/jobs/jobs.yml, itg: https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks/blob/master/itg-databricks/jobs/jobs.yml, prod: https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks/blob/master/prod-databricks/jobs/jobs.yml
 ```
 ---
 Jobs:
@@ -33,15 +19,15 @@ Jobs:
   - hardware-ltf
   - new-job-name
 ```
-3. Add new/modified notebook/s and yml files, create new commit, push new branch to remote
+3. Add any new/modified notebook/s and yml files, create new commit, push new branch to remote
 ```
 git add notebooks/python/new-directory/new_notebook.py
-git add databricks/jobs/springboard.yml
+git add databricks/jobs/jobs.yml
 git commit -m "add new_notebook.py"
 git push origin new-branch-name
 ```
-4. Additionally, job configuration files will need to be added to the [team-phoenix-databricks-jobs-config repo](https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks-jobs-config/). These files define the Databricks jobs including cluster node types and quantities, workspace configuration, runtime parameters, structure of the workspace, etc. In general, a new directory, base.yml, itg.yml, and prod.yml will need to be created for each new job. For more details on writing these yml files, [DataOS has provided a guide](https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/#_databricks_e2) and many working examples currently exist in the repo.
-6. When ready for review, file a Pull Request (PR) with new branch merging to master in both repos, and work with a Team Phoenix developer to approve the PRs Ideally the jobs-config PR will be approved and merged first as the Azure DevOps pipeline is configured to automatically deploy jobs when the master branch is updated in the team-phoenix-databricks repo.
+4. Additionally, before filing a PR in this repo, job configuration files will need to be added to the [team-phoenix-databricks-jobs-config repo](https://github.azc.ext.hp.com/supplies-bd/team-phoenix-databricks-jobs-config/). These files define the Databricks jobs including cluster node types and quantities, workspace configuration, default runtime parameters, structure of the workspace, etc. In general, a new directory, base.yml, itg.yml, and prod.yml will need to be created for each new job. For more details on writing these yml files, [DataOS has provided a guide](https://pages.github.azc.ext.hp.com/hp-data-platform/dataos-ops-docs/#_databricks_e2) and many working examples currently exist in the repo.
+6. When ready for review, file a Pull Request (PR) with new branch merging to master in both repos, and work with a Team Phoenix developer to approve the PRs. Ideally the jobs-config PR will be approved and merged first as merging to master in that repo does not trigger a new deployment. Upon merge to master in this repo, all three Azure DevOps pipelines (dev, itg, prod) will automatically re-deploy all jobs noted in their respective jobs.yml files and in accordance with the configurations noted for each job in its respective jobs-config set of yml files.
 
 ## General Workflow
 
@@ -51,7 +37,7 @@ In general, coders should work on notebooks in the Databricks web workspace in t
 1. Functionality testing should be completed in the "dataos-dev-internal" Databricks workspace.
 2. A pull request (PR) should be opened to merge the relevant working branch to "master".
 3. Pending peer review, another team-phoenix member will comment and/or approve the PR.
-4. Upon merge, jobs in all three workspaces ("dev-internal", "itg-internal", "prod-internal" workspace will be updated.
+4. Upon merge, jobs in all three workspaces ("dev-internal", "itg-internal", "prod-internal") will be updated.
 
 ## Databricks URLs
 

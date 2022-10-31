@@ -18,11 +18,34 @@ dbutils.widgets.text("timestamp", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve tasks from widgets/parameters
+# MAGIC tasks = dbutils.widgets.get("tasks") if dbutils.widgets.get("tasks") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["tasks"]
+# MAGIC tasks = tasks.split(";")
+# MAGIC 
+# MAGIC # define all relevenat task parameters to this notebook
+# MAGIC relevant_tasks = ["all", "usge_color"]
+# MAGIC 
+# MAGIC # exit if tasks list does not contain a relevant task i.e. "all" or "usge_color"
+# MAGIC for task in tasks:
+# MAGIC     if task not in relevant_tasks:
+# MAGIC         dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # set vars equal to widget vals for interactive sessions, else retrieve task values 
+# MAGIC datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
+# MAGIC timestamp = dbutils.widgets.get("timestamp") if dbutils.widgets.get("timestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["timestamp"]
 
 # COMMAND ----------
 
@@ -32,6 +55,8 @@ dbutils.widgets.text("timestamp", "")
 # MAGIC for key, val in configs.items():
 # MAGIC     spark.conf.set(key, val)
 # MAGIC 
+# MAGIC spark.conf.set('datestamp', datestamp)
+# MAGIC spark.conf.set('timestamp', timestamp)
 # MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
@@ -58,9 +83,6 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # MAGIC %python
 # MAGIC # load parquet data and register views
-# MAGIC datestamp = dbutils.widgets.get('datestamp')
-# MAGIC timestamp = dbutils.widgets.get('timestamp')
-# MAGIC 
 # MAGIC tables = ['bdtbl', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
 # MAGIC for table in tables:
 # MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
@@ -126,15 +148,6 @@ zeroi = SparkR::collect(SparkR::sql(" SELECT  tpmib.printer_platform_name as pla
                   bdtbl tpmib
                 WHERE 1=1 
                   AND printer_route_to_market_ib='AFTERMARKET'
-                  AND printer_platform_name not in ('CICADA PLUS ROW',
-                                          'TSUNAMI 4:1 ROW',
-                                          'CRICKET',
-                                          'LONE PINE',
-                                          'MANTIS',
-                                          'CARACAL',
-                                          'EAGLE EYE',
-                                          'SID',
-                                          'TSUNAMI 4:1 CH/IND')
                 GROUP BY tpmib.printer_platform_name  
                , tpmib.platform_std_name  
                , tpmib.printer_country_iso_code  

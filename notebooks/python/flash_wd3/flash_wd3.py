@@ -42,7 +42,7 @@ write_df_to_redshift(configs, archer_records, f"stage.{job_type}_stage", "overwr
 
 #  --add record to version table for 'FLASH'or 'WD3
 
-max_version_info = call_redshift_addversion_sproc(configs, f'{job_type}.upper()', archer_record_str)
+max_version_info = call_redshift_addversion_sproc(configs, f'{job_type}'.upper(), archer_record_str)
 
 max_version = max_version_info[0]
 max_load_date = max_version_info[1]

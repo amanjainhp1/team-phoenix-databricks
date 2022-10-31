@@ -11,7 +11,6 @@ query_list = []
 
 ib_staging_inputs = """
 
-
 with ib_01_filter_vars as (
 
 
@@ -26,7 +25,7 @@ UNION ALL
 
 SELECT DISTINCT record
     , version
-FROM "prod"."decay"
+FROM "prod"."decay_m13"
 WHERE 1=1
     AND official = 1
     -- AND record <> 'lfd_decay'
@@ -113,7 +112,6 @@ ce_splits_pre = """
 
 with ib_01_filter_vars as (
 
-
 SELECT record
 	, MAX(version) AS version
 FROM "prod"."ce_splits"
@@ -125,7 +123,7 @@ UNION ALL
 
 SELECT DISTINCT record
     , version
-FROM "prod"."decay"
+FROM "prod"."decay_m13"
 WHERE 1=1
     AND official = 1
     -- AND record <> 'lfd_decay'
@@ -185,7 +183,6 @@ SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
 ),  ib_03_norm_shipments_agg as (
 
-
 SELECT ns.region_5
     , cc.market10
     , ns.record
@@ -204,8 +201,8 @@ JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = ns.country_alpha2
 WHERE 1=1
     AND hw.technology IN ('LASER','INK','PWA','LF')
-),  ib_02a_ce_splits as (
 
+), ib_02a_ce_splits as (
 
 SELECT ce.record
     , ce.platform_subset
@@ -220,8 +217,8 @@ FROM "prod"."ce_splits" AS ce
 WHERE 1=1
     AND ce.official = 1
     AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF')
-),  ib_02b_ce_splits_filter as (
 
+),  ib_02b_ce_splits_filter as (
 
 SELECT DISTINCT record
     , platform_subset
@@ -241,8 +238,8 @@ FROM
         AND pre_post_flag = 'PRE'
 ) AS sub
 WHERE 1=1
-),  ib_02c_ce_splits_final as (
 
+),  ib_02c_ce_splits_final as (
 
 SELECT ce.record
     , ce.platform_subset
@@ -288,12 +285,120 @@ query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"
 
 hw_decay = """
 
+WITH ib_01_filter_vars as (
+
+SELECT record
+	, MAX(version) AS version
+FROM "prod"."ce_splits"
+WHERE 1=1
+    AND official = 1
+GROUP BY record
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "prod"."decay_m13"
+WHERE 1=1
+    AND official = 1
+    -- AND record <> 'lfd_decay'
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "mdm"."printer_lag"
+
+UNION ALL
+
+SELECT DISTINCT record
+    , version
+FROM "prod"."instant_ink_enrollees"
+WHERE 1=1
+    AND official = 1
+
+UNION ALL
+
+SELECT 'IINK_IB_LTF' AS record
+    , MAX(version) AS version
+FROM "prod"."instant_ink_enrollees_ltf"
+WHERE 1=1
+
+UNION ALL
+
+SELECT 'HARDWARE_LTF_MAX_DATE' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('HW_FCST')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_FCST' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT 'HARDWARE_LTF_LF_MAX_DATE' AS record
+    , CAST(DATEADD(MONTH, 240, MAX(cal_date)) AS VARCHAR(25)) AS version
+FROM "prod"."hardware_ltf"
+WHERE 1=1
+    AND record IN ('HW_LTF_LF')
+    AND version = (SELECT MAX(version) FROM "prod"."hardware_ltf" WHERE record = 'HW_LTF_LF' AND official = 1)
+    AND official = 1
+
+UNION ALL
+
+SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
+    , version
+FROM "prod"."norm_shipments"
+WHERE 1=1
+    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+
+UNION ALL
+
+SELECT 'BUILD_NORM_SHIPS' AS record
+    , '1.1' AS version
+), ib_03_norm_shipments_agg as (
+
+SELECT ns.region_5
+    , cc.market10
+    , ns.record
+    , ns.cal_date AS month_begin
+    , ns.country_alpha2
+    , ns.platform_subset
+    , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
+    , ns.units
+FROM "stage"."norm_ships" AS ns
+JOIN ib_01_filter_vars AS fv
+    ON fv.record = 'BUILD_NORM_SHIPS'
+    AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
+JOIN "mdm"."hardware_xref" AS hw
+    ON hw.platform_subset = ns.platform_subset
+JOIN "mdm"."iso_country_code_xref" AS cc
+    ON cc.country_alpha2 = ns.country_alpha2
+WHERE 1=1
+    AND hw.technology IN ('LASER','INK','PWA','LF')
+
+), iso as (
+
+SELECT DISTINCT 
+    iso.country_alpha2,
+    iso.region_5,
+    iso.market10,
+    CASE iso.developed_emerging
+        WHEN 'DEVELOPED' THEN 'DM'
+        ELSE 'EM'
+    END as EM_DM,
+    CONCAT(iso.market10, CONCAT('-', CASE iso.developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END)) as market13
+FROM mdm.iso_country_code_xref iso
+INNER JOIN ib_03_norm_shipments_agg norm ON norm.country_alpha2=iso.country_alpha2
+WHERE CONCAT(iso.market10, CONCAT('-',CASE iso.developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END)) NOT IN ('UK&I-EM','NORTHERN EUROPE-EM', 'SOUTHERN EUROPE-EM') 
+)
 
 SELECT CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month, ucep.month_begin) AS INTEGER) + pl.month_lag - 1) / 12 AS year
     , ((CAST(DATEPART(month, ucep.month_begin) AS INTEGER) - 1 + pl.month_lag) % 12) + 1 AS month
     , ucep.region_5
     , ucep.market10
     , ucep.country_alpha2
+    , iso.market13
     , ucep.hps_ops
     , ucep.split_name
     , ucep.platform_subset
@@ -304,10 +409,12 @@ JOIN "mdm"."printer_lag" AS pl  -- implicit cross join (or cartesian product)
     AND ucep.hps_ops = pl.hps_ops
     AND ucep.split_name = pl.split_name
     AND pl.pre_post_flag = 'PRE'
+LEFT JOIN iso ON ucep.country_alpha2=iso.country_alpha2
 GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month, ucep.month_begin) AS INTEGER) + pl.month_lag - 1) / 12
     , ((CAST(DATEPART(month, ucep.month_begin) AS INTEGER) - 1 + pl.month_lag) % 12) + 1
     , ucep.region_5
     , ucep.market10
+    , iso.market13
     , ucep.country_alpha2
     , ucep.hps_ops
     , ucep.split_name
@@ -378,7 +485,7 @@ SELECT d.geography_grain
     , d.split_name
     , (y.year_num - 1) * 12 + m.month_num - 1 AS month_offset
     , d.value / 12 AS decayed_amt
-FROM "prod"."decay" AS d
+FROM "prod"."decay_m13" AS d
 JOIN ib_07_years AS y
     ON 'YEAR_' + CAST(y.year_num AS VARCHAR) = d.year
 JOIN ib_06_months AS m
@@ -408,13 +515,14 @@ SELECT hw_lag.year + CAST((hw_lag.month + amt.month_offset - 1) AS INTEGER) / 12
     , hw_lag.split_name
     , hw_lag.region_5
     , hw_lag.market10
+    , hw_lag.market13
     , hw_lag.country_alpha2
     , hw_lag.platform_subset
     , SUM(amt.remaining_amt * hw_lag.printer_installs) AS ib
 FROM "stage"."ib_01_hw_decay" AS hw_lag
 JOIN ib_09_remaining_amt AS amt
     ON hw_lag.platform_subset = amt.platform_subset
-    AND hw_lag.region_5 = amt.geography
+    AND hw_lag.market13 = amt.geography
     AND hw_lag.split_name = amt.split_name
 GROUP BY hw_lag.year + CAST((hw_lag.month + amt.month_offset - 1) AS INTEGER) / 12
     , (hw_lag.month + amt.month_offset - 1) % 12 + 1
@@ -422,6 +530,7 @@ GROUP BY hw_lag.year + CAST((hw_lag.month + amt.month_offset - 1) AS INTEGER) / 
     , hw_lag.split_name
     , hw_lag.region_5
     , hw_lag.market10
+    , hw_lag.market13
     , hw_lag.country_alpha2
     , hw_lag.platform_subset
 ),  ib_11_prelim_output as (
@@ -600,7 +709,7 @@ SELECT iiel.platform_subset
     , cc.region_5
     , cc.market10
     , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_kitless_enrollments * 0.8) AS p2_kitless_enroll_mod
+    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_mod
     , SUM(iiel.cum_enrollees_month) AS cum_enrollees_month
 FROM "prod"."instant_ink_enrollees" AS iiel
 JOIN "mdm"."calendar" AS c
@@ -807,7 +916,7 @@ SELECT month_begin
     , ib
 FROM "stage"."ib_03_iink_complete"
 WHERE 1=1
-    AND CAST(month_begin AS DATE) > CAST('2022-10-01' AS DATE)
+    AND CAST(month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
 ),  ib_14_iink_act_stf as (
 
 
@@ -822,7 +931,7 @@ SELECT iiel.platform_subset
     , cc.region_5
     , cc.market10
     , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_kitless_enrollments * 0.8) AS p2_kitless_enroll_mod
+    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_mod
     , SUM(iiel.cum_enrollees_month) AS cum_enrollees_month
 FROM "prod"."instant_ink_enrollees" AS iiel
 JOIN "mdm"."calendar" AS c
@@ -851,7 +960,7 @@ SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.0
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
     , MAX(CASE WHEN ltf.metric = 'P2 ENROLLEES' THEN ltf.value END) AS p2_enrollees
-    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) + (0.18 * MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END)) AS p2_cumulative
+    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) AS p2_cumulative
     , MAX(CASE WHEN ltf.metric = 'CUMULATIVE' THEN ltf.value END) AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
 JOIN "stage"."ib_staging_inputs" AS fv
@@ -891,7 +1000,7 @@ JOIN ib_23_iink_ltf_prep AS ltf
     ON ltf.geography = sp.geography
     AND ltf.month_begin = sp.month_begin
 WHERE 1=1
-    AND CAST(ltf.month_begin AS DATE) > CAST('2022-10-01' AS DATE)
+    AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
 ),  ib_25_sys_delta as (
 
 
@@ -903,7 +1012,7 @@ FROM "stage"."ib_03_iink_complete" AS comb
 WHERE 1=1
     AND comb.p2_attach > 0
     AND NOT comb.p2_attach IS NULL
-    AND CAST(comb.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
+    AND CAST(comb.month_begin AS DATE) <= (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
 
 UNION ALL
 
@@ -965,7 +1074,7 @@ FROM "stage"."ib_03_iink_complete" AS iink
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 WHERE 1=1
-    AND CAST(iink.month_begin AS DATE) <= CAST('2022-10-01' AS DATE)
+    AND CAST(iink.month_begin AS DATE) <= (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
     AND hw.technology IN ('LASER','INK','PWA','LF')
 
 UNION ALL

@@ -34,11 +34,22 @@ constants = {
         "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/sqlserver/team-phoenix/auto_databricks-hChWVK",
         "reporting": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/sqlserver/team-phoenix/auto_databricks-hChWVK"
     },
+    "OZZY_SECRET_NAME": {
+        "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/team-phoenix/ozzy-sAlNQG",
+        "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/team-phoenix/ozzy-GmMlPe",
+        "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/team-phoenix/ozzy-YdkEtR"
+    },
     "S3_BASE_BUCKET": {
         "dev": "s3a://dataos-core-dev-team-phoenix/",
         "itg": "s3a://dataos-core-itg-team-phoenix/",
         "prod": "s3a://dataos-core-prod-team-phoenix/",
         "reporting": "s3a://dataos-core-prod-team-phoenix/"
+    },
+    "S3_FIN_BUCKET": {
+        "dev": "s3a://dataos-core-dev-team-phoenix-fin/",
+        "itg": "s3a://dataos-core-itg-team-phoenix-fin/",
+        "prod": "s3a://dataos-core-prod-team-phoenix-fin/",
+        "reporting": "s3a://dataos-core-prod-team-phoenix-fin/"
     },
     "REDSHIFT_URL": {
         "dev": "dataos-core-dev-team-phoenix.dev.hpdataos.com",

@@ -18,11 +18,34 @@ dbutils.widgets.text("timestamp", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve tasks from widgets/parameters
+# MAGIC tasks = dbutils.widgets.get("tasks") if dbutils.widgets.get("tasks") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["tasks"]
+# MAGIC tasks = tasks.split(";")
+# MAGIC 
+# MAGIC # define all relevenat task parameters to this notebook
+# MAGIC relevant_tasks = ["all", "usage_total"]
+# MAGIC 
+# MAGIC # exit if tasks list does not contain a relevant task i.e. "all" or "usage_total"
+# MAGIC for task in tasks:
+# MAGIC     if task not in relevant_tasks:
+# MAGIC         dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # set vars equal to widget vals for interactive sessions, else retrieve task values 
+# MAGIC datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
+# MAGIC timestamp = dbutils.widgets.get("timestamp") if dbutils.widgets.get("timestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["timestamp"]
 
 # COMMAND ----------
 
@@ -32,6 +55,8 @@ dbutils.widgets.text("timestamp", "")
 # MAGIC for key, val in configs.items():
 # MAGIC     spark.conf.set(key, val)
 # MAGIC 
+# MAGIC spark.conf.set('datestamp', datestamp)
+# MAGIC spark.conf.set('timestamp', timestamp)
 # MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
@@ -58,9 +83,6 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # MAGIC %python
 # MAGIC # load parquet data and register views
-# MAGIC datestamp = dbutils.widgets.get('datestamp')
-# MAGIC timestamp = dbutils.widgets.get('timestamp')
-# MAGIC 
 # MAGIC tables = ['bdtbl', 'calendar', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref', 'tri_printer_ref_landing']
 # MAGIC for table in tables:
 # MAGIC     spark.read.parquet(f'{constants["S3_BASE_BUCKET"][stack]}/cupsm_inputs/toner/{datestamp}/{timestamp}/{table}/').createOrReplaceTempView(f'{table}')
@@ -106,9 +128,6 @@ options(scipen=999)
 #--------Lock weights-----------------------------------------------------------------------------#
 lock_weights <- 0   #0 for use calculated, 1 for use stated version
 lockwt_file <- 'toner_weights_75_Q4_qe_2021-11-16'
-
-datestamp <- dbutils.widgets.get("datestamp")
-timestamp <- dbutils.widgets.get("timestamp")
 
 # COMMAND ----------
 
@@ -2853,7 +2872,7 @@ old <- SparkR::collect(SparkR::sql(paste("
       ibset ib
     ON (ref.platform_subset=ib.platform_subset)
     WHERE ref.platform_subset != '?' and (upper(ref.technology) ='LASER' or (ref.technology='PWA' and (upper(ref.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                            or ref.platform_subset like 'PANTHER%' or ref.platform_subset like 'JAGUAR%')) and ref.pl not in ('E0','E4','ED','GW')
+                            or ref.platform_subset like 'PANTHER%' or ref.platform_subset like 'JAGUAR%')) 
     GROUP BY ref.mono_color
     , ib.platform_subset
     , ib.region_code

@@ -130,20 +130,18 @@ final_table_df = spark.sql(query + "FROM table_df")
 # COMMAND ----------
 
 # for large tables, we need to filter records and in order to retrieve many smaller datasets rather than one large dataset
-large_tables = ['working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region', 'adjusted_revenue', 'trade_forecast', 'adjusted_revenue_epa']
+large_tables = ['demand', 'working_forecast_country', 'working_forecast', 'forecast_supplies_baseprod', 'forecast_supplies_base_prod_region', 'adjusted_revenue', 'trade_forecast', 'adjusted_revenue_epa']
 
 if configs["destination_table"] in large_tables and configs['load_large_tables'].lower() == 'true':
     filtervals = []
     filtercol = ''
     if configs["destination_table"] == 'working_forecast_country':
         filtercol = 'country' 
-    elif configs["destination_table"] == 'working_forecast':
+    elif configs["destination_table"] == 'working_forecast' or configs["destination_table"] == 'demand':
         filtercol= 'geography'
-    elif configs['destination_table'] == 'forecast_supples_base_prod_region5':
-        filtercol = 'region_5'
     elif configs['destination_table'] == 'forecast_supplies_baseprod' or configs['destination_table'] == 'adjusted_revenue' or configs['destination_table'] == 'adjusted_revenue_epa':
         filtercol = 'country_alpha2'
-    elif configs['destination_table'] == 'trade_forecast' or configs['destination_table'] == 'forecast_supplies_base_prod_region':
+    elif configs['destination_table'] == 'trade_forecast' or configs['destination_table'] == 'forecast_supplies_base_prod_region' or configs['destination_table'] == 'forecast_supples_base_prod_region5':
         filtercol = 'region_5'
 
     filtervals = read_sql_server_to_df(configs) \

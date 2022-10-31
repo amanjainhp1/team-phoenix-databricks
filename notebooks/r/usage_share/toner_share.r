@@ -15,17 +15,41 @@ notebook_start_time <- Sys.time()
 
 dbutils.widgets.text("cutoff_dt", "")
 dbutils.widgets.text("outnm_dt", "")
-dbutils.widgets.text("ib_version", "")
 dbutils.widgets.text("datestamp","")
 dbutils.widgets.text("timestamp","")
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC 
+# MAGIC # retrieve tasks from widgets/parameters
+# MAGIC tasks = dbutils.widgets.get("tasks") if dbutils.widgets.get("tasks") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["tasks"]
+# MAGIC tasks = tasks.split(";")
+# MAGIC 
+# MAGIC # define all relevenat task parameters to this notebook
+# MAGIC relevant_tasks = ["all", "share"]
+# MAGIC 
+# MAGIC # exit if tasks list does not contain a relevant task i.e. "all" or "share"
+# MAGIC for task in tasks:
+# MAGIC     if task not in relevant_tasks:
+# MAGIC         dbutils.notebook.exit("EXIT: Tasks list does not contain a relevant value i.e. {}.".format(", ".join(relevant_tasks)))
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # set vars equal to widget vals for interactive sessions, else retrieve task values 
+# MAGIC cutoff_dt = dbutils.widgets.get("cutoff_dt") if dbutils.widgets.get("cutoff_dt") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["cutoff_dt"]
+# MAGIC outnm_dt = dbutils.widgets.get("outnm_dt") if dbutils.widgets.get("outnm_dt") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["outnm_dt"]
+# MAGIC datestamp = dbutils.widgets.get("datestamp") if dbutils.widgets.get("datestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["datestamp"]
+# MAGIC timestamp = dbutils.widgets.get("timestamp") if dbutils.widgets.get("timestamp") != "" else dbutils.jobs.taskValues.get(taskKey = "cupsm_execute", key = "args")["timestamp"]
 
 # COMMAND ----------
 
@@ -35,6 +59,9 @@ dbutils.widgets.text("timestamp","")
 # MAGIC for key, val in configs.items():
 # MAGIC     spark.conf.set(key, val)
 # MAGIC 
+# MAGIC spark.conf.set('cutoff_dt', cutoff_dt)
+# MAGIC spark.conf.set('datestamp', datestamp)
+# MAGIC spark.conf.set('timestamp', timestamp)
 # MAGIC spark.conf.set('aws_bucket_name', constants['S3_BASE_BUCKET'][stack])
 
 # COMMAND ----------
@@ -52,9 +79,6 @@ options(stringsAsFactors = FALSE)
 
 tempdir(check=TRUE)
 
-#--------Ouput Qtr Pulse or Quarter End-----------------------------------------------------------#
-outnm_dt <- dbutils.widgets.get("outnm_dt")
-
 # COMMAND ----------
 
 # define s3 bucket
@@ -64,8 +88,6 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # MAGIC %python
 # MAGIC # load parquet data and register views
-# MAGIC datestamp = dbutils.widgets.get('datestamp')
-# MAGIC timestamp = dbutils.widgets.get('timestamp')
 # MAGIC 
 # MAGIC tables = ['bdtbl', 'calendar', 'hardware_xref', 'ib', 'iso_cc_rollup_xref', 'iso_country_code_xref']
 # MAGIC for table in tables:
@@ -73,7 +95,10 @@ aws_bucket_name <- sparkR.conf('aws_bucket_name')
 
 # COMMAND ----------
 
-cutoff_date <- dbutils.widgets.get("cutoff_dt")
+datestamp <- sparkR.conf("datestamp")
+timestamp <- sparkR.conf("timestamp")
+cutoff_date <- sparkR.conf("cutoff_dt")
+
 table_month0 <- SparkR::collect(SparkR::sql(paste0("
            SELECT  tpmib.printer_group  
            , tpmib.printer_platform_name as platform_name 
@@ -116,15 +141,6 @@ table_month0 <- SparkR::collect(SparkR::sql(paste0("
              bdtbl tpmib
             WHERE 1=1 
             AND printer_route_to_market_ib='AFTERMARKET'
-            AND printer_platform_name not in ('CICADA PLUS ROW',
-                                      'TSUNAMI 4:1 ROW',
-                                      'CRICKET',
-                                      'LONE PINE',
-                                      'MANTIS',
-                                      'CARACAL',
-                                      'EAGLE EYE',
-                                      'SID',
-                                      'TSUNAMI 4:1 CH/IND')
             GROUP BY tpmib.printer_group  
            , tpmib.printer_platform_name
            , tpmib.platform_std_name  
@@ -1582,101 +1598,6 @@ remaining <- subset(proxylist_b,is.na(min))
 
 remaining2 <- subset(remaining,substring(FMC,nchar(FMC)-2,nchar(FMC))=='WGP' | substring(FMC,nchar(FMC)-2,nchar(FMC))=='DSK')
 
-# remaining_LA <- subset(remaining,!is.na(FMC))
-# remaining_LA$regions <- as.character(remaining_LA$regions)
-# proxylist_la <- sqldf("
-#                          SELECT a.printer_platform_name, a.regions, a.Predecessor 
-#                           ,CASE 
-#                             WHEN a.min IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[min.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[min.mn] IS NULL THEN 
-#                                       CASE WHEN d.[min.mn] IS NULL THEN e.FMC
-#                                       ELSE d.FMC
-#                                       END
-#                                     ELSE c.FMC
-#                                   END
-#                                 ELSE b.FMC
-#                               END
-#                             ELSE a.FMC 
-#                           END as proxy
-#                           ,CASE 
-#                             WHEN a.min IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[min.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[min.mn] IS NULL THEN 
-#                                       CASE WHEN d.[min.mn] IS NULL THEN e.[min.mn]
-#                                       ELSE d.[min.mn]
-#                                       END
-#                                     ELSE c.[min.mn]
-#                                   END
-#                                 ELSE b.[min.mn]
-#                               END
-#                             ELSE a.min 
-#                           END as min
-#                           ,CASE 
-#                             WHEN a.max IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[max.mn] IS NULL THEN 
-#                               CASE 
-#                                 WHEN c.[max.mn] IS NULL THEN
-#                                   CASE WHEN d.[max.mn] IS NULL THEN e.[max.mn]
-#                                   ELsE d.[max.mn]
-#                                   END
-#                                 ELSE c.[max.mn]
-#                                 END
-#                                 ELSE b.[max.mn]
-#                               END
-#                             ELSE a.min
-#                           END as max
-#                           ,CASE 
-#                               WHEN a.med IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[med.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[med.mn] IS NULL THEN
-#                                       CASE WHEN d.[med.mn] IS NULL THEN e.[med.mn]
-#                                       ELSE d.[med.mn]
-#                                       END
-#                                     ELSE c.[med.mn]
-#                                   END
-#                                 ELSE b.[med.mn]
-#                               END
-#                             ELSE a.min
-#                           END as med
-#                           ,CASE 
-#                             WHEN a.spread IS NULL THEN 
-#                               CASE
-#                                 WHEN b.[spread.mn] IS NULL THEN 
-#                                   CASE 
-#                                     WHEN c.[spread.mn] IS NULL THEN
-#                                       CASE WHEN d.[spread.mn] IS NULL THEN e.[spread.mn]
-#                                       ELSE d.[spread.mn]
-#                                       END
-#                                     ELSE c.[spread.mn]
-#                                   END
-#                                 ELSE b.[spread.mn]
-#                               END
-#                             ELSE a.spread
-#                           END as spread
-#                           , a.FMC
-#                         FROM remaining_LA a
-#                         LEFT JOIN  aggr_models_f b
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(b.FMC,1,2) AND SUBSTR(b.FMC,3,5)='WGP' AND a.regions=b.regions)
-#                         LEFT JOIN  aggr_models_f c
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(c.FMC,1,2) AND SUBSTR(c.FMC,3,5)='SWH' AND a.regions=c.regions)
-#                         LEFT JOIN  aggr_models_f d
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(d.FMC,1,2) AND SUBSTR(d.FMC,3,5)='SWL' AND a.regions=d.regions)
-#                         LEFT JOIN  aggr_models_f e
-#                           ON (SUBSTR(a.FMC,1,2)=SUBSTR(e.FMC,1,2) AND SUBSTR(e.FMC,3,5)='DSK' AND a.regions=e.regions)
-#                          ")
-# proxylist_la2 <- subset(proxylist_la,is.na(min))
-# proxylist_la3 <- subset(proxylist_la,!is.na(min))
-# #remaining_FMC <- subset(remaining,is.na(FMC))
-# proxylist_c <- subset(proxylist_b,!is.na(min))
-# proxylist_f1 <- rbind(proxylist_c,proxylist_la3)
 proxylist_f1 <- subset(proxylist_b,!is.na(min))
 #write.csv(paste("C:/Users/timothy/Documents/Insights2.0/Share_Models_files/","Page Share for 100 percent IB DE ",".csv", sep=''), x=proxylist_final,row.names=FALSE, na="")
 
@@ -1734,8 +1655,8 @@ proxylist_final2 <- sqldf("
                           ")
 #proxylist_final2$Supplies_Product_Family <- ifelse(is.na(proxylist_final2$Supplies_Product_Family),proxylist_final2$printer_platform_name,proxylist_final2$Supplies_Product_Family)
 #Uncomment when ready to run
-UPM <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), "usage_total", sep="/"))
-UPMC <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", dbutils.widgets.get("datestamp"), dbutils.widgets.get("timestamp"), "usage_color", sep="/"))
+UPM <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", datestamp, timestamp, "usage_total", sep="/"))
+UPMC <- SparkR::read.parquet(path=paste(aws_bucket_name, "cupsm_outputs", "toner", datestamp, timestamp, "usage_color", sep="/"))
 
 createOrReplaceTempView(UPM, "UPM")
 createOrReplaceTempView(UPMC, "UPMC")
@@ -2258,14 +2179,15 @@ final_list7 <- mutate(final_list2
 
 final_list7$hd_mchange_ps <- ifelse(substr(final_list7$Share_Source_PS,1,8)=="MODELLED",ifelse(final_list7$lagShare_Source_PS=="HAVE DATA",final_list7$Page_Share_sig-final_list7$lagShare_PS, NA ), NA)
 final_list7$hd_mchange_ps_i <- ifelse(!isNull(final_list7$hd_mchange_ps),final_list7$index1,NA)
-final_list7$hd_mchange_psb <- ifelse(final_list7$Share_Source_PS=="HAVE DATA",ifelse(substr(final_list7$Share_Source_PS,1,8)=="MODELLED",final_list7$Page_Share_sig, NA ),NA)
+final_list7$hd_mchange_psb <- ifelse(final_list7$Share_Source_PS=="HAVE DATA",ifelse(substr(final_list7$lagShare_Source_PS,1,8)=="MODELLED",final_list7$Page_Share_sig, NA ),NA)
 final_list7$hd_mchange_ps_j <- ifelse(!isNull(final_list7$hd_mchange_psb),final_list7$index1,NA)
 #final_list7$hd_mchange_cu <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse(final_list7$lagShare_Source_CU=="Have Data",final_list7$Crg_Unit_Share-final_list7$lagShare_CU, NA ),NA)
 #final_list7$hd_mchange_cu_i <- ifelse(!is.na(final_list7$hd_mchange_cu),final_list7$index1,NA)
 final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 #final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
-final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD",ifelse(final_list7$lagUsage_Source=="DASHBOARD",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
+final_list7$hd_mchange_use_j <- ifelse(!isNull(final_list7$hd_mchange_used),final_list7$index1,NA)
 
 
 createOrReplaceTempView(final_list7, "final_list7")
@@ -2277,6 +2199,7 @@ final_list7 <- SparkR::sql("
                         ,min(hd_mchange_ps_j) as hd_mchange_ps_j
                         --,max(hd_mchange_cu_i) as hd_mchange_cu_i
                         ,max(hd_mchange_use_i) as hd_mchange_use_i
+                        ,min(hd_mchange_use_j) as hd_mchange_use_j
                         FROM final_list7
                         GROUP BY Platform_Subset_Nm,Country_Cd
                 )
@@ -2343,12 +2266,12 @@ final_list7 <- SparkR::sql("
                           and final_list7.index1 = sub0.hd_mchange_use_i 
                   )
                   , sub1used as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo,sub0.hd_mchange_use_i
-                        ,final_list7.Usage-final_list7.lagShare_Usage AS hd_mchange_used
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo,sub0.hd_mchange_use_j
+                        ,final_list7.MPV_Raw-final_list7.MPV_TD AS hd_mchange_used
                         FROM final_list7
                         INNER JOIN 
                         sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
-                          and final_list7.index1=sub0.hd_mchange_use_i-1
+                          and final_list7.index1=sub0.hd_mchange_use_j
                   )
                   , sub1used2 as( 
                     SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo, subusev4.avgUsage, sub1use.hd_mchange_use_i,final_list7.Usage
@@ -2371,6 +2294,7 @@ final_list7 <- SparkR::sql("
                       ,sub1usec.hd_mchange_usec as adjust_usec
                       ,sub1used.hd_mchange_used as adjust_used
                       ,sub1use.hd_mchange_use_i as adjust_use_i
+                      ,sub1used.hd_mchange_use_j as adjust_use_j
                       --,sub1cu.hd_mchange_cu as adjust_cu
                       --,sub1cu.hd_mchange_cu_i as adjust_cu_i
                       ,subusev4.avgUsage as avgUsage
@@ -2447,8 +2371,9 @@ final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final
 
 ###ADJUST USAGE
 final_list7$adjust_use_i <- ifelse(isNull(final_list7$adjust_use_i),0,final_list7$adjust_use_i)
+final_list7$adjust_use_j <- ifelse(isNull(final_list7$adjust_use_j),0,final_list7$adjust_use_j)
 #final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+0.95*final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), final_list7$Usage), final_list7$Usage)
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index1,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
 
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 
@@ -2520,8 +2445,7 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 final_list8$dm_version <- dm_version
-outnm_dt <- dbutils.widgets.get("outnm_dt")
-today <- dbutils.widgets.get("datestamp")
+today <- datestamp
 vsn <- '2022.01.19.1'  #for DUPSM
 rec1 <- 'usage_share'
 geog1 <- 'country'
@@ -2863,7 +2787,7 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC import re
 # MAGIC from pyspark.sql.functions import lit
 # MAGIC 
-# MAGIC forecast_process_note ="TONER {} {}.1".format(dbutils.widgets.get("outnm_dt").upper(), datestamp[0:4])
+# MAGIC forecast_process_note ="TONER {} {}.1".format(outnm_dt.upper(), datestamp[0:4])
 # MAGIC 
 # MAGIC version = call_redshift_addversion_sproc(configs=configs, record=forecast_process_note, source_name="CUPSM")
 # MAGIC 
@@ -2872,6 +2796,12 @@ createOrReplaceTempView(mdm_tbl, "mdm_tbl")
 # MAGIC     .withColumn("forecast_process_note", lit(forecast_process_note))
 # MAGIC 
 # MAGIC write_df_to_s3(df=mdm_tbl, destination=f"{constants['S3_BASE_BUCKET'][stack]}spectrum/cupsm/{version[0]}/{re.sub(' ','_',forecast_process_note.lower())}", format="parquet", mode="overwrite", upper_strings=True)
+
+# COMMAND ----------
+
+# MAGIC %python
+# MAGIC # for proxy_locking pass usage_share_current_version
+# MAGIC dbutils.jobs.taskValues.set(key = "usage_share_current_version", value = version[0])
 
 # COMMAND ----------
 
