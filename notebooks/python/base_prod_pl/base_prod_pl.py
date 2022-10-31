@@ -34,21 +34,95 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
-tables = ['mdm.calendar', 'mdm.iso_country_code_xref', 'mdm.rdma', 'mdm.supplies_xref', 'fin_prod.forecast_fixed_cost_input', 'prod.currency_hedge' , 'mdm.product_line_scenarios_xref' , 'fin_prod.forecast_variable_cost_ink' , 'fin_prod.forecast_variable_cost_toner' , 'prod.ibp_supplies_forecast' , 'fin_stage.lpf_01_ibp_combined' , 'fin_prod.forecast_sales_gru' ,  'fin_prod.npi_base_gru' , 'fin_prod.forecast_gru_override' , 'fin_prod.forecast_contra_input' , 'mdm.country_currency_map' , 'prod.working_forecast_country']
+# load S3 tables to df
+
+working_forecast_country = read_redshift_to_df(configs) \
+    .option("query", "SELECT * FROM prod.working_forecast_country WHERE version = (SELECT max(version) from prod.working_forecast_country)") \
+    .load()
+ibp_supplies_forecast = read_redshift_to_df(configs) \
+    .option("query", "SELECT * FROM prod.ibp_supplies_forecast WHERE version = (SELECT max(version) from prod.ibp_supplies_forecast)") \
+    .load()
+calendar = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.calendar") \
+    .load()
+rdma = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.rdma") \
+    .load()
+iso_country_code_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.iso_country_code_xref") \
+    .load()
+country_currency_map = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.country_currency_map") \
+    .load()
+supplies_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.supplies_xref") \
+    .load()
+forecast_fixed_cost_input = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_fixed_cost_input") \
+    .load()
+currency_hedge = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.currency_hedge") \
+    .load()
+product_line_scenarios_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.product_line_scenarios_xref") \
+    .load()
+forecast_variable_cost_ink = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_variable_cost_ink") \
+    .load()
+forecast_variable_cost_toner = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_variable_cost_toner") \
+    .load()
+lpf_01_ibp_combined = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.lpf_01_ibp_combined") \
+    .load()
+forecast_sales_gru = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_sales_gru") \
+    .load()
+npi_base_gru = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.npi_base_gru") \
+    .load()
+forecast_gru_override = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_gru_override") \
+    .load()
+forecast_contra_input = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_contra_input") \
+    .load()
+
+# COMMAND ----------
+
+tables = [
+          ['mdm.calendar',calendar],
+          ['mdm.iso_country_code_xref',iso_country_code_xref],
+          ['mdm.rdma',rdma],
+          ['mdm.supplies_xref',supplies_xref],
+          ['fin_prod.forecast_fixed_cost_input',forecast_fixed_cost_input],
+          ['prod.currency_hedge' ,currency_hedge],
+          ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
+          ['fin_prod.forecast_variable_cost_ink' ,forecast_variable_cost_ink],
+          ['fin_prod.forecast_variable_cost_toner' ,forecast_variable_cost_toner],
+          ['prod.ibp_supplies_forecast' ,ibp_supplies_forecast],
+          ['fin_stage.lpf_01_ibp_combined' ,lpf_01_ibp_combined],
+          ['fin_prod.forecast_sales_gru' ,forecast_sales_gru],
+          ['fin_prod.npi_base_gru' , npi_base_gru],
+          ['fin_prod.forecast_gru_override' ,forecast_gru_override],
+          ['fin_prod.forecast_contra_input' ,forecast_contra_input],
+          ['mdm.country_currency_map' ,country_currency_map],
+          ['prod.working_forecast_country' ,working_forecast_country]
+         ]
 
 
 ##'prod.working_forecast_country' ,
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
-    schema = table.split(".")[0]
-    table_name = table.split(".")[1]
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
-    df = get_data_by_table(table)
-        
+    df = table[1]
+    print(f'loading {table[0]}...')
     # Write the data to its target.
     df.write \
       .format(write_format) \
@@ -58,11 +132,11 @@ for table in tables:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
     # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table + " USING DELTA LOCATION '" + save_path + "'")
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
     
-    spark.table(table).createOrReplaceTempView(table_name)
+    spark.table(table[0]).createOrReplaceTempView(table_name)
     
-    print(f'{table_name} loaded')
+    print(f'{table[0]} loaded')
 
 # COMMAND ----------
 

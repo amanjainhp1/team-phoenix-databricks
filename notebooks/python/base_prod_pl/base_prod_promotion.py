@@ -28,21 +28,87 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
-tables = ['fin_stage.forecast_base_pl' , 'prod.currency_hedge' , 'mdm.iso_country_code_xref' , 'mdm.country_currency_map' , 'stage.supplies_stf_landing' , 'mdm.product_line_scenarios_xref' , 'mdm.calendar' , 'fin_prod.forecast_fixed_cost_input' , 'prod.trade_forecast' , 'fin_prod.actuals_supplies_baseprod' , 'fin_prod.adjusted_revenue_epa' , 'prod.working_forecast_country' , 'mdm.yield'  ,'prod.version' ,'mdm.supplies_xref']
+iso_country_code_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.iso_country_code_xref") \
+    .load()
+country_currency_map = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.country_currency_map") \
+    .load()
+yield = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.yield") \
+    .load()
+supplies_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.supplies_xref") \
+    .load()
+product_line_scenarios_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.product_line_scenarios_xref") \
+    .load()
+calendar = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.calendar") \
+    .load()
+supplies_stf_landing = read_redshift_to_df(configs) \
+    .option("dbtable", "stage.supplies_stf_landing") \
+    .load()
+forecast_fixed_cost_input = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_fixed_cost_input") \
+    .load()
+actuals_supplies_baseprod = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.actuals_supplies_baseprod") \
+    .load()
+adjusted_revenue_epa = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.adjusted_revenue_epa") \
+    .load()
+forecast_base_pl = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.forecast_base_pl") \
+    .load()
+currency_hedge = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.currency_hedge") \
+    .load()
+working_forecast_country = read_redshift_to_df(configs) \
+    .option("query", "SELECT * FROM prod.working_forecast_country WHERE version = (SELECT max(version) from prod.working_forecast_country)") \
+    .load()
+version = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.version") \
+    .load()
+trade_forecast = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.trade_forecast") \
+    .load()
+
+
+# COMMAND ----------
+
+tables = [
+  ['mdm.iso_country_code_xref' ,iso_country_code_xref],
+  ['mdm.country_currency_map' ,country_currency_map],
+  ['mdm.yield' ,yield],
+  ['mdm.supplies_xref',supplies_xref],
+  ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
+  ['mdm.calendar' ,calendar],
+  ['stage.supplies_stf_landing' ,supplies_stf_landing],
+  ['fin_prod.forecast_fixed_cost_input' ,forecast_fixed_cost_input],
+  ['fin_prod.actuals_supplies_baseprod' ,actuals_supplies_baseprod],
+  ['fin_prod.adjusted_revenue_epa' ,adjusted_revenue_epa],
+  ['fin_stage.forecast_base_pl' ,forecast_base_pl],
+  ['prod.currency_hedge' ,currency_hedge],
+  ['prod.working_forecast_country' ,working_forecast_country],
+  ['prod.version' ,version],
+  ['prod.trade_forecast' ,trade_forecast]
+  
+]
 
 
 ##'prod.working_forecast_country' ,
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
-    schema = table.split(".")[0]
-    table_name = table.split(".")[1]
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
-    df = get_data_by_table(table)
-        
+    df = table[1]
+    print(f'loading {table[0]}...')
     # Write the data to its target.
     df.write \
       .format(write_format) \
@@ -52,11 +118,11 @@ for table in tables:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
     # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table + " USING DELTA LOCATION '" + save_path + "'")
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
     
-    spark.table(table).createOrReplaceTempView(table_name)
+    spark.table(table[0]).createOrReplaceTempView(table_name)
     
-    print(f'{table_name} loaded')
+    print(f'{table[0]} loaded')
 
 # COMMAND ----------
 
