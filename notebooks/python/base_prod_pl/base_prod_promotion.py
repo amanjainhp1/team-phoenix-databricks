@@ -8,6 +8,10 @@ dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
 
 # COMMAND ----------
 
+# MAGIC %run ../common/configs
+
+# COMMAND ----------
+
 max_info = call_redshift_addversion_sproc(configs, 'FORECAST_SUPPLIES_BASEPROD', 'FORECAST_SUPPLIES_BASEPROD')
 
 max_version = max_info[0]
@@ -34,7 +38,7 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 country_currency_map = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.country_currency_map") \
     .load()
-yield = read_redshift_to_df(configs) \
+yield_ = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.yield") \
     .load()
 supplies_xref = read_redshift_to_df(configs) \
@@ -80,7 +84,7 @@ trade_forecast = read_redshift_to_df(configs) \
 tables = [
   ['mdm.iso_country_code_xref' ,iso_country_code_xref],
   ['mdm.country_currency_map' ,country_currency_map],
-  ['mdm.yield' ,yield],
+  ['mdm.yield' ,yield_],
   ['mdm.supplies_xref',supplies_xref],
   ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
   ['mdm.calendar' ,calendar],
@@ -622,8 +626,8 @@ SELECT
 			effective_date,
 			COALESCE(LEAD(effective_date) OVER (PARTITION BY base_product_number, geography ORDER BY effective_date),
 			CAST('2099-08-30' AS DATE)) AS next_effective_date,
-			yield.value AS yield
-		FROM yield
+			yield_.value AS yield
+		FROM yield_
 		WHERE official = 1	
 		AND geography_grain = 'REGION_5'
 ),  __dbt__CTE__bpo_24_sub_months as (
