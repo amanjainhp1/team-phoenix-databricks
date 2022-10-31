@@ -46,7 +46,7 @@ SELECT DISTINCT
 		"fin_stage"."forecast_sales_gru" sales_gru
 """.format(max_load_date,max_version)
 
-query_list.append(["fin_prod.forecast_sales_gru", forecast_sales_gru, "overwrite"])
+query_list.append(["fin_prod.forecast_sales_gru", forecast_sales_gru, "append"])
 
 # COMMAND ----------
 
@@ -65,7 +65,7 @@ SELECT DISTINCT
 		"fin_stage"."list_price_version" lpv
 """.format(max_load_date,max_version)
 
-query_list.append(["fin_prod.list_price_version", list_price_version, "overwrite"])
+query_list.append(["fin_prod.list_price_version", list_price_version, "append"])
 
 # COMMAND ----------
 
@@ -87,7 +87,11 @@ SELECT
 FROM "fin_stage"."forecast_sales_gru"
 """.format(max_load_date)
 
-query_list.append(["prod.list_price_filtered", list_price_filtered, "overwrite"])
+query_list.append(["prod.list_price_filtered", list_price_filtered, "append"])
+
+# COMMAND ----------
+
+submit_remote_query(configs , '''truncate table fin_prod.forecast_gru_sales_to_base''')
 
 # COMMAND ----------
 
@@ -121,7 +125,11 @@ SELECT
 		ibp_sales_units.cal_date = (SELECT min(cal_date) FROM "fin_stage"."lpf_01_ibp_combined")
 """.format(max_version)
 
-query_list.append(["fin_prod.forecast_gru_sales_to_base", forecast_gru_sales_to_base, "overwrite"])
+query_list.append(["fin_prod.forecast_gru_sales_to_base", forecast_gru_sales_to_base, "append"])
+
+# COMMAND ----------
+
+submit_remote_query(configs , '''truncate table fin_prod.list_price_dashboard''')
 
 # COMMAND ----------
 
@@ -396,7 +404,7 @@ SELECT
 				ON lp.sales_product_number = rdma.sales_product_number
 """.format(max_version)
 
-query_list.append(["fin_prod.list_price_dashboard", list_price_dashboard, "overwrite"])
+query_list.append(["fin_prod.list_price_dashboard", list_price_dashboard, "append"])
 
 # COMMAND ----------
 

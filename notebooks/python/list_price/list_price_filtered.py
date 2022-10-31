@@ -1,6 +1,6 @@
 # Databricks notebook source
-dbutils.widgets.text("accounting_eff_date",'2022-09-01')
-dbutils.widgets.text("accounting_rate_version",'2022.09.01.1')
+dbutils.widgets.text("accounting_eff_date",'2022-10-01')
+dbutils.widgets.text("accounting_rate_version",'2022.10.04.1')
 dbutils.widgets.text("forecast_record",'FORECAST_SALES_GRU')
 
 # COMMAND ----------
@@ -22,66 +22,6 @@ from pyspark.sql.functions import *
 
 # COMMAND ----------
 
-f_report_units_query = """
-SELECT "Product Number" as product_number
-        , "Country code" as country_code
-        , "Currency code" as currency_code
-        , "Price Term code" as price_term_code
-        , "Price Start Effective Date" as price_start_effective_date
-        , "QB Sequence Number" as "qbl_sequence_number"
-        , "List Price" as list_price
-        , "Product Line" as product_line
-        , load_date
-        , version
-FROM ie2_prod.dbo.list_price_gpsy
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "prod.list_price_gpsy", "overwrite")
-
-# COMMAND ----------
-
-rdma = """
-SELECT *
-FROM ie2_prod.dbo.rdma
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", rdma) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "mdm.rdma", "overwrite")
-
-# COMMAND ----------
-
-f_report_units_query = """
-SELECT *
-FROM ie2_prod.dbo.rdma_base_to_sales_product_map
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "mdm.rdma_base_to_sales_product_map", "overwrite")
-
-# COMMAND ----------
-
-f_report_units_query = """
-SELECT * FROM ie2_prod.dbo.working_forecast_country WHERE version = '2022.09.19.1'
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "prod.working_forecast_country", "overwrite")
-
-# COMMAND ----------
-
 def get_data_by_table(table):
     df = read_redshift_to_df(configs) \
         .option("dbtable", table) \
@@ -92,112 +32,6 @@ def get_data_by_table(table):
             df = df.withColumn(column[0], upper(col(column[0]))) 
 
     return df
-
-# COMMAND ----------
-
-##testing 
-
-query = """
-select count(*)
-    , "actuals_supplies_baseprod" as record
-from actuals_supplies_baseprod
-
-UNION ALL
-
-select count(*)
-    , "actuals_supplies_salesprod" as record
-from actuals_supplies_salesprod
-
-UNION ALL
-
-select count(*)
-    , "working_forecast_country" as record
-from working_forecast_country
-
-UNION ALL
-
-select count(*)
-    , "ibp_supplies_forecast" as record
-from ibp_supplies_forecast
-
-UNION ALL
-
-select count(*)
-    , "list_price_gpsy" as record
-from list_price_gpsy
-
-UNION ALL
-
-select count(*)
-    , "acct_rates" as record
-from acct_rates
-
-UNION ALL
-
-select count(*)
-    , "calendar" as record
-from calendar
-
-UNION ALL
-
-select count(*)
-    , "product_line_xref" as record
-from product_line_xref
-
-UNION ALL
-
-select count(*)
-    , "hardware_xref" as record
-from hardware_xref
-
-UNION ALL
-
-select count(*)
-    , "rdma" as record
-from rdma
-
-UNION ALL
-    
-select count(*)
-    , "iso_country_code_xref" as record
-from iso_country_code_xref
-    
-UNION ALL
-    
-select count(*)
-    , "list_price_term_codes" as record
-from list_price_term_codes
-
-UNION ALL
-    
-select count(*)
-    , "list_price_eu_countrylist" as record
-from list_price_eu_countrylist
-
-UNION ALL
-    
-select count(*)
-    , "country_currency_map" as record
-from country_currency_map
-
-UNION ALL
-    
-select count(*)
-    , "list_price_eoq" as record
-from list_price_eoq
-
-UNION ALL
-
-select count(*)
-    , "rdma_base_to_sales_product_map" as record
-from rdma_base_to_sales_product_map
-"""
-
-test_df = spark.sql(query)
-
-# COMMAND ----------
-
-test_df.display()
 
 # COMMAND ----------
 
@@ -227,61 +61,6 @@ for table in tables:
     spark.table(table).createOrReplaceTempView(table_name)
     
     print(f'{table_name} loaded')
-
-# COMMAND ----------
-
-# # load S3 tables to df
-# actuals_supplies_baseprod = read_redshift_to_df(configs) \
-#     .option("query", "SELECT * FROM fin_prod.actuals_supplies_baseprod WHERE version = (SELECT max(version) from fin_prod.actuals_supplies_baseprod)") \
-#     .load()
-# actuals_supplies_salesprod = read_redshift_to_df(configs) \
-#     .option("query", "SELECT * FROM fin_prod.actuals_supplies_salesprod WHERE version = (SELECT max(version) from fin_prod.actuals_supplies_salesprod)") \
-#     .load()
-# working_forecast_country = read_redshift_to_df(configs) \
-#     .option("query", "SELECT * FROM prod.working_forecast_country WHERE version = (SELECT max(version) from prod.working_forecast_country)") \
-#     .load()
-# ibp_supplies_forecast = read_redshift_to_df(configs) \
-#     .option("query", "SELECT * FROM prod.ibp_supplies_forecast WHERE version = (SELECT max(version) from prod.ibp_supplies_forecast)") \
-#     .load()
-# list_price_gpsy = read_redshift_to_df(configs) \
-#     .option("query", "SELECT * FROM prod.list_price_gpsy WHERE version = (SELECT max(version) from prod.list_price_gpsy)") \
-#     .load()
-# acct_rates = read_redshift_to_df(configs) \
-#     .option("query", "SELECT * FROM prod.acct_rates WHERE version = (SELECT max(version) from prod.acct_rates)") \
-#     .load()
-# calendar = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.calendar") \
-#     .load()
-# product_line_xref = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.product_line_xref") \
-#     .load()
-# hardware_xref = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.hardware_xref") \
-#     .load()
-# rdma = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.rdma") \
-#     .load()
-# iso_country_code_xref = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.iso_country_code_xref") \
-#     .load()
-# rdma_base_to_sales_map = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.rdma_base_to_sales_product_map") \
-#     .load() 
-# list_price_eoq = read_redshift_to_df(configs) \
-#     .option("dbtable", "prod.list_price_eoq") \
-#     .load()
-# iso_cc_rollup_xref = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.iso_cc_rollup_xref") \
-#     .load()
-# list_price_term_codes = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.list_price_term_codes") \
-#     .load()
-# list_price_eu_countrylist = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.list_price_eu_countrylist") \
-#     .load()
-# country_currency_map = read_redshift_to_df(configs) \
-#     .option("dbtable", "mdm.country_currency_map") \
-#     .loadlist_price_filter_vars
 
 # COMMAND ----------
 
@@ -536,45 +315,6 @@ UNION ALL
 lpf_01_ibp_combined = spark.sql(lpf_01_ibp_combined)
 write_df_to_redshift(configs, lpf_01_ibp_combined, "fin_stage.lpf_01_ibp_combined", "overwrite")
 lpf_01_ibp_combined.createOrReplaceTempView("lpf_01_ibp_combined")
-
-# COMMAND ----------
-
-#testing
-
-f_report_units_query = """
-SELECT country_alpha2
-    , region_5
-    , sales_product_number
-    , sales_product_line_code
-    , base_product_number
-    , base_product_line_code
-    , base_prod_per_sales_prod_qty
-    , base_product_amount_percent
-    , Base_Prod_fcst_Revenue_Units as base_prod_fcst_revenue_units
-    , cal_date
-    , units
-    , version
-    , source
-FROM ie2_financials.dbt.lpf_08_ibp_combined
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "fin_stage.lpf_01_ibp_combined", "overwrite")
-
-f_report_units.createOrReplaceTempView("lpf_01_ibp_combined")
-
-# COMMAND ----------
-
-#testing
-
-version_count = read_redshift_to_df(configs) \
-    .option("query", f"""SELECT * FROM fin_stage.lpf_01_ibp_combined """) \
-    .load()
-
-version_count.createOrReplaceTempView("lpf_01_ibp_combined")
 
 # COMMAND ----------
 

@@ -1,10 +1,11 @@
 # Databricks notebook source
-dbutils.widgets.text("tasks","base_prod_pl;all")
+dbutils.widgets.text("sales_gru_version", "2022.10.07.1")
+dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
 
 # COMMAND ----------
 
-dbutils.widgets.text("sales_gru_version", "2022.10.07.1")
-dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
+from pyspark.sql.types import StringType , NullType
+from pyspark.sql.functions import *
 
 # COMMAND ----------
 
@@ -17,132 +18,6 @@ dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
 # COMMAND ----------
 
 query_list = []
-
-# COMMAND ----------
-
-forecast_variablecost_toner = """
-SELECT *
-FROM ie2_prod.dbo.working_forecast_country
-"""
-
-f_report_units = read_sql_server_to_df(configs) \ 
-    .option("query", forecast_variablecost_toner) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "prod.working_forecast_country", "overwrite")
-
-# COMMAND ----------
-
-forecast_fixed_cost_input = """
-SELECT record
-    , fixedcost_desc as fixed_cost_desc
-    , pl
-    , region_3
-    , country_code
-    , fiscal_yr_qtr
-    , fixedcost_k_qtr as fixed_cost_k_qtr
-    , official
-    , version
-    , load_date
-FROM ie2_financials.dbo.forecast_fixedcost_input
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", forecast_fixed_cost_input) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_fixed_cost_input", "overwrite")
-
-# COMMAND ----------
-
-forecast_variablecost_ink = """
-SELECT *
-FROM ie2_financials.dbo.forecast_variablecost_ink
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", forecast_variablecost_ink) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_variable_cost_ink", "overwrite")
-
-# COMMAND ----------
-
-forecast_variablecost_toner = """
-SELECT *
-FROM ie2_financials.dbo.forecast_variablecost_toner
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", forecast_variablecost_toner) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_variable_cost_toner", "overwrite")
-
-# COMMAND ----------
-
-currency_hedge = """
-SELECT *
-FROM ie2_prod.dbo.currency_hedge
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", currency_hedge) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "prod.currency_hedge", "overwrite")
-
-# COMMAND ----------
-
-f_report_units_query = """
-SELECT "record"
-        , build_type
-        , sales_product_number
-        , region_5
-        , country_alpha2
-        , price_term_code
-        , price_start_effective_date
-        , qb_sequence_number
-        , list_price
-        , sales_product_line_code
-        , accountingrate as "accounting_rate"
-        , "list_price_usd" as list_price_usd
-      ,"ListPriceAdder_LC" as list_price_adder_lc
-      ,"currencycode_adder" as "currency_code_adder"
-      , "listpriceadder_usd" as "list_price_adder_usd"
-      ,"eoq_discount"
-      ,"salesproduct_gru" as "sales_product_gru"
-      ,"load_date"
-      ,"version"
-FROM ie2_financials.dbo.forecast_sales_gru
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "fin_prod.forecast_sales_gru", "overwrite")
-
-# COMMAND ----------
-
-f_report_units_query = """
-SELECT  [country_alpha2]
-      , [country_alpha3] 
-      ,  CAST([country_code] AS float) as [country_code]
-      ,CAST([country_code_str] as float) as [country_code_str]
-      ,[country]
-      ,[currency_name]
-      ,[currency_iso_code]
-      ,[base_currency]
-      ,[load_date]
-FROM [IE2_Landing].[dbo].[country_currency_map_landing]
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "mdm.country_currency_map", "overwrite")
 
 # COMMAND ----------
 
@@ -160,6 +35,7 @@ def get_data_by_table(table):
 # COMMAND ----------
 
 tables = ['mdm.calendar', 'mdm.iso_country_code_xref', 'mdm.rdma', 'mdm.supplies_xref', 'fin_prod.forecast_fixed_cost_input', 'prod.currency_hedge' , 'mdm.product_line_scenarios_xref' , 'fin_prod.forecast_variable_cost_ink' , 'fin_prod.forecast_variable_cost_toner' , 'prod.ibp_supplies_forecast' , 'fin_stage.lpf_01_ibp_combined' , 'fin_prod.forecast_sales_gru' ,  'fin_prod.npi_base_gru' , 'fin_prod.forecast_gru_override' , 'fin_prod.forecast_contra_input' , 'mdm.country_currency_map' , 'prod.working_forecast_country']
+
 
 ##'prod.working_forecast_country' ,
 
@@ -266,37 +142,6 @@ base_product_filter_dates.createOrReplaceTempView("base_product_filter_dates")
 
 # COMMAND ----------
 
-tables = ['stage.working_forecast_country_temp']
-
-##'prod.working_forecast_country' ,
-
-for table in tables:
-    # Define the input and output formats and paths and the table name.
-    schema = table.split(".")[0]
-    table_name = table.split(".")[1]
-    write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    # Load the data from its source.
-    df = get_data_by_table(table)
-        
-    # Write the data to its target.
-    df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .save(save_path)
-
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table + " USING DELTA LOCATION '" + save_path + "'")
-    
-    spark.table(table).createOrReplaceTempView(table_name)
-    
-    print(f'{table_name} loaded')
-
-# COMMAND ----------
-
 bpp_01_base_gru_insights = f"""
 
 
@@ -342,11 +187,11 @@ SELECT distinct
 
 
 SELECT
-		calendar.Date AS cal_date
+		calendar.date AS cal_date
 	FROM
 		calendar calendar
 	WHERE
-		calendar.Day_of_Month = 1
+		calendar.day_of_month = 1
 		AND calendar.Date >
 		    (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
 ),  __dbt__CTE__bpp_06_extend_months as (
@@ -363,10 +208,11 @@ SELECT
 		__dbt__CTE__bpp_04_all_months all_months
 		    ON 1 = 1
 		WHERE exists
-		(SELECT 1 FROM working_forecast_country_temp insights_units
+		(SELECT 1 FROM working_forecast_country insights_units
 			WHERE insights_units.base_product_number = last_GRU.base_product_number
 				AND insights_units.country = last_GRU.country_alpha2
 				AND insights_units.cal_date = all_months.cal_date
+				AND insights_units.version = (SELECT version FROM base_product_filter_vars WHERE record = 'INSIGHTS_UNITS'))
 		AND all_months.cal_date > last_GRU.max_cal_date
 ),  __dbt__CTE__bpp_07_GRU_extend as (
 
@@ -440,7 +286,7 @@ SELECT distinct
 select
     gru_override.base_product_number,
     gru_override.region_5,
-    gru_override.GRU
+    gru_override.gru
 from forecast_gru_override GRU_override
 where 1=1
     and official = 1
@@ -499,7 +345,7 @@ SELECT distinct
 		WHERE --cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
 		cal_date > (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
-		AND version = (SELECT version FROM base_product_filter_vars WHERE record = 'INSIGHTS_UNITS')) insights_units
+		) insights_units
 		LEFT JOIN
 		__dbt__CTE__bpp_50_Base_GRU_override gru_extend
 			ON gru_extend.base_product_number = insights_units.base_product_number
@@ -555,281 +401,6 @@ SELECT
 bpp_01_base_gru_insights = spark.sql(bpp_01_base_gru_insights)
 write_df_to_redshift(configs, bpp_01_base_gru_insights, "fin_stage.bpp_01_base_gru_insights", "overwrite")
 bpp_01_base_gru_insights.createOrReplaceTempView("bpp_01_base_gru_insights")
-
-# COMMAND ----------
-
-bpp_01_base_gru_insights = f"""
-
-
-WITH __dbt__CTE__bpp_03_Base_GRU_Gpsy as (
-
-
-SELECT
-		ibp_sales_units.base_product_number
-		, ibp_sales_units.base_product_line_code
-		, ibp_sales_units.cal_date
-		, ibp_sales_units.region_5
-		, ibp_sales_units.country_alpha2
-		, SUM(ibp_sales_units.base_prod_fcst_revenue_units) base_units
-		, SUM((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100) AS base_gr
-		, SUM((ibp_sales_units.units * sales_gru_gpsy.sales_product_gru*ibp_sales_units.base_product_amount_percent)/100)/sum(ibp_sales_units.base_prod_fcst_revenue_units) AS base_gru
-		, MAX(ibp_sales_units.cal_date) OVER (PARTITION BY ibp_sales_units.base_product_number, ibp_sales_units.country_alpha2) AS max_cal_date
-	FROM
-		lpf_01_ibp_combined ibp_sales_units
-		INNER JOIN
-		forecast_sales_gru sales_gru_gpsy
-			ON ibp_sales_units.sales_product_number = sales_gru_gpsy.sales_product_number
-			AND ibp_sales_units.country_alpha2 = sales_gru_gpsy.country_alpha2
-	WHERE sales_gru_gpsy.version = '{dbutils.widgets.get("sales_gru_version")}'
-	GROUP BY
-		ibp_sales_units.base_product_number
-		, ibp_sales_units.base_product_line_code
-		, ibp_sales_units.cal_date
-		, ibp_sales_units.region_5
-		, ibp_sales_units.country_alpha2
-),  __dbt__CTE__bpp_05_last_GRU as (
-
-
-SELECT distinct
-		base_product_number
-		, country_alpha2
-		, base_gru
-		, max_cal_date
-	FROM
-		__dbt__CTE__bpp_03_Base_GRU_Gpsy
-	WHERE
-		cal_date = max_cal_date
-),  __dbt__CTE__bpp_04_all_months as (
-
-
-SELECT
-		calendar.Date AS cal_date
-	FROM
-		calendar calendar
-	WHERE
-		calendar.Day_of_Month = 1
-		AND calendar.Date >
-		    (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
-),  __dbt__CTE__bpp_06_extend_months as (
-
-
-SELECT
-		last_GRU.base_product_number
-		, last_GRU.country_alpha2
-		, all_months.cal_date
-		, last_GRU.base_gru
-	FROM
-		__dbt__CTE__bpp_05_last_GRU last_GRU
-		JOIN
-		__dbt__CTE__bpp_04_all_months all_months
-		    ON 1 = 1
-		WHERE exists
-		(SELECT 1 FROM working_forecast_country insights_units
-			WHERE insights_units.base_product_number = last_GRU.base_product_number
-				AND insights_units.country = last_GRU.country_alpha2
-				AND insights_units.cal_date = all_months.cal_date
-				AND insights_units.version = (SELECT version FROM base_product_filter_vars WHERE record = 'INSIGHTS_UNITS'))
-		AND all_months.cal_date > last_GRU.max_cal_date
-),  __dbt__CTE__bpp_07_GRU_extend as (
-
-
-SELECT
-		base_product_number
-		, country_alpha2
-		, cal_date
-		, base_gru
-	FROM
-		__dbt__CTE__bpp_03_Base_GRU_Gpsy
-
-	UNION
-
-	SELECT
-		base_product_number
-		, country_alpha2
-		, cal_date
-		, base_gru
-	FROM
-		__dbt__CTE__bpp_06_extend_months
-),  __dbt__CTE__bpp_08_NPI_GRU as (
-
-
-SELECT distinct
-		insights_units_ibp.base_product_number
-		, insights_units_ibp.country as country_alpha2
-		, insights_units_ibp.cal_date
-		, ff_uat_npi_base_gru.gru
-	FROM
-		(SELECT base_product_number, country, cal_date FROM working_forecast_country WHERE version = (SELECT version FROM base_product_filter_vars WHERE record = 'INSIGHTS_UNITS')) insights_units_ibp
-		INNER JOIN
-		iso_country_code_xref iso_country_code_xref
-			ON insights_units_ibp.country = iso_country_code_xref.country_alpha2
-		INNER JOIN
-		npi_base_gru ff_uat_npi_base_gru         
-			ON ff_uat_npi_base_gru.base_product_number = insights_units_ibp.base_product_number
-			AND ff_uat_npi_base_gru.region_5 = iso_country_code_xref.region_5
-	WHERE 
-		not exists
-		    (SELECT 1 FROM __dbt__CTE__bpp_07_GRU_extend base_gru_ibp
-		      WHERE base_gru_ibp.base_product_number = insights_units_ibp.base_product_number
-	            AND base_gru_ibp.country_alpha2 = insights_units_ibp.country)
-		AND insights_units_ibp.cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
-		AND ff_uat_npi_base_gru.official = 1
-),  __dbt__CTE__bpp_09_Base_GRU AS (
-
-
-SELECT distinct
-		Base_GRU_ibp.base_product_number
-		, Base_GRU_ibp.country_alpha2
-		, Base_GRU_ibp.cal_date
-		, Base_GRU_ibp.base_gru
-		--, max_cal_date
-	FROM
-		__dbt__CTE__bpp_07_GRU_extend Base_GRU_ibp
-
-	UNION ALL
-
-	SELECT distinct
-		NPI_GRU.base_product_number
-		, NPI_GRU.country_alpha2
-		, NPI_GRU.cal_date
-		, NPI_GRU.GRU as base_gru
-		--, max_cal_date
-	FROM
-		__dbt__CTE__bpp_08_NPI_GRU NPI_GRU
-), __dbt__CTE_bpp_09a_base_gru_override as (
-
-
-select
-    gru_override.base_product_number,
-    gru_override.region_5,
-    gru_override.GRU
-from forecast_gru_override GRU_override
-where 1=1
-    and official = 1
-    and version = (select max(version) from forecast_GRU_override )
-),  __dbt__CTE__bpp_50_Base_GRU_override as (
-
-
-SELECT distinct
-		base_gru_ibp.base_product_number
-		, base_gru_ibp.country_alpha2
-		, base_gru_ibp.cal_date
-		, coalesce(gru_override.gru, base_gru_ibp.base_gru) as base_gru
-	FROM
-		__dbt__CTE__bpp_09_Base_GRU base_gru_ibp
-		LEFT JOIN
-		iso_country_code_xref ctry
-			ON ctry.country_alpha2 = Base_GRU_ibp.country_alpha2
-		LEFT JOIN
-		__dbt__CTE_bpp_09a_base_gru_override gru_override                          
-			ON base_gru_ibp.base_product_number = gru_override.base_product_number
-			AND ctry.region_5 = gru_override.region_5
-    WHERE 1=1
-),  __dbt__CTE__bpp_10_Base_GRU_minIBP as (
-
-
-SELECT distinct
-		insights_units.base_product_number
-		, insights_units.country as country_alpha2
-		, insights_units.cal_date
-		, SUM(insights_units.cartridges) OVER (PARTITION BY insights_units.base_product_number, insights_units.country
-												, insights_units.cal_date) AS cartridges
-		, base_gru
-	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
-		WHERE cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
-		AND cal_date <= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
-		AND cartridges > 0
-		AND version = (SELECT version FROM base_product_filter_vars WHERE record = 'INSIGHTS_UNITS')) insights_units
-		LEFT JOIN
-		__dbt__CTE__bpp_50_Base_GRU_override gru_extend
-			ON gru_extend.base_product_number = insights_units.base_product_number
-			AND gru_extend.country_alpha2 = insights_units.country
-			AND gru_extend.cal_date = insights_units.cal_date
-),  __dbt__CTE__bpp_47_Base_GRU_maxIBP AS (
-
-
-SELECT distinct
-		insights_units.base_product_number
-		, insights_units.country as country_alpha2
-		, insights_units.cal_date
-		, SUM(insights_units.cartridges) OVER (PARTITION BY insights_units.base_product_number, insights_units.country
-												, insights_units.cal_date) AS cartridges
-		, base_gru
-	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
-		WHERE --cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
-		cal_date > (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
-		AND cartridges > 0
-		AND version = (SELECT version FROM base_product_filter_vars WHERE record = 'INSIGHTS_UNITS')) insights_units
-		LEFT JOIN
-		__dbt__CTE__bpp_50_Base_GRU_override gru_extend
-			ON gru_extend.base_product_number = insights_units.base_product_number
-			AND gru_extend.country_alpha2 = insights_units.country
-			AND gru_extend.cal_date = insights_units.cal_date
-),  __dbt__CTE__bpp_48_Base_GRU_C2C_Merge as (
-
-
-SELECT 
-		base_product_number
-		, country_alpha2
-		, cal_date
-		, cartridges
-		, base_gru
-	FROM
-		__dbt__CTE__bpp_10_Base_GRU_minIBP
-
-UNION ALL
-
-SELECT 
-		base_product_number
-		, country_alpha2
-		, cal_date
-		, cartridges
-		, base_gru
-	FROM
-		__dbt__CTE__bpp_47_Base_GRU_maxIBP
-)SELECT DISTINCT
-		base_gru_c2c.base_product_number
-		, rdma.pl as base_product_line_code
-		, base_gru_c2c.country_alpha2
-		, iso_country_code_xref.region_5
-		, base_gru_c2c.cal_date
-		, calendar.fiscal_year_qtr
-		, base_gru_c2c.cartridges
-		, coalesce(base_gru_c2c.base_gru
-				, lag(base_gru_c2c.base_gru) over
-				    (PARTITION BY base_gru_c2c.base_product_number, base_gru_c2c.country_alpha2
-				    ORDER BY base_gru_c2c.cal_date)) AS base_gru
-	FROM
-		__dbt__CTE__bpp_48_Base_GRU_C2C_Merge base_gru_c2c
-	    INNER JOIN
-	    calendar calendar
-	        ON calendar.date = base_gru_c2c.cal_date
-	    INNER JOIN
-	    iso_country_code_xref iso_country_code_xref
-	        ON iso_country_code_xref.country_alpha2 = base_gru_c2c.country_alpha2
-		INNER JOIN
-		rdma rdma
-			ON rdma.base_prod_number = base_gru_c2c.base_product_number
-"""
-
-bpp_01_base_gru_insights = spark.sql(bpp_01_base_gru_insights)
-write_df_to_redshift(configs, bpp_01_base_gru_insights, "fin_stage.bpp_01_base_gru_insights", "overwrite")
-bpp_01_base_gru_insights.createOrReplaceTempView("bpp_01_base_gru_insights")
-
-# COMMAND ----------
-
-working_forecast_country = """
-SELECT *
-FROM ie2_financials.dbt.bpp_11_base_gru_insights
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", working_forecast_country) \
-    .load()
-
-f_report_units.createOrReplaceTempView("bpp_01_base_gru_insights")
 
 # COMMAND ----------
 
