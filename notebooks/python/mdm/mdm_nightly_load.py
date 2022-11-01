@@ -27,16 +27,6 @@ try:
 except:
     tables = json.loads("""
         {
-            "acct_rates": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "acct_rates",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "acct_rates"
-            },
             "adjusted_revenue": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Financials",
