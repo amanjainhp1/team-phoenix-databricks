@@ -7,14 +7,16 @@
 
 # COMMAND ----------
 
+# Step 1, download data file from http://polaris-pro-inc.austin.hp.com:8080/T0000047_o.zip
+# Step 2, extract it and save the .txt file to:  s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/
+
+
 # load data from the TXT flat file into a dataframe
 # is there an easier way to read in a TXT file without having to import the SparkSession library?
 
 from pyspark.sql import SparkSession
 
 # File location and type
-#file_location = "/FileStore/tables/T0000047_O.txt"
-# file_location = "s3://dataos-core-dev-team-phoenix/landing/Accounting_Rates/T0000047_O"
 file_location = "s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O"
 file_type = "txt"
   
@@ -51,9 +53,9 @@ df = df.drop('column0')
 # COMMAND ----------
 
 
-#display(df)
-#display(df.filter(df.CurrencyCode=='AD'))
-#display(df.filter((df.CurrencyCode=='AD') & (df.EffectiveDate==2006)))
+# display(df)
+# display(df.filter(df.CurrencyCode=='AD'))
+# display(df.filter((df.CurrencyCode=='AD') & (df.EffectiveDate==2006)))
 
 # COMMAND ----------
 
@@ -85,8 +87,8 @@ redshift_accounting_rates_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-#display(redshift_accounting_rates_records)
-#display(redshift_accounting_rates_records.filter(redshift_accounting_rates_records.date<'2015-09-01'))
+# display(redshift_accounting_rates_records)
+# display(redshift_accounting_rates_records.filter(redshift_accounting_rates_records.date<'2015-09-01'))
 
 # COMMAND ----------
 
@@ -109,7 +111,11 @@ redshift_accounting_rates_records2.withColumn("effectivedate", redshift_accounti
 
 # COMMAND ----------
 
-#display(redshift_accounting_rates_records2)
+# display(redshift_accounting_rates_records2)
+
+# COMMAND ----------
+
+#INSERT SOME Q/A here, exit notebook if errors found
 
 # COMMAND ----------
 
@@ -155,4 +161,19 @@ write_df_to_sqlserver(configs, sfai_acct_rates, "IE2_Prod.dbo.acct_rates", "over
 
 # COMMAND ----------
 
+from datetime import datetime
+date = datetime.today()
+datestamp = date.strftime("%Y%m%d")
 
+#datestamp
+
+# COMMAND ----------
+
+# move text file from landing S3 bucket to an archive bucket
+# s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O
+# s3://dataos-core-prod-team-phoenix/archive/acct_rates/
+
+import boto3
+s3 = boto3.resource('s3')
+s3.Object('dataos-core-prod-team-phoenix','archive/acct_rates/' + datestamp + '/T0000047_O').copy_from(CopySource='dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O')
+s3.Object('dataos-core-prod-team-phoenix','landing/Accounting_Rates/T0000047_O').delete()
