@@ -3055,16 +3055,47 @@ GROUP BY cal_date, market10, sales_product
 itp_units_ibp = spark.sql(itp_units_ibp)
 itp_units_ibp.createOrReplaceTempView("itp_units_ibp")
 
+# add region_5
+itp_mkt10_reg5 = f"""
+SELECT
+	distinct region_5, market10	
+FROM iso_country_code_xref
+WHERE 1=1 
+AND market10 IN (SELECT distinct market10 FROM itp_units_ibp)
+AND region_5 <> 'JP'
+"""
 
+itp_mkt10_reg5 = spark.sql(itp_mkt10_reg5)
+itp_mkt10_reg5.createOrReplaceTempView("itp_mkt10_reg5")
+
+
+itp_units_ibp2 = f"""
+SELECT
+	cal_date,
+	ibp.market10,
+	region_5,
+	sales_product_number,
+	sum(revenue_units) as revenue_units
+FROM itp_units_ibp ibp
+LEFT JOIN itp_mkt10_reg5 map
+ON ibp.market10 = map.market10
+GROUP BY cal_date, ibp.market10, region_5, sales_product_number
+"""    
+
+itp_units_ibp2 = spark.sql(itp_units_ibp2)
+itp_units_ibp2.createOrReplaceTempView("itp_units_ibp2")
+    
+    
 # 2. create a market10 to country alpha 2 map for itp
 # what are the top ib countries by market10?
 # first, map salesprod to baseprod for itp skus
 
 itp_salesprod_to_baseprod = f"""
 SELECT cal_date,
+    region_5,
     itp.sales_product_number,
     rdma.base_product_number
-FROM itp_units_ibp itp
+FROM itp_units_ibp2 itp
 LEFT JOIN rdma_base_to_sales_product_map rdma ON itp.sales_product_number = rdma.sales_product_number
 """
 
@@ -3078,10 +3109,14 @@ itp_baseprod_to_printer = f"""
 SELECT 
     distinct itp.base_product_number, 
     cal_date,
+    region_5,
     sales_product_number,
     platform_subset
 FROM itp_salesprod_to_baseprod itp
-LEFT JOIN supplies_hw_mapping map ON itp.base_product_number = map.base_product_number
+LEFT JOIN supplies_hw_mapping map 
+    ON itp.base_product_number = map.base_product_number
+    AND itp.region_5 = map.geography
+    AND map.geography_grain = 'REGION_5'
 """
 
 itp_baseprod_to_printer = spark.sql(itp_baseprod_to_printer)
@@ -3102,7 +3137,7 @@ FROM ib ib
 LEFT JOIN iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha2
 WHERE 1=1
     AND ib.version = (select max(version) from ib)
-    AND measure = 'ib'
+    AND measure = 'IB'
     AND platform_subset IN (select distinct platform_subset from itp_baseprod_to_printer)
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5, market10, iso.country
 """
@@ -3113,49 +3148,70 @@ itp_ib.createOrReplaceTempView("itp_ib")
 
 # pick top countries/ some day replace with mix
 
-itp_country_mkt10 = f"""    
-SELECT distinct market10, country_alpha2, country 
-FROM iso_country_code_xref
-WHERE country_alpha2 IN ('DE', 'NL', 'MX', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
+itp_salesprod_to_printer = f"""    
+SELECT  
+    itp.cal_date,
+    country_alpha2,
+	itp.region_5,
+	itp.sales_product_number,
+	itp.platform_subset,
+	SUM(ib) as ib
+FROM itp_baseprod_to_printer itp
+LEFT JOIN itp_ib ib
+	ON itp.cal_date = ib.cal_date
+	AND itp.region_5 = ib.region_5
+	AND itp.platform_subset = ib.platform_subset
+GROUP BY itp.cal_date, itp.region_5, itp.sales_product_number, itp.platform_subset, country_alpha2
 """
 
-itp_country_mkt10 = spark.sql(itp_country_mkt10)
-itp_country_mkt10.createOrReplaceTempView("itp_country_mkt10")
+itp_salesprod_to_printer = spark.sql(itp_salesprod_to_printer)
+itp_salesprod_to_printer.createOrReplaceTempView("itp_salesprod_to_printer")
+
+
+itp_ib_country_mix = f"""
+SELECT cal_date,
+	country_alpha2,
+	region_5,
+	sales_product_number,
+	CASE
+		WHEN SUM(ib) OVER (PARTITION BY cal_date, region_5, sales_product_number) = 0 THEN NULL
+		ELSE ib / SUM(ib) OVER (PARTITION BY cal_date, region_5, sales_product_number)
+	END AS ib_country_mix
+FROM itp_salesprod_to_printer
+GROUP BY cal_date,
+	country_alpha2,
+	region_5,
+	sales_product_number,
+	ib
+"""
+
+itp_ib_country_mix = spark.sql(itp_ib_country_mix)
+itp_ib_country_mix.createOrReplaceTempView("itp_ib_country_mix")
 
 
 # 3. add region and country to itp data
     
 itp_country = f"""
 SELECT
-    cal_date,
-    country_alpha2,
-    itp.market10,
-    sales_product_number,
-    sum(revenue_units) as revenue_units
-FROM itp_units_ibp itp
-LEFT JOIN itp_country_mkt10 c ON c.market10 = itp.market10
-GROUP BY cal_date, country_alpha2, itp.market10, sales_product_number
+	itp.cal_date,
+	c.country_alpha2,
+	itp.region_5,
+	itp.sales_product_number,
+	sum(revenue_units * COALESCE(ib_country_mix, 0)) as revenue_units
+FROM itp_units_ibp2 itp
+LEFT JOIN itp_ib_country_mix c 
+	ON c.region_5 = itp.region_5
+	AND c.cal_date = itp.cal_date
+	AND c.sales_product_number = itp.sales_product_number
+WHERE country_alpha2 is not null
+GROUP BY itp.cal_date,
+	c.country_alpha2,
+	itp.region_5,
+	itp.sales_product_number
 """
 
 itp_country = spark.sql(itp_country)
 itp_country.createOrReplaceTempView("itp_country")
-
-
-itp_country_region = f"""
-SELECT
-    cal_date,
-    itp.country_alpha2,
-    itp.market10,
-    region_5,
-    sales_product_number,
-    sum(revenue_units) as revenue_units
-FROM itp_country itp
-LEFT JOIN iso_country_code_xref iso ON iso.market10 = itp.market10 AND iso.country_alpha2 = itp.country_alpha2
-GROUP BY cal_date, itp.country_alpha2, itp.market10, sales_product_number, region_5
-"""
-
-itp_country_region = spark.sql(itp_country_region)
-itp_country_region.createOrReplaceTempView("itp_country_region")
 
 
 # final itp
@@ -3175,7 +3231,7 @@ SELECT
     0 as other_cos,
     0 AS total_cos,
     sum(revenue_units) as revenue_units
-FROM itp_country_region
+FROM itp_country
 GROUP BY cal_date, country_alpha2, sales_product_number
 """
 
