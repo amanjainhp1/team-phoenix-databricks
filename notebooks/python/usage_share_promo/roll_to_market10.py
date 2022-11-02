@@ -528,12 +528,30 @@ INSERT INTO prod.scenario VALUES
 """
 submit_remote_query(configs, insert_query)
 
+update_version = f"""
+       SELECT record
+      ,cal_date
+      ,geography_grain
+      ,geography
+      ,platform_subset
+      ,customer_engagement
+      ,measure
+      ,units
+      ,ib_version
+      ,source
+      ,'{max_version}' as version
+      ,'{max_load_date}' AS load_date
+      FROM convert 
+      """
+
+update_version=spark.sql(update_version)
+update_version.createOrReplaceTempView("update_version")
 
 s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/usage_share/{max_version}"
 print("output file name: " + s3_destination)
 
-write_df_to_s3(df=convert, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
+write_df_to_s3(df=update_version, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
 
 
 if dbutils.widgets.get("writeout").upper() == "TRUE":
-    write_df_to_redshift(configs=configs, df=convert, destination="prod.usage_share", mode="overwrite")
+    write_df_to_redshift(configs=configs, df=update_version, destination="prod.usage_share", mode="overwrite")
