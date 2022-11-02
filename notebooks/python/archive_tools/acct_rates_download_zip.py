@@ -11,26 +11,15 @@
 
 # COMMAND ----------
 
-#bucket = f"dataos-core-{stack}-team-phoenix"
-bucket_suffix = "proto/acct_rates/"
-s3_output_bucket = f"dataos-core-{stack}-team-phoenix"
-
-final = f's3://{s3_output_bucket}/{bucket_suffix}'
-
-print(final)
-
-# COMMAND ----------
-
+# Download .zip file to S3
 import urllib 
 
-
 urllib.request.urlretrieve("http://polaris-pro-inc.austin.hp.com:8080/T0000047_o.zip","/tmp/T0000047_o.zip") 
-#dbutils.fs.mv("file:/tmp/T0000047_o.zip", "dbfs:/data/T0000047_o.zip")
-dbutils.fs.mv("file:/tmp/T0000047_o.zip", "s3://dataos-core-dev-team-phoenix/proto/acct_rates/")
-#dbutils.fs.mv("file:/tmp/T0000047_o.zip", '{final}')
+dbutils.fs.mv("file:/tmp/T0000047_o.zip", "s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/")
 
 # COMMAND ----------
 
+# unzip all the .zip files in the folder
 import boto3 
 import zipfile 
 from datetime import * 
@@ -38,19 +27,12 @@ from io import BytesIO
 import json 
 import re 
 
-# Using the default session
-# sqs = boto3.client('sqs')
-# s3 = boto3.resource('s3')
-
-#session = boto3.Session(profile_name=’your_aws_profile_name’) 
 dev_client = boto3.client('s3') 
 dev_resource=boto3.resource('s3')        
 
-# s3://dataos-core-dev-team-phoenix/proto/acct_rates/T0000047_o.zip
-
-S3_ZIP_FOLDER = 'proto/acct_rates/' 
-S3_UNZIPPED_FOLDER = 'landing/Accounting_Rates/' 
-S3_BUCKET = 'dataos-core-dev-team-phoenix' 
+S3_ZIP_FOLDER = 'landing/Accounting_Rates/' 
+S3_UNZIPPED_FOLDER = 'landing/Accounting_Rates/unzipped/' 
+S3_BUCKET = 'dataos-core-prod-team-phoenix' 
 #S3_BUCKET = {s3_output_bucket}
 ZIP_FILE='T0000047_o.zip'     
 
@@ -63,7 +45,6 @@ buffer = BytesIO(zip_obj.get()["Body"].read())
 z = zipfile.ZipFile(buffer) 
 
 # for each file within the zip 
-
 for filename in z.namelist(): 
     file_info = z.getinfo(filename)   
 
@@ -80,27 +61,13 @@ print(f"Done Unzipping {ZIP_FILE}")
 
 # COMMAND ----------
 
-# dbutils.fs.ls ("/data")
-
-# COMMAND ----------
-
-# dbutils.fs.rm ("/data/T0000047_o.zip")
-
-# COMMAND ----------
-
-# Step 1, download data file from http://polaris-pro-inc.austin.hp.com:8080/T0000047_o.zip
-# Step 2, extract it and save the .txt file to:  s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/
-
-
 # load data from the TXT flat file into a dataframe
-# is there an easier way to read in a TXT file without having to import the SparkSession library?
-
 from pyspark.sql import SparkSession
 
 # File location and type
-file_location = "s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O"
+file_location = "s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/unzipped/T0000047_O"
 file_type = "txt"
-  
+
 spark = SparkSession.builder.appName("DataFrame").getOrCreate()
   
 df = spark.read.text(file_location)
@@ -133,10 +100,7 @@ df = df.drop('column0')
 
 # COMMAND ----------
 
-
 # display(df)
-# display(df.filter(df.CurrencyCode=='AD'))
-# display(df.filter((df.CurrencyCode=='AD') & (df.EffectiveDate==2006)))
 
 # COMMAND ----------
 
@@ -146,7 +110,6 @@ write_df_to_redshift(configs, df, "stage.acct_rates_stage", "overwrite")
 # COMMAND ----------
 
 # pull the data from the stage table and do a little bit of ETL
-# it would be nice to do this ETL in a dataframe, but unsure of how to do it, so just used SQL from existing stage table
 accounting_rates_query = """
 SELECT 
 	'ACCT_RATES' as record
@@ -168,11 +131,6 @@ redshift_accounting_rates_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-# display(redshift_accounting_rates_records)
-# display(redshift_accounting_rates_records.filter(redshift_accounting_rates_records.date<'2015-09-01'))
-
-# COMMAND ----------
-
 # add version to the prod.version table and store the max values into variables (max_version, max_load_date)
 max_info = call_redshift_addversion_sproc(configs, 'ACCT_RATES', 'Polaris flat file output')
 
@@ -189,10 +147,6 @@ redshift_accounting_rates_records2 = redshift_accounting_rates_records \
     .withColumn("version", lit(max_version))
 
 redshift_accounting_rates_records2.withColumn("effectivedate", redshift_accounting_rates_records2.effectivedate.cast("date"))
-
-# COMMAND ----------
-
-# display(redshift_accounting_rates_records2)
 
 # COMMAND ----------
 
@@ -242,19 +196,17 @@ write_df_to_sqlserver(configs, sfai_acct_rates, "IE2_Prod.dbo.acct_rates", "over
 
 # COMMAND ----------
 
+# This is used to build a variable to write out to the S3 archive folder
 from datetime import datetime
 date = datetime.today()
 datestamp = date.strftime("%Y%m%d")
 
-#datestamp
-
 # COMMAND ----------
 
-# move text file from landing S3 bucket to an archive bucket
-# s3://dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O
-# s3://dataos-core-prod-team-phoenix/archive/acct_rates/
+# move text file from landing S3 bucket to an archive bucket, then remove the source files
 
 import boto3
 s3 = boto3.resource('s3')
-s3.Object('dataos-core-prod-team-phoenix','archive/acct_rates/' + datestamp + '/T0000047_O').copy_from(CopySource='dataos-core-prod-team-phoenix/landing/Accounting_Rates/T0000047_O')
-s3.Object('dataos-core-prod-team-phoenix','landing/Accounting_Rates/T0000047_O').delete()
+s3.Object('dataos-core-prod-team-phoenix','archive/acct_rates/' + datestamp + '/T0000047_O').copy_from(CopySource='dataos-core-prod-team-phoenix/landing/Accounting_Rates/unzipped/T0000047_O')
+s3.Object('dataos-core-prod-team-phoenix','landing/Accounting_Rates/unzipped/T0000047_O').delete()
+s3.Object('dataos-core-prod-team-phoenix','landing/Accounting_Rates/T0000047_o.zip').delete()
