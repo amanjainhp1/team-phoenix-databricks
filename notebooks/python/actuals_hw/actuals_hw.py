@@ -81,7 +81,7 @@ if initial_data_load == False and destination_table_exists:
 
     query = f"""
     SELECT MAX(date) AS archer_date
-    FROM [Archer_Prod].dbo.stf_flash_country_speedlic_vw
+    FROM [Archer_Prod].dbo.stf_flash_country_speedlic_yeti_vw
     WHERE record = 'Planet-Actuals'
     """
 
@@ -91,7 +91,7 @@ if initial_data_load == False and destination_table_exists:
         .select("archer_date").head()[0]
 
     query = f"""
-    SELECT MAX(cal_date) AS ie2_date
+    SELECT MAX(cal_date) AS phoenix_date
     FROM prod.actuals_hw
     WHERE 1=1 AND source = 'ARCHER'
     """
@@ -99,7 +99,7 @@ if initial_data_load == False and destination_table_exists:
     redshift_actuals_units_max_date = read_redshift_to_df(configs) \
     .option("query", query) \
     .load() \
-    .select("ie2_date").head()[0]
+    .select("phoenix_date").head()[0]
 
 
     # if archer has newer data
@@ -131,26 +131,35 @@ if initial_data_load == False and destination_table_exists:
 
         #retrieve relevant data from source db
         planet_actuals = read_sql_server_to_df(configs) \
-            .option("query", f"""SELECT * FROM [Archer_Prod].dbo.stf_flash_country_speedlic_vw WHERE record = 'Planet-Actuals' AND date = '{archer_actuals_units_max_date}'""") \
+            .option("query", f"""SELECT * FROM [Archer_Prod].dbo.stf_flash_country_speedlic_yeti_vw WHERE record = 'Planet-Actuals' AND date = '{archer_actuals_units_max_date}'""") \
             .load()
-
+        
+        # store data, in raw format from source DB to stage table
         write_df_to_redshift(configs, planet_actuals, "stage.planet_actuals", "overwrite")
 
         staging_actuals_units_hw_query = """
         SELECT
-        'ACTUALS - HW' AS record,
-        a.date AS cal_date,
-        a.geo AS country_alpha2,
-        a.base_prod_number AS base_product_number,
-        b.platform_subset,
-        a.units AS base_quantity,
-        a.load_date,
-        1 AS official,
-        a.version,
-        'ARCHER' AS source
+          'ACTUALS - HW' AS record,
+          a.date AS cal_date,
+          a.geo AS country_alpha2,
+          a.base_prod_number AS base_product_number,
+          b.platform_subset,
+          sum(a.units) AS base_quantity,
+          a.load_date,
+          1 AS official,
+          a.version,
+          'ARCHER' AS source
         FROM stage.planet_actuals a
         LEFT JOIN mdm.rdma b
-        ON UPPER(a.base_prod_number) = UPPER(b.base_prod_number)
+          ON UPPER(a.base_prod_number) = UPPER(b.base_prod_number)
+        WHERE a.units <> 0
+        GROUP BY
+          a.date,
+          a.geo,
+          a.base_prod_number,
+          b.platform_subset,
+          a.load_date,
+          a.version
         """
 
         staging_actuals_units_hw = read_redshift_to_df(configs) \
@@ -175,20 +184,17 @@ if initial_data_load == False and destination_table_exists:
         #retrieve large format SFAI data
         odw_revenue_units_base_landing_query = """
         SELECT
-        cal_date,
-        country_alpha2,
-        base_product_number,
-        base_quantity
-        FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
-        WHERE cal_date = (
-            SELECT 
-            MAX(cal_date) 
-            FROM [ie2_landing].[ms4].odw_revenue_units_base_actuals_landing
-        )
-        AND base_quantity <> 0
+            cal_date,
+            country_alpha2,
+            base_product_number,
+            base_quantity
+        FROM fin_prod.odw_revenue_units_base_actuals
+        WHERE 1=1
+            and cal_date = (SELECT MAX(cal_date) FROM fin_prod.odw_revenue_units_base_actuals)
+            AND base_quantity <> 0
         """
         
-        odw_revenue_units_base_landing = read_sql_server_to_df(configs) \
+        odw_revenue_units_base_landing = read_redshift_to_df(configs) \
             .option("query", odw_revenue_units_base_landing_query) \
             .load()
 
@@ -197,16 +203,16 @@ if initial_data_load == False and destination_table_exists:
         #join EDW data to lookup tables in Redshift
         staging_actuals_lf_query = f"""
             SELECT
-            'ACTUALS_LF' AS record,
-            e.cal_date,
-            e.country_alpha2,
-            e.base_product_number,
-            r.Platform_Subset,
-            SUM(e.base_quantity) AS base_quantity,
-            NULL AS load_date,
-            1 AS official,
-            NULL AS version,
-            'ODW-LF' AS source
+              'ACTUALS_LF' AS record,
+              e.cal_date,
+              e.country_alpha2,
+              e.base_product_number,
+              r.Platform_Subset,
+              SUM(e.base_quantity) AS base_quantity,
+              NULL AS load_date,
+              1 AS official,
+              NULL AS version,
+              'ODW-LF' AS source
             FROM stage.odw_revenue_units_base_landing e
             LEFT JOIN mdm.rdma r on r.Base_Prod_Number = e.base_product_number
             LEFT JOIN mdm.hardware_xref hw on hw.platform_subset = r.Platform_Subset

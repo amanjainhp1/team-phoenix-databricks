@@ -630,7 +630,7 @@ WITH base as (
            ,measure
            ,units
            ,ib_version
-           ,source
+           ,data_source as source
            ,load_date
            ,CONCAT(platform_subset,customer_engagement,geography,cal_date,measure) AS grp
            FROM us_table
@@ -648,7 +648,7 @@ new as (
            ,source
            ,load_date
            ,CONCAT(platform_subset,customer_engagement,geography,cal_date,measure) AS grp
-           FROM override_table2_c
+           FROM override_table_c
 )
    SELECT record
            ,cal_date
@@ -706,10 +706,10 @@ with step1 as (
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-	, CASE WHEN us.measure = 'HP_SHARE' THEN us.source
+	, CASE WHEN us.measure = 'HP_SHARE' THEN us.data_source
            ELSE NULL
            END AS source_s
-    , CASE WHEN us.measure like '%USAGE%' THEN us.source
+    , CASE WHEN us.measure like '%USAGE%' THEN us.data_source
             ELSE NULL
             END AS source_u
     , us.ib_version
@@ -725,7 +725,7 @@ GROUP BY us.cal_date
 	, us.customer_engagement
     	, us.ib_version
     	, us.measure
-    	, us.source
+    	, us.data_source
 	) , step2 as (
     SELECT 
        u.cal_date
