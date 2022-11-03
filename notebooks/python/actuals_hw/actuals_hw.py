@@ -233,7 +233,7 @@ if initial_data_load == False and destination_table_exists:
     
         if staging_actuals_lf.count() > 0:
             #   save "landing" data to S3
-            # write_df_to_s3(staging_actuals_lf, constants["S3_BASE_BUCKET"][dbutils.widgets.get("stack")] + f"/product/{destination_table}/lf/{datestamp}/", "parquet", "overwrite")
+            write_df_to_s3(staging_actuals_lf, constants["S3_BASE_BUCKET"][dbutils.widgets.get("stack")] + f"/product/{destination_table}/lf/{datestamp}/", "parquet", "overwrite")
 
             max_version_info = call_redshift_addversion_sproc(configs, 'ACTUALS_LF', 'ODW-LF')
 
