@@ -167,7 +167,7 @@ if initial_data_load == False and destination_table_exists:
             .load()
 
         #   save "landing" data to S3
-        # write_df_to_s3(staging_actuals_units_hw, constants["S3_BASE_BUCKET"][stack] + f"/product/{destination_table}/sf/{datestamp}/", "parquet", "overwrite")
+        write_df_to_s3(staging_actuals_units_hw, constants["S3_BASE_BUCKET"][stack] + f"/product/{destination_table}/sf/{datestamp}/", "parquet", "overwrite")
 
         #execute stored procedure to create new version and load date
         max_version_info = call_redshift_addversion_sproc(configs, 'ACTUALS - HW', 'ARCHER')
