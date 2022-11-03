@@ -1,6 +1,6 @@
 # Databricks notebook source
-dbutils.widgets.text("sales_gru_version", "2022.10.07.1")
-dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
+dbutils.widgets.text("sales_gru_version", "") # set sales_gru_version to mark as official
+dbutils.widgets.text("currency_hedge_version", "") # set currency_hedge_version to mark as official
 
 # COMMAND ----------
 
@@ -21,6 +21,22 @@ query_list = []
 
 # COMMAND ----------
 
+currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
+if currency_hedge_version == "":
+    v = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+    
+sales_gru_version = dbutils.widgets.get("sales_gru_version")
+if sales_gru_version == "":
+    sales_gru_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM fin_prod.forecast_sales_gru") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+
+# COMMAND ----------
+
 def get_data_by_table(table):
     df = read_redshift_to_df(configs) \
         .option("dbtable", table) \
@@ -34,6 +50,7 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
+# testing
 lpf_01_ibp_combined = read_sql_server_to_df(configs) \
     .option("query", f"SELECT * from ie2_financials.dbt.lpf_08_ibp_combined") \
     .load()
@@ -42,6 +59,7 @@ write_df_to_redshift(configs, lpf_01_ibp_combined, f"fin_stage.lpf_01_ibp_combin
 
 # COMMAND ----------
 
+# testing
 forecast_sales_gru = read_sql_server_to_df(configs) \
     .option("query", f"SELECT record \
       ,build_type \
@@ -69,60 +87,10 @@ write_df_to_redshift(configs, forecast_sales_gru, f"fin_prod.forecast_sales_gru"
 
 # COMMAND ----------
 
+# testing
 forecast_sales_gru = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.forecast_sales_gru") \
     .load()
-
-# COMMAND ----------
-
-tablesa = [
-#           ['mdm.calendar',calendar],
-#           ['mdm.iso_country_code_xref',iso_country_code_xref],
-#           ['mdm.rdma',rdma],
-#           ['mdm.supplies_xref',supplies_xref],
-#           ['fin_prod.forecast_fixed_cost_input',forecast_fixed_cost_input],
-#           ['prod.currency_hedge' ,currency_hedge],
-#           ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
-#           ['fin_prod.forecast_variable_cost_ink' ,forecast_variable_cost_ink],
-#           ['fin_prod.forecast_variable_cost_toner' ,forecast_variable_cost_toner],
-#           ['prod.ibp_supplies_forecast' ,ibp_supplies_forecast],
-#           ['fin_stage.lpf_01_ibp_combined' ,lpf_01_ibp_combined],
-          ['fin_prod.forecast_sales_gru' ,forecast_sales_gru]
-#           ['fin_prod.npi_base_gru' , npi_base_gru],
-#           ['fin_prod.forecast_gru_override' ,forecast_gru_override],
-#           ['fin_prod.forecast_contra_input' ,forecast_contra_input],
-#           ['mdm.country_currency_map' ,country_currency_map],
-#           ['prod.working_forecast_country' ,working_forecast_country]
-         ]
-
-
-##'prod.working_forecast_country' ,
-
-for table in tablesa:
-    # Define the input and output formats and paths and the table name.
-    schema = table[0].split(".")[0]
-    table_name = table[0].split(".")[1]
-    write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    # Load the data from its source.
-    df = table[1]
-    print(f'loading {table[0]}...')
-    # Write the data to its target.
-    df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .option("overwriteSchema", "true") \
-      .save(save_path)
-
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
-    spark.table(table[0]).createOrReplaceTempView(table_name)
-    
-    print(f'{table[0]} loaded')
 
 # COMMAND ----------
 
@@ -570,15 +538,6 @@ bpp_01_base_gru_insights.createOrReplaceTempView("bpp_01_base_gru_insights")
 
 # COMMAND ----------
 
-bpp_01_base_gru_insights.show()
-
-# COMMAND ----------
-
-query = spark.sql('''select * from forecast_contra_input''')
-query.count()
-
-# COMMAND ----------
-
 bpp_02_contra_insights = """
 
 
@@ -678,21 +637,6 @@ bpp_02_contra_insights.createOrReplaceTempView("bpp_02_contra_insights")
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-bpp_17_base_contra_insights = read_sql_server_to_df(configs) \
-    .option("query", f"SELECT * from ie2_financials.dbt.bpp_17_base_contra_insights") \
-    .load()
-
-# COMMAND ----------
-
-diff = bpp_02_contra_insights.subtract(bpp_17_base_contra_insights)
-diff.count()
-
-# COMMAND ----------
-
-diff.display()
 
 # COMMAND ----------
 

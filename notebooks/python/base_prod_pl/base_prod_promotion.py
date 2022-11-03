@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
+dbutils.widgets.text("currency_hedge_version", "")
 
 # COMMAND ----------
 
@@ -13,12 +13,21 @@ dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
 
 max_info = call_redshift_addversion_sproc(configs, 'FORECAST_SUPPLIES_BASEPROD', 'FORECAST_SUPPLIES_BASEPROD')
 
-max_version = max_info[0]
-max_load_date = (max_info[1])
+forecast_fin_version = max_info[0]
+forecast_fin_load_date = (max_info[1])
 
 # COMMAND ----------
 
-dbutils.widgets.text("forecast_fin_version", max_version)
+#dbutils.widgets.text("forecast_fin_version", forecast_fin_version)
+
+# COMMAND ----------
+
+currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
+if currency_hedge_version == "":
+    v = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
@@ -80,46 +89,6 @@ version = read_redshift_to_df(configs) \
 trade_forecast = read_redshift_to_df(configs) \
     .option("dbtable", "prod.trade_forecast") \
     .load()
-
-# COMMAND ----------
-
-forecast_base_pl = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.forecast_base_pl") \
-    .load()
-
-tablesa = [
-
-  ['fin_stage.forecast_base_pl' ,forecast_base_pl],
-  
-]
-
-
-##'prod.working_forecast_country' ,
-
-for table in tablesa:
-    # Define the input and output formats and paths and the table name.
-    schema = table[0].split(".")[0]
-    table_name = table[0].split(".")[1]
-    write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    # Load the data from its source.
-    df = table[1]
-    print(f'loading {table[0]}...')
-    # Write the data to its target.
-    df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .save(save_path)
-
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
-    spark.table(table[0]).createOrReplaceTempView(table_name)
-    
-    print(f'{table[0]} loaded')
 
 # COMMAND ----------
 
@@ -221,7 +190,7 @@ SELECT 'FORECAST_SUPPLIES_BASEPROD' AS record
 	  , fixed_cost_version
 	  , currency_hedge_version		
 FROM forecast_base_pl
-""".format(max_load_date,max_version)
+""".format(forecast_fin_load_date,forecast_fin_version)
 
 forecast_supplies_baseprod = spark.sql(forecast_supplies_baseprod)
 write_df_to_redshift(configs, forecast_supplies_baseprod, "fin_prod.forecast_supplies_baseprod", "overwrite")
@@ -474,7 +443,7 @@ submit_remote_query(configs , '''truncate table fin_prod.actuals_plus_forecast_f
 
 # COMMAND ----------
 
-actuals_plus_forecast_financials = f"""
+actuals_plus_forecast_financials = """
 
 with __dbt__CTE__bpo_19_actuals as (
 
@@ -668,8 +637,8 @@ SELECT
 			effective_date,
 			COALESCE(LEAD(effective_date) OVER (PARTITION BY base_product_number, geography ORDER BY effective_date),
 			CAST('2099-08-30' AS DATE)) AS next_effective_date,
-			yield_.value AS yield
-		FROM yield_
+			yield.value AS yield
+		FROM yield
 		WHERE official = 1	
 		AND geography_grain = 'REGION_5'
 ),  __dbt__CTE__bpo_24_sub_months as (
@@ -680,9 +649,9 @@ SELECT date AS cal_date
 			FROM mdm.calendar
 			WHERE day_of_month = 1
 			and Date >= (select min(cal_date) from forecast_supplies_baseprod where
-					version = '{dbutils.widgets.get("forecast_fin_version")}')
+					version = '{}')
 			and Date <= (select max(cal_date) from forecast_supplies_baseprod where
-					version = '{dbutils.widgets.get("forecast_fin_version")}')
+					version = '{}')
 ),  __dbt__CTE__bpo_26_sub_yields as (
 
 
@@ -713,7 +682,7 @@ SELECT
 			, calendar.fiscal_year_qtr
 			, calendar.fiscal_year_half
 			, calendar.fiscal_yr
-			, '{dbutils.widgets.get("forecast_fin_version")}' as financials_version
+			, '{}' as financials_version
 			, COALESCE(cartridge_demand_c2c_country_splits.imp_corrected_cartridges, 0) units
 			, COALESCE(cartridge_demand_c2c_country_splits.imp_corrected_cartridges * supplies_xref.equivalents_multiplier, 0) equivalent_units
 			, COALESCE(cartridge_demand_c2c_country_splits.imp_corrected_cartridges, 0) shipment_units
@@ -831,7 +800,7 @@ SELECT
 			, (SELECT MAX(version) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as version
 			, (SELECT MAX(load_date) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as load_date
 		FROM __dbt__CTE__bpo_27_supplies_baseprod_forecast
-"""
+""".format(forecast_fin_version,forecast_fin_version,forecast_fin_version)
 
 actuals_plus_forecast_financials = spark.sql(actuals_plus_forecast_financials)
 write_df_to_redshift(configs, actuals_plus_forecast_financials, "fin_prod.actuals_plus_forecast_financials", "overwrite")
