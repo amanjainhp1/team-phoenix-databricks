@@ -73,7 +73,7 @@ redshift_gpsy_prod_list_price_records = redshift_gpsy_prod_list_price_records \
     .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
     .withColumn("version", lit(max_version))
 
-write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "append")
+write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "overwrite")
 
 # COMMAND ----------
 
