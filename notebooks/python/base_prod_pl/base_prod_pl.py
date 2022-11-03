@@ -34,6 +34,98 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
+lpf_01_ibp_combined = read_sql_server_to_df(configs) \
+    .option("query", f"SELECT * from ie2_financials.dbt.lpf_08_ibp_combined") \
+    .load()
+
+write_df_to_redshift(configs, lpf_01_ibp_combined, f"fin_stage.lpf_01_ibp_combined", "overwrite")
+
+# COMMAND ----------
+
+forecast_sales_gru = read_sql_server_to_df(configs) \
+    .option("query", f"SELECT record \
+      ,build_type \
+      ,sales_product_number \
+      ,region_5 \
+      ,country_alpha2 \
+      ,currency_code \
+      ,price_term_code \
+      ,price_start_effective_date \
+      ,qb_sequence_number \
+      ,list_price \
+      ,sales_product_line_code \
+      , accountingrate as accounting_rate \
+      , list_price_usd \
+      ,ListPriceAdder_LC as list_price_adder_lc \
+      ,CurrencyCode_Adder as currency_code_adder \
+      ,ListPriceAdder_USD as list_price_adder_usd \
+      ,eoq_discount \
+      ,SalesProduct_GRU as sales_product_gru \
+      ,load_date \
+      ,version from ie2_financials.dbo.forecast_sales_gru where version = (select max(version) from ie2_financials.dbo.forecast_sales_gru)") \
+    .load()
+
+write_df_to_redshift(configs, forecast_sales_gru, f"fin_prod.forecast_sales_gru", "overwrite")
+
+# COMMAND ----------
+
+forecast_sales_gru = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.forecast_sales_gru") \
+    .load()
+
+# COMMAND ----------
+
+tablesa = [
+#           ['mdm.calendar',calendar],
+#           ['mdm.iso_country_code_xref',iso_country_code_xref],
+#           ['mdm.rdma',rdma],
+#           ['mdm.supplies_xref',supplies_xref],
+#           ['fin_prod.forecast_fixed_cost_input',forecast_fixed_cost_input],
+#           ['prod.currency_hedge' ,currency_hedge],
+#           ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
+#           ['fin_prod.forecast_variable_cost_ink' ,forecast_variable_cost_ink],
+#           ['fin_prod.forecast_variable_cost_toner' ,forecast_variable_cost_toner],
+#           ['prod.ibp_supplies_forecast' ,ibp_supplies_forecast],
+#           ['fin_stage.lpf_01_ibp_combined' ,lpf_01_ibp_combined],
+          ['fin_prod.forecast_sales_gru' ,forecast_sales_gru]
+#           ['fin_prod.npi_base_gru' , npi_base_gru],
+#           ['fin_prod.forecast_gru_override' ,forecast_gru_override],
+#           ['fin_prod.forecast_contra_input' ,forecast_contra_input],
+#           ['mdm.country_currency_map' ,country_currency_map],
+#           ['prod.working_forecast_country' ,working_forecast_country]
+         ]
+
+
+##'prod.working_forecast_country' ,
+
+for table in tablesa:
+    # Define the input and output formats and paths and the table name.
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
+    write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    # Load the data from its source.
+    df = table[1]
+    print(f'loading {table[0]}...')
+    # Write the data to its target.
+    df.write \
+      .format(write_format) \
+      .mode("overwrite") \
+      .option("overwriteSchema", "true") \
+      .save(save_path)
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    
+    spark.table(table[0]).createOrReplaceTempView(table_name)
+    
+    print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
 # load S3 tables to df
 
 working_forecast_country = read_redshift_to_df(configs) \
@@ -317,7 +409,7 @@ SELECT distinct
 		, insights_units_ibp.cal_date
 		, ff_uat_npi_base_gru.gru
 	FROM
-		(SELECT base_product_number, country, cal_date FROM working_forecast_country_temp ) insights_units_ibp
+		(SELECT base_product_number, country, cal_date FROM working_forecast_country ) insights_units_ibp
 		INNER JOIN
 		iso_country_code_xref iso_country_code_xref
 			ON insights_units_ibp.country = iso_country_code_xref.country_alpha2
@@ -394,7 +486,7 @@ SELECT distinct
 												, insights_units.cal_date) AS cartridges
 		, base_gru
 	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country_temp
+		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
 		WHERE cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
 		AND cal_date <= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
@@ -415,7 +507,7 @@ SELECT distinct
 												, insights_units.cal_date) AS cartridges
 		, base_gru
 	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country_temp
+		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
 		WHERE --cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
 		cal_date > (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
@@ -478,6 +570,15 @@ bpp_01_base_gru_insights.createOrReplaceTempView("bpp_01_base_gru_insights")
 
 # COMMAND ----------
 
+bpp_01_base_gru_insights.show()
+
+# COMMAND ----------
+
+query = spark.sql('''select * from forecast_contra_input''')
+query.count()
+
+# COMMAND ----------
+
 bpp_02_contra_insights = """
 
 
@@ -492,7 +593,7 @@ SELECT
 		, forecast_contra.contra_per_qtr
 		, forecast_contra.version AS fin_version
 	FROM
-		 forecast_contra_input forecast_contra    
+		 fin_prod.forecast_contra_input forecast_contra    
 	WHERE official = 1
 ),  __dbt__CTE__bpp_14_last_Contra_per AS (
 
@@ -511,9 +612,9 @@ SELECT
 
 SELECT distinct
     fiscal_year_qtr
-FROM calendar
+FROM mdm.calendar
 WHERE
-	fiscal_year_qtr <= (SELECT max(base_gru.fiscal_year_qtr) FROM bpp_01_base_gru_insights base_gru)
+	fiscal_year_qtr <= (SELECT max(base_gru.fiscal_year_qtr) FROM fin_stage.bpp_01_base_gru_insights base_gru)
 	and fiscal_year_qtr > (SELECT max(contra.fiscal_yr_qtr) FROM __dbt__CTE__bpp_12_Contra_Region contra)
 ),  __dbt__CTE__bpp_15_extend_Contra_per as (
 
@@ -555,17 +656,43 @@ SELECT base_product_line_code
 	, base_gru.base_gru
 	, fin_version
 FROM
-	bpp_01_base_gru_insights base_gru
+	fin_stage.bpp_01_base_gru_insights base_gru
 	INNER JOIN
 	__dbt__CTE__bpp_16_Contra_combine contra_extend
 		ON base_gru.base_product_line_code = contra_extend.base_product_line_code
 		AND base_gru.fiscal_year_qtr = contra_extend.fiscal_year_qtr
 		AND base_gru.region_5 = contra_extend.region_5
 """
+query_list = []
+query_list.append(["fin_stage.bpp_02_contra_insights", bpp_02_contra_insights, "overwrite"])
 
-bpp_02_contra_insights = spark.sql(bpp_02_contra_insights)
-write_df_to_redshift(configs, bpp_02_contra_insights, "fin_stage.bpp_02_contra_insights", "overwrite")
+bpp_02_contra_insights = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.bpp_02_contra_insights") \
+    .load()
+
 bpp_02_contra_insights.createOrReplaceTempView("bpp_02_contra_insights")
+# bpp_02_contra_insights = (bpp_02_contra_insights)
+# write_df_to_redshift(configs, bpp_02_contra_insights, "fin_stage.bpp_02_contra_insights", "overwrite")
+# bpp_02_contra_insights.createOrReplaceTempView("bpp_02_contra_insights")
+
+# COMMAND ----------
+
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+bpp_17_base_contra_insights = read_sql_server_to_df(configs) \
+    .option("query", f"SELECT * from ie2_financials.dbt.bpp_17_base_contra_insights") \
+    .load()
+
+# COMMAND ----------
+
+diff = bpp_02_contra_insights.subtract(bpp_17_base_contra_insights)
+diff.count()
+
+# COMMAND ----------
+
+diff.display()
 
 # COMMAND ----------
 
