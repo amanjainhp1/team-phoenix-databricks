@@ -82,7 +82,8 @@ decay_m13b_records = read_sql_server_to_df(configs) \
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, decay_m13b_records, "stage.decay_m13_stage", "overwrite")
+# write_df_to_redshift(configs, decay_m13b_records, "stage.decay_m13_stage", "overwrite")
+write_df_to_redshift(configs, decay_m13b_records, "prod.decay_m13", "overwrite")
 
 # COMMAND ----------
 
