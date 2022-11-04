@@ -32,7 +32,7 @@ def get_dir_content(ls_path):
     flat_subdir_paths = [p for subdir in subdir_paths for p in subdir]
     return list(map(lambda p: p.path, dir_paths)) + flat_subdir_paths
 
-paths = get_dir_content(constants["S3_BASE_BUCKET"][stack] + landing/currency_hedge/')
+paths = get_dir_content(constants["S3_BASE_BUCKET"][stack] + 'landing/currency_hedge/')
 latest_file = paths[len(paths)-1]
 
 # COMMAND ----------
@@ -110,8 +110,8 @@ unpivotDF_records = unpivotDF \
     .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
     .withColumn("version", lit(max_version)) \
     .withColumn("revenue_currency_hedge",col("revenue_currency_hedge").cast("double")) \
-    .filter(unpivotDF_records.product_category.isNotNull()) \
-    .filter(unpivotDF_records.revenue_currency_hedge.isNotNull()) \
+    .filter(unpivotDF.product_category.isNotNull()) \
+    .filter(unpivotDF.revenue_currency_hedge.isNotNull()) \
     .filter("revenue_currency_hedge <> 0")
 
 # COMMAND ----------
