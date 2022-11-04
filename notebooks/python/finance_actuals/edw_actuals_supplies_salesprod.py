@@ -4196,7 +4196,7 @@ iink_country.createOrReplaceTempView("iink_country")
 
 # COMMAND ----------
 
-#itp actuals
+#itp actuals: ibp switched systems, losing market10 integrity in 9-21.  Code below retains market10 integrity from IBP (although country is now known); starting in 9-21, country determined by IB mix
 # 1. data from ibp for itp
 
 itp_units_ibp = f"""    
@@ -4215,13 +4215,80 @@ GROUP BY cal_date, market10, sales_product
 itp_units_ibp = spark.sql(itp_units_ibp)
 itp_units_ibp.createOrReplaceTempView("itp_units_ibp")
 
+
+itp_units_with_valid_mkt10 = f"""    
+SELECT 
+    cal_date,
+    market10,
+    sales_product_number,
+    sum(revenue_units) as revenue_units
+FROM itp_units_ibp
+WHERE 1=1
+AND cal_date < '2021-09-01'
+GROUP BY cal_date, market10, sales_product_number
+"""
+
+itp_units_with_valid_mkt10 = spark.sql(itp_units_with_valid_mkt10)
+itp_units_with_valid_mkt10.createOrReplaceTempView("itp_units_with_valid_mkt10")
+
+
+simplified_country_list = f"""
+SELECT distinct market10, country_alpha2, country 
+FROM iso_country_code_xref
+WHERE country_alpha2 IN ('DE', 'NL', 'MX', 'AU', 'IT', 'TW', 'IN', 'US', 'GB', 'TR') 
+"""
+
+simplified_country_list = spark.sql(simplified_country_list)
+simplified_country_list.createOrReplaceTempView("simplified_country_list")
+
+
+itp_valid_mkt_10_plus_country = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    'N5' as pl,
+    sales_product_number,
+    'TRAD' AS ce_split,
+    0 AS gross_revenue,
+    0 AS net_currency,
+    0 AS contractual_discounts,
+    0 AS discretionary_discounts,
+    0 AS warranty,
+    0 as other_cos,
+    0 AS total_cos,
+    sum(revenue_units) as revenue_units
+FROM itp_units_with_valid_mkt10 itp
+LEFT JOIN simplified_country_list scl ON scl.market10 = itp.market10
+GROUP BY cal_date, country_alpha2, sales_product_number
+"""
+
+itp_valid_mkt_10_plus_country = spark.sql(itp_valid_mkt_10_plus_country)
+itp_valid_mkt_10_plus_country.createOrReplaceTempView("itp_valid_mkt_10_plus_country")
+
+
+itp_units_ibp_bad_mkt10 = f"""    
+SELECT 
+    cal_date,
+    market10,
+    sales_product_number,
+    sum(revenue_units) as revenue_units
+FROM itp_units_ibp
+WHERE 1=1
+AND cal_date > '2021-08-01'
+GROUP BY cal_date, market10, sales_product_number
+"""
+
+itp_units_ibp_bad_mkt10 = spark.sql(itp_units_ibp_bad_mkt10)
+itp_units_ibp_bad_mkt10.createOrReplaceTempView("itp_units_ibp_bad_mkt10")
+
+
 # add region_5
 itp_mkt10_reg5 = f"""
 SELECT
 	distinct region_5, market10	
 FROM iso_country_code_xref
 WHERE 1=1 
-AND market10 IN (SELECT distinct market10 FROM itp_units_ibp)
+AND market10 IN (SELECT distinct market10 FROM itp_units_ibp_bad_mkt10)
 AND region_5 <> 'JP'
 """
 
@@ -4236,7 +4303,7 @@ SELECT
 	region_5,
 	sales_product_number,
 	sum(revenue_units) as revenue_units
-FROM itp_units_ibp ibp
+FROM itp_units_ibp_bad_mkt10 ibp
 LEFT JOIN itp_mkt10_reg5 map
 ON ibp.market10 = map.market10
 GROUP BY cal_date, ibp.market10, region_5, sales_product_number
@@ -4413,6 +4480,25 @@ SELECT
     sum(revenue_units) as revenue_units
 FROM itp_country
 GROUP BY cal_date, country_alpha2, sales_product_number, region_5
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    sum(gross_revenue) AS gross_revenue,
+    sum(net_currency) AS net_currency,
+    sum(contractual_discounts) AS contractual_discounts,
+    sum(discretionary_discounts) AS discretionary_discounts,
+    sum(warranty) AS warranty,
+    sum(other_cos) as other_cos,
+    sum(total_cos) AS total_cos,
+    sum(revenue_units) as revenue_units
+FROM itp_valid_mkt_10_plus_country
+GROUP BY cal_date, country_alpha2, sales_product_number, ce_split, pl
 """
 
 itp_final_input = spark.sql(itp_final_input)
