@@ -74,19 +74,19 @@ for table in tables:
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
-    if dbutils.widgets.get("refresh_db_data").lower() == 'true':
-        df = table[1]
-        print(f'loading {table[0]}...')
-        # Write the data to its target.
-        df.write \
-          .format(write_format) \
-          .mode("overwrite") \
-          .save(save_path)
+    df = table[1]
+    print(f'loading {table[0]}...')
+    
+    # Write the data to its target.
+    df.write \
+      .format(write_format) \
+      .mode("overwrite") \
+      .save(save_path)
 
-        spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
 
-        # Create the table.
-        spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
     
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
