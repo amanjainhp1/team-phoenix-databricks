@@ -18,6 +18,13 @@ forecast_fin_load_date = (max_info[1])
 
 # COMMAND ----------
 
+max_info = call_redshift_addversion_sproc(configs, 'ACTUALS_PLUS_FORECAST_FINANCIALS', 'ACTUALS_PLUS_FORECAST_FINANCIALS')
+
+actuals_plus_forecast_financials_version = max_info[0]
+actuals_plus_forecast_financials_load_date = (max_info[1])
+
+# COMMAND ----------
+
 #dbutils.widgets.text("forecast_fin_version", forecast_fin_version)
 
 # COMMAND ----------
@@ -760,8 +767,8 @@ SELECT
 			, round(cc_inventory_impact ,6) cc_inventory_impact
 			, round(adjusted_revenue ,6) adjusted_revenue
 			, financials_version
-			, (SELECT MAX(version) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as version
-			, (SELECT MAX(load_date) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as load_date
+			, '{}' as version
+			, '{}' as load_date
 		FROM __dbt__CTE__bpo_23_supplies_baseprod_actuals
 		UNION ALL
 		SELECT record_type
@@ -797,15 +804,11 @@ SELECT
 			, round(cc_inventory_impact ,6) cc_inventory_impact
 			, round(adjusted_revenue ,6) adjusted_revenue
 			, financials_version
-			, (SELECT MAX(version) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as version
-			, (SELECT MAX(load_date) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as load_date
+			, '{}' as version
+			, '{}' as load_date
 		FROM __dbt__CTE__bpo_27_supplies_baseprod_forecast
-""".format(forecast_fin_version,forecast_fin_version,forecast_fin_version)
+""".format(forecast_fin_version , forecast_fin_version , forecast_fin_version , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date)
 
 actuals_plus_forecast_financials = spark.sql(actuals_plus_forecast_financials)
 write_df_to_redshift(configs, actuals_plus_forecast_financials, "fin_prod.actuals_plus_forecast_financials", "overwrite")
 actuals_plus_forecast_financials.createOrReplaceTempView("actuals_plus_forecast_financials")
-
-# COMMAND ----------
-
-
