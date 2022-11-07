@@ -37,7 +37,7 @@ SELECT
 	  ,'WORKING VERSION' AS version
 	  ,current_timestamp as load_date
 	  ,username
-FROM fin_prod.v_stf_dollarization;
+FROM financials.v_stf_dollarization;
 
 UPDATE fin_prod.stf_dollarization
 	SET version = (SELECT version FROM prod.version WHERE record = 'SUPPLIES_STF' AND official=1),

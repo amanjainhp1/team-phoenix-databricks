@@ -1,5 +1,6 @@
 # Databricks notebook source
 from pyspark.sql.functions import *
+from pyspark.sql.types import DoubleType
 
 # COMMAND ----------
 
@@ -163,6 +164,32 @@ base_product_filter_vars.createOrReplaceTempView("base_product_filter_vars")
 
 # COMMAND ----------
 
+forecast_supplies_baseprod_region_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod_region where 1 = 0") \
+        .load()
+
+forecast_supplies_baseprod_region_stf_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod_region_stf where 1 = 0") \
+        .load()
+
+stf_gru_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.stf_gru where 1 = 0") \
+        .load()
+
+current_stf_dollarization_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.current_stf_dollarization where 1 = 0") \
+        .load()
+
+stf_dollarization_coc_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.stf_dollarization_coc where 1 = 0") \
+        .load()
+
+actuals_plus_stf_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.actuals_plus_stf where 1 = 0") \
+        .load()
+
+# COMMAND ----------
+
 forecast_supplies_baseprod_region = """
 
 
@@ -214,6 +241,7 @@ select
  """
 
 forecast_supplies_baseprod_region = spark.sql(forecast_supplies_baseprod_region)
+forecast_supplies_baseprod_region = forecast_supplies_baseprod_region_schema.union(forecast_supplies_baseprod_region)
 write_df_to_redshift(configs, forecast_supplies_baseprod_region, "fin_prod.forecast_supplies_baseprod_region", "append")
 forecast_supplies_baseprod_region.createOrReplaceTempView("forecast_supplies_baseprod_region")
 
@@ -223,7 +251,7 @@ submit_remote_query(configs , '''truncate table fin_prod.forecast_supplies_basep
 
 # COMMAND ----------
 
-forecast_supplies_baseprod_region_stf = f"""
+forecast_supplies_baseprod_region_stf = """
 
 
 with  __dbt__CTE__bpo_06_currency_sum_stf as (
@@ -243,7 +271,7 @@ from iso_country_code_xref  iso
 LEFT JOIN country_currency_map map ON map.country_alpha2 = iso.country_alpha2
 where currency_iso_code is not null
 ) as currency_map ON currency = currency_iso_code
-where currency_hedge.version = '{dbutils.widgets.get("currency_hedge_version")}'
+where currency_hedge.version = '{}'
 group by
 	currency_hedge.product_category
 	,currency_hedge.month
@@ -257,7 +285,7 @@ select
 			, region_fin_w.cal_date
 			, SUM(COALESCE(region_fin_w.baseprod_gru, 0) * COALESCE(stf.units, 0)) revenue_sum
 		from
-			(select region_5, cal_date, base_product_number, baseprod_gru, base_product_line_code from forecast_supplies_baseprod_region where version = '{dbutils.widgets.get("forecast_fin_version")}') region_fin_w
+			(select region_5, cal_date, base_product_number, baseprod_gru, base_product_line_code from forecast_supplies_baseprod_region where version = '{}') region_fin_w
 			INNER JOIN
 			supplies_stf_landing stf
 				on stf.geography = region_fin_w.region_5
@@ -304,7 +332,7 @@ select
 			, calendar.fiscal_year_qtr
 			, sum(COALESCE(region_fin_w.baseprod_gru, 0) * COALESCE(stf.units, 0)) AS revenue_sum
 		from
-			(select base_product_line_code, baseprod_gru, region_5, cal_date, base_product_number from forecast_supplies_baseprod_region where version = '{dbutils.widgets.get("forecast_fin_version")}') region_fin_w
+			(select base_product_line_code, baseprod_gru, region_5, cal_date, base_product_number from forecast_supplies_baseprod_region where version = '{}') region_fin_w
 			INNER JOIN
 			supplies_stf_landing stf
 				ON stf.geography = region_fin_w.region_5
@@ -374,7 +402,7 @@ select distinct
 		, avg((baseprod_gru - baseprod_contra_per_unit + (baseprod_gru * COALESCE(currency_per, 0)) - baseprod_variable_cost_per_unit - COALESCE(baseprod_gru * fixed_cost_per, 0))) as baseprod_gross_margin_unit
 		, fin.version
 	from
-		(select * from forecast_supplies_baseprod_region where version = '{dbutils.widgets.get("forecast_fin_version")}') fin
+		(select * from forecast_supplies_baseprod_region where version = '{}') fin
 		INNER JOIN
 		calendar calendar
 			on calendar.date = fin.cal_date
@@ -399,10 +427,11 @@ select distinct
 		, fin.cal_date
 		, fin.version
         
-"""
+""".format(currency_hedge_version,forecast_fin_version,forecast_fin_version,forecast_fin_version)
 
 
 forecast_supplies_baseprod_region_stf = spark.sql(forecast_supplies_baseprod_region_stf)
+forecast_supplies_baseprod_region_stf = forecast_supplies_baseprod_region_stf_schema.union(forecast_supplies_baseprod_region_stf)
 write_df_to_redshift(configs, forecast_supplies_baseprod_region_stf, "fin_prod.forecast_supplies_baseprod_region_stf", "append")
 forecast_supplies_baseprod_region_stf.createOrReplaceTempView("forecast_supplies_baseprod_region_stf")
 
@@ -412,7 +441,7 @@ submit_remote_query(configs , '''truncate table fin_prod.stf_gru''')
 
 # COMMAND ----------
 
-stf_gru = f"""
+stf_gru = """
 
 
 SELECT 
@@ -422,10 +451,11 @@ SELECT
 	, fin.cal_date
 	, fin.BaseProd_GRU
 FROM forecast_supplies_baseprod_region_stf fin
-where fin.version = '{dbutils.widgets.get("forecast_fin_version")}'
-"""
+where fin.version = '{}'
+""".format(forecast_fin_version)
 
 stf_gru = spark.sql(stf_gru)
+stf_gru = stf_gru_schema.union(stf_gru)
 write_df_to_redshift(configs, stf_gru, "fin_prod.stf_gru", "append")
 stf_gru.createOrReplaceTempView("stf_gru")
 
@@ -435,7 +465,7 @@ submit_remote_query(configs , '''truncate table fin_prod.current_stf_dollarizati
 
 # COMMAND ----------
 
-current_stf_dollarization =  f"""
+current_stf_dollarization =  """
 
 
 with __dbt__CTE__bpo_30_Insights_Units as (
@@ -468,7 +498,7 @@ select
 	, (fin.baseprod_contra_per_unit * stf.units) as contra
 	, (fin.baseprod_revenue_currency_hedge_unit * stf.units) as revenue_currency_hedge
 	, (fin.baseprod_aru * stf.units) as net_revenue
-	, (fin.baseprod_variable_cost_per_unit * stf.units) as variable_Cost
+	, (fin.baseprod_variable_cost_per_unit * stf.units) as variable_cost
 	, (fin.baseprod_contribution_margin_unit * stf.units) as contribution_margin
 	, (fin.baseprod_fixed_cost_per_unit * stf.units) as fixed_Cost
 	, ((fin.baseprod_variable_cost_per_unit * stf.units)+(fin.baseprod_fixed_cost_per_unit * stf.units)) as total_cos
@@ -483,10 +513,10 @@ from
 		on fin.base_product_number = stf.base_product_number
 		and fin.region_5 = stf.geography
 		and fin.cal_date = stf.cal_date
-		and fin.version = '{dbutils.widgets.get("forecast_fin_version")}'
+		and fin.version = '{}'
 	left join
 	rdma rdma
-		on rdma.Base_Prod_Number = stf.base_product_number
+		on rdma.base_prod_number = stf.base_product_number
 	inner join
 	iso_country_code_xref ctry
 		on ctry.region_5 = stf.geography
@@ -498,18 +528,22 @@ from
 	left join
 	supplies_xref supplies_xref
 		on supplies_xref.base_product_number = stf.base_product_number
-"""
+""".format(forecast_fin_version)
 
 
 current_stf_dollarization = spark.sql(current_stf_dollarization)
-current_stf_dollarization = current_stf_dollarization.withColumn("contractual_discounts" , lit(None).cast(StringType())) \
-                .withColumn("discretionary_discounts" , lit(None).cast(StringType()))
+current_stf_dollarization = current_stf_dollarization.withColumn("contractual_discounts" , (lit(None).cast(StringType())).cast(DoubleType())) \
+                .withColumn("discretionary_discounts" , (lit(None).cast(StringType())).cast(DoubleType()))
+current_stf_dollarization = current_stf_dollarization.select('geography','base_product_number','pl','technology','cal_date','units','equivalent_units','gross_revenue','contractual_discounts','discretionary_discounts','contra','revenue_currency_hedge','net_revenue','variable_cost','contribution_margin','fixed_cost','total_cos','gross_margin','insights_units','username')
+current_stf_dollarization = current_stf_dollarization_schema.union(current_stf_dollarization)
 write_df_to_redshift(configs, current_stf_dollarization, "fin_prod.current_stf_dollarization", "append")
 current_stf_dollarization.createOrReplaceTempView("current_stf_dollarization")
 
 # COMMAND ----------
 
-# MAGIC %run ./supplies_stf_promote
+##To be checked
+
+#%run ./supplies_stf_promote
 
 # COMMAND ----------
 
@@ -578,6 +612,7 @@ FROM current_stf_dollarization
 """
 
 stf_dollarization_coc = spark.sql(stf_dollarization_coc)
+stf_dollarization_coc = stf_dollarization_coc_schema.union(stf_dollarization_coc)
 write_df_to_redshift(configs, stf_dollarization_coc, "fin_prod.stf_dollarization_coc", "append")
 stf_dollarization_coc.createOrReplaceTempView("stf_dollarization_coc")
 
@@ -587,6 +622,7 @@ submit_remote_query(configs , '''truncate table fin_prod.actuals_plus_stf''')
 
 # COMMAND ----------
 
+#check columns
 actuals_plus_stf = """
 
 
@@ -692,5 +728,10 @@ group by region_5
 """
 
 actuals_plus_stf = spark.sql(actuals_plus_stf)
+actuals_plus_stf = actuals_plus_stf_schema.union(actuals_plus_stf)
 write_df_to_redshift(configs, actuals_plus_stf, "fin_prod.actuals_plus_stf", "append")
 actuals_plus_stf.createOrReplaceTempView("actuals_plus_stf")
+
+# COMMAND ----------
+
+
