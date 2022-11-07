@@ -25,13 +25,9 @@ actuals_plus_forecast_financials_load_date = (max_info[1])
 
 # COMMAND ----------
 
-#dbutils.widgets.text("forecast_fin_version", forecast_fin_version)
-
-# COMMAND ----------
-
 currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
 if currency_hedge_version == "":
-    v = read_redshift_to_df(configs) \
+    currency_hedge_version = read_redshift_to_df(configs) \
         .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
@@ -174,6 +170,21 @@ base_product_filter_vars.createOrReplaceTempView("base_product_filter_vars")
 
 # COMMAND ----------
 
+forecast_supplies_baseprod_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod where 1 = 0") \
+        .load()
+
+
+forecast_supplies_baseprod_mkt10_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod_mkt10 where 1 = 0") \
+        .load()
+
+actuals_plus_forecast_financials_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.actuals_plus_forecast_financials where 1 = 0") \
+        .load()
+
+# COMMAND ----------
+
 forecast_supplies_baseprod = """
 
 
@@ -200,7 +211,8 @@ FROM forecast_base_pl
 """.format(forecast_fin_load_date,forecast_fin_version)
 
 forecast_supplies_baseprod = spark.sql(forecast_supplies_baseprod)
-write_df_to_redshift(configs, forecast_supplies_baseprod, "fin_prod.forecast_supplies_baseprod", "overwrite")
+forecast_supplies_baseprod = forecast_supplies_baseprod_schema.union(forecast_supplies_baseprod)
+write_df_to_redshift(configs, forecast_supplies_baseprod, "fin_prod.forecast_supplies_baseprod", "append")
 forecast_supplies_baseprod.createOrReplaceTempView("forecast_supplies_baseprod")
 
 # COMMAND ----------
@@ -441,7 +453,8 @@ select
 		, fin.version"""
 
 forecast_supplies_baseprod_mkt10 = spark.sql(forecast_supplies_baseprod_mkt10)
-write_df_to_redshift(configs, forecast_supplies_baseprod_mkt10, "fin_prod.forecast_supplies_baseprod_mkt10", "overwrite")
+forecast_supplies_baseprod_mkt10 = forecast_supplies_baseprod_mkt10_schema.union(forecast_supplies_baseprod_mkt10)
+write_df_to_redshift(configs, forecast_supplies_baseprod_mkt10, "fin_prod.forecast_supplies_baseprod_mkt10", "append")
 forecast_supplies_baseprod_mkt10.createOrReplaceTempView("forecast_supplies_baseprod_mkt10")
 
 # COMMAND ----------
@@ -810,5 +823,6 @@ SELECT
 """.format(forecast_fin_version , forecast_fin_version , forecast_fin_version , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date)
 
 actuals_plus_forecast_financials = spark.sql(actuals_plus_forecast_financials)
-write_df_to_redshift(configs, actuals_plus_forecast_financials, "fin_prod.actuals_plus_forecast_financials", "overwrite")
+actuals_plus_forecast_financials = actuals_plus_forecast_financials_schema.union(actuals_plus_forecast_financials)
+write_df_to_redshift(configs, actuals_plus_forecast_financials, "fin_prod.actuals_plus_forecast_financials", "append")
 actuals_plus_forecast_financials.createOrReplaceTempView("actuals_plus_forecast_financials")

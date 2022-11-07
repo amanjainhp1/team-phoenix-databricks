@@ -23,7 +23,7 @@ query_list = []
 
 currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
 if currency_hedge_version == "":
-    v = read_redshift_to_df(configs) \
+    currency_hedge_version = read_redshift_to_df(configs) \
         .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]

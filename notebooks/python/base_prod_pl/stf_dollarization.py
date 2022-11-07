@@ -3,16 +3,32 @@ from pyspark.sql.functions import *
 
 # COMMAND ----------
 
-dbutils.widgets.text("forecast_fin_version", "2022.10.25.1")
-dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+dbutils.widgets.text("forecast_fin_version", "")
+dbutils.widgets.text("currency_hedge_version", "")
+
+# COMMAND ----------
+
+forecast_fin_version = dbutils.widgets.get("forecast_fin_version")
+if forecast_fin_version == "":
+    forecast_fin_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+
+currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
+if currency_hedge_version == "":
+    currency_hedge_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
