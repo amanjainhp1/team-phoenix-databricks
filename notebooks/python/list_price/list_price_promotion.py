@@ -58,7 +58,7 @@ SELECT DISTINCT
 	, lpv.lp_gpsy_version
 	, lpv.ibp_version
 	, lpv.acct_rates_version
-	, lpv.eoq_load_date
+	, cast(lpv.eoq_load_date as date) as eoq_load_date
 	, cast('{}' as timestamp) as load_date
     , '{}'  as version
 	FROM
@@ -87,7 +87,7 @@ SELECT
 FROM "fin_stage"."forecast_sales_gru"
 """.format(max_load_date)
 
-query_list.append(["prod.list_price_filtered", list_price_filtered, "append"])
+query_list.append(["fin_prod.list_price_filtered", list_price_filtered, "append"])
 
 # COMMAND ----------
 

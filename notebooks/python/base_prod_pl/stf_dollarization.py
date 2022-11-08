@@ -731,7 +731,3 @@ actuals_plus_stf = spark.sql(actuals_plus_stf)
 actuals_plus_stf = actuals_plus_stf_schema.union(actuals_plus_stf)
 write_df_to_redshift(configs, actuals_plus_stf, "fin_prod.actuals_plus_stf", "append")
 actuals_plus_stf.createOrReplaceTempView("actuals_plus_stf")
-
-# COMMAND ----------
-
-

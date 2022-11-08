@@ -1,7 +1,6 @@
 # Databricks notebook source
-dbutils.widgets.text("accounting_eff_date",'2022-10-01')
-dbutils.widgets.text("accounting_rate_version",'2022.10.04.1')
-dbutils.widgets.text("forecast_record",'FORECAST_SALES_GRU')
+dbutils.widgets.text("accounting_eff_date",'')  # set accounting_eff_date as max(effective date) from prod.acct_rates
+dbutils.widgets.text("accounting_rate_version",'') # set accounting_rate_version to mark as official
 
 # COMMAND ----------
 
@@ -19,6 +18,26 @@ from pyspark.sql.functions import *
 # COMMAND ----------
 
 # MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+#set variables
+
+accounting_eff_date = dbutils.widgets.get("accounting_eff_date")
+if accounting_eff_date == "":
+    accounting_eff_date = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(effectivedate) FROM prod.acct_rates where version = (select max(version) from prod.acct_rates)") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+    
+accounting_rate_version = dbutils.widgets.get("accounting_rate_version")
+if accounting_rate_version == "":
+    accounting_rate_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.acct_rates") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+    
+forecast_record = 'STF'
 
 # COMMAND ----------
 
@@ -697,7 +716,7 @@ lpf_06_list_price_na.createOrReplaceTempView("lpf_06_list_price_na")
 
 # COMMAND ----------
 
-forecast_sales_gru = f"""
+forecast_sales_gru = """
 
 
 with  __dbt__CTE__lpf_17_list_price_apj_filtered as (
@@ -987,8 +1006,8 @@ FROM
 	  INNER JOIN
 	  acct_rates acct_rates
 		ON acct_rates.isocurrcd = country_currency_map_landing.currency_iso_code
-		AND acct_rates.effectivedate = '{dbutils.widgets.get("accounting_eff_date")}'
-		AND acct_rates.version = '{dbutils.widgets.get("accounting_rate_version")}'
+		AND acct_rates.effectivedate = '{}'
+		AND acct_rates.version = '{}'
 WHERE country_currency_map_landing.country_alpha2 is not null
 ),  __dbt__CTE__lpf_26_eoq as (
 
@@ -1040,11 +1059,11 @@ SELECT DISTINCT
 			AND iso_country_code_xref.region_5 = list_price_eoq.region_5
 	WHERE 
 	1=1
-	AND acct_rates.version = '{dbutils.widgets.get("accounting_rate_version")}'
-		AND acct_rates.effectivedate = '{dbutils.widgets.get("accounting_eff_date")}'
+	AND acct_rates.version = '{}'
+		AND acct_rates.effectivedate = '{}'
 )SELECT DISTINCT
 		'FORECAST_SALES_GRU' AS record
-		,'{dbutils.widgets.get("forecast_record")}' AS build_type
+		,'{}' AS build_type
 		,list_price_eoq.sales_product_number
 		, list_price_eoq.region_5
 		, list_price_eoq.country_alpha2
@@ -1065,7 +1084,7 @@ SELECT DISTINCT
 		__dbt__CTE__lpf_27_list_price_eoq list_price_eoq
 	WHERE
 		(((count_list_price > 1) and (currency_country is not null)) or (count_list_price = 1))
-"""
+""".format(accounting_eff_date,accounting_rate_version , accounting_rate_version , accounting_eff_date , forecast_record)
 forecast_sales_gru = spark.sql(forecast_sales_gru)
 
 forecast_sales_gru = forecast_sales_gru.withColumn("load_date" , lit(None).cast(StringType())) \
@@ -1075,7 +1094,7 @@ forecast_sales_gru.createOrReplaceTempView("forecast_sales_gru")
 
 # COMMAND ----------
 
-list_price_version = f"""
+list_price_version = """
 
 
 with __dbt__CTE__lpf_09_ibp_grp as (
@@ -1102,10 +1121,10 @@ SELECT
 	WHERE
 	load_date = (SELECT cal_date FROM list_price_filter_dates WHERE record = 'EOQ')
 )SELECT DISTINCT
-	'{dbutils.widgets.get("forecast_record")}' AS record
+	'{}' AS record
 	, (SELECT version FROM list_price_filter_vars WHERE record = 'LIST_PRICE_GPSY') AS lp_gpsy_version
 	, (SELECT version FROM list_price_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST') AS ibp_version
-	, '{dbutils.widgets.get("accounting_rate_version")}' AS acct_rates_version
+	, '{}' AS acct_rates_version
 	, (SELECT cal_date FROM list_price_filter_dates WHERE record = 'EOQ') AS eoq_load_date
 
 	FROM
@@ -1113,7 +1132,7 @@ SELECT
 		INNER JOIN 
 		__dbt__CTE__lpf_26_eoq eoq
 			ON list_price_all.sales_product_line_code = eoq.product_line
-"""
+""".format(forecast_record , accounting_rate_version)
 list_price_version = spark.sql(list_price_version)
 
 list_price_version = list_price_version.withColumn("load_date" , lit(None).cast(StringType())) \
