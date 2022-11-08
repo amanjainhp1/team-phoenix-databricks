@@ -38,18 +38,18 @@ spark = SparkSession.builder.appName('sparkdf').getOrCreate()
 
 # Fix the plan_date field
 # ~30 mins
-submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET Plan_Date = (SELECT MAX(Plan_Date) FROM IE2_ExternalPartners.dbo.ibp WHERE [version]IS NULL) WHERE [version] IS NULL;")
+#submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET Plan_Date = (SELECT MAX(Plan_Date) FROM IE2_ExternalPartners.dbo.ibp WHERE [version]IS NULL) WHERE [version] IS NULL;")
 
 # COMMAND ----------
 
 # Add a record to the version table
-submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC [IE2_prod].[dbo].[AddVersion_sproc] 'ibp_fcst', 'IBP';")
+#submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC [IE2_prod].[dbo].[AddVersion_sproc] 'ibp_fcst', 'IBP';")
 
 # COMMAND ----------
 
 # Update the latest records with version and load_date
 # ~2 mins
-submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET [version] = (SELECT MAX(version) FROM IE2_Prod.dbo.version WHERE record = 'ibp_fcst') WHERE [version] IS NULL;")
+#submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET [version] = (SELECT MAX(version) FROM IE2_Prod.dbo.version WHERE record = 'ibp_fcst') WHERE [version] IS NULL;")
 
 # COMMAND ----------
 
@@ -128,7 +128,7 @@ supplies_ibp_records = all_ibp_records.filter((all_ibp_records.Product_Category.
 
 # supplies_ibp_records.display()
 
-#write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast_landing", "overwrite")
+write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -248,7 +248,7 @@ countries_to_not_split_records = read_redshift_to_df(configs) \
     .option("query", countries_to_not_split_query) \
     .load()
 
-countries_to_not_split_records.display()
+# countries_to_not_split_records.display()
 
 # COMMAND ----------
 
@@ -346,11 +346,17 @@ supplies_actuals_denominator_all_records_filtered = spark.sql("select totals.* f
 
 # COMMAND ----------
 
+# Global View
+
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## LASER
 
 # COMMAND ----------
 
+# Numerator
 # get a total of supplies units, for LASER, for the past 1 year, to use as a numerator in the % mix calculation, then drop the technology column
 supplies_actuals_numerator_laser_records = supplies_actuals_numerator_all_records.filter(supplies_actuals_numerator_all_records.technology == 'LASER')
 supplies_actuals_numerator_laser_records2 = supplies_actuals_numerator_laser_records.drop(supplies_actuals_numerator_laser_records.technology)
@@ -360,6 +366,7 @@ supplies_actuals_numerator_laser_records2 = supplies_actuals_numerator_laser_rec
 
 # COMMAND ----------
 
+# Denominator
 # get a total of supplies units, for LASER, for the past 1 year, to use as a denominator in the % mix calculation, then drop the technology column
 supplies_actuals_denominator_laser_records = supplies_actuals_denominator_all_records_filtered.filter(supplies_actuals_denominator_all_records_filtered.technology == 'LASER')
 supplies_actuals_denominator_laser_records2 = supplies_actuals_denominator_laser_records.drop(supplies_actuals_denominator_laser_records.technology)
@@ -367,7 +374,8 @@ supplies_actuals_denominator_laser_records2 = supplies_actuals_denominator_laser
 
 # COMMAND ----------
 
-# join the SINAI2 scenario with the 
+# Create split percentage
+# join the SINAI2 scenario with the laser supplies recordsets
 
 supplies_actuals_numerator_laser_records2.createOrReplaceTempView("laser_numerator")
 supplies_actuals_denominator_laser_records2.createOrReplaceTempView("laser_denominator")
@@ -408,8 +416,13 @@ combined_laser_mix.createOrReplaceTempView("combined_laser_mix_vw")
 allocated_laser_ibp = spark.sql("select laser_ibp_records.Subregion4, laser_ibp_records.Sales_Product, laser_ibp_records.Calendar_Year_Month, combined_laser_mix_vw.country_alpha2, laser_ibp_records.Units * combined_laser_mix_vw.split_pct as units, laser_ibp_records.Plan_date, laser_ibp_records.version from laser_ibp_records INNER JOIN combined_laser_mix_vw on laser_ibp_records.Subregion4 == combined_laser_mix_vw.country_level_1")
 #laser_supplies_ibp_records.display()
 
-allocated_laser_ibp.display()
+#allocated_laser_ibp.display()
 
+
+# COMMAND ----------
+
+# write to redshift for testing:
+write_df_to_redshift(configs, allocated_laser_ibp, "stage.ibp_supplies_laser_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -444,6 +457,22 @@ ink_percent_mix = spark.sql("select ink_denominator.country_level_1, ink_numerat
 # create a combined ink mix for the geography groupings
 
 combined_ink_mix = no_split_mix.union(ink_percent_mix).sort(['country_level_1','country_alpha2'], ascending = True)
+
+# COMMAND ----------
+
+# blow the INK IBP units out to country based on the split %
+ink_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'INK')
+
+ink_sales_to_tech_records.createOrReplaceTempView("ink_sales_prod")
+supplies_ibp_records.createOrReplaceTempView("ink_ibp")
+
+ink_supplies_ibp_records = spark.sql("select ink_ibp.* from ink_ibp INNER JOIN ink_sales_prod on ink_ibp.Sales_Product == ink_sales_prod.sales_product")
+ink_supplies_ibp_records.createOrReplaceTempView("ink_ibp_records")
+combined_ink_mix.createOrReplaceTempView("combined_ink_mix_vw")
+
+allocated_ink_ibp = spark.sql("select ink_ibp_records.Subregion4, ink_ibp_records.Sales_Product, ink_ibp_records.Calendar_Year_Month, combined_ink_mix_vw.country_alpha2, ink_ibp_records.Units * combined_ink_mix_vw.split_pct as units, ink_ibp_records.Plan_date, ink_ibp_records.version from ink_ibp_records INNER JOIN combined_ink_mix_vw on ink_ibp_records.Subregion4 == combined_ink_mix_vw.country_level_1")
+
+allocated_ink_ibp.display()
 
 # COMMAND ----------
 
@@ -482,6 +511,22 @@ combined_pwa_mix = no_split_mix.union(pwa_percent_mix).sort(['country_level_1','
 
 # COMMAND ----------
 
+# blow the PWA IBP units out to country based on the split %
+pwa_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'PWA')
+
+pwa_sales_to_tech_records.createOrReplaceTempView("pwa_sales_prod")
+supplies_ibp_records.createOrReplaceTempView("pwa_ibp")
+
+pwa_supplies_ibp_records = spark.sql("select pwa_ibp.* from pwa_ibp INNER JOIN pwa_sales_prod on pwa_ibp.Sales_Product == pwa_sales_prod.sales_product")
+pwa_supplies_ibp_records.createOrReplaceTempView("pwa_ibp_records")
+combined_pwa_mix.createOrReplaceTempView("combined_pwa_mix_vw")
+
+allocated_pwa_ibp = spark.sql("select pwa_ibp_records.Subregion4, pwa_ibp_records.Sales_Product, pwa_ibp_records.Calendar_Year_Month, combined_pwa_mix_vw.country_alpha2, pwa_ibp_records.Units * combined_pwa_mix_vw.split_pct as units, pwa_ibp_records.Plan_date, pwa_ibp_records.version from pwa_ibp_records INNER JOIN combined_pwa_mix_vw on pwa_ibp_records.Subregion4 == combined_pwa_mix_vw.country_level_1")
+
+allocated_pwa_ibp.display()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## LF
 
@@ -513,6 +558,33 @@ lf_percent_mix = spark.sql("select lf_denominator.country_level_1, lf_numerator.
 # create a combined LF mix for the geography groupings
 
 combined_lf_mix = no_split_mix.union(lf_percent_mix).sort(['country_level_1','country_alpha2'], ascending = True)
+
+# COMMAND ----------
+
+# THIS STILL NEEDS TO BE COMPLETED
+
+# blow the PWA IBP units out to country based on the split %
+pwa_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'PWA')
+
+pwa_sales_to_tech_records.createOrReplaceTempView("pwa_sales_prod")
+supplies_ibp_records.createOrReplaceTempView("pwa_ibp")
+
+pwa_supplies_ibp_records = spark.sql("select pwa_ibp.* from pwa_ibp INNER JOIN pwa_sales_prod on pwa_ibp.Sales_Product == pwa_sales_prod.sales_product")
+pwa_supplies_ibp_records.createOrReplaceTempView("pwa_ibp_records")
+combined_pwa_mix.createOrReplaceTempView("combined_pwa_mix_vw")
+
+allocated_pwa_ibp = spark.sql("select pwa_ibp_records.Subregion4, pwa_ibp_records.Sales_Product, pwa_ibp_records.Calendar_Year_Month, combined_pwa_mix_vw.country_alpha2, pwa_ibp_records.Units * combined_pwa_mix_vw.split_pct as units, pwa_ibp_records.Plan_date, pwa_ibp_records.version from pwa_ibp_records INNER JOIN combined_pwa_mix_vw on pwa_ibp_records.Subregion4 == combined_pwa_mix_vw.country_level_1")
+
+allocated_pwa_ibp.display()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## UNION technologies
+
+# COMMAND ----------
+
+combined_lf_mix = allocated_laser_ibp.union(combined_ink_mix).union(combined_pwa_mix).union(combined_lf_mix)
 
 # COMMAND ----------
 
