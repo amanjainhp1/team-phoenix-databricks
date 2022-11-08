@@ -16,16 +16,10 @@ job_type = dbutils.widgets.get("job_type").lower()
 
 # COMMAND ----------
 
-if job_type == 'flash':
-   archer_record = read_sql_server_to_df(configs) \
+archer_record = read_sql_server_to_df(configs) \
     .option("query", f"SELECT TOP 1 REPLACE(record, ' ', '') AS record FROM archer_prod.dbo.stf_{job_type}_country_speedlic_yeti_vw WHERE record LIKE '{job_type}%'") \
     .load()
-elif job_type == 'wd3':
-   archer_record = read_sql_server_to_df(configs) \
-    .option("query", f"SELECT TOP 1 REPLACE(record, ' ', '') AS record FROM archer_prod.dbo.stf_{job_type}_country_speedlic_vw WHERE record LIKE '{job_type}%'") \
-    .load()
-else:
-   print ("No value captured")
+
 
 # COMMAND ----------
 
@@ -42,16 +36,9 @@ if redshift_record > 0:
 # COMMAND ----------
 
 # retrieve archer_records
-if job_type == 'flash':
-   archer_records = read_sql_server_to_df(configs) \
+archer_records = read_sql_server_to_df(configs) \
     .option("query", f"SELECT * FROM archer_prod.dbo.stf_{job_type}_country_speedlic_yeti_vw WHERE record LIKE '{job_type}%'") \
     .load()
-elif job_type == 'wd3':
-   archer_records = read_sql_server_to_df(configs) \
-    .option("query", f"SELECT * FROM archer_prod.dbo.stf_{job_type}_country_speedlic_vw WHERE record LIKE '{job_type}%'") \
-    .load()
-else:
-   print ("No value captured")
 
 # write to stage.flash_stage or stage.wd3_stage
 write_df_to_redshift(configs, archer_records, f"stage.{job_type}_stage", "overwrite")
