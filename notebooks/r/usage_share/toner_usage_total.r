@@ -730,13 +730,15 @@ decay <- sqldf('
                     END
                   END
               END AS b1
+              , CASE WHEN (b1c > b1 and b1c < 0) THEN b1c
+                     ELSE b1
+              END AS b1_orig
               from outcome 
               order by CM, platform_market_code, market10
                ')
 str(decay)
 
 # COMMAND ----------
-
 # Step 10 - Query to create Usage output in de-normalized form
 
   #since changing to Cumulus, and sources are no longer separate, zero is not limited to time (just the values zero$pMPV and zero$pN are), so is not different anymore
@@ -3871,6 +3873,7 @@ outcome_spark <- as.DataFrame(outcome)
 normdataFinal_spark <- as.DataFrame(normdataFinal)
 s3_spark <- as.DataFrame(s3)
 s2_spark <- as.DataFrame(s2)
+decay1 <- as.DataFrame(decay)
 
 # COMMAND ----------
 
@@ -4074,12 +4077,14 @@ final9$FYearMo <- cast(final9$FYearMo, "string")
 
 createOrReplaceTempView(final9, "final9")
 
+createOrReplaceTempView(decay, "decay")
 # COMMAND ----------
 
 # MAGIC %python
 # MAGIC # Step 85 - exporting final9 to S3
 # MAGIC 
 # MAGIC output_file_name = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/usage_total"
+# MAGIC output_file_named = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_outputs/toner/{datestamp}/{timestamp}/decay"
 # MAGIC 
 # MAGIC check_dups = spark.sql("""
 # MAGIC                 WITH stp1 AS (SELECT Platform_Subset_Nm, Country_Cd, FYearMo, count(*) as numobs
@@ -4092,6 +4097,7 @@ createOrReplaceTempView(final9, "final9")
 # MAGIC 
 # MAGIC if check_dups.count() == 0:
 # MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
+# MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM decay1"), destination=output_file_named, format="parquet", mode="overwrite", upper_strings=True)
 # MAGIC else:
 # MAGIC     raise Exception("FAILED: Duplicates in data")
 # MAGIC 
