@@ -19,7 +19,7 @@ from pyspark.sql import functions as F
 
 # COMMAND ----------
 
-# MAGIC %run ./database_utils
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
@@ -35,34 +35,26 @@ cbm_st_data = read_sql_server_to_df(configs) \
     .load()
 
 #--------- fin_stage ---------
-adjusted_revenue_staging = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.adjusted_revenue_staging") \
-    .load()
+#ci_flash_for_insights_supplies = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_stage.ci_flash_for_insights_supplies") \
+#    .load()
 
-ci_flash_for_insights_supplies = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.ci_flash_for_insights_supplies") \
-    .load()
-
-rev_flash_for_insights_supplies = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.rev_flash_for_insights_supplies") \
-    .load()\
-    .select(
-        col('fiscal_year_qtr'), 
-        col('pl'), 
-        col('ink_toner'), 
-        col('market'), 
-        col('business_description'), 
-        col('net_revenues_k'), 
-        col('hedge_k'), 
-        col('concatenate'), 
-        col('version').cast('date')
-    )
+#rev_flash_for_insights_supplies = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_stage.rev_flash_for_insights_supplies") \
+#    .load()\
+#    .select(
+#        col('fiscal_year_qtr'), 
+#        col('pl'), 
+#        col('ink_toner'), 
+#        col('market'), 
+#        col('business_description'), 
+#        col('net_revenues_k'), 
+#        col('hedge_k'), 
+#        col('concatenate'), 
+#        col('version').cast('date')
+#    )
 
 #--------- fin_prod ---------
-adjusted_revenue_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.adjusted_revenue_salesprod") \
-    .load()
-
 actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
     .load()
@@ -83,9 +75,9 @@ rev_flash_for_insights_supplies_temp = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.rev_flash_for_insights_supplies_temp") \
     .load()\
 
-supplies_finance_flash = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.supplies_finance_flash") \
-    .load()
+#supplies_finance_flash = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_prod.supplies_finance_flash") \
+#    .load()
 
 #----------- mdm ------------
 calendar = read_redshift_to_df(configs) \
@@ -139,17 +131,16 @@ version = read_redshift_to_df(configs) \
 
 tables = [
     ['mdm.calendar', calendar],
-    ['fin_prod.adjusted_revenue_salesprod', adjusted_revenue_salesprod],
     ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod],
-    ['fin_stage.ci_flash_for_insights_supplies', ci_flash_for_insights_supplies],
+    #['fin_stage.ci_flash_for_insights_supplies', ci_flash_for_insights_supplies],
     ['fin_prod.ci_flash_for_insights_supplies_temp', ci_flash_for_insights_supplies_temp],
     ['fin_prod.ci_history_supplies_finance_landing', ci_history_supplies_finance_landing],
     ['fin_prod.odw_document_currency', odw_document_currency],
-    ['fin_prod.supplies_finance_flash', supplies_finance_flash],
-    ['fin_stage.adjusted_revenue_staging', adjusted_revenue_staging],
+    #['fin_prod.supplies_finance_flash', supplies_finance_flash],
+    #['fin_stage.adjusted_revenue_staging', adjusted_revenue_staging],
     ['fin_stage.cbm_st_data', cbm_st_data],
     #['fin_stage.edw_revenue_document_currency_landing', edw_revenue_document_currency_landing],
-    ['fin_stage.rev_flash_for_insights_supplies', rev_flash_for_insights_supplies],
+    #['fin_stage.rev_flash_for_insights_supplies', rev_flash_for_insights_supplies],
     ['fin_prod.rev_flash_for_insights_supplies_temp', rev_flash_for_insights_supplies_temp],
     ['mdm.country_currency_map', country_currency_map],
     ['mdm.iso_country_code_xref', iso_country_code_xref],

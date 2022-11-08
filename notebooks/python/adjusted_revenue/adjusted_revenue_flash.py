@@ -52,10 +52,6 @@ tables = [['prod.version', version_df, "overwrite"], ['fin_prod.supplies_finance
 
 # COMMAND ----------
 
-spark.sql("""select max(version) from prod.version where record='ADJ REV PLUS FLASH'""").show()
-
-# COMMAND ----------
-
 adj_rev_data = spark.sql("""
 with adjusted_revenue_staging as
          (select fiscal_year_qtr,
@@ -1263,3 +1259,41 @@ group by record,
 """)
 
 write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
+
+# COMMAND ----------
+
+tables = [
+    ['fin_prod.adjusted_revenue_flash', adj_rev_flash, 'overwrite']
+]
+
+for table in tables:
+    # Define the input and output formats and paths and the table name.
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
+    mode = table[2]
+    write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    # Load the data from its source.
+    df = table[1]
+    renamed_df = df.select([F.col(col).alias(col.replace(' ', '_')) for col in df.columns])
+    print(f'loading {table[0]}...')
+    # Write the data to its target.
+    renamed_df.write \
+      .format(write_format) \
+      .mode(mode) \
+      .option("mergeSchema", "true")\
+      .save(save_path)
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    
+    spark.table(table[0]).createOrReplaceTempView(table_name)
+    
+    print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+
