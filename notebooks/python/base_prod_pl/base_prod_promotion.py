@@ -1,6 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("forecast_fin_version", "2022.10.04.1")
-dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
+dbutils.widgets.text("currency_hedge_version", "")
 
 # COMMAND ----------
 
@@ -14,8 +13,24 @@ dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
 
 max_info = call_redshift_addversion_sproc(configs, 'FORECAST_SUPPLIES_BASEPROD', 'FORECAST_SUPPLIES_BASEPROD')
 
-max_version = max_info[0]
-max_load_date = (max_info[1])
+forecast_fin_version = max_info[0]
+forecast_fin_load_date = (max_info[1])
+
+# COMMAND ----------
+
+max_info = call_redshift_addversion_sproc(configs, 'ACTUALS_PLUS_FORECAST_FINANCIALS', 'ACTUALS_PLUS_FORECAST_FINANCIALS')
+
+actuals_plus_forecast_financials_version = max_info[0]
+actuals_plus_forecast_financials_load_date = (max_info[1])
+
+# COMMAND ----------
+
+currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
+if currency_hedge_version == "":
+    currency_hedge_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
@@ -77,7 +92,6 @@ version = read_redshift_to_df(configs) \
 trade_forecast = read_redshift_to_df(configs) \
     .option("dbtable", "prod.trade_forecast") \
     .load()
-
 
 # COMMAND ----------
 
@@ -156,6 +170,21 @@ base_product_filter_vars.createOrReplaceTempView("base_product_filter_vars")
 
 # COMMAND ----------
 
+forecast_supplies_baseprod_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod where 1 = 0") \
+        .load()
+
+
+forecast_supplies_baseprod_mkt10_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod_mkt10 where 1 = 0") \
+        .load()
+
+actuals_plus_forecast_financials_schema = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.actuals_plus_forecast_financials where 1 = 0") \
+        .load()
+
+# COMMAND ----------
+
 forecast_supplies_baseprod = """
 
 
@@ -179,9 +208,10 @@ SELECT 'FORECAST_SUPPLIES_BASEPROD' AS record
 	  , fixed_cost_version
 	  , currency_hedge_version		
 FROM forecast_base_pl
-""".format(max_load_date,max_version)
+""".format(forecast_fin_load_date,forecast_fin_version)
 
 forecast_supplies_baseprod = spark.sql(forecast_supplies_baseprod)
+forecast_supplies_baseprod = forecast_supplies_baseprod_schema.union(forecast_supplies_baseprod)
 write_df_to_redshift(configs, forecast_supplies_baseprod, "fin_prod.forecast_supplies_baseprod", "append")
 forecast_supplies_baseprod.createOrReplaceTempView("forecast_supplies_baseprod")
 
@@ -423,6 +453,7 @@ select
 		, fin.version"""
 
 forecast_supplies_baseprod_mkt10 = spark.sql(forecast_supplies_baseprod_mkt10)
+forecast_supplies_baseprod_mkt10 = forecast_supplies_baseprod_mkt10_schema.union(forecast_supplies_baseprod_mkt10)
 write_df_to_redshift(configs, forecast_supplies_baseprod_mkt10, "fin_prod.forecast_supplies_baseprod_mkt10", "append")
 forecast_supplies_baseprod_mkt10.createOrReplaceTempView("forecast_supplies_baseprod_mkt10")
 
@@ -432,7 +463,7 @@ submit_remote_query(configs , '''truncate table fin_prod.actuals_plus_forecast_f
 
 # COMMAND ----------
 
-actuals_plus_forecast_financials = f"""
+actuals_plus_forecast_financials = """
 
 with __dbt__CTE__bpo_19_actuals as (
 
@@ -626,8 +657,8 @@ SELECT
 			effective_date,
 			COALESCE(LEAD(effective_date) OVER (PARTITION BY base_product_number, geography ORDER BY effective_date),
 			CAST('2099-08-30' AS DATE)) AS next_effective_date,
-			yield_.value AS yield
-		FROM yield_
+			yield.value AS yield
+		FROM yield
 		WHERE official = 1	
 		AND geography_grain = 'REGION_5'
 ),  __dbt__CTE__bpo_24_sub_months as (
@@ -638,9 +669,9 @@ SELECT date AS cal_date
 			FROM mdm.calendar
 			WHERE day_of_month = 1
 			and Date >= (select min(cal_date) from forecast_supplies_baseprod where
-					version = '{dbutils.widgets.get("forecast_fin_version")}')
+					version = '{}')
 			and Date <= (select max(cal_date) from forecast_supplies_baseprod where
-					version = '{dbutils.widgets.get("forecast_fin_version")}')
+					version = '{}')
 ),  __dbt__CTE__bpo_26_sub_yields as (
 
 
@@ -671,7 +702,7 @@ SELECT
 			, calendar.fiscal_year_qtr
 			, calendar.fiscal_year_half
 			, calendar.fiscal_yr
-			, '{dbutils.widgets.get("forecast_fin_version")}' as financials_version
+			, '{}' as financials_version
 			, COALESCE(cartridge_demand_c2c_country_splits.imp_corrected_cartridges, 0) units
 			, COALESCE(cartridge_demand_c2c_country_splits.imp_corrected_cartridges * supplies_xref.equivalents_multiplier, 0) equivalent_units
 			, COALESCE(cartridge_demand_c2c_country_splits.imp_corrected_cartridges, 0) shipment_units
@@ -749,8 +780,8 @@ SELECT
 			, round(cc_inventory_impact ,6) cc_inventory_impact
 			, round(adjusted_revenue ,6) adjusted_revenue
 			, financials_version
-			, (SELECT MAX(version) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as version
-			, (SELECT MAX(load_date) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as load_date
+			, '{}' as version
+			, '{}' as load_date
 		FROM __dbt__CTE__bpo_23_supplies_baseprod_actuals
 		UNION ALL
 		SELECT record_type
@@ -786,11 +817,12 @@ SELECT
 			, round(cc_inventory_impact ,6) cc_inventory_impact
 			, round(adjusted_revenue ,6) adjusted_revenue
 			, financials_version
-			, (SELECT MAX(version) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as version
-			, (SELECT MAX(load_date) FROM version WHERE record = 'ACTUALS_PLUS_FORECAST_FINANCIALS') as load_date
+			, '{}' as version
+			, '{}' as load_date
 		FROM __dbt__CTE__bpo_27_supplies_baseprod_forecast
-"""
+""".format(forecast_fin_version , forecast_fin_version , forecast_fin_version , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date)
 
 actuals_plus_forecast_financials = spark.sql(actuals_plus_forecast_financials)
+actuals_plus_forecast_financials = actuals_plus_forecast_financials_schema.union(actuals_plus_forecast_financials)
 write_df_to_redshift(configs, actuals_plus_forecast_financials, "fin_prod.actuals_plus_forecast_financials", "append")
 actuals_plus_forecast_financials.createOrReplaceTempView("actuals_plus_forecast_financials")
