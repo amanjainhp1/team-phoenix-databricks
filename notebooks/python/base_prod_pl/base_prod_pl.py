@@ -1,6 +1,6 @@
 # Databricks notebook source
-dbutils.widgets.text("sales_gru_version", "2022.10.07.1")
-dbutils.widgets.text("currency_hedge_version", "2022.10.06.1")
+dbutils.widgets.text("sales_gru_version", "") # set sales_gru_version to mark as official
+dbutils.widgets.text("currency_hedge_version", "") # set currency_hedge_version to mark as official
 
 # COMMAND ----------
 
@@ -18,6 +18,22 @@ from pyspark.sql.functions import *
 # COMMAND ----------
 
 query_list = []
+
+# COMMAND ----------
+
+currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
+if currency_hedge_version == "":
+    currency_hedge_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+    
+sales_gru_version = dbutils.widgets.get("sales_gru_version")
+if sales_gru_version == "":
+    sales_gru_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM fin_prod.forecast_sales_gru") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
@@ -110,8 +126,6 @@ tables = [
           ['prod.working_forecast_country' ,working_forecast_country]
          ]
 
-
-##'prod.working_forecast_country' ,
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
@@ -216,7 +230,7 @@ base_product_filter_dates.createOrReplaceTempView("base_product_filter_dates")
 
 # COMMAND ----------
 
-bpp_01_base_gru_insights = f"""
+bpp_01_base_gru_insights = """
 
 
 WITH __dbt__CTE__bpp_03_Base_GRU_Gpsy as (
@@ -238,7 +252,7 @@ SELECT
 		forecast_sales_gru sales_gru_gpsy
 			ON ibp_sales_units.sales_product_number = sales_gru_gpsy.sales_product_number
 			AND ibp_sales_units.country_alpha2 = sales_gru_gpsy.country_alpha2
-	WHERE sales_gru_gpsy.version = '{dbutils.widgets.get("sales_gru_version")}'
+	WHERE sales_gru_gpsy.version = '{}'
 	GROUP BY
 		ibp_sales_units.base_product_number
 		, ibp_sales_units.base_product_line_code
@@ -317,7 +331,7 @@ SELECT distinct
 		, insights_units_ibp.cal_date
 		, ff_uat_npi_base_gru.gru
 	FROM
-		(SELECT base_product_number, country, cal_date FROM working_forecast_country_temp ) insights_units_ibp
+		(SELECT base_product_number, country, cal_date FROM working_forecast_country ) insights_units_ibp
 		INNER JOIN
 		iso_country_code_xref iso_country_code_xref
 			ON insights_units_ibp.country = iso_country_code_xref.country_alpha2
@@ -394,7 +408,7 @@ SELECT distinct
 												, insights_units.cal_date) AS cartridges
 		, base_gru
 	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country_temp
+		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
 		WHERE cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
 		AND cal_date <= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
@@ -415,7 +429,7 @@ SELECT distinct
 												, insights_units.cal_date) AS cartridges
 		, base_gru
 	FROM
-		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country_temp
+		(SELECT base_product_number, country, cal_date, imp_corrected_cartridges as cartridges FROM working_forecast_country
 		WHERE --cal_date >= (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MIN_IBP_DATE')
 		cal_date > (SELECT cal_date FROM base_product_filter_dates WHERE record = 'MAX_IBP_DATE')
 		AND cartridges > 0
@@ -470,7 +484,7 @@ SELECT
 		INNER JOIN
 		rdma rdma
 			ON rdma.base_prod_number = base_gru_c2c.base_product_number
-"""
+""".format(sales_gru_version)
 
 bpp_01_base_gru_insights = spark.sql(bpp_01_base_gru_insights)
 write_df_to_redshift(configs, bpp_01_base_gru_insights, "fin_stage.bpp_01_base_gru_insights", "overwrite")
@@ -492,7 +506,7 @@ SELECT
 		, forecast_contra.contra_per_qtr
 		, forecast_contra.version AS fin_version
 	FROM
-		 forecast_contra_input forecast_contra    
+		 fin_prod.forecast_contra_input forecast_contra    
 	WHERE official = 1
 ),  __dbt__CTE__bpp_14_last_Contra_per AS (
 
@@ -511,9 +525,9 @@ SELECT
 
 SELECT distinct
     fiscal_year_qtr
-FROM calendar
+FROM mdm.calendar
 WHERE
-	fiscal_year_qtr <= (SELECT max(base_gru.fiscal_year_qtr) FROM bpp_01_base_gru_insights base_gru)
+	fiscal_year_qtr <= (SELECT max(base_gru.fiscal_year_qtr) FROM fin_stage.bpp_01_base_gru_insights base_gru)
 	and fiscal_year_qtr > (SELECT max(contra.fiscal_yr_qtr) FROM __dbt__CTE__bpp_12_Contra_Region contra)
 ),  __dbt__CTE__bpp_15_extend_Contra_per as (
 
@@ -555,21 +569,32 @@ SELECT base_product_line_code
 	, base_gru.base_gru
 	, fin_version
 FROM
-	bpp_01_base_gru_insights base_gru
+	fin_stage.bpp_01_base_gru_insights base_gru
 	INNER JOIN
 	__dbt__CTE__bpp_16_Contra_combine contra_extend
 		ON base_gru.base_product_line_code = contra_extend.base_product_line_code
 		AND base_gru.fiscal_year_qtr = contra_extend.fiscal_year_qtr
 		AND base_gru.region_5 = contra_extend.region_5
 """
+query_list = []
+query_list.append(["fin_stage.bpp_02_contra_insights", bpp_02_contra_insights, "overwrite"])
 
-bpp_02_contra_insights = spark.sql(bpp_02_contra_insights)
-write_df_to_redshift(configs, bpp_02_contra_insights, "fin_stage.bpp_02_contra_insights", "overwrite")
+bpp_02_contra_insights = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.bpp_02_contra_insights") \
+    .load()
+
 bpp_02_contra_insights.createOrReplaceTempView("bpp_02_contra_insights")
+# bpp_02_contra_insights = (bpp_02_contra_insights)  --issue in delta table
+# write_df_to_redshift(configs, bpp_02_contra_insights, "fin_stage.bpp_02_contra_insights", "overwrite")
+# bpp_02_contra_insights.createOrReplaceTempView("bpp_02_contra_insights")
 
 # COMMAND ----------
 
-bpp_03_base_currency_hedge_insights =  f"""
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+bpp_03_base_currency_hedge_insights =  """
 
 
 with  __dbt__CTE__bpp_18_revenue_sum AS (
@@ -611,7 +636,7 @@ SELECT
 			on currency_hedge.Product_category = revenue_sum.pl_level_1
 			and currency_hedge.currency = revenue_sum.currency_iso_code
 			and revenue_sum.cal_date = currency_hedge.month
-	WHERE currency_hedge.version = '{dbutils.widgets.get("currency_hedge_version")}'
+	WHERE currency_hedge.version = '{}'
 )SELECT distinct
 		base_gru.base_product_number
 		, base_gru.country_alpha2
@@ -634,7 +659,7 @@ SELECT
 	WHERE
 		product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
 		AND product_line_scenarios_xref.version = (SELECT version FROM base_product_filter_vars WHERE record = 'PRODUCT_LINE_SCENARIOS')
-"""
+""".format(currency_hedge_version)
 
 bpp_03_base_currency_hedge_insights = spark.sql(bpp_03_base_currency_hedge_insights)
 write_df_to_redshift(configs, bpp_03_base_currency_hedge_insights, "fin_stage.bpp_03_base_currency_hedge_insights", "overwrite")
@@ -940,7 +965,7 @@ bpp_05_base_variable_cost_insights.createOrReplaceTempView("bpp_05_base_variable
 
 # COMMAND ----------
 
-forecast_base_pl = f"""
+forecast_base_pl = """
 
 with __dbt__CTE__bpp_49_Base_Contra_Insights_Override as (
 
@@ -1040,7 +1065,7 @@ from
 	, gru.baseprod_revenue_currency_hedge_unit
 	, vcost.variable_cost_usd as baseprod_variable_cost_per_unit
 	, gru.baseprod_fixed_cost_per_unit
-	, '{dbutils.widgets.get("currency_hedge_version")}' as sales_gru_version
+	, '{}' as sales_gru_version
 	, gru.contra_version
 	, vcost.fin_version as variable_cost_version
 	, gru.fixed_cost_version
@@ -1052,7 +1077,7 @@ from
 		on vcost.base_product_number = gru.base_product_number
 		and vcost.country_alpha2 = gru.country_alpha2
 		and vcost.cal_date = gru.cal_date
-"""
+""".format(currency_hedge_version)
 
 forecast_base_pl = spark.sql(forecast_base_pl)
 forecast_base_pl = forecast_base_pl.withColumn("load_date" , lit(None).cast(StringType())) \
