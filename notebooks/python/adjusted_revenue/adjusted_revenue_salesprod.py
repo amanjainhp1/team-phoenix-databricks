@@ -15,7 +15,7 @@
 query_list = []
 
 ## Supplies History 3
-cur_period = '2022-07-01'
+cur_period = '2022-10-01'  # accounting rate
 
 ## Channel Inventory Prep 1
 cbm_st_month = '2015-10-01'
@@ -2689,17 +2689,6 @@ query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "append"])
 
 # COMMAND ----------
 
-test_version = spark.sql("""
-
-			select
-				'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT' as record,
-                (select max(load_date) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') as load_date,
-				(select max(version) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') as version
-            from adjusted_revenue4
-""").show()
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Adjusted Revenue Salesprod
@@ -2758,3 +2747,40 @@ query_list.append(["fin_prod.adjusted_revenue_salesprod", adj_rev_sales, "append
 
 for t_name, df, mode in query_list:
     write_df_to_redshift(configs, df, t_name, mode)
+
+# COMMAND ----------
+
+tables = [
+    ['fin_stage.adjusted_revenue_staging', adj_rev_6, 'overwrite'],
+    ['fin_prod.adjusted_revenue_salesprod', adj_rev_sales, 'overwrite'],
+    ['fin_stage.channel_inventory_prepped_ams_unadjusted', chann_inv_ams, 'overwrite'],
+    ['fin_stage.adj_rev_supplies_history_constant_currency', supp_hist_5, 'overwrite'],
+]
+
+for table in tables:
+    # Define the input and output formats and paths and the table name.
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
+    mode = table[2]
+    write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    # Load the data from its source.
+    df = table[1]
+    renamed_df = df.select([F.col(col).alias(col.replace(' ', '_')) for col in df.columns])
+    print(f'loading {table[0]}...')
+    # Write the data to its target.
+    renamed_df.write \
+      .format(write_format) \
+      .mode(mode) \
+      .option("mergeSchema", "true")\
+      .save(save_path)
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    
+    spark.table(table[0]).createOrReplaceTempView(table_name)
+    
+    print(f'{table[0]} loaded')
