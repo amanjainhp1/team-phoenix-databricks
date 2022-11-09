@@ -59,6 +59,8 @@ spark = SparkSession.builder.appName('sparkdf').getOrCreate()
 # COMMAND ----------
 
 # get ALL the latest IBP records from SFAI and insert into a dataframe
+# yyyy-MM-dd HH:mm:ss
+
 all_ibp_query = """
 
 SELECT
@@ -69,9 +71,9 @@ SELECT
 	   ,ibp.[Sales_Product]
 	   ,ibp.Sales_Product_w_Opt
 	   ,ibp.Primary_Base_Product
-	   ,ibp.[Calendar_Year_Month]
+	   ,CAST(ibp.[Calendar_Year_Month] as date) as Calendar_Year_Month
 	   ,ibp.[Units]
-       ,ibp.[Plan_Date]
+       ,CAST(ibp.[Plan_Date] as datetime) as Plan_Date
 	   ,ibp.[version]
        ,ibp.[Subregion]  
   FROM [IE2_ExternalPartners].dbo.[ibp] ibp
@@ -89,8 +91,8 @@ all_ibp_records = read_sql_server_to_df(configs) \
 
 # COMMAND ----------
 
-# all_ibp_records.display()
-#write_df_to_redshift(configs, all_ibp_records, "stage.ibp_all_forecast_landing", "overwrite")
+all_ibp_records.display()
+# write_df_to_redshift(configs, all_ibp_records, "stage.ibp_all_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -98,6 +100,10 @@ all_ibp_records = read_sql_server_to_df(configs) \
 from datetime import datetime
 date = datetime.today()
 datestamp = date.strftime("%Y%m%d")
+
+
+
+# COMMAND ----------
 
 s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "archive/ibp/" + datestamp
 
@@ -128,7 +134,7 @@ supplies_ibp_records = all_ibp_records.filter((all_ibp_records.Product_Category.
 
 # supplies_ibp_records.display()
 
-write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast_landing", "overwrite")
+# write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -143,7 +149,7 @@ write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast
 
 hardware_ibp_records = all_ibp_records.filter((all_ibp_records.Product_Category.contains('SUPPLI')==False))
 
-#write_df_to_redshift(configs, hardware_ibp_records, "stage.ibp_hardware_forecast_landing", "overwrite")
+# write_df_to_redshift(configs, hardware_ibp_records, "stage.ibp_hardware_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -173,7 +179,8 @@ sinai2_records = read_redshift_to_df(configs) \
     .option("query", sinai2_query) \
     .load()
 
-sinai2_records.sort(['country_level_1','country_alpha2'], ascending = True).display()
+# sinai2_records.sort(['country_level_1','country_alpha2'], ascending = True).display()
+sinai2_records.sort(['country_level_1','country_alpha2'], ascending = True)
 
 # COMMAND ----------
 
@@ -326,8 +333,6 @@ supplies_actuals_denominator_all_records = read_redshift_to_df(configs) \
 
 #supplies_actuals_denominator_all_records.show()
 
-
-
 # COMMAND ----------
 
 # join the total denominator dataset with the countries_to_split dataset to fliter the list down
@@ -422,7 +427,7 @@ allocated_laser_ibp = spark.sql("select laser_ibp_records.Subregion4, laser_ibp_
 # COMMAND ----------
 
 # write to redshift for testing:
-write_df_to_redshift(configs, allocated_laser_ibp, "stage.ibp_supplies_laser_forecast_landing", "overwrite")
+# write_df_to_redshift(configs, allocated_laser_ibp, "stage.ibp_supplies_laser_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -472,7 +477,7 @@ combined_ink_mix.createOrReplaceTempView("combined_ink_mix_vw")
 
 allocated_ink_ibp = spark.sql("select ink_ibp_records.Subregion4, ink_ibp_records.Sales_Product, ink_ibp_records.Calendar_Year_Month, combined_ink_mix_vw.country_alpha2, ink_ibp_records.Units * combined_ink_mix_vw.split_pct as units, ink_ibp_records.Plan_date, ink_ibp_records.version from ink_ibp_records INNER JOIN combined_ink_mix_vw on ink_ibp_records.Subregion4 == combined_ink_mix_vw.country_level_1")
 
-allocated_ink_ibp.display()
+# allocated_ink_ibp.display()
 
 # COMMAND ----------
 
@@ -523,7 +528,7 @@ combined_pwa_mix.createOrReplaceTempView("combined_pwa_mix_vw")
 
 allocated_pwa_ibp = spark.sql("select pwa_ibp_records.Subregion4, pwa_ibp_records.Sales_Product, pwa_ibp_records.Calendar_Year_Month, combined_pwa_mix_vw.country_alpha2, pwa_ibp_records.Units * combined_pwa_mix_vw.split_pct as units, pwa_ibp_records.Plan_date, pwa_ibp_records.version from pwa_ibp_records INNER JOIN combined_pwa_mix_vw on pwa_ibp_records.Subregion4 == combined_pwa_mix_vw.country_level_1")
 
-allocated_pwa_ibp.display()
+# allocated_pwa_ibp.display()
 
 # COMMAND ----------
 
@@ -563,19 +568,19 @@ combined_lf_mix = no_split_mix.union(lf_percent_mix).sort(['country_level_1','co
 
 # THIS STILL NEEDS TO BE COMPLETED
 
-# blow the PWA IBP units out to country based on the split %
-pwa_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'PWA')
+# blow the LF IBP units out to country based on the split %
+lf_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'LF')
 
-pwa_sales_to_tech_records.createOrReplaceTempView("pwa_sales_prod")
-supplies_ibp_records.createOrReplaceTempView("pwa_ibp")
+lf_sales_to_tech_records.createOrReplaceTempView("lf_sales_prod")
+supplies_ibp_records.createOrReplaceTempView("lf_ibp")
 
-pwa_supplies_ibp_records = spark.sql("select pwa_ibp.* from pwa_ibp INNER JOIN pwa_sales_prod on pwa_ibp.Sales_Product == pwa_sales_prod.sales_product")
-pwa_supplies_ibp_records.createOrReplaceTempView("pwa_ibp_records")
-combined_pwa_mix.createOrReplaceTempView("combined_pwa_mix_vw")
+lf_supplies_ibp_records = spark.sql("select lf_ibp.* from lf_ibp INNER JOIN lf_sales_prod on lf_ibp.Sales_Product == lf_sales_prod.sales_product")
+lf_supplies_ibp_records.createOrReplaceTempView("lf_ibp_records")
+combined_lf_mix.createOrReplaceTempView("combined_lf_mix_vw")
 
-allocated_pwa_ibp = spark.sql("select pwa_ibp_records.Subregion4, pwa_ibp_records.Sales_Product, pwa_ibp_records.Calendar_Year_Month, combined_pwa_mix_vw.country_alpha2, pwa_ibp_records.Units * combined_pwa_mix_vw.split_pct as units, pwa_ibp_records.Plan_date, pwa_ibp_records.version from pwa_ibp_records INNER JOIN combined_pwa_mix_vw on pwa_ibp_records.Subregion4 == combined_pwa_mix_vw.country_level_1")
+allocated_lf_ibp = spark.sql("select lf_ibp_records.Subregion4, lf_ibp_records.Sales_Product, lf_ibp_records.Calendar_Year_Month, combined_lf_mix_vw.country_alpha2, lf_ibp_records.Units * combined_lf_mix_vw.split_pct as units, lf_ibp_records.Plan_date, lf_ibp_records.version from lf_ibp_records INNER JOIN combined_lf_mix_vw on lf_ibp_records.Subregion4 == combined_lf_mix_vw.country_level_1")
 
-allocated_pwa_ibp.display()
+# allocated_lf_ibp.display()
 
 # COMMAND ----------
 
@@ -584,7 +589,31 @@ allocated_pwa_ibp.display()
 
 # COMMAND ----------
 
-combined_lf_mix = allocated_laser_ibp.union(combined_ink_mix).union(combined_pwa_mix).union(combined_lf_mix)
+combined_lf_mix = allocated_laser_ibp.union(allocated_ink_ibp).union(allocated_pwa_ibp).union(allocated_lf_ibp)
+combined_lf_mix.display()
+
+
+# COMMAND ----------
+
+from pyspark.sql.functions import *
+
+# COMMAND ----------
+
+# clean up the dataframe to a format that we're used to
+# df.select(to_timestamp(df.t, 'yyyy-MM-dd HH:mm:ss').alias('dt')).collect()
+
+combined_lf_mix1 = combined_lf_mix \
+  .withColumn("record", lit('IBP_SUPPLIES_FCST'))
+
+combined_lf_mix2 = combined_lf_mix1 \
+  .select("record", "country_alpha2", "Sales_Product", "Calendar_Year_Month", "units", "Plan_date", "version")
+
+combined_lf_mix2 = combined_lf_mix2 \
+  .withColumnRenamed("Sales_Product", "sales_product_number") \
+  .withColumnRenamed("Calendar_Year_Month", "cal_date") \
+  .withColumnRenamed("Plan_date", "load_date")
+
+combined_lf_mix2.display()
 
 # COMMAND ----------
 
