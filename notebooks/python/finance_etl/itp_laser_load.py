@@ -62,6 +62,10 @@ itp_laser_df = itp_laser_df.withColumn("cal_date", to_date("cal_date"))
 
 # COMMAND ----------
 
+itp_laser_df.createOrReplaceTempView("itp_laser_df")
+
+# COMMAND ----------
+
 # load/join latest hierarchy into pre-set schema & load to redshift
 from pyspark.sql.functions import *
 

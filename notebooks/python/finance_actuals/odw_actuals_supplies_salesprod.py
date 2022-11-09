@@ -167,7 +167,6 @@ SELECT cal.Date AS cal_date
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  --AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_revenue_units_sales_actuals)
   AND Day_of_Month = 1
   AND cal.Date > '2021-10-01'
   AND unit_quantity_sign_flip <> 0
@@ -347,7 +346,6 @@ odw_dollars_raw = f"""
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  --AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_report_rac_product_financials_actuals)
   AND day_of_month = 1
   AND cal.Date > '2021-10-01'
   AND land.profit_center_code NOT IN ('P1082', 'PF001')
