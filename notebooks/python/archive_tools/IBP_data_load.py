@@ -91,8 +91,8 @@ all_ibp_records = read_sql_server_to_df(configs) \
 
 # COMMAND ----------
 
-all_ibp_records.display()
-# write_df_to_redshift(configs, all_ibp_records, "stage.ibp_all_forecast_landing", "overwrite")
+# all_ibp_records.display()
+#write_df_to_redshift(configs, all_ibp_records, "stage.ibp_all_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -123,18 +123,36 @@ write_df_to_s3(all_ibp_records, s3_output_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
+# create a list of valid supplies product numbers
+rdma_mapping_valid_query = """
+
+select distinct sales_product_number 
+from mdm.rdma_base_to_sales_product_map
+"""
+
+rdma_mapping_valid_records = read_redshift_to_df(configs) \
+    .option("query", rdma_mapping_valid_query) \
+    .load()
+
+
+# COMMAND ----------
+
 # filter the base dataset to SUPPLIES records
 
 # still need to clean up the version field
 
-supplies_ibp_records = all_ibp_records.filter((all_ibp_records.Product_Category.contains('SUPPLI')) |
+# memberDF.join(sectionDF,memberDF.dept_id == sectionDF.section_id,"inner").show(truncate=False)
+
+supplies_ibp_records_prefiltered = all_ibp_records.filter((all_ibp_records.Product_Category.contains('SUPPLI')) |
                                               (all_ibp_records.Product_Category.startswith('LARGE FORMAT')) |
                                               (all_ibp_records.Product_Category.startswith('TEXTILE')))
 
+supplies_ibp_records = supplies_ibp_records_prefiltered.join(rdma_mapping_valid_records,supplies_ibp_records_prefiltered.Sales_Product == rdma_mapping_valid_records.sales_product_number,"inner")
 
 # supplies_ibp_records.display()
 
-# write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast_landing", "overwrite")
+#this needs to stay enabled to complte one of the next cells
+write_df_to_redshift(configs, supplies_ibp_records, "stage.ibp_supplies_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -149,7 +167,8 @@ supplies_ibp_records = all_ibp_records.filter((all_ibp_records.Product_Category.
 
 hardware_ibp_records = all_ibp_records.filter((all_ibp_records.Product_Category.contains('SUPPLI')==False))
 
-# write_df_to_redshift(configs, hardware_ibp_records, "stage.ibp_hardware_forecast_landing", "overwrite")
+
+#write_df_to_redshift(configs, hardware_ibp_records, "stage.ibp_hardware_forecast_landing", "overwrite")
 
 # COMMAND ----------
 
@@ -185,28 +204,22 @@ sinai2_records.sort(['country_level_1','country_alpha2'], ascending = True)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## RDMA and Product_life_xref
+# MAGIC ## sales_product to product_category
 
 # COMMAND ----------
 
-# get a list of the Sales Product to Technology Mappings
+# 2nd option from above:
 sales_to_tech_query = """
-
 select distinct 
-	a.sales_product,
-	c.technology 	
-from stage.ibp_supplies_forecast_landing a
-left join mdm.rdma_base_to_sales_product_map b on a.sales_product = b.sales_product_number 
-left join mdm.product_line_xref c on b.sales_product_line_code = c.pl
-where 1=1
-	and c.technology is not null
+	sales_product, 
+	product_category
+from stage.ibp_supplies_forecast_landing
 """
-
 sales_to_tech_records = read_redshift_to_df(configs) \
     .option("query", sales_to_tech_query) \
     .load()
 
-# sales_to_tech_records.display()
+#sales_to_tech_records.display()
 
 # COMMAND ----------
 
@@ -274,23 +287,24 @@ supplies_actuals_numerator_all_records_query = """
 
 SELECT 
 	sup_acts.country_alpha2,
-	iso.country_level_1,
+	iso.country_level_1, 
 	xref.technology,
-	sum(convert(decimal(30, 20),base_quantity)) as numerator
-FROM prod.actuals_supplies sup_acts 
+	sum(revenue_units) as numerator
+FROM fin_prod.actuals_supplies_baseprod sup_acts
 INNER JOIN mdm.iso_cc_rollup_xref iso 
 	ON sup_acts.country_alpha2 = iso.country_alpha2
-left join mdm.hardware_xref xref on sup_acts.platform_subset =xref.platform_subset 
+left join mdm.product_line_xref xref on sup_acts.pl =xref.pl 
 WHERE 1=1
-	AND cal_date > DATEADD(year,-1,GETDATE())
+	AND sup_acts.cal_date > DATEADD(year,-1,GETDATE())
 	AND iso.country_scenario = 'IBP_SINAI2'
 	AND iso.country_level_1 IS NOT null
 	and sup_acts.platform_subset <> 'NA'
-	and xref.technology is not null
+	and xref.technology IN ('LASER', 'INK', 'PWA', 'LF')
+	and xref.pl_category = 'SUP'
 GROUP by 
 	sup_acts.country_alpha2,
 	iso.country_level_1,
-	xref.technology
+	xref.technology  
 """
 
 supplies_actuals_numerator_all_records = read_redshift_to_df(configs) \
@@ -309,29 +323,32 @@ supplies_actuals_numerator_all_records = read_redshift_to_df(configs) \
 # get a total of all supplies units, for the past 1 year, to use as a denominator in the % mix calculation
 supplies_actuals_denominator_all_records_query = """
 
-SELECT
-	isoccrollup.country_level_1,    
-	hx.technology, 
-	SUM(acts.base_quantity) AS denominator
-FROM prod.actuals_supplies acts 
-INNER JOIN mdm.iso_cc_rollup_xref isoccrollup 
-	ON acts.country_alpha2 = isoccrollup.country_alpha2
-LEFT JOIN mdm.hardware_xref hx on acts.platform_subset = hx.platform_subset 
+SELECT 
+	iso.country_level_1, 
+	xref.technology,
+	sum(revenue_units) as denominator
+FROM fin_prod.actuals_supplies_baseprod sup_acts
+INNER JOIN mdm.iso_cc_rollup_xref iso 
+	ON sup_acts.country_alpha2 = iso.country_alpha2
+left join mdm.product_line_xref xref on sup_acts.pl =xref.pl 
 WHERE 1=1
-	and acts.cal_date > DATEADD(year,-1,GETDATE())
-	and hx.technology is not NULL
-    AND isoccrollup.country_scenario = 'IBP_SINAI2'
-	AND isoccrollup.country_level_1 IS NOT NULL 
-GROUP by
-	isoccrollup.country_level_1,
-	hx.technology
+	AND sup_acts.cal_date > DATEADD(year,-1,GETDATE())
+	AND iso.country_scenario = 'IBP_SINAI2'
+	AND iso.country_level_1 IS NOT null
+	and sup_acts.platform_subset <> 'NA'
+	and xref.technology IN ('LASER', 'INK', 'PWA', 'LF')
+	and xref.pl_category = 'SUP'
+GROUP by 
+	iso.country_level_1,
+	xref.technology  
+order by 2,1
 """
 
 supplies_actuals_denominator_all_records = read_redshift_to_df(configs) \
     .option("query", supplies_actuals_denominator_all_records_query) \
     .load()
 
-#supplies_actuals_denominator_all_records.show()
+#supplies_actuals_denominator_all_records.display()
 
 # COMMAND ----------
 
@@ -387,7 +404,7 @@ supplies_actuals_denominator_laser_records2.createOrReplaceTempView("laser_denom
 
 laser_percent_mix = spark.sql("select laser_denominator.country_level_1, laser_numerator.country_alpha2, laser_numerator.numerator / laser_denominator.denominator AS split_pct from laser_denominator INNER JOIN laser_numerator on laser_denominator.country_level_1 == laser_numerator.country_level_1")
 
-# laser_percent_mix.sort(['country_level_1','country_alpha2'], ascending = True).display()
+#laser_percent_mix.sort(['country_level_1','country_alpha2'], ascending = True).display()
 
 
 # COMMAND ----------
@@ -408,8 +425,10 @@ combined_laser_mix = no_split_mix.union(laser_percent_mix).sort(['country_level_
 
 # COMMAND ----------
 
-# blow the Laser IBP units out to country based on the split %
-laser_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'LASER')
+ls_laser = ['OEM SUPPLIES','HOME LASERJET SUPPLIES','HOME LASER S-PRINT SUPPLIES','A3 OFFICE LASERJET SUPPLIES','A3 OFFICE LASER GROWTH SUPPLIE','A4 OFFICE LASER S-PRINT SUPPLI','A4 OFFICE LASERJET SUPPLIES'] 
+
+laser_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records["product_category"].isin(ls_laser))
+#laser_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'LASER')
 
 laser_sales_to_tech_records.createOrReplaceTempView("laser_sales_prod")
 supplies_ibp_records.createOrReplaceTempView("laser_ibp")
@@ -418,7 +437,7 @@ laser_supplies_ibp_records = spark.sql("select laser_ibp.* from laser_ibp INNER 
 laser_supplies_ibp_records.createOrReplaceTempView("laser_ibp_records")
 combined_laser_mix.createOrReplaceTempView("combined_laser_mix_vw")
 
-allocated_laser_ibp = spark.sql("select laser_ibp_records.Subregion4, laser_ibp_records.Sales_Product, laser_ibp_records.Calendar_Year_Month, combined_laser_mix_vw.country_alpha2, laser_ibp_records.Units * combined_laser_mix_vw.split_pct as units, laser_ibp_records.Plan_date, laser_ibp_records.version from laser_ibp_records INNER JOIN combined_laser_mix_vw on laser_ibp_records.Subregion4 == combined_laser_mix_vw.country_level_1")
+allocated_laser_ibp = spark.sql("select laser_ibp_records.Subregion4, laser_ibp_records.Sales_Product, laser_ibp_records.Calendar_Year_Month, combined_laser_mix_vw.country_alpha2, laser_ibp_records.Units * combined_laser_mix_vw.split_pct as units, laser_ibp_records.Plan_Date, laser_ibp_records.version from laser_ibp_records INNER JOIN combined_laser_mix_vw on laser_ibp_records.Subregion4 == combined_laser_mix_vw.country_level_1")
 #laser_supplies_ibp_records.display()
 
 #allocated_laser_ibp.display()
@@ -466,11 +485,16 @@ combined_ink_mix = no_split_mix.union(ink_percent_mix).sort(['country_level_1','
 # COMMAND ----------
 
 # blow the INK IBP units out to country based on the split %
-ink_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'INK')
+ls_ink = ['HOME INK SUPPLIES'] 
+
+ink_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records["product_category"].isin(ls_ink))
+
+#ink_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'INK')
 
 ink_sales_to_tech_records.createOrReplaceTempView("ink_sales_prod")
 supplies_ibp_records.createOrReplaceTempView("ink_ibp")
 
+#ink_supplies_ibp_records = spark.sql("select ink_ibp.* from ink_ibp INNER JOIN ink_sales_prod on ink_ibp.Sales_Product == ink_sales_prod.sales_product")
 ink_supplies_ibp_records = spark.sql("select ink_ibp.* from ink_ibp INNER JOIN ink_sales_prod on ink_ibp.Sales_Product == ink_sales_prod.sales_product")
 ink_supplies_ibp_records.createOrReplaceTempView("ink_ibp_records")
 combined_ink_mix.createOrReplaceTempView("combined_ink_mix_vw")
@@ -517,7 +541,12 @@ combined_pwa_mix = no_split_mix.union(pwa_percent_mix).sort(['country_level_1','
 # COMMAND ----------
 
 # blow the PWA IBP units out to country based on the split %
-pwa_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'PWA')
+
+ls_pwa = ['A3 OFFICE PAGEWIDE INK SUPPLIE','A4 OFFICE PAGEWIDE INK SUPPLIE'] 
+
+pwa_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records["product_category"].isin(ls_pwa))
+
+#pwa_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'PWA')
 
 pwa_sales_to_tech_records.createOrReplaceTempView("pwa_sales_prod")
 supplies_ibp_records.createOrReplaceTempView("pwa_ibp")
@@ -566,10 +595,13 @@ combined_lf_mix = no_split_mix.union(lf_percent_mix).sort(['country_level_1','co
 
 # COMMAND ----------
 
-# THIS STILL NEEDS TO BE COMPLETED
-
 # blow the LF IBP units out to country based on the split %
-lf_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'LF')
+
+ls_lf = ['LARGE FORMAT PRODUCTION','LARGE FORMAT DESIGN'] 
+
+lf_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records["product_category"].isin(ls_lf))
+
+#lf_sales_to_tech_records = sales_to_tech_records.filter(sales_to_tech_records.technology == 'LF')
 
 lf_sales_to_tech_records.createOrReplaceTempView("lf_sales_prod")
 supplies_ibp_records.createOrReplaceTempView("lf_ibp")
@@ -590,7 +622,7 @@ allocated_lf_ibp = spark.sql("select lf_ibp_records.Subregion4, lf_ibp_records.S
 # COMMAND ----------
 
 combined_lf_mix = allocated_laser_ibp.union(allocated_ink_ibp).union(allocated_pwa_ibp).union(allocated_lf_ibp)
-combined_lf_mix.display()
+#combined_lf_mix.display()
 
 
 # COMMAND ----------
@@ -600,7 +632,6 @@ from pyspark.sql.functions import *
 # COMMAND ----------
 
 # clean up the dataframe to a format that we're used to
-# df.select(to_timestamp(df.t, 'yyyy-MM-dd HH:mm:ss').alias('dt')).collect()
 
 combined_lf_mix1 = combined_lf_mix \
   .withColumn("record", lit('IBP_SUPPLIES_FCST'))
@@ -613,7 +644,9 @@ combined_lf_mix2 = combined_lf_mix2 \
   .withColumnRenamed("Calendar_Year_Month", "cal_date") \
   .withColumnRenamed("Plan_date", "load_date")
 
-combined_lf_mix2.display()
+#combined_lf_mix2.display()
+write_df_to_redshift(configs, combined_lf_mix2, "stage.ibp_supplies_forecast_test", "overwrite")
+
 
 # COMMAND ----------
 
