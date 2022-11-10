@@ -28,6 +28,8 @@ Jobs:
   - redshift-resource-creator
   - toner-usage-share
   - wd3-load
+  - forecast-list-price
+  - forecast-baseprod
 
 DeleteJobs:
   - ink-share
