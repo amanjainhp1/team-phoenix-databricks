@@ -951,7 +951,7 @@ GROUP BY iiel.platform_subset
 ),  ib_23_iink_ltf_prep as (
 
 
-SELECT CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
+SELECT record, CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
             WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
             WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
                                   'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
@@ -982,7 +982,14 @@ GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10
     , ltf.region_5
     , c.Fiscal_Year_Qtr
     , ltf.cal_date
-),  ib_24_iink_ltf as (
+), 
+hw_ships_paas as (
+select cal_date,platform_subset,country, sum(units) over (partition by cal_date,platform_subset,country)/
+sum(units) over (partition by cal_date,country) ps_mix
+from prod.norm_ships
+where version = (select max(version) from prod.norm_ships) and platform_subset like '%PAAS%'
+)
+ib_24_iink_ltf as (
 
 
 SELECT sp.month_begin
@@ -999,8 +1006,27 @@ FROM ib_22_iink_ltf_to_split AS sp
 JOIN ib_23_iink_ltf_prep AS ltf
     ON ltf.geography = sp.geography
     AND ltf.month_begin = sp.month_begin
+WHERE 1=1 
+    AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
+    and platform_subset not like '%PAAS%' and ltf.record = 'i_ink_core'
+    
+UNION 
+
+SELECT sp.month_begin
+    , sp.country_alpha2
+    , sp.platform_subset
+    , sp.split_name
+    , 0  AS p2_cumulative
+    , ltf.cumulative *
+        ps_mix AS cum_enrollees_month
+FROM ib_22_iink_ltf_to_split AS sp
+JOIN  hw_ships_paas AS ltf
+    ON ltf.country = sp.country
+    AND ltf.cal_date = sp.month_begin
 WHERE 1=1
     AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
+    and sp.platform_subset  like '%PAAS%' and ltf.record = 'i_ink_paas'
+    
 ),  ib_25_sys_delta as (
 
 
