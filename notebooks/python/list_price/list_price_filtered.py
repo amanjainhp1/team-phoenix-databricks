@@ -91,8 +91,8 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 list_price_term_codes = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.list_price_term_codes") \
     .load()
-list_price_eu_countrylist = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.list_price_eu_countrylist") \
+list_price_eu_country_list = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.list_price_eu_country_list") \
     .load()
 country_currency_map = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.country_currency_map") \
@@ -122,7 +122,7 @@ tables = [
   ['mdm.rdma' ,rdma],
   ['mdm.iso_country_code_xref' ,iso_country_code_xref],
   ['mdm.list_price_term_codes' ,list_price_term_codes],
-  ['mdm.list_price_eu_countrylist' ,list_price_eu_countrylist],
+  ['mdm.list_price_eu_country_list' ,list_price_eu_country_list],
   ['mdm.country_currency_map' ,country_currency_map],
   ['prod.list_price_eoq' ,list_price_eoq],
   ['mdm.rdma_base_to_sales_product_map' ,rdma_base_to_sales_product_map],
@@ -518,11 +518,11 @@ FROM
 		on ibp_grp.sales_product_number = list_price_all.sales_product_number
 		and iso_country_code_xref.country_alpha2 = ibp_grp.country_alpha2
 	INNER JOIN
-	list_price_eu_countrylist list_price_eu_countrylist
-		ON list_price_eu_countrylist.country_alpha2 = ibp_grp.country_alpha2
+	list_price_eu_country_list list_price_eu_country_list
+		ON list_price_eu_country_list.country_alpha2 = ibp_grp.country_alpha2
 		AND
-		    ((list_price_eu_countrylist.currency = 'EURO' AND list_price_all.currency_code = 'EC')
-		    OR (list_price_eu_countrylist.currency = 'DOLLAR' AND list_price_all.currency_code = 'UD'))
+		    ((list_price_eu_country_list.currency = 'EURO' AND list_price_all.currency_code = 'EC')
+		    OR (list_price_eu_country_list.currency = 'DOLLAR' AND list_price_all.currency_code = 'UD'))
 WHERE
 	(list_price_all.country_alpha2 = 'EU')
 	AND price_term_code IN ('DP', 'DF')
