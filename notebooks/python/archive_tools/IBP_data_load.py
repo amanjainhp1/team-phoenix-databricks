@@ -99,9 +99,11 @@ from datetime import datetime
 date = datetime.today()
 datestamp = date.strftime("%Y%m%d")
 
+# un-comment this section when finished with development
 s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "archive/ibp/" + datestamp
+# write_df_to_s3(all_ibp_records, s3_output_bucket, "parquet", "overwrite")
 
-write_df_to_s3(all_ibp_records, s3_output_bucket, "parquet", "overwrite")
+print(s3_output_bucket)
 
 # COMMAND ----------
 
@@ -373,9 +375,9 @@ supplies_actuals_denominator_all_records = read_redshift_to_df(configs) \
 
 # join the total denominator dataset with the countries_to_split dataset to filter the list down
 countries_to_split_records.createOrReplaceTempView("countries")
-supplies_actuals_denominator_all_records.createOrReplaceTempView("totals")
+supplies_actuals_denominator_all_records.createOrReplaceTempView("supplies_totals")
 
-supplies_actuals_denominator_all_records_filtered = spark.sql("select totals.* from totals INNER JOIN countries on totals.country_level_1 == countries.country_level_1")
+supplies_actuals_denominator_all_records_filtered = spark.sql("select supplies_totals.* from supplies_totals INNER JOIN countries on supplies_totals.country_level_1 == countries.country_level_1")
 
 #supplies_actuals_denominator_all_records_filtered.display()
 
@@ -396,18 +398,21 @@ hardware_actuals_numerator_all_records_query = """
 
 SELECT
 	acts.[country_alpha2]
-	,xref.country_level_1
-	,sum(CONVERT(decimal(30,20),acts.[base_quantity])) AS numerator
+	,iso.country_level_1
+    ,xref.technology
+	,sum([base_quantity]) AS numerator
 FROM prod.[actuals_hw] acts
-	INNER JOIN mdm.iso_cc_rollup_xref xref
-	ON acts.country_alpha2 = xref.country_alpha2
+	INNER JOIN mdm.iso_cc_rollup_xref iso ON acts.country_alpha2 = iso.country_alpha2
+    LEFT JOIN mdm.hardware_xref xref on acts.platform_subset = xref.platform_subset
 WHERE
-	cal_date > DATEADD(year,-1,GETDATE())
-	AND xref.country_scenario = 'IBP_SINAI2'
-	AND xref.country_level_1 IS NOT NULL
+	acts.cal_date > DATEADD(year,-1,GETDATE())
+	AND iso.country_scenario = 'IBP_SINAI2'
+	AND iso.country_level_1 IS NOT NULL
+    AND xref.technology in ('INK','LASER','PWA','LF')
 GROUP BY 
 	acts.[country_alpha2]
-	, xref.country_level_1
+	,iso.country_level_1
+    ,xref.technology
 order by 2,1
 """
 
@@ -415,7 +420,7 @@ hardware_actuals_numerator_all_records = read_redshift_to_df(configs) \
     .option("query", hardware_actuals_numerator_all_records_query) \
     .load()
 
-# hardware_actuals_numerator_all_records.show()
+hardware_actuals_numerator_all_records.show()
 
 # COMMAND ----------
 
@@ -428,14 +433,19 @@ hardware_actuals_numerator_all_records = read_redshift_to_df(configs) \
 hardware_actuals_denominator_all_records_query = """
 
 SELECT 
-	isoccrollup.country_level_1, 
-	SUM(acts.[base_quantity]) AS denominator
+  iso.country_level_1
+  ,xref.technology
+  ,SUM(acts.[base_quantity]) AS denominator
 FROM prod.[actuals_hw] acts 
-JOIN mdm.iso_cc_rollup_xref isoccrollup ON acts.country_alpha2 = isoccrollup.country_alpha2
+JOIN mdm.iso_cc_rollup_xref iso ON acts.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.hardware_xref xref on acts.platform_subset = xref.platform_subset
 WHERE acts.cal_date > DATEADD(year,-1,GETDATE())
-	AND isoccrollup.country_scenario = 'IBP_SINAI2'
-	AND isoccrollup.country_level_1 IS NOT NULL
-GROUP by isoccrollup.country_level_1
+  AND iso.country_scenario = 'IBP_SINAI2'
+  AND iso.country_level_1 IS NOT NULL
+  AND xref.technology in ('INK','LASER','PWA','LF')
+GROUP by 
+  iso.country_level_1
+  ,xref.technology
 
 """
 
@@ -444,6 +454,16 @@ hardware_actuals_denominator_all_records = read_redshift_to_df(configs) \
     .load()
 
 #hardware_actuals_denominator_all_records.display()
+
+# COMMAND ----------
+
+# join the total denominator dataset with the countries_to_split dataset to filter the list down
+
+hardware_actuals_denominator_all_records.createOrReplaceTempView("hardware_totals")
+
+hardware_actuals_denominator_all_records_filtered = spark.sql("select hardware_totals.* from hardware_totals INNER JOIN countries on hardware_totals.country_level_1 == countries.country_level_1")
+
+#hardware_actuals_denominator_all_records_filtered.display()
 
 # COMMAND ----------
 
@@ -489,11 +509,11 @@ supplies_actuals_denominator_laser_records2 = supplies_actuals_denominator_laser
 # Create split percentage
 # join the SINAI2 scenario with the laser supplies recordsets
 
-supplies_actuals_numerator_laser_records2.createOrReplaceTempView("laser_numerator")
-supplies_actuals_denominator_laser_records2.createOrReplaceTempView("laser_denominator")
+supplies_actuals_numerator_laser_records2.createOrReplaceTempView("supplies_laser_numerator")
+supplies_actuals_denominator_laser_records2.createOrReplaceTempView("supplies_laser_denominator")
 
 # this creates the mix %
-laser_percent_mix = spark.sql("select laser_denominator.country_level_1, laser_numerator.country_alpha2, laser_numerator.numerator / laser_denominator.denominator AS split_pct from laser_denominator INNER JOIN laser_numerator on laser_denominator.country_level_1 == laser_numerator.country_level_1")
+supplies_laser_percent_mix = spark.sql("select supplies_laser_denominator.country_level_1, supplies_laser_numerator.country_alpha2, supplies_laser_numerator.numerator / supplies_laser_denominator.denominator AS split_pct from supplies_laser_denominator INNER JOIN supplies_laser_numerator on supplies_laser_denominator.country_level_1 == supplies_laser_numerator.country_level_1")
 
 
 # COMMAND ----------
@@ -501,7 +521,7 @@ laser_percent_mix = spark.sql("select laser_denominator.country_level_1, laser_n
 # create a combined laser mix for the geography groupings
 
 # Union the non-split countries with the split countries mix % to create a full dataset
-combined_laser_mix = no_split_mix.union(laser_percent_mix).sort(['country_level_1','country_alpha2'], ascending = True)
+combined_supplies_laser_mix = no_split_mix.union(supplies_laser_percent_mix).sort(['country_level_1','country_alpha2'], ascending = True)
 
 
 # COMMAND ----------
@@ -519,10 +539,10 @@ supplies_ibp_records.createOrReplaceTempView("laser_ibp")
 laser_supplies_ibp_records = spark.sql("select laser_ibp.* from laser_ibp INNER JOIN laser_sales_prod on laser_ibp.Sales_Product == laser_sales_prod.sales_product")
 
 laser_supplies_ibp_records.createOrReplaceTempView("laser_ibp_records")
-combined_laser_mix.createOrReplaceTempView("combined_laser_mix_vw")
+combined_supplies_laser_mix.createOrReplaceTempView("combined_supplies_laser_mix_vw")
 
 # join the filter ibp supplies data with the combined mix dataset to blow out the subregion4 to country_alpha2
-allocated_laser_ibp = spark.sql("select laser_ibp_records.Subregion4, laser_ibp_records.Sales_Product, laser_ibp_records.Calendar_Year_Month, combined_laser_mix_vw.country_alpha2, laser_ibp_records.Units * combined_laser_mix_vw.split_pct as units, laser_ibp_records.Plan_Date, laser_ibp_records.version from laser_ibp_records INNER JOIN combined_laser_mix_vw on laser_ibp_records.Subregion4 == combined_laser_mix_vw.country_level_1")
+allocated_laser_ibp = spark.sql("select laser_ibp_records.Subregion4, laser_ibp_records.Sales_Product, laser_ibp_records.Calendar_Year_Month, combined_supplies_laser_mix_vw.country_alpha2, laser_ibp_records.Units * combined_supplies_laser_mix_vw.split_pct as units, laser_ibp_records.Plan_Date, laser_ibp_records.version from laser_ibp_records INNER JOIN combined_supplies_laser_mix_vw on laser_ibp_records.Subregion4 == combined_supplies_laser_mix_vw.country_level_1")
 
 
 # COMMAND ----------
@@ -548,11 +568,11 @@ supplies_actuals_denominator_ink_records2 = supplies_actuals_denominator_ink_rec
 
 # COMMAND ----------
 
-supplies_actuals_numerator_ink_records2.createOrReplaceTempView("ink_numerator")
-supplies_actuals_denominator_ink_records2.createOrReplaceTempView("ink_denominator")
+supplies_actuals_numerator_ink_records2.createOrReplaceTempView("supplies_ink_numerator")
+supplies_actuals_denominator_ink_records2.createOrReplaceTempView("supplies_ink_denominator")
 
 # this creates the mix %
-ink_percent_mix = spark.sql("select ink_denominator.country_level_1, ink_numerator.country_alpha2, ink_numerator.numerator / ink_denominator.denominator AS split_pct from ink_denominator INNER JOIN ink_numerator on ink_denominator.country_level_1 == ink_numerator.country_level_1")
+ink_percent_mix = spark.sql("select supplies_ink_denominator.country_level_1, supplies_ink_numerator.country_alpha2, supplies_ink_numerator.numerator / supplies_ink_denominator.denominator AS split_pct from supplies_ink_denominator INNER JOIN supplies_ink_numerator on supplies_ink_denominator.country_level_1 == supplies_ink_numerator.country_level_1")
 
 # COMMAND ----------
 
@@ -721,6 +741,93 @@ combined_lf_mix = allocated_laser_ibp.union(allocated_ink_ibp).union(allocated_p
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC # Create split % (Hardware)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## LASER
+
+# COMMAND ----------
+
+# Numerator
+# get a total of hardware units, for LASER, for the past 1 year, to use as a numerator in the % mix calculation
+hardware_actuals_numerator_laser_records = hardware_actuals_numerator_all_records.filter(hardware_actuals_numerator_all_records.technology == 'LASER')
+
+# drop the technology column
+hardware_actuals_numerator_laser_records2 = hardware_actuals_numerator_laser_records.drop(hardware_actuals_numerator_laser_records.technology)
+
+
+# COMMAND ----------
+
+# Denominator
+# get a total of hardware units, for LASER, for the past 1 year, to use as a denominator in the % mix calculation, then drop the technology column
+hardware_actuals_denominator_laser_records = hardware_actuals_denominator_all_records_filtered.filter(hardware_actuals_denominator_all_records_filtered.technology == 'LASER')
+
+# drop the technology column
+hardware_actuals_denominator_laser_records2 = hardware_actuals_denominator_laser_records.drop(hardware_actuals_denominator_laser_records.technology)
+
+#hardware_actuals_denominator_laser_records2.display()
+
+
+# COMMAND ----------
+
+# Create split percentage
+# join the SINAI2 scenario with the laser supplies recordsets
+
+hardware_actuals_numerator_laser_records2.createOrReplaceTempView("hardware_laser_numerator")
+hardware_actuals_denominator_laser_records2.createOrReplaceTempView("hardware_laser_denominator")
+
+# this creates the mix %
+hardware_laser_percent_mix = spark.sql("select hardware_laser_denominator.country_level_1, hardware_laser_numerator.country_alpha2, hardware_laser_numerator.numerator / hardware_laser_denominator.denominator AS split_pct from hardware_laser_denominator INNER JOIN hardware_laser_numerator on hardware_laser_denominator.country_level_1 == hardware_laser_numerator.country_level_1")
+
+#hardware_laser_percent_mix.display()
+
+# COMMAND ----------
+
+# create a combined laser mix for the geography groupings
+
+# Union the non-split countries with the split countries mix % to create a full dataset
+combined_hardware_laser_mix = no_split_mix.union(hardware_laser_percent_mix).sort(['country_level_1','country_alpha2'], ascending = True)
+
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## INK
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## PWA
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## LF
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## UNION technologies
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Final Datasets
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## supplies
+
+# COMMAND ----------
+
 # clean up the dataframe to a format that we're used to seening, and write to the staging database
 
 from pyspark.sql.functions import *
@@ -736,10 +843,10 @@ combined_lf_mix2 = combined_lf_mix2 \
   .withColumnRenamed("Calendar_Year_Month", "cal_date") \
   .withColumnRenamed("Plan_date", "load_date")
 
-write_df_to_redshift(configs, combined_lf_mix2, "stage.ibp_supplies_forecast_test", "overwrite")
+write_df_to_redshift(configs, combined_lf_mix2, "stage.ibp_supplies_forecast_stage", "overwrite")
 
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC # Hardware
+# MAGIC ## Hardware
