@@ -902,7 +902,6 @@ query_list.append(["stage.ib_03_iink_complete", iink_complete, "overwrite"])
 
 ib_staging = """
 
-
 with ib_22_iink_ltf_to_split as (
 
 
@@ -951,7 +950,7 @@ GROUP BY iiel.platform_subset
 ),  ib_23_iink_ltf_prep as (
 
 
-SELECT record, CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
+SELECT ltf.record, CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
             WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
             WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
                                   'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
@@ -982,15 +981,27 @@ GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10
     , ltf.region_5
     , c.Fiscal_Year_Qtr
     , ltf.cal_date
+    , ltf.record 
 ), 
-hw_ships_paas as (
-select cal_date,platform_subset,country, sum(units) over (partition by cal_date,platform_subset,country)/
-sum(units) over (partition by cal_date,country) ps_mix
-from prod.norm_ships
-where version = (select max(version) from prod.norm_ships) and platform_subset like '%PAAS%'
-)
-ib_24_iink_ltf as (
 
+norm_ships_m10 AS 
+(
+SELECT cal_date,platform_subset ,ns.country_alpha2 ,c.market10 , SUM(units) units
+FROM prod.norm_shipments ns
+LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
+WHERE ns.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+GROUP BY ns.cal_date ,ns.platform_subset ,c.market10 ,ns.country_alpha2 
+),
+
+norm_ships_paas AS (
+SELECT ns.cal_date,ns.platform_subset,ns.country_alpha2 ,ns.market10
+,SUM(ns.units) OVER (partition BY ns.cal_date,ns.platform_subset,ns.country_alpha2)/
+SUM(ns.units) OVER (partition BY ns.cal_date,ns.market10) ps_mix
+FROM norm_ships_m10 ns
+), 
+
+
+ib_24_iink_ltf as (
 
 SELECT sp.month_begin
     , sp.country_alpha2
@@ -1008,24 +1019,21 @@ JOIN ib_23_iink_ltf_prep AS ltf
     AND ltf.month_begin = sp.month_begin
 WHERE 1=1 
     AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
-    and platform_subset not like '%PAAS%' and ltf.record = 'i_ink_core'
+    and platform_subset not like '%PAAS%' and ltf.record = 'I_INK_CORE'
     
 UNION 
 
-SELECT sp.month_begin
+SELECT sp.cal_date 
     , sp.country_alpha2
     , sp.platform_subset
-    , sp.split_name
+    , 'I-INK' split_name
     , 0  AS p2_cumulative
-    , ltf.cumulative *
-        ps_mix AS cum_enrollees_month
-FROM ib_22_iink_ltf_to_split AS sp
-JOIN  hw_ships_paas AS ltf
-    ON ltf.country = sp.country
-    AND ltf.cal_date = sp.month_begin
+    , ltf.cumulative * sp.ps_mix AS cum_enrollees_month
+FROM ib_23_iink_ltf_prep AS ltf
+JOIN norm_ships_paas  sp on sp.cal_date  = ltf.month_begin  and sp.market10  = ltf.geography 
 WHERE 1=1
     AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
-    and sp.platform_subset  like '%PAAS%' and ltf.record = 'i_ink_paas'
+    and sp.platform_subset  like '%PAAS%' and ltf.record = 'I_INK_PAAS'
     
 ),  ib_25_sys_delta as (
 

@@ -552,6 +552,10 @@ query_list.append(["stage.page_cc_cartridges", page_cc_cartridges, "overwrite"])
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Create tables in Redshift
 

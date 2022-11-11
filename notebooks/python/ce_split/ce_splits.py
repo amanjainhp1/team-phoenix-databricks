@@ -98,6 +98,24 @@ query = '''
     LEFT JOIN iso_country_code_xref_df_view c
     ON c.country_alpha2 = i.country
     WHERE i.official = 1  
+    
+        UNION
+
+    SELECT 
+        'CE_SPLITS_I-INK' record
+        , platform_subset
+        , c.region_5
+        , i.country
+        , CASE WHEN c.developed_emerging = 'DEVELOPED' THEN 'DM' WHEN c.developed_emerging = 'EMERGING' THEN 'EM' END em_dm
+        , 'I-INK' business_model
+        , year_month
+        , 'I-INK' split_name 
+        , 'PRE' pre_post_flag
+        , 1 ce_split
+    FROM  hw_ltf i
+    LEFT JOIN iso_country_code_xref_df_view c
+    ON c.country_alpha2 = i.country
+    WHERE i.official = 1  
 '''
 spark.sql("CREATE SCHEMA IF NOT EXISTS stage")
 

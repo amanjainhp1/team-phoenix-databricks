@@ -198,7 +198,7 @@ WITH cfadj_01_c2c AS
                    ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = ('2022.10.19.1')
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -417,7 +417,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+        AND ns.version = ('2022.10.19.1')
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -722,7 +722,7 @@ WITH shm_07_geo_1_host AS
                    ON UPPER(shm.geography) = UPPER(iso.region_5)
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = ('2022.10.19.1')
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -755,7 +755,7 @@ WITH shm_07_geo_1_host AS
                    ON UPPER(shm.geography) = UPPER(cc.country_level_1) -- region_8
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = ('2022.10.19.1')
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -795,7 +795,7 @@ WITH shm_07_geo_1_host AS
                    ON UPPER(shm.geography) = UPPER(iso.market10)
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = ('2022.10.19.1')
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -919,7 +919,7 @@ WITH wel_01_stf_enroll AS
               LEFT JOIN mdm.iso_country_code_xref AS iso
                         ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = (SELECT MAX(version) FROM prod.ib)
+       AND ib.version = ('2022.10.19.1')
        AND ib.cal_date > CAST('2022-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -1020,7 +1020,7 @@ WITH vtc_01_analytic_cartridges AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.10.19.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1224,11 +1224,11 @@ WITH vtc_01_analytic_cartridges AS
                      vtcc.cal_date >=
                      fm.supplies_forecast_start
                     THEN f.mvtc -- else use MVTC based on last month of actuals
-                WHEN f.vol_count < 9 AND
-                     vtcc.cal_date >=
-                     fm.supplies_forecast_start
+                WHEN f.vol_coun              fm.supplies_forecast_start
                     THEN 1.0 -- if we don't use MA VTC then use VTC or 1.0; problematic for first month of forecast
-                ELSE 1.0 END                      AS mvtc -- use 1.0 as a placeholder for anything else; could create issues in the forecast window
+                ELSE 1.0 END                      AS mvtct < 9 AND
+                     vtcc.cal_date >=
+        -- use 1.0 as a placeholder for anything else; could create issues in the forecast window
      FROM c2c_vtc_07_ma_vtc_prep AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
               LEFT JOIN
