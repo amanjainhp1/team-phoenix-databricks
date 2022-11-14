@@ -4077,7 +4077,7 @@ final9$FYearMo <- cast(final9$FYearMo, "string")
 
 createOrReplaceTempView(final9, "final9")
 
-createOrReplaceTempView(decay, "decay")
+#createOrReplaceTempView(decay1, "decay1")
 # COMMAND ----------
 
 # MAGIC %python
@@ -4097,7 +4097,7 @@ createOrReplaceTempView(decay, "decay")
 # MAGIC 
 # MAGIC if check_dups.count() == 0:
 # MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM final9"), destination=output_file_name, format="parquet", mode="overwrite", upper_strings=True)
-# MAGIC     write_df_to_s3(df=spark.sql("SELECT * FROM decay1"), destination=output_file_named, format="parquet", mode="overwrite", upper_strings=True)
+##write_df_to_s3(df=spark.sql("SELECT * FROM decay1"), destination=output_file_named, format="parquet", mode="overwrite", upper_strings=True)
 # MAGIC else:
 # MAGIC     raise Exception("FAILED: Duplicates in data")
 # MAGIC 
