@@ -30,6 +30,7 @@ Jobs:
   - wd3-load
   - forecast-list-price
   - forecast-baseprod
+  - forecast-stf-dollarization
 
 DeleteJobs:
   - ink-share
