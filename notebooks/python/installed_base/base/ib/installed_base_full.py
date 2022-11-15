@@ -718,6 +718,7 @@ JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iiel.country
 WHERE 1=1
     AND iiel.official = 1
+    AND (iiel.p2_kitless_enrollments +  iiel.printer_sell_out_units + iiel.cum_enrollees_month) != 0
 GROUP BY iiel.platform_subset
     , c.Fiscal_Year_Qtr
     , iiel.year_fiscal
@@ -938,6 +939,7 @@ JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iiel.country
 WHERE 1=1
     AND iiel.official = 1
+    AND (iiel.p2_kitless_enrollments +  iiel.printer_sell_out_units + iiel.cum_enrollees_month) != 0
 GROUP BY iiel.platform_subset
     , c.Fiscal_Year_Qtr
     , iiel.year_fiscal
