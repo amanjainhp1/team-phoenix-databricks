@@ -59,6 +59,7 @@ for table in tables:
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.  
+    #df = table[1]
     print(f'loading {table[0]}...')
     
     for column in df.dtypes:
