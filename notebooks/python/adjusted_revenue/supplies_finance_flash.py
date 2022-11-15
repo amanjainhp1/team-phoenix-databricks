@@ -60,7 +60,7 @@ tables = [['prod.version', version, "overwrite"], ['fin_stage.adjusted_revenue_s
 # COMMAND ----------
 
 ci_flash = spark.sql("""
-	select  fiscal_year_qtr_ as fiscal_year_qtr
+	select  fiscal_year_qtr as fiscal_year_qtr
       , pl 
       , business_description 
       , market 
