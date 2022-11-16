@@ -3540,10 +3540,7 @@ salesprod_add_mcodes.createOrReplaceTempView("salesprod_add_mcodes")
 salesprod_final_before_charges_spread = f"""
 SELECT 
     cal_date,
-    CASE
-        WHEN country_alpha2 = 'XW' THEN 'US'
-        ELSE country_alpha2
-    END AS country_alpha2,
+    country_alpha2,
     pl,
     sales_product_number,
     ce_split,    
@@ -3556,6 +3553,7 @@ SELECT
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
 FROM salesprod_add_mcodes
+WHERE country_alpha2 <> 'XW'
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
 """    
 
@@ -4275,14 +4273,8 @@ currency.createOrReplaceTempView("currency")
 edw_restated_data2 = f"""
 SELECT
     cal_date,
-    CASE
-        WHEN country_alpha2 = 'XW' THEN 'US'
-        ELSE country_alpha2
-    END AS country_alpha2,
-    CASE
-        WHEN country_alpha2 = 'XW' THEN 'NA'
-        ELSE region_5
-    END AS region_5,
+    country_alpha2,
+    region_5,
     pl,
     sales_product_number,
     ce_split,
@@ -4295,6 +4287,7 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM edw_data_with_updated_rdma_pl2 redw
+WHERE country_alpha2 <> 'XW'
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
 """
 
