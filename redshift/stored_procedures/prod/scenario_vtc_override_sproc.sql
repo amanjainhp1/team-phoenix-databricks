@@ -12,7 +12,7 @@ BEGIN
 
 -------------------------------RUN SPROC TO UPDATE VERSION AND LOAD DATE IN PROD TABLE-------------------------------------------
 
-EXEC prod.addversion_sproc('SCENARIO_VTC_OVERRIDE', 'FORECASTER INPUT');
+CALL prod.addversion_sproc('SCENARIO_VTC_OVERRIDE', 'FORECASTER INPUT');
 
 ---------------------------------LOAD DATA IN LANDING TABLE------------------------------------
 
