@@ -26,7 +26,7 @@ SELECT [record]
   FROM prod.norm_shipments_ce
 where
 	1 = 1
-	and version = '2022.10.31.1'
+	and version = '2022.11.16.1'
 """
 
 
