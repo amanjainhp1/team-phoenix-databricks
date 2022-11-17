@@ -344,8 +344,10 @@ norm_ships AS
         LEFT JOIN market13_geo iso
             ON ns.country_alpha2 = iso.country_alpha2
     WHERE 1=1
-)
+),
 
+missing_decays as
+(
 SELECT norm_ships.record AS record
     , norm_ships.ns_platform_subset
     , norm_ships.market13
@@ -362,7 +364,38 @@ LEFT JOIN mdm.hardware_xref AS hw
 WHERE 1=1
     AND (decay.geography IS NULL OR decay.platform_subset IS NULL)
     AND hw.technology IN ('INK', 'LASER', 'PWA')
-order by 1,2,3
+),
+
+add_predecessor as 
+(
+select distinct 
+	a.ns_platform_subset, 
+	a.market13,
+	b.predecessor 
+from missing_decays a left join mdm.hardware_xref b on a.ns_platform_subset = b.platform_subset 
+),
+
+check_pred_decay as 
+(
+select distinct
+	a.ns_platform_subset,
+	a.market13,
+	a.predecessor,
+	--b.platform_subset as decay_exists,
+	case when b.platform_subset is not null then 'x'
+	end as predecessor_decay_exists
+from add_predecessor a left join prod.decay_m13 b on a.predecessor = b.platform_subset and a.market13 = b.geography 
+)
+
+select
+	a.ns_platform_subset,
+	b.brand ns_platform_subset_brand,
+	b.technology ns_platform_subset_technology,
+	a.market13,
+	a.predecessor,
+	a.predecessor_decay_exists
+from check_pred_decay a left join mdm.hardware_xref b on a.ns_platform_subset = b.platform_subset 
+order by 3,1,4
 """
 
 # COMMAND ----------
