@@ -2,6 +2,7 @@
 Jobs:
   - accounting_rates
   - actuals-hw
+  - adjusted-rev-finance-update
   - base-usage-share
   - base-forecast
   - create-demand-file
