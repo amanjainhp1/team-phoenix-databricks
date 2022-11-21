@@ -201,10 +201,3 @@ tables = [
 
 for t_name, df, mode in tables:
     write_df_to_sqlserver(configs, df, t_name, mode)
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select distinct cal_date
-# MAGIC from fin_stage.actuals_supplies_salesprod
-# MAGIC order by 1;
