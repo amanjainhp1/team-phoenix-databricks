@@ -49,7 +49,7 @@ tables = [['prod.version', version, "overwrite"], ['fin_stage.adjusted_revenue_s
 
 # COMMAND ----------
 
-# MAGIC %run "../finance_etl/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
