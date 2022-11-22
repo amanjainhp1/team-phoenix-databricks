@@ -27,3 +27,9 @@ ams_s3 = spark.read.csv(path="s3a://enrich-data-lake-restricted-prod/gpsy/insigh
 # MAGIC #list file details in an s3 bucket
 # MAGIC 
 # MAGIC aws s3 ls s3://enrich-data-lake-restricted-prod/gpsy/
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC 
+# MAGIC aws s3 ls s3://hp-bigdata-prod-enrichment/ie2_deliverables/rdma/
