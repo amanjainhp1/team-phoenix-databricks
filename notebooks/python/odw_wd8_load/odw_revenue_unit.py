@@ -187,7 +187,6 @@ WHERE 1=1
     AND unit_quantity_sign_flip <> 0
     AND unit_quantity_sign_flip is not null
     AND day_of_month = 1
-    AND fiscal_year_period = ( SELECT MAX(fiscal_year_period ) FROM "fin_prod"."odw_revenue_units_sales_actuals" )
 GROUP BY cal.date
     , profit_center_code
     , material_number

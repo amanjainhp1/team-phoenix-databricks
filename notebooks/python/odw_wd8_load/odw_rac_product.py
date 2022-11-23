@@ -36,6 +36,7 @@ odw_rac_product_financials_actuals_schema = StructType([ \
             StructField("discretionary_discounts_usd", DecimalType(), True), \
             StructField("net_currency_usd", DecimalType(), True), \
             StructField("net_revenues_usd", DecimalType(), True), \
+            StructField("esc", DecimalType(), True), \
             StructField("warr", DecimalType(), True), \
             StructField("total_cost_of_sales_usd", DecimalType(), True), \
             StructField("gross_margin_usd", DecimalType(), True), \
@@ -118,6 +119,7 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Discretionary Discounts USD","discretionary_discounts_usd") \
                         .withColumnRenamed("Net Currency USD","net_currency_usd") \
                         .withColumnRenamed("Net Revenues USD","net_revenues_usd") \
+                        .withColumnRenamed("ESC","esc") \
                         .withColumnRenamed("WARR","warr") \
                         .withColumnRenamed("TOTAL COST OF SALES USD","total_cost_of_sales_usd") \
                         .withColumnRenamed("GROSS MARGIN USD","gross_margin_usd") 
