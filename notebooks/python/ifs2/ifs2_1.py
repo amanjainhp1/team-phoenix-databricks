@@ -30,11 +30,16 @@ usage_share = read_redshift_to_df(configs) \
 hardware_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.hardware_xref") \
     .load()
+supplies_xref = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM mdm.supplies_xref") \
+    .load()
 
 # COMMAND ----------
 
 tables = [
-  ['prod.usage_share',usage_share]
+  ['prod.usage_share',usage_share],
+  ['mdm.hardware_xref',hardware_xref],
+  ['mdm.supplies_xref',supplies_xref]  
 ]
 
 for table in tables:
@@ -64,42 +69,93 @@ for table in tables:
 
 # COMMAND ----------
 
-query = '''select record
-                , cal_date
+query = '''select cal_date
                 , geography_grain
                 , us.platform_subset
                 , customer_engagement
+                , hw_product_family
                 , measure
-                , units
+                , case when measure = 'COLOR_USAGE' then sum(units)/3
+                        else sum(units)
+                    end as units
                 , ib_version
-                , source
                 , us.version
-                , us.load_date
                from usage_share us
                inner join hardware_xref hw on us.platform_subset = hw.platform_subset
                where 1=1
                 and hw.technology in ('INK', 'PWA')
                 and us.measure in ('COLOR_USAGE' , 'K_USAGE' , 'HP_SHARE')
+               group by
+                  cal_date
+                , geography_grain
+                , us.platform_subset
+                , customer_engagement
+                , hw_product_family
+                , measure
+                , ib_version
+                , us.version
                 '''
 ink_usage_share = spark.sql(query)
 ink_usage_share.createOrReplaceTempView("ink_usage_share")
 
-query = '''select record
-                , cal_date
+query = '''select cal_date
                 , geography_grain
                 , us.platform_subset
                 , customer_engagement
+                , hw_product_family
                 , measure
-                , units
+                , sum(units) as units
                 , ib_version
-                , source
                 , us.version
-                , us.load_date
                from usage_share us
                inner join hardware_xref hw on us.platform_subset = hw.platform_subset
                where 1=1
                 and hw.technology in ('LASER')
                 and us.measure in ('COLOR_USAGE' , 'K_USAGE' , 'HP_SHARE')
+               group by
+                  cal_date
+                , geography_grain
+                , us.platform_subset
+                , customer_engagement
+                , hw_product_family
+                , measure
+                , ib_version
+                , us.version
                 '''
 toner_usage_share = spark.sql(query)
 toner_usage_share.createOrReplaceTempView("toner_usage_share")
+
+# COMMAND ----------
+
+query = '''select cal_date
+                , geography_grain
+                , platform_subset
+                , customer_engagement
+                , hw_product_family
+                , measure
+                , units
+                , SUM(units) over 
+                	(partition by 
+                		geography_grain
+                		,platform_subset
+                		,customer_engagement
+                		,hw_product_family
+                		,measure
+                		,ib_version
+                		,version 
+                	order by cal_date rows between unbounded preceding and current row)
+                	as sum_of_usage_till_date
+                ,ib_version
+                ,version
+                from ink_usage_share
+                '''
+ink_usage_share_sum_till_date = spark.sql(query)
+ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_date")
+
+# COMMAND ----------
+
+ink_usage_share_sum_till_date.display()
+
+# COMMAND ----------
+
+
