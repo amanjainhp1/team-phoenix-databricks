@@ -75,7 +75,7 @@ combined = spark.sql("""
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, comb_df, "scen.working_forecast_combined", "overwrite")
+write_df_to_redshift(configs, combined, "scen.working_forecast_combined", "overwrite")
 
 # COMMAND ----------
 
