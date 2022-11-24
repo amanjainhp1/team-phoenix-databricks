@@ -135,7 +135,6 @@ SELECT "Fiscal Year/Period" as ms4_fiscal_year_period
   FROM  fin_stage.odw_document_currency w
   WHERE 1=1
 	AND "Net K$" is not null
-	AND "Fiscal Year/Period" = (SELECT MAX("Fiscal Year/Period") FROM "fin_stage"."odw_document_currency")
 	AND "Net K$" <> 0
 	AND "Func Area Hier Desc Level6" = 'NET REVENUES' -- edw report filters to revenue
   GROUP BY "Fiscal Year/Period", "Profit Center Code", "Segment Code","Transaction Currency Code"

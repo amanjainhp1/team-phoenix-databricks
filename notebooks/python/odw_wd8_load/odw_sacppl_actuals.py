@@ -142,7 +142,6 @@ SELECT "fiscal_year_period" as fiscal_year_period
   LEFT JOIN "mdm"."product_line_xref" pc ON w.profit_center_code = pc.profit_center_code
   WHERE 1=1
 	AND fiscal_year_period is not null
-	AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM "fin_stage"."odw_sacp_actuals")
 	AND w.profit_center_code IN (
 		select profit_center_code
 		from "mdm"."product_line_xref"
