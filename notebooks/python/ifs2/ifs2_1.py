@@ -187,7 +187,3 @@ query = '''select cal_date
                 '''
 toner_usage_share_sum_till_date = spark.sql(query)
 toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_till_date")
-
-# COMMAND ----------
-
-
