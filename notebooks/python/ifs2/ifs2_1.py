@@ -33,13 +33,17 @@ hardware_xref = read_redshift_to_df(configs) \
 supplies_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.supplies_xref") \
     .load()
+decay = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.decay") \
+    .load()
 
 # COMMAND ----------
 
 tables = [
   ['prod.usage_share',usage_share],
   ['mdm.hardware_xref',hardware_xref],
-  ['mdm.supplies_xref',supplies_xref]  
+  ['mdm.supplies_xref',supplies_xref],
+  ['prod.decay',decay]
 ]
 
 for table in tables:
@@ -155,6 +159,34 @@ ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_
 # COMMAND ----------
 
 ink_usage_share_sum_till_date.display()
+
+# COMMAND ----------
+
+## to add starting cal_date before doing sum_till_date
+query = '''select cal_date
+                , geography_grain
+                , platform_subset
+                , customer_engagement
+                , hw_product_family
+                , measure
+                , units
+                , SUM(units) over 
+                	(partition by 
+                		geography_grain
+                		,platform_subset
+                		,customer_engagement
+                		,hw_product_family
+                		,measure
+                		,ib_version
+                		,version 
+                	order by cal_date rows between unbounded preceding and current row)
+                	as sum_of_usage_till_date
+                ,ib_version
+                ,version
+                from toner_usage_share
+                '''
+toner_usage_share_sum_till_date = spark.sql(query)
+toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_till_date")
 
 # COMMAND ----------
 
