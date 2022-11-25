@@ -47,23 +47,23 @@ odw_rac_product_financials_actuals_schema_df = spark.createDataFrame(spark.spark
 
 # COMMAND ----------
 
-redshift_row_count = 0
-try:
-    redshift_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
-        .load() \
-        .count()
-except:
-    None
+redshift_row_count = 1
+# try:
+#     redshift_row_count = read_redshift_to_df(configs) \
+#         .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
+#         .load() \
+#         .count()
+# except:
+#     None
 
-if redshift_row_count == 0:
-    odw_rac_product_financials_df = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing") \
-        .load()
+# if redshift_row_count == 0:
+#     odw_rac_product_financials_df = read_sql_server_to_df(configs) \
+#         .option("dbtable", "IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing") \
+#         .load()
     
-    odw_rac_product_financials_df = odw_rac_product_financials_actuals_schema_df.union(odw_rac_product_financials_df)
+#     odw_rac_product_financials_df = odw_rac_product_financials_actuals_schema_df.union(odw_rac_product_financials_df)
     
-    write_df_to_redshift(configs, odw_rac_product_financials_df, "fin_prod.odw_report_rac_product_financials_actuals", "append")
+#     write_df_to_redshift(configs, odw_rac_product_financials_df, "fin_prod.odw_report_rac_product_financials_actuals", "append")
 
 # COMMAND ----------
 
