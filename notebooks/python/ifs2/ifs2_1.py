@@ -17,6 +17,7 @@ dbutils.widgets.text("usage_share_version",'') # set usage_share_version to mark
 dbutils.widgets.text("forecast_supplies_baseprod_version",'') # set forecast_supplies_baseprod_version to mark as official
 dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
+dbutils.widgets.text("cartridge_demand_pages_ccs_mix_version",'')
 
 # COMMAND ----------
 
@@ -48,6 +49,13 @@ if end_ifs2_date == "":
         .option("query", f"SELECT cast(DATEADD(year, 15, '{start_ifs2_date}') as date)") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
+    
+cartridge_demand_pages_ccs_mix_version = dbutils.widgets.get("cartridge_demand_pages_ccs_mix_version")
+if cartridge_demand_pages_ccs_mix_version == "":
+    cartridge_demand_pages_ccs_mix_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM ifs2.cartridge_demand_pages_ccs_mix") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
@@ -75,6 +83,9 @@ yield_ = read_redshift_to_df(configs) \
 forecast_supplies_baseprod = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM fin_prod.forecast_supplies_baseprod WHERE version = '{forecast_supplies_baseprod_version}'") \
     .load()
+cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM ifs2.cartridge_demand_pages_ccs_mix WHERE version = '{cartridge_demand_pages_ccs_mix_version}'") \
+    .load()
 
 # COMMAND ----------
 
@@ -85,7 +96,8 @@ tables = [
   ['mdm.supplies_xref' , supplies_xref],
   ['prod.decay' , decay],
   ['mdm.yield' , yield_],
-  ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod]
+  ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+  ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix]
 ]
 
 for table in tables:
@@ -411,6 +423,31 @@ yield_.createOrReplaceTempView("yield_")
 # COMMAND ----------
 
 yield_.display()
+
+# COMMAND ----------
+
+query = '''
+select geography
+        , platform_subset
+        , customer_engagement
+        , base_product_number
+        ,cal_date
+        , ((avg(pgs_ccs_mix) * 3) ) as trade_split
+        , version
+from cartridge_demand_pages_ccs_mix
+group by version 
+        , platform_subset 
+        , geography 
+        , base_product_number 
+        , cal_date 
+        , customer_engagement
+'''
+trade_split = spark.sql(query)
+trade_split.createOrReplaceTempView("trade_split")
+
+# COMMAND ----------
+
+trade_split.display()
 
 # COMMAND ----------
 
