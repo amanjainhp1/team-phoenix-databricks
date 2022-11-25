@@ -61,43 +61,43 @@ odw_revenue_units_base_actuals_schema_df = spark.createDataFrame(spark.sparkCont
 
 # COMMAND ----------
 
-redshift_sales_actuals_row_count = 0
-try:
-    redshift_sales_actuals_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
-        .load() \
-        .count()
-except:
-    None
+redshift_sales_actuals_row_count = 1
+# try:
+#     redshift_sales_actuals_row_count = read_redshift_to_df(configs) \
+#         .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
+#         .load() \
+#         .count()
+# except:
+#     None
 
-if redshift_sales_actuals_row_count == 0:
-    revenue_unit_sales_df = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
-        .load()
+# if redshift_sales_actuals_row_count == 0:
+#     revenue_unit_sales_df = read_sql_server_to_df(configs) \
+#         .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing") \
+#         .load()
     
-    odw_revenue_units_sales_actuals_schema_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_sales_df)
+#     odw_revenue_units_sales_actuals_schema_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_sales_df)
     
-    write_df_to_redshift(configs, odw_revenue_units_sales_actuals_schema_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
+#     write_df_to_redshift(configs, odw_revenue_units_sales_actuals_schema_df, "fin_prod.odw_revenue_units_sales_actuals", "append")
 
 # COMMAND ----------
 
-redshift_base_actuals_row_count = 0
-try:
-    redshift_base_actuals_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "fin_prod.odw_revenue_units_base_actuals") \
-        .load() \
-        .count()
-except:
-    None
+redshift_base_actuals_row_count = 1
+# try:
+#     redshift_base_actuals_row_count = read_redshift_to_df(configs) \
+#         .option("dbtable", "fin_prod.odw_revenue_units_base_actuals") \
+#         .load() \
+#         .count()
+# except:
+#     None
 
-if redshift_base_actuals_row_count == 0:
-    revenue_unit_base_df = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_base_actuals_landing") \
-        .load()
+# if redshift_base_actuals_row_count == 0:
+#     revenue_unit_base_df = read_sql_server_to_df(configs) \
+#         .option("dbtable", "IE2_Landing.ms4.odw_revenue_units_base_actuals_landing") \
+#         .load()
     
-    odw_revenue_units_base_actuals_schema_df = odw_revenue_units_base_actuals_schema_df.union(revenue_unit_base_df)
+#     odw_revenue_units_base_actuals_schema_df = odw_revenue_units_base_actuals_schema_df.union(revenue_unit_base_df)
     
-    write_df_to_redshift(configs, odw_revenue_units_base_actuals_schema_df, "fin_prod.odw_revenue_units_base_actuals", "append")
+#     write_df_to_redshift(configs, odw_revenue_units_base_actuals_schema_df, "fin_prod.odw_revenue_units_base_actuals", "append")
 
 # COMMAND ----------
 

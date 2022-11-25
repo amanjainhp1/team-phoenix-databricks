@@ -43,23 +43,23 @@ odw_document_currency_schema_df = spark.createDataFrame(spark.sparkContext.empty
 
 # COMMAND ----------
 
-redshift_row_count = 0
-try:
-    redshift_row_count = read_redshift_to_df(configs) \
-        .option("dbtable", "fin_prod.odw_document_currency") \
-        .load() \
-        .count()
-except:
-    None
+redshift_row_count = 1
+# try:
+#     redshift_row_count = read_redshift_to_df(configs) \
+#         .option("dbtable", "fin_prod.odw_document_currency") \
+#         .load() \
+#         .count()
+# except:
+#     None
 
-if redshift_row_count == 0:
-    document_currency_df = read_sql_server_to_df(configs) \
-        .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
-        .load()
+# if redshift_row_count == 0:
+#     document_currency_df = read_sql_server_to_df(configs) \
+#         .option("dbtable", "IE2_Financials.ms4.odw_document_currency") \
+#         .load()
     
-    document_currency_df = odw_document_currency_schema_df.union(document_currency_df)
+#     document_currency_df = odw_document_currency_schema_df.union(document_currency_df)
     
-    write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
+#     write_df_to_redshift(configs, document_currency_df, "fin_prod.odw_document_currency", "append")
 
 # COMMAND ----------
 
