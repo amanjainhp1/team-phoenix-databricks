@@ -271,28 +271,7 @@ toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_t
 
 # COMMAND ----------
 
-## Getting decay at year, platform_subset, geography, split_name level
-query = '''select platform_subset 
-            , split_name 
-            , geography 
-            , d.year 
-            , cast(substring(d.year, 6 , 8) as integer) as year_num
-            , avg(value) as value
-            , max(version) as version 
-           from prod.decay as d
-           where official = '1'
-           and record = 'HW_DECAY'
-           group by platform_subset , split_name , d.year , geography
-                '''
-decay = spark.sql(query)
-decay.createOrReplaceTempView("decay")
-
-# COMMAND ----------
-
-decay.display()
-
-# COMMAND ----------
-
+## Decay at platform_subset, region5, customer_engagement level split on months
 query = '''
 with months as (
 
@@ -312,7 +291,7 @@ SELECT 12 AS month_num
 ),
 
 
-decay as (
+d0 as (
 
 
 	select platform_subset 
@@ -322,6 +301,7 @@ decay as (
 		, cast(substring(year, 6 , 8) as integer ) as year_num
 		, avg(value) as value
 		, max(version) as version 
+		
 from prod.decay
 join months m 
 on 1=1
@@ -331,7 +311,9 @@ group by platform_subset
         , split_name 
         , year
         , geography
-)
+),
+d1 as
+(
 select platform_subset 
 		, split_name 
 		, geography 
@@ -340,9 +322,41 @@ select platform_subset
 		, m.month_num
 		, value/12 as value
 		, version 
-from decay d
+		, SUM(value/12) over (partition by platform_subset, split_name, geography, year_num) as sum_year
+from d0 d
 join months m 
 on 1 = 1
+)
+,d2 as (
+select platform_subset 
+		, split_name 
+		, geography 
+		, year
+		, year_num 
+		, month_num
+		, value
+		, version 
+		, sum_year
+		, SUM(value) over (partition by platform_subset, split_name, geography, year_num order by month_num rows between unbounded preceding and current row ) as sum_month_till_date
+		, SUM(sum_year) over (partition by platform_subset, split_name, geography, month_num order by year_num rows between unbounded preceding and current row ) as sum_year_till_date
+
+from d1
+
+)
+select platform_subset 
+		, split_name 
+		, geography 
+		, year
+		, year_num 
+		, month_num
+		, value
+		, version 
+		, sum_year
+		, sum_month_till_date
+		, sum_year_till_date
+		, 1 - (sum_year_till_date - sum_year + (sum_month_till_date/2)) as remaining_amount
+from d2
+order by platform_subset, split_name, geography, year_num, month_num
 
 '''
 decay = spark.sql(query)
@@ -351,6 +365,52 @@ decay.createOrReplaceTempView("decay")
 # COMMAND ----------
 
 decay.display()
+
+# COMMAND ----------
+
+## yield at geography, base_prod_num level
+query = '''
+with rn as (
+SELECT distinct 
+	y.record
+    ,geography
+      ,y.base_product_number
+  ,sup.cartridge_alias
+  ,sup.type
+  ,sup.crg_chrome
+  ,sup.k_color
+  ,sup.size
+  ,sup.supplies_family
+  ,sup.supplies_group
+      ,value
+      ,effective_date
+      --,y.[active]
+      --,[active_at]
+      --,[inactive_at]
+      --y.[load_date]
+      ,version
+      --,[official]
+      --,[geography_grain]
+  ,ROW_NUMBER() over( partition by y.base_product_number, y.geography order by y.effective_date desc) as rn
+
+  FROM mdm.yield as y
+  left join mdm.supplies_xref as sup on sup.base_product_number = y.base_product_number
+
+  where effective_date < (add_months('{}',-1))
+  --and sup.cartridge_alias = 'CEDELLA-CYN-910-A-N'
+ )
+  select distinct Rn.*
+  from rn
+  where RN.rn = 1
+  order by rn.base_product_number, rn.effective_date
+
+'''.format(start_ifs2_date)
+yield_ = spark.sql(query)
+yield_.createOrReplaceTempView("yield_")
+
+# COMMAND ----------
+
+yield_.display()
 
 # COMMAND ----------
 
