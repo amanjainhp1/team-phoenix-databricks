@@ -216,7 +216,7 @@ SELECT ce.record
 FROM "prod"."ce_splits" AS ce
 WHERE 1=1
     AND ce.official = 1
-    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF')
+    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF','CE_SPLITS')
 
 ),  ib_02b_ce_splits_filter as (
 
@@ -569,7 +569,7 @@ SELECT ce.record
 FROM "prod"."ce_splits" AS ce
 WHERE 1=1
     AND ce.official = 1
-    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF')
+    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF','CE_SPLITS')
 ),  ib_02b_ce_splits_filter as (
 
 
@@ -631,11 +631,12 @@ JOIN "mdm"."hardware_xref" AS hw
 LEFT JOIN ib_02c_ce_splits_final AS ce
     ON ce.platform_subset = ib.platform_subset
     AND ce.country_alpha2 = ib.country_alpha2
-    AND ce.month_begin = ib.month_begin
     AND ce.pre_post_flag = 'POST'
+    AND ce.month_begin = ib.month_begin
     AND ce.value > 0
 WHERE 1=1
     AND hw.technology IN ('INK', 'PWA')
+    
 
 UNION ALL
 
@@ -903,8 +904,6 @@ query_list.append(["stage.ib_03_iink_complete", iink_complete, "overwrite"])
 
 ib_staging = """
 with ib_22_iink_ltf_to_split as (
-
-
 SELECT month_begin
     , geography_grain
     , geography
@@ -985,25 +984,59 @@ GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10
     , ltf.record 
 ), 
 
-norm_ships_m10 AS 
-(
-SELECT cal_date,platform_subset ,ns.country_alpha2 ,c.market10 , SUM(units) units
-FROM prod.norm_shipments ns
-LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
-WHERE ns.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
-GROUP BY ns.cal_date ,ns.platform_subset ,c.market10 ,ns.country_alpha2 
+dates as (
+select distinct date cal_date
+from mdm.calendar c 
+where day_of_month  = 1 and c.date between '2021-11-01' and '2028-10-31'
 ),
 
-norm_ships_paas AS (
-SELECT ns.cal_date,ns.platform_subset,ns.country_alpha2 ,ns.market10
-,SUM(ns.units) OVER (partition BY ns.cal_date,ns.platform_subset,ns.country_alpha2)/
-SUM(ns.units) OVER (partition BY ns.cal_date,ns.market10) ps_mix
-FROM norm_ships_m10 ns
-), 
+norm_ships as 
+(
+select distinct n.platform_subset,d.cal_date,n.country_alpha2,0 units
+from prod.norm_shipments n
+cross join dates d 
+where n.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+and not exists 
+(select 1 from prod.norm_shipments ns where ns.platform_subset = n.platform_subset and ns.country_alpha2 = n.country_alpha2 
+and ns.version = n.version 
+and ns.cal_date = d.cal_date)
 
+union 
+
+select distinct n.platform_subset,n.cal_date,n.country_alpha2,n.units 
+from prod.norm_shipments n
+where n.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+),
+
+ns_country_cum AS 
+(
+SELECT cal_date,platform_subset ,ns.country_alpha2 ,c.market10 ,ns.units
+,SUM(ns.units) OVER (partition BY ns.platform_subset,ns.country_alpha2,c.market10 order by ns.cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_country
+FROM norm_ships ns
+LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
+),
+
+ns_m10 as (
+SELECT cal_date,platform_subset ,c.market10,sum(ns.units) units
+FROM norm_ships ns
+LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
+GROUP BY ns.cal_date ,ns.platform_subset ,c.market10  
+),
+
+ns_m10_cum as (
+SELECT cal_date,platform_subset,market10
+,SUM(units) OVER (partition BY platform_subset,market10 order by cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_m10
+FROM ns_m10
+),
+
+norm_ships_paas as (
+select co.cal_date,co.platform_subset,co.country_alpha2,m10.market10,co.cum_total_country/NULLIF(m10.cum_total_m10,0) ps_mix
+from ns_country_cum co
+left join mdm.iso_country_code_xref iccx on iccx.country_alpha2 = co.country_alpha2 
+left join ns_m10_cum m10 on co.platform_subset =m10.platform_subset and co.cal_date = m10.cal_date and m10.market10 = iccx.market10 
+),
 
 ib_24_iink_ltf as (
-
 SELECT sp.month_begin
     , sp.country_alpha2
     , sp.platform_subset
