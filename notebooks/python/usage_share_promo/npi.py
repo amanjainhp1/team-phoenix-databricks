@@ -263,7 +263,7 @@ npi_helper_2 =f"""
       ,npi.units
       ,npi.proxy_used
       ,ib_version
-      ,AS load_date
+      ,load_date
 FROM npi_in_m10 npi
 LEFT JOIN  country_info cc
   ON upper(npi.geography)=upper(cc.market10)
