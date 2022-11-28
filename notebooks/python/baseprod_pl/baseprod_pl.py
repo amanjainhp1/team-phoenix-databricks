@@ -206,6 +206,15 @@ base_product_filter_vars.createOrReplaceTempView("base_product_filter_vars")
 
 base_product_filter_dates = """
 
+select
+    'IBP_SUPPLIES_FORECAST' as record
+    , min(cal_date) as cal_date
+from
+    ibp_supplies_forecast
+where version = (SELECT version FROM base_product_filter_vars WHERE record = 'IBP_SUPPLIES_FORECAST')
+
+UNION ALL
+
 SELECT 'MIN_IBP_DATE' AS record
     , MIN(cal_date) AS cal_date
 FROM ibp_supplies_forecast
@@ -1083,3 +1092,135 @@ forecast_base_pl = spark.sql(forecast_base_pl)
 forecast_base_pl = forecast_base_pl.withColumn("load_date" , lit(None).cast(StringType())) \
                 .withColumn("version" , lit(None).cast(StringType()))
 write_df_to_redshift(configs, forecast_base_pl, "fin_stage.forecast_base_pl", "overwrite")
+
+# COMMAND ----------
+
+gru_dropout = """
+
+select distinct 
+	test.base_product_number
+	, test.base_product_line_Code
+	, test.region_5 
+from
+	(
+		select 
+			c2c.country
+			, iso_country_code_xref.region_5
+			, c2c.base_product_number
+			, rdma.pl as base_product_line_Code
+			, avg(c2c.cartridges) as cartridges
+		from
+		(
+			select 
+				cal_date
+				, country
+				, base_product_number
+				, imp_corrected_cartridges as cartridges
+			from 
+				working_forecast_country cartridge_demand_c2c_country_splits
+			where 
+				not exists 
+					(select 1 from forecast_base_pl forecast_base_pl
+					where cartridge_demand_c2c_country_splits.base_product_number = forecast_base_pl.base_product_number
+					and cartridge_demand_c2c_country_splits.country = forecast_base_pl.country_alpha2
+					)
+				and cartridge_demand_c2c_country_splits.version = (select version from base_product_filter_vars where record = 'INSIGHTS_UNITS')
+				and cartridge_demand_c2c_country_splits.cal_date >= (select cal_date from base_product_filter_dates where record = 'IBP_SUPPLIES_FORECAST')
+		) c2c
+		inner join
+		rdma rdma
+			on rdma.base_prod_number = c2c.base_product_number
+		inner join
+		iso_country_code_xref iso_country_code_xref
+			on iso_country_code_xref.country_alpha2 = c2c.country
+		where 
+			rdma.PL <> 'GD'
+			and c2c.cartridges >= 1
+		group by
+			c2c.cal_date
+			, c2c.country
+			, iso_country_code_xref.region_5
+			, c2c.base_product_number
+			, rdma.PL
+	) test"""
+
+
+gru_dropout = spark.sql(gru_dropout)
+write_df_to_redshift(configs, gru_dropout , "fin_stage.gru_dropout", "overwrite")
+
+# COMMAND ----------
+
+contra_dropout = """
+select distinct
+	forecast_base_pl.base_product_line_code
+	, forecast_base_pl.region_5
+from 
+	forecast_base_pl forecast_base_pl
+where
+	forecast_base_pl.baseprod_contra_per_unit is NULL and forecast_base_pl.baseprod_gru is not null"""
+
+
+contra_dropout = spark.sql(contra_dropout)
+write_df_to_redshift(configs, contra_dropout , "fin_stage.contra_dropout", "overwrite")
+
+# COMMAND ----------
+
+fixed_cost_dropout = """
+
+select distinct
+	forecast_Base_PL.base_product_line_code
+	, iso_country_code_xref.region_3
+from 
+	forecast_base_pl forecast_base_pl
+	inner join
+	iso_country_code_xref iso_country_code_xref
+		on forecast_base_pl.country_alpha2 = iso_country_code_xref.country_alpha2
+where
+	forecast_base_pl.baseprod_fixed_cost_per_unit is NULL and forecast_base_pl.baseprod_gru is not null """
+
+
+fixed_cost_dropout = spark.sql(fixed_cost_dropout)
+write_df_to_redshift(configs, fixed_cost_dropout , "fin_stage.fixed_cost_dropout", "overwrite")
+
+# COMMAND ----------
+
+ink_variable_cost_dropout = """
+
+select distinct
+	rdma.product_family
+	, forecast_base_pl.region_5
+from 
+	forecast_base_pl forecast_base_pl
+	inner join
+	supplies_xref supplies_xref
+		on supplies_xref.base_product_number = forecast_base_pl.base_product_number
+	inner join
+	rdma rdma
+		on rdma.base_prod_number = forecast_base_pl.base_product_number
+where
+	supplies_xref.technology in ('PWA', 'INK')
+	and forecast_base_pl.baseprod_variable_cost_per_unit is NULL"""
+    
+  
+ink_variable_cost_dropout = spark.sql(ink_variable_cost_dropout)
+write_df_to_redshift(configs, ink_variable_cost_dropout , "fin_stage.ink_variable_cost_dropout", "overwrite")
+
+# COMMAND ----------
+
+toner_variable_cost_dropout = 
+
+"""select distinct
+	forecast_base_pl.base_product_number
+	, forecast_base_pl.region_5
+from 
+	forecast_base_pl forecast_base_pl
+	inner join
+	supplies_xref supplies_xref
+		on supplies_xref.base_product_number = forecast_base_pl.base_product_number
+where
+	supplies_xref.technology in ('LASER')
+	and forecast_base_pl.baseprod_variable_cost_per_unit is NULL"""
+
+
+toner_variable_cost_dropout = spark.sql(toner_variable_cost_dropout)
+write_df_to_redshift(configs, toner_variable_cost_dropout , "fin_stage.toner_variable_cost_dropout", "overwrite")
