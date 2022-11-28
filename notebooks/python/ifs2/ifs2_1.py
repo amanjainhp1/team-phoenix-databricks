@@ -424,6 +424,8 @@ yield_.display()
 
 # COMMAND ----------
 
+##trade_split at bae_product_number
+
 query = '''
 select geography
         , platform_subset
@@ -448,6 +450,8 @@ trade_split.createOrReplaceTempView("trade_split")
 trade_split.display()
 
 # COMMAND ----------
+
+## financials_forecast_input
 
 query = '''
 select record
@@ -476,7 +480,3 @@ fsb.createOrReplaceTempView("fsb")
 # COMMAND ----------
 
 fsb.display()
-
-# COMMAND ----------
-
-
