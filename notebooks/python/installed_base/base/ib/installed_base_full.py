@@ -616,7 +616,7 @@ WHERE 1=1
 ),  ib_12_ce_splits_post as (
 
 
--- non LASER platform_subsets
+--non LASER platform_subsets
 SELECT ib.month_begin
     , ib.region_5
     , ib.country_alpha2
@@ -1025,7 +1025,7 @@ GROUP BY ns.cal_date ,ns.platform_subset ,c.market10
 
 ns_m10_cum as (
 SELECT cal_date,platform_subset,market10
-,SUM(units) OVER (partition BY platform_subset,market10 order by cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_m10
+,SUM(units) OVER (partition BY market10 order by cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_m10
 FROM ns_m10
 ),
 
@@ -1062,7 +1062,7 @@ SELECT sp.cal_date
     , sp.platform_subset
     , 'I-INK' split_name
     , 0  AS p2_cumulative
-    , ltf.cumulative * sp.ps_mix AS cum_enrollees_month
+    , ltf.cumulative * ISNULL(sp.ps_mix,1) AS cum_enrollees_month
 FROM ib_23_iink_ltf_prep AS ltf
 JOIN norm_ships_paas  sp on sp.cal_date  = ltf.month_begin  and sp.market10  = ltf.geography 
 WHERE 1=1
