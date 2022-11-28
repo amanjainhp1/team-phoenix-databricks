@@ -1159,6 +1159,8 @@ from
 where
 	forecast_base_pl.baseprod_contra_per_unit is NULL and forecast_base_pl.baseprod_gru is not null"""
 
+
+contra_dropout = spark.sql(contra_dropout)
 write_df_to_redshift(configs, contra_dropout , "fin_stage.contra_dropout", "overwrite")
 
 # COMMAND ----------
@@ -1176,6 +1178,8 @@ from
 where
 	forecast_base_pl.baseprod_fixed_cost_per_unit is NULL and forecast_base_pl.baseprod_gru is not null """
 
+
+fixed_cost_dropout = spark.sql(fixed_cost_dropout)
 write_df_to_redshift(configs, fixed_cost_dropout , "fin_stage.fixed_cost_dropout", "overwrite")
 
 # COMMAND ----------
@@ -1197,6 +1201,8 @@ where
 	supplies_xref.technology in ('PWA', 'INK')
 	and forecast_base_pl.baseprod_variable_cost_per_unit is NULL"""
     
+  
+ink_variable_cost_dropout = spark.sql(ink_variable_cost_dropout)
 write_df_to_redshift(configs, ink_variable_cost_dropout , "fin_stage.ink_variable_cost_dropout", "overwrite")
 
 # COMMAND ----------
@@ -1215,4 +1221,6 @@ where
 	supplies_xref.technology in ('LASER')
 	and forecast_base_pl.baseprod_variable_cost_per_unit is NULL"""
 
+
+toner_variable_cost_dropout = spark.sql(toner_variable_cost_dropout)
 write_df_to_redshift(configs, toner_variable_cost_dropout , "fin_stage.toner_variable_cost_dropout", "overwrite")
