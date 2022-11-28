@@ -315,6 +315,7 @@ LEFT JOIN fill_forecast b
         AND a.customer_engagement = b.customer_engagement
         AND a.country_alpha2 = b.country_alpha2
 WHERE 1=1
+AND a.fore_back = 'F'
 """
 
 combine_data_b = """
@@ -339,6 +340,7 @@ LEFT JOIN fill_backfill b
         AND a.customer_engagement = b.customer_engagement
         AND a.country_alpha2 = b.country_alpha2
 WHERE 1=1
+AND a.fore_back = 'B'
 """
 combine_data=spark.sql(combine_data)
 combine_data.createOrReplaceTempView("combine_data")
