@@ -198,7 +198,6 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 # COMMAND ----------
 
 ## Aggregating usage share drivers for ink at required level
-## to add starting cal_date before doing sum_till_date
 query = '''select cal_date
                 , ius.year
                 , year_num
@@ -243,7 +242,6 @@ ink_usage_share_sum_till_date.display()
 # COMMAND ----------
 
 ## Aggregating usage share drivers for toner at required level
-## to add starting cal_date before doing sum_till_date
 query = '''select cal_date
                 , tus.year
                 , year_num
@@ -431,7 +429,7 @@ select geography
         , platform_subset
         , customer_engagement
         , base_product_number
-        ,cal_date
+        , cal_date
         , ((avg(pgs_ccs_mix) * 3) ) as trade_split
         , version
 from cartridge_demand_pages_ccs_mix
@@ -448,6 +446,36 @@ trade_split.createOrReplaceTempView("trade_split")
 # COMMAND ----------
 
 trade_split.display()
+
+# COMMAND ----------
+
+query = '''
+select record
+		, base_product_number
+		, base_product_line_code
+		, region_5
+		, country_alpha2
+		, cal_date
+		, insights_base_units
+		, baseprod_gru
+		, baseprod_contra_per_unit
+		, baseprod_variable_cost_per_unit
+		, baseprod_fixed_cost_per_unit
+		, load_date
+		, version
+		, sales_gru_version
+		, contra_version
+		, variable_cost_version
+		, fixed_cost_version
+from fin_prod.forecast_supplies_baseprod
+where cal_date between '{}' AND '{}'
+'''.format(start_ifs2_date, end_ifs2_date)
+fsb = spark.sql(query)
+fsb.createOrReplaceTempView("fsb")
+
+# COMMAND ----------
+
+fsb.display()
 
 # COMMAND ----------
 
