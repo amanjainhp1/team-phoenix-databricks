@@ -186,7 +186,7 @@ npi_helper_1 = f"""
       ,npi.units
       ,npi.proxy_used
       ,ib_version
-      ,CAST(current_date() AS DATE) AS load_date
+      ,load_date
 FROM npi_in_r5 npi
 LEFT JOIN ib_info_r5 ibdt
   ON upper(npi.geography)=upper(ibdt.region_5) and npi.platform_subset=ibdt.platform_subset and npi.customer_engagement=ibdt.customer_engagement
@@ -263,7 +263,7 @@ npi_helper_2 =f"""
       ,npi.units
       ,npi.proxy_used
       ,ib_version
-      ,CAST(current_date() AS DATE) AS load_date
+      ,AS load_date
 FROM npi_in_m10 npi
 LEFT JOIN  country_info cc
   ON upper(npi.geography)=upper(cc.market10)
@@ -569,7 +569,7 @@ SELECT 'USAGE_SHARE_NPI' As record
     , b.units
     , NULL AS proxy_used
     , 'IB_VERSION' AS ib_version
-    , current_date() AS load_date
+    , CAST(current_date() AS DATE) AS load_date
 FROM npi_dates_fill a
 LEFT JOIN fill_forecast b
     ON a.platform_subset=b.platform_subset
