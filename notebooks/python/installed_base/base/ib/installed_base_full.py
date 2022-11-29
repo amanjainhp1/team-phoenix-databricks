@@ -953,7 +953,7 @@ GROUP BY iiel.platform_subset
 SELECT ltf.record, CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
             WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
             WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
-                                  'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
+                                  'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHERN EUROPE','UK&I') THEN 'MARKET10'
             ELSE 'ERROR' END AS geography_grain
     , ltf.region_5 AS geography
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
@@ -976,7 +976,7 @@ WHERE 1=1
 GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
               WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
               WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
-                                    'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHER EUROPE','UK&I') THEN 'MARKET10'
+                                    'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHERN EUROPE','UK&I') THEN 'MARKET10'
               ELSE 'ERROR' END
     , ltf.region_5
     , c.Fiscal_Year_Qtr
@@ -987,7 +987,7 @@ GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10
 dates as (
 select distinct date cal_date
 from mdm.calendar c 
-where day_of_month  = 1 and c.date between '2021-11-01' and '2028-10-31'
+where day_of_month  = 1 
 ),
 
 norm_ships as 
@@ -1017,14 +1017,14 @@ LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2
 ),
 
 ns_m10 as (
-SELECT cal_date,platform_subset ,c.market10,sum(ns.units) units
+SELECT cal_date ,c.market10,sum(ns.units) units
 FROM norm_ships ns
 LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
-GROUP BY ns.cal_date ,ns.platform_subset ,c.market10  
+GROUP BY ns.cal_date ,c.market10  
 ),
 
 ns_m10_cum as (
-SELECT cal_date,platform_subset,market10
+SELECT cal_date,market10
 ,SUM(units) OVER (partition BY market10 order by cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_m10
 FROM ns_m10
 ),
@@ -1033,7 +1033,7 @@ norm_ships_paas as (
 select co.cal_date,co.platform_subset,co.country_alpha2,m10.market10,co.cum_total_country/NULLIF(m10.cum_total_m10,0) ps_mix
 from ns_country_cum co
 left join mdm.iso_country_code_xref iccx on iccx.country_alpha2 = co.country_alpha2 
-left join ns_m10_cum m10 on co.platform_subset =m10.platform_subset and co.cal_date = m10.cal_date and m10.market10 = iccx.market10 
+left join ns_m10_cum m10 on co.cal_date = m10.cal_date and m10.market10 = iccx.market10 
 ),
 
 ib_24_iink_ltf as (
@@ -1062,7 +1062,7 @@ SELECT sp.cal_date
     , sp.platform_subset
     , 'I-INK' split_name
     , 0  AS p2_cumulative
-    , ltf.cumulative * ISNULL(sp.ps_mix,1) AS cum_enrollees_month
+    , ltf.cumulative * sp.ps_mix AS cum_enrollees_month
 FROM ib_23_iink_ltf_prep AS ltf
 JOIN norm_ships_paas  sp on sp.cal_date  = ltf.month_begin  and sp.market10  = ltf.geography 
 WHERE 1=1
