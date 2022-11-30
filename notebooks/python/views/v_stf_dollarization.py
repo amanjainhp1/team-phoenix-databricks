@@ -90,4 +90,12 @@ submit_remote_query(configs, query)
 
 # COMMAND ----------
 
+query = """
+GRANT ALL ON TABLE fin_prod.adjusted_revenue_flash TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query)
+
+# COMMAND ----------
+
 

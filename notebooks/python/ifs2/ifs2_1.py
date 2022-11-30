@@ -74,8 +74,8 @@ hardware_xref = read_redshift_to_df(configs) \
 supplies_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.supplies_xref") \
     .load()
-decay = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM prod.decay") \
+decay_m13 = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.decay_m13") \
     .load()
 yield_ = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.yield") \
@@ -86,6 +86,9 @@ forecast_supplies_baseprod = read_redshift_to_df(configs) \
 cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM ifs2.cartridge_demand_pages_ccs_mix WHERE version = '{cartridge_demand_pages_ccs_mix_version}'") \
     .load()
+iso_country_code_xref = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
+    .load()
 
 # COMMAND ----------
 
@@ -94,10 +97,11 @@ tables = [
   ['prod.usage_share' , usage_share],
   ['mdm.hardware_xref' , hardware_xref],
   ['mdm.supplies_xref' , supplies_xref],
-  ['prod.decay' , decay],
+  ['prod.decay_m13' , decay_m13],
   ['mdm.yield' , yield_],
   ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
-  ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix]
+  ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+  ['mdm.iso_country_code_xref' , iso_country_code_xref]
 ]
 
 for table in tables:
@@ -312,7 +316,7 @@ d0 as (
 		, avg(value) as value
 		, max(version) as version 
 		
-from prod.decay
+from prod.decay_m13
 join months m 
 on 1=1
 where official = '1'
@@ -353,9 +357,31 @@ select platform_subset
 from d1
 
 )
+
 select platform_subset 
 		, split_name 
-		, geography 
+		, m13
+		, m10
+		, country_alpha2
+		, d3.developed_emerging
+		, year
+		, year_num 
+		, month_num
+		, value
+		, d3.version 
+		, sum_year
+		, sum_month_till_date
+		, sum_year_till_date
+		, remaining_amount
+from
+(
+select platform_subset 
+		, split_name 
+		, geography as m13
+		, substring(geography, 0 , length(geography) - 3) as m10
+		, case when substring(geography,length(geography) - 1, length(geography)) = 'DM' then 'DEVELOPED'
+			else 'EMERGING'
+			end as developed_emerging
 		, year
 		, year_num 
 		, month_num
@@ -366,7 +392,10 @@ select platform_subset
 		, sum_year_till_date
 		, 1 - (sum_year_till_date - sum_year + (sum_month_till_date/2)) as remaining_amount
 from d2
-order by platform_subset, split_name, geography, year_num, month_num
+)d3
+left join iso_country_code_xref iccx
+on d3.m10 = iccx.market10 
+and d3.developed_emerging = iccx.developed_emerging
 
 '''
 decay = spark.sql(query)
@@ -424,8 +453,6 @@ yield_.display()
 
 # COMMAND ----------
 
-##trade_split at bae_product_number
-
 query = '''
 select geography
         , platform_subset
@@ -451,28 +478,32 @@ trade_split.display()
 
 # COMMAND ----------
 
-## financials_forecast_input
-
 query = '''
-select record
-		, base_product_number
-		, base_product_line_code
-		, region_5
-		, country_alpha2
-		, cal_date
-		, insights_base_units
-		, baseprod_gru
-		, baseprod_contra_per_unit
-		, baseprod_variable_cost_per_unit
-		, baseprod_fixed_cost_per_unit
-		, load_date
-		, version
-		, sales_gru_version
-		, contra_version
-		, variable_cost_version
-		, fixed_cost_version
-from fin_prod.forecast_supplies_baseprod
-where cal_date between '{}' AND '{}'
+select distinct fsb.record
+		, shm.platform_subset
+		, fsb.base_product_number
+		, fsb.base_product_line_code
+		, fsb.region_5
+        , iccx.market10
+		, fsb.country_alpha2
+		, fsb.cal_date
+		, fsb.insights_base_units
+		, fsb.baseprod_gru
+		, fsb.baseprod_contra_per_unit
+		, fsb.baseprod_variable_cost_per_unit
+		, fsb.baseprod_fixed_cost_per_unit
+		, fsb.load_date
+		, fsb.version
+		, fsb.sales_gru_version
+		, fsb.contra_version
+		, fsb.variable_cost_version
+		, fsb.fixed_cost_version
+from forecast_supplies_baseprod fsb
+left join mdm.supplies_hw_mapping shm
+on fsb.base_product_number = shm.base_product_number
+left join iso_country_code_xref iccx
+on fsb.country_alpha2 = iccx.country_alpha2
+where fsb.cal_date between '{}' AND '{}'
 '''.format(start_ifs2_date, end_ifs2_date)
 fsb = spark.sql(query)
 fsb.createOrReplaceTempView("fsb")
@@ -480,3 +511,11 @@ fsb.createOrReplaceTempView("fsb")
 # COMMAND ----------
 
 fsb.display()
+
+# COMMAND ----------
+
+fsb.count()
+
+# COMMAND ----------
+
+
