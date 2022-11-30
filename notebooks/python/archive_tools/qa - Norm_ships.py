@@ -29,7 +29,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions
-prev_version = '2022.08.23.1'
+prev_version = '2022.11.14.1'
 
 # COMMAND ----------
 
@@ -202,34 +202,50 @@ acts_to_hw_df.show()
 # COMMAND ----------
 
 acts_to_decay_sql = """
-WITH actuals AS
+with market13_geo as
+(
+SELECT DISTINCT 
+    country_alpha2,
+    CONCAT(market10, CONCAT('-', CASE developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END)) as market13
+FROM mdm.iso_country_code_xref
+where 1=1
+	and market10 is not null
+	and market10 != 'WORLD WIDE'
+	and developed_emerging != 'NOT APPLICABLE'
+),
+
+actuals AS
 (
     SELECT DISTINCT acts.platform_subset AS act_platform_subset
-        , iso.region_5
+        , iso.market13
     FROM prod.actuals_hw acts
-        LEFT JOIN mdm.iso_country_code_xref iso
+        LEFT JOIN market13_geo iso
             ON acts.country_alpha2=iso.country_alpha2
     WHERE 1=1
         AND acts.record = 'ACTUALS - HW'
         AND acts.official = 1
 )
 
+--select * from actuals order by 1,2
+
 SELECT 'ACTUALS' AS record
     , actuals.act_platform_subset
-    , actuals.region_5
+    , actuals.market13
     , decay.platform_subset AS decay_platform_subset
-    , decay.geography AS decay_region_5
+    , decay.geography AS decay_market13
     , hw.technology
 FROM actuals
-LEFT JOIN prod.decay decay
+LEFT JOIN prod.decay_m13 decay
     ON actuals.act_platform_subset=decay.platform_subset
-    AND actuals.region_5=decay.geography
+    AND actuals.market13 = decay.geography
     AND decay.official=1
 LEFT JOIN mdm.hardware_xref AS hw
     ON actuals.act_platform_subset = hw.platform_subset
 WHERE 1=1
     AND (decay.geography IS NULL OR decay.platform_subset IS NULL)
     AND hw.technology IN ('INK', 'LASER', 'PWA')
+    and actuals.act_platform_subset not like '%GW'
+order by 2,3
 """
 
 # COMMAND ----------
@@ -305,62 +321,92 @@ fcst_to_hw_df.show()
 
 # COMMAND ----------
 
-fcst_to_decay_sql = """
-WITH fcst AS
+ns_to_decay_sql = """
+with market13_geo as
 (
-    SELECT DISTINCT ltf.record
-        , ltf.platform_subset AS ltf_platform_subset
-        , iso.region_5
-        , ltf.version
-    FROM prod.hardware_ltf AS ltf
-    LEFT JOIN mdm.iso_country_code_xref AS iso
-        ON ltf.country_alpha2 = iso.country_alpha2
-    WHERE 1=1
-        AND ltf.record IN ('HW_STF_FCST')
-        AND ltf.version = (SELECT MAX(VERSION) FROM prod.hardware_ltf WHERE record IN ('HW_STF_FCST') AND official = 1)
-    
-    UNION ALL
-    
-    SELECT DISTINCT ltf.record
-        , ltf.platform_subset AS ltf_platform_subset
-        , iso.region_5
-        , ltf.version
-    FROM prod.hardware_ltf AS ltf
-    LEFT JOIN mdm.iso_country_code_xref AS iso
-        ON ltf.country_alpha2=iso.country_alpha2
-    WHERE 1=1
-        AND ltf.record IN ('HW_FCST')
-        AND ltf.version = (SELECT MAX(VERSION) FROM prod.hardware_ltf WHERE record IN ('HW_FCST') AND official = 1)
-)
+SELECT DISTINCT 
+    country_alpha2,
+    CONCAT(market10, CONCAT('-', CASE developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END)) as market13
+FROM mdm.iso_country_code_xref
+where 1=1
+	and market10 is not null
+	and market10 != 'WORLD WIDE'
+	and developed_emerging != 'NOT APPLICABLE'
+),
 
-SELECT fcst.record
-    , fcst.version
-    , fcst.ltf_platform_subset
-    , fcst.region_5
+norm_ships AS
+(
+    SELECT distinct
+    	ns.record, 
+    	ns.platform_subset AS ns_platform_subset
+        , iso.market13
+    FROM stage.norm_ships ns
+        LEFT JOIN market13_geo iso
+            ON ns.country_alpha2 = iso.country_alpha2
+    WHERE 1=1
+),
+
+missing_decays as
+(
+SELECT norm_ships.record AS record
+    , norm_ships.ns_platform_subset
+    , norm_ships.market13
     , decay.platform_subset AS decay_platform_subset
-    , decay.geography AS decay_geography
+    , decay.geography AS decay_market13
     , hw.technology
-FROM fcst
-LEFT JOIN prod.decay AS decay
-    ON fcst.ltf_platform_subset = decay.platform_subset
-    AND fcst.region_5 = decay.geography
-    AND decay.official = 1
+FROM norm_ships
+LEFT JOIN prod.decay_m13 decay
+    ON norm_ships.ns_platform_subset=decay.platform_subset
+    AND norm_ships.market13 = decay.geography
+    AND decay.official=1
 LEFT JOIN mdm.hardware_xref AS hw
-    ON fcst.ltf_platform_subset = hw.platform_subset
+    ON norm_ships.ns_platform_subset = hw.platform_subset
 WHERE 1=1
     AND (decay.geography IS NULL OR decay.platform_subset IS NULL)
     AND hw.technology IN ('INK', 'LASER', 'PWA')
+),
+
+add_predecessor as 
+(
+select distinct 
+	a.ns_platform_subset, 
+	a.market13,
+	b.predecessor 
+from missing_decays a left join mdm.hardware_xref b on a.ns_platform_subset = b.platform_subset 
+),
+
+check_pred_decay as 
+(
+select distinct
+	a.ns_platform_subset,
+	a.market13,
+	a.predecessor,
+	--b.platform_subset as decay_exists,
+	case when b.platform_subset is not null then 'x'
+	end as predecessor_decay_exists
+from add_predecessor a left join prod.decay_m13 b on a.predecessor = b.platform_subset and a.market13 = b.geography 
+)
+
+select
+	a.ns_platform_subset,
+	b.brand ns_platform_subset_brand,
+	b.technology ns_platform_subset_technology,
+	a.market13,
+	a.predecessor,
+	a.predecessor_decay_exists
+from check_pred_decay a left join mdm.hardware_xref b on a.ns_platform_subset = b.platform_subset 
+order by 3,1,4
 """
 
 # COMMAND ----------
 
-fcst_to_decay_df = read_redshift_to_df(configs) \
-  .option("query", fcst_to_decay_sql) \
+ns_to_decay_df = read_redshift_to_df(configs) \
+  .option("query", ns_to_decay_sql) \
   .load()
 
 # COMMAND ----------
 
-fcst_to_decay_df.display()
+ns_to_decay_df.display()
 
 # COMMAND ----------
 
