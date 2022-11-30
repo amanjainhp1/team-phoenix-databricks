@@ -1,5 +1,4 @@
 # Databricks notebook source
-
 from pyspark.sql.functions import trim, col, lit
 
 
@@ -76,7 +75,7 @@ redshift_gpsy_prod_list_price_records = redshift_gpsy_prod_list_price_records \
     .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
     .withColumn("version", lit(max_version))
 
-write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "prod.list_price_gpsy", "overwrite")
+write_df_to_redshift(configs, redshift_gpsy_prod_list_price_records, "fin_prod.list_price_gpsy", "overwrite")
 
 # COMMAND ----------
 
