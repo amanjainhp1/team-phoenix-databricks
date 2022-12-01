@@ -583,7 +583,7 @@ supp_fin_flash = spark.sql("""
         sum(hedge) as hedge,
         sum(channel_inventory) as channel_inventory,
         sum(ci_change) as ci_change,
-        1 as official,
+        CAST(1 AS BOOLEAN) AS official,
         (
             select distinct load_date from prod.version where record = 'FORECAST - SUPPLIES FINANCE FLASH' 
             and load_date = (select max(load_date) from prod.version where record = 'FORECAST - SUPPLIES FINANCE FLASH')
