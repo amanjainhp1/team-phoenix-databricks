@@ -1282,7 +1282,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("overwriteSchema", "true")\
+      .option("mergeSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
