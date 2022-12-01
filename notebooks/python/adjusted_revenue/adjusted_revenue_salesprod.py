@@ -2663,7 +2663,7 @@ adj_rev_6 = spark.sql("""
 				coalesce(sum(currency_impact_ch_inventory), 0) as currency_impact_ch_inventory,
 				coalesce(sum(cc_inventory_impact), 0) as cc_inventory_impact,
 				sum(adjusted_revenue) as adjusted_revenue,
-				1 as official,
+				CAST(1 AS BOOLEAN) as official,
 				(select load_date from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT' 
 					and load_date = (select max(load_date) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as load_date,
 				(select version from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT'
