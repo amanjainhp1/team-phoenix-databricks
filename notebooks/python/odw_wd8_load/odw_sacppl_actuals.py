@@ -41,23 +41,23 @@ odw_sacp_actuals_schema_df = spark.createDataFrame(spark.sparkContext.emptyRDD()
 
 # COMMAND ----------
 
-redshift_row_count = 1
-# try:
-#     redshift_row_count = read_redshift_to_df(configs) \
-#         .option("dbtable", "fin_prod.odw_sacp_actuals") \
-#         .load() \
-#         .count()
-# except:
-#     None
+redshift_row_count = 0
+try:
+    redshift_row_count = read_redshift_to_df(configs) \
+        .option("dbtable", "fin_prod.odw_sacp_actuals") \
+        .load() \
+        .count()
+except:
+    None
 
-# if redshift_row_count == 0:
-#     sacp_actuals_df = read_sql_server_to_df(configs) \
-#         .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
-#         .load()
+if redshift_row_count == 0:
+    sacp_actuals_df = read_sql_server_to_df(configs) \
+        .option("dbtable", "IE2_Financials.ms4.odw_sacp_actuals") \
+        .load()
     
-#     sacp_actuals_df = odw_sacp_actuals_schema_df.union(sacp_actuals_df)
+    sacp_actuals_df = odw_sacp_actuals_schema_df.union(sacp_actuals_df)
     
-#     write_df_to_redshift(configs, sacp_actuals_df, "fin_prod.odw_sacp_actuals", "append")
+    write_df_to_redshift(configs, sacp_actuals_df, "fin_prod.odw_sacp_actuals", "append")
 
 # COMMAND ----------
 
@@ -142,6 +142,7 @@ SELECT "fiscal_year_period" as fiscal_year_period
   LEFT JOIN "mdm"."product_line_xref" pc ON w.profit_center_code = pc.profit_center_code
   WHERE 1=1
 	AND fiscal_year_period is not null
+	AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM "fin_stage"."odw_sacp_actuals")
 	AND w.profit_center_code IN (
 		select profit_center_code
 		from "mdm"."product_line_xref"
