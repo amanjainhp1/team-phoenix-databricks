@@ -1,53 +1,55 @@
 # Databricks notebook source
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
 prod_query = """
-create external table phoenix_spectrum_prod.list_price_gpsy_historical
+create external table phoenix_spectrum_prod.list_price_filtered_historical
 (
-product_number varchar(255),
-country_code varchar(255),
+sales_product_number varchar(255),
+country_alpha2 varchar(255),
 currency_code varchar(255),
 price_term_code varchar(255),
-price_start_effective_date date,
-qbl_sequence_number DOUBLE PRECISION,
-list_price DOUBLE PRECISION,
+price_start_effective_date varchar(255),
+qbl_sequence_number varchar(255),
+list_price varchar(255),
 product_line varchar(255),
-load_date timestamp,
-version varchar(255)
+accounting_rate varchar(255),
+list_price_usd varchar(255),
+load_date timestamp
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/list_price_gpsy_historical/';
+location 's3://dataos-core-prod-team-phoenix/spectrum/list_price_filtered_historical/';
 """
 
 
 # COMMAND ----------
 
 reporting_query = """
-create external table phoenix_spectrum_reporting.list_price_gpsy_historical
+create external table phoenix_spectrum_reporting.list_price_filtered_historical
 (
-product_number varchar(255),
-country_code varchar(255),
+sales_product_number varchar(255),
+country_alpha2 varchar(255),
 currency_code varchar(255),
 price_term_code varchar(255),
-price_start_effective_date date,
-qbl_sequence_number DOUBLE PRECISION,
-list_price DOUBLE PRECISION,
+price_start_effective_date varchar(255),
+qbl_sequence_number varchar(255),
+list_price varchar(255),
 product_line varchar(255),
-load_date timestamp,
-version varchar(255)
+accounting_rate varchar(255),
+list_price_usd varchar(255),
+load_date timestamp
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/list_price_gpsy_historical/'
+location 's3://dataos-core-prod-team-phoenix/spectrum/list_price_filtered_historical/'
 """
 
 # COMMAND ----------
@@ -93,3 +95,30 @@ submit_spectrum_query("prod", configs["redshift_port"], configs["redshift_userna
 
 submit_spectrum_query("prod", reporting_configs["redshift_port"], reporting_configs["redshift_username"], reporting_configs["redshift_password"], reporting_configs["redshift_url"], reporting_query)
 
+
+# COMMAND ----------
+
+#drop external prod table
+prod_drop_query = """
+drop table phoenix_spectrum_prod.list_price_filtered_historical
+"""
+
+
+# COMMAND ----------
+
+#drop external reporting table
+reporting_drop_query = """
+drop table phoenix_spectrum_reporting.list_price_filtered_historical
+"""
+
+# COMMAND ----------
+
+#run drop code on prod
+
+submit_spectrum_query("prod", configs["redshift_port"], configs["redshift_username"], configs["redshift_password"], configs["redshift_url"], prod_drop_query)
+
+
+# COMMAND ----------
+
+#run drop code on reporting
+submit_spectrum_query("prod", reporting_configs["redshift_port"], reporting_configs["redshift_username"], reporting_configs["redshift_password"], reporting_configs["redshift_url"], reporting_drop_query)
