@@ -2685,7 +2685,7 @@ adj_rev_6 = spark.sql("""
  """)
 
 adj_rev_6.createOrReplaceTempView("adjusted_revenue_staging")
-query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "append"])
+query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
 
 # COMMAND ----------
 
