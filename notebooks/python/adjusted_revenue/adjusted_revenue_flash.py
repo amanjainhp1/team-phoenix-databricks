@@ -1236,7 +1236,7 @@ select record,
        sum(total_ci_change_prior_year)    as total_ci_change_prior_year,
        sum(adjusted_revenue_prior_year)   as adjusted_revenue_prior_year,
        sum(cbm_ci_dollars_prior_quarter)  as cbm_ci_dollars_prior_quarter,
-       1                                  as official,
+       CAST(1 AS BOOLEAN)                 as official,
        load_date,
        version
 from adjusted_revenue_flash_output
@@ -1282,7 +1282,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
