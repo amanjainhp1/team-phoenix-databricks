@@ -68,7 +68,7 @@ ibp_supplies_forecast = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM prod.ibp_supplies_forecast WHERE version = (SELECT max(version) from prod.ibp_supplies_forecast)") \
     .load()
 list_price_gpsy = read_redshift_to_df(configs) \
-    .option("query", "SELECT * FROM prod.list_price_gpsy WHERE version = (SELECT max(version) from prod.list_price_gpsy)") \
+    .option("query", "SELECT * FROM fin_prod.list_price_gpsy WHERE version = (SELECT max(version) from fin_prod.list_price_gpsy)") \
     .load()
 acct_rates = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM prod.acct_rates WHERE version = (SELECT max(version) from prod.acct_rates)") \
@@ -114,7 +114,7 @@ tables = [
   ['fin_prod.actuals_supplies_salesprod',actuals_supplies_salesprod],
   ['prod.working_forecast_country',working_forecast_country],
   ['prod.ibp_supplies_forecast',ibp_supplies_forecast],
-  ['prod.list_price_gpsy',list_price_gpsy],
+  ['fin_prod.list_price_gpsy',list_price_gpsy],
   ['prod.acct_rates' ,acct_rates],
   ['mdm.calendar' ,calendar],
   ['mdm.product_line_xref' ,product_line_xref],
