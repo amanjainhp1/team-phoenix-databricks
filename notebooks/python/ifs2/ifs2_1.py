@@ -18,6 +18,7 @@ dbutils.widgets.text("forecast_supplies_baseprod_version",'') # set forecast_sup
 dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
 dbutils.widgets.text("cartridge_demand_pages_ccs_mix_version",'')
+dbutils.widgets.text("working_forecast_version",'')
 
 # COMMAND ----------
 
@@ -56,6 +57,13 @@ if cartridge_demand_pages_ccs_mix_version == "":
         .option("query", "SELECT MAX(version) FROM ifs2.cartridge_demand_pages_ccs_mix") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
+    
+working_forecast_version = dbutils.widgets.get("working_forecast_version")
+if working_forecast_version == "":
+    working_forecast_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.working_forecast") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
@@ -89,6 +97,9 @@ cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
     .load()
+working_forecast = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.working_forecast WHERE version = '{working_forecast_version}'") \
+    .load()
 
 # COMMAND ----------
 
@@ -101,7 +112,8 @@ tables = [
   ['mdm.yield' , yield_],
   ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
   ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
-  ['mdm.iso_country_code_xref' , iso_country_code_xref]
+  ['mdm.iso_country_code_xref' , iso_country_code_xref],
+  ['prod.working_forecast' , working_forecast]
 ]
 
 for table in tables:
@@ -407,9 +419,8 @@ decay.display()
 
 # COMMAND ----------
 
-## yield at geography, base_prod_num level
 query = '''
-with rn as (
+with yield as (
 SELECT distinct 
 	y.record
     ,geography
@@ -421,28 +432,35 @@ SELECT distinct
   ,sup.size
   ,sup.supplies_family
   ,sup.supplies_group
-      ,value
-      ,effective_date
-      --,y.[active]
-      --,[active_at]
-      --,[inactive_at]
-      --y.[load_date]
-      ,version
-      --,[official]
-      --,[geography_grain]
+  ,value
+  ,effective_date
+  ,version as yield_version
+--  ,y.official ##need to ask
   ,ROW_NUMBER() over( partition by y.base_product_number, y.geography order by y.effective_date desc) as rn
-
   FROM mdm.yield as y
-  left join mdm.supplies_xref as sup on sup.base_product_number = y.base_product_number
-
-  where effective_date < (add_months('{}',-1))
-  --and sup.cartridge_alias = 'CEDELLA-CYN-910-A-N'
+  left join mdm.supplies_xref as sup on sup.base_product_number = y.base_product_number 
+  where effective_date < (add_months('{}',-1)) 
  )
-  select distinct Rn.*
-  from rn
-  where RN.rn = 1
-  order by rn.base_product_number, rn.effective_date
-
+ ,  yield_region as (
+  select distinct y.*
+  from yield y
+  where y.rn = 1
+  order by y.base_product_number
+  	, y.effective_date
+  	) 	
+	select yr.geography 
+		, yr.base_product_number
+		, shm.platform_subset
+		, shm.customer_engagement 
+		, value as value 
+		, iccx.country_alpha2
+	from yield_region yr
+	left join mdm.iso_country_code_xref iccx 
+		on yr.geography = iccx.region_5 
+	left join mdm.supplies_hw_mapping shm 
+		on yr.base_product_number = shm.base_product_number 
+		and yr.geography = shm.geography 
+	where shm.official = 1
 '''.format(start_ifs2_date)
 yield_ = spark.sql(query)
 yield_.createOrReplaceTempView("yield_")
@@ -454,21 +472,21 @@ yield_.display()
 # COMMAND ----------
 
 query = '''
-select geography
-        , platform_subset
-        , customer_engagement
-        , base_product_number
-        , cal_date
-        , ((avg(pgs_ccs_mix) * 3) ) as trade_split
-        , version
-from cartridge_demand_pages_ccs_mix
-group by version 
-        , platform_subset 
-        , geography 
-        , base_product_number 
-        , cal_date 
-        , customer_engagement
-'''
+select cal_date
+		, cdpcm.geography
+		, platform_subset
+		, base_product_number
+		, customer_engagement
+		, country_alpha2
+		, (pgs_ccs_mix * 3) as trade_split
+		, cdpcm.version
+from ifs2.cartridge_demand_pages_ccs_mix cdpcm
+left join mdm.iso_country_code_xref iccx
+on cdpcm.geography = iccx.market10
+where cdpcm.version = '{}'
+and cal_date between '{}' and '{}'
+
+'''.format(cartridge_demand_pages_ccs_mix_version , start_ifs2_date , end_ifs2_date)
 trade_split = spark.sql(query)
 trade_split.createOrReplaceTempView("trade_split")
 
@@ -478,6 +496,7 @@ trade_split.display()
 
 # COMMAND ----------
 
+##financail_forecast inputs
 query = '''
 select distinct fsb.record
 		, shm.platform_subset
@@ -510,11 +529,27 @@ fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
-fsb.display()
+query = '''
+select cal_date
+	, wf.geography as market10
+	, iccx.country_alpha2 
+	, platform_subset
+	, base_product_number
+	, customer_engagement
+	, vtc
+	, wf.version
+from working_forecast wf
+left join iso_country_code_xref iccx 
+	on wf.geography = iccx.market10 
+where wf.version = '{}'
+and cal_date between '{}' and '{}'
+'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
+vtc = spark.sql(query)
+vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
-fsb.count()
+vtc.display()
 
 # COMMAND ----------
 
