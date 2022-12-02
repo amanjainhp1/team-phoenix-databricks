@@ -40,6 +40,7 @@ DeleteJobs:
   - ink-usage-total
   - odw-document-currency
   - odw-revenue-unit
+  - supplies_finance_flash
   - table-creator
   - toner-share
   - toner-usage-color
