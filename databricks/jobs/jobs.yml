@@ -47,6 +47,7 @@ DeleteJobs:
   - norm-ships
   - odw-document-currency
   - odw-revenue-unit
+  - supplies_finance_flash
   - toner-share
   - toner-usage-color
   - toner-usage-total
