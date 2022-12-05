@@ -155,7 +155,7 @@ redshift_accounting_rates_records2.withColumn("effectivedate", redshift_accounti
 # COMMAND ----------
 
 # write the updated dataframe to the prod.acct_rates table
-write_df_to_redshift(configs, redshift_accounting_rates_records2, "prod.acct_rates", "overwrite")
+write_df_to_redshift(configs=configs, df=redshift_accounting_rates_records2, destination="prod.acct_rates", mode="append", preactions="TRUNCATE prod.acct_rates;")
 
 # COMMAND ----------
 
