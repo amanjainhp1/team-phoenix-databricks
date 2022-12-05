@@ -1092,6 +1092,7 @@ forecast_base_pl = spark.sql(forecast_base_pl)
 forecast_base_pl = forecast_base_pl.withColumn("load_date" , lit(None).cast(StringType())) \
                 .withColumn("version" , lit(None).cast(StringType()))
 write_df_to_redshift(configs, forecast_base_pl, "fin_stage.forecast_base_pl", "overwrite")
+forecast_base_pl.createOrReplaceTempView("forecast_base_pl")
 
 # COMMAND ----------
 
