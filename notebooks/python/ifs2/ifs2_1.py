@@ -351,7 +351,8 @@ select usiut.record
                 , usiut.market10
                 , iccx.country_alpha2
                 , usiut.platform_subset
-                , base_product_number
+                , shm.base_product_number
+                , crg_chrome
                 , usiut.customer_engagement
                 , hw_product_family
                 , COLOR_USAGE
@@ -369,6 +370,9 @@ select usiut.record
             and (region_5 = shm.geography)
             and usiut.customer_engagement = shm.customer_engagement
             and shm.official = 1
+            left join supplies_xref sx
+            on shm.base_product_number = sx.base_product_number
+            and sx.official = 1
 '''
 usage_share = spark.sql(query)
 usage_share.createOrReplaceTempView("usage_share")
@@ -380,49 +384,6 @@ usage_share.display()
 # COMMAND ----------
 
 usage_share.count()
-
-# COMMAND ----------
-
-query = '''
-select cal_date
-                , region_5
-                , market10
-                , country_alpha2
-                , platform_subset
-                , base_product_number
-                , customer_engagement
-                , version
-            from usage_share
-            where base_product_number is not null
-'''
-test1 = spark.sql(query)
-test1.count()
-
-# COMMAND ----------
-
-query = '''
-select cal_date
-                , market10
-                , country_alpha2
-                , platform_subset
-                , base_product_number
-                , customer_engagement
-                , count(sum_of_color_usage_till_date)
-                , count(sum_of_k_usage_till_date)
-                , version
-            from usage_share
-            group by 
-                cal_date
-                , market10
-                , country_alpha2
-                , platform_subset
-                , base_product_number
-                , customer_engagement
-                , version
-            having count(sum_of_color_usage_till_date) = 1
-'''
-test = spark.sql(query)
-test.display()
 
 # COMMAND ----------
 
@@ -588,6 +549,8 @@ SELECT distinct
 		, yr.base_product_number
 		, shm.platform_subset
 		, shm.customer_engagement 
+        , yr.crg_chrome
+        , yr.type
 		, value as value 
 		, iccx.country_alpha2
 	from yield_region yr
@@ -604,6 +567,84 @@ yield_.createOrReplaceTempView("yield_")
 # COMMAND ----------
 
 yield_.display()
+
+# COMMAND ----------
+
+yield_.filter(col('value').isNull()).count()
+
+# COMMAND ----------
+
+query = '''
+select geography, platform_subset, base_product_number, customer_engagement, crg_chrome, value as host_yield, country_alpha2
+from yield_
+where type in ('HOST','TRADE/HOST')
+
+'''
+host_yield = spark.sql(query)
+host_yield.createOrReplaceTempView("host_yield")
+
+
+# COMMAND ----------
+
+host_yield.count()
+
+# COMMAND ----------
+
+## platform subsets present in usage share but not in host yield
+query = '''
+select distinct platform_subset
+from ink_usage_share_sum_till_date iusstd
+where platform_subset not in (select distinct platform_subset from host_yield)
+
+'''
+spark.sql(query).display()
+
+# COMMAND ----------
+
+## platform subsets present in usage share with hosts
+query = '''
+
+select distinct platform_subset
+from ink_usage_share_sum_till_date iusstd
+where platform_subset in (select distinct platform_subset from host_yield)
+
+'''
+spark.sql(query).display()
+
+# COMMAND ----------
+
+## platform subsets with multiple hosts
+query = '''
+
+select distinct platform_subset from
+(
+    select geography, platform_subset, crg_chrome, count(base_product_number), country_alpha2, customer_engagement
+    from host_yield
+    group by geography, platform_subset, crg_chrome, country_alpha2, customer_engagement
+    having count(base_product_number) > 1
+)
+
+'''
+spark.sql(query).display()
+
+# COMMAND ----------
+
+test2.display()
+
+# COMMAND ----------
+
+query = '''
+select distinct platform_subset
+from usage_share
+where record = 'INK'
+
+'''
+test3 = spark.sql(query)
+test3.count()
+
+# COMMAND ----------
+
+usage_share_hostYield.groupby("country_alpha2","platform_subset","crg_chrome","customer_engagement").sum("host_yield").display()
 
 # COMMAND ----------
 
