@@ -3040,7 +3040,11 @@ iink_country.createOrReplaceTempView("iink_country")
 itp_units_ibp = f"""    
 SELECT 
     cal_date,
-    market10,
+    CASE
+        WHEN market10 = 'CENTRAL AND EASTERN EUROPE'
+        THEN 'CENTRAL EUROPE'
+        ELSE market10
+    END AS market10,
     sales_product as sales_product_number,
     sum(units) as revenue_units
 FROM itp_laser_landing
