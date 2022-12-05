@@ -35,7 +35,7 @@ tables = [
 # COMMAND ----------
 
 combined = spark.sql("""
-    SELECT 'working_forecast_toner' AS record
+    SELECT 'WORKING_FORECAST_TONER' AS record
         , wft.cal_date
         , wft.geography_grain
         , wft.geography
@@ -45,7 +45,7 @@ combined = spark.sql("""
         , wft.cartridges
         , wft.channel_fill
         , wft.supplies_spares_cartridges
-        --, 0.0 AS host_cartridges
+        , 0.0 AS host_cartridges
         --, 0.0 AS welcome_kits
         , wft.expected_cartridges
         , wft.vtc
@@ -54,7 +54,7 @@ combined = spark.sql("""
 
     UNION ALL
 
-    SELECT 'working_forecast_ink' AS record
+    SELECT 'WORKING_FORECAST_INK' AS record
         , wfi.cal_date
         , wfi.geography_grain
         , wfi.geography
@@ -64,7 +64,7 @@ combined = spark.sql("""
         , wfi.cartridges
         , wfi.channel_fill
         , wfi.supplies_spares_cartridges
-        --, wfi.host_cartridges
+        , 0.0 AS host_cartridges
         --, wfi.welcome_kits
         , wfi.expected_cartridges
         , wfi.vtc

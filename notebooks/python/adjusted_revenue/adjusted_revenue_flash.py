@@ -1296,4 +1296,8 @@ for table in tables:
 
 # COMMAND ----------
 
+spark.sql('GRANT ALL ON fin_prod.adjusted_revenue_flash TO GROUP redshift_dev_group;')
+
+# COMMAND ----------
+
 

@@ -7,7 +7,7 @@
 
 # MAGIC %md
 # MAGIC 
-# MAGIC ## GLobal Variables
+# MAGIC ## Global Variables
 
 # COMMAND ----------
 
