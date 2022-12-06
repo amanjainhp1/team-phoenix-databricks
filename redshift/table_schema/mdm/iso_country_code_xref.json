@@ -114,6 +114,13 @@
       "encode": "lzo"
     },
     {
+      "description": "market8",
+      "name": "market8",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
       "description": "market10",
       "name": "market10",
       "type": "VARCHAR(50)",
@@ -123,6 +130,13 @@
     {
       "description": "developed_emerging",
       "name": "developed_emerging",
+      "type": "VARCHAR(50)",
+      "nullable": true,
+      "encode": "lzo"
+    },
+    {
+      "description": "embargoed_sanctioned_flag",
+      "name": "embargoed_sanctioned_flag",
       "type": "VARCHAR(50)",
       "nullable": true,
       "encode": "lzo"
