@@ -462,7 +462,7 @@ SELECT
     , ns.units AS units
     , getdate() as load_date
     , 'staging' as version
-FROM ib_04_units_ce_splits_pre ns
+FROM stage.ib_04_units_ce_splits_pre ns
 WHERE 1=1
 
 """

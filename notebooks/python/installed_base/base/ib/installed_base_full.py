@@ -107,10 +107,6 @@ query_list.append(["stage.ib_staging_inputs", ib_staging_inputs, "overwrite"])
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 hw_decay = """
 
 WITH ib_01_filter_vars as (
