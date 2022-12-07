@@ -854,8 +854,9 @@ all_baseprod_with_platform_subsets.createOrReplaceTempView("all_baseprod_with_pl
 baseprod_financials_preplanet_table = f"""
 SELECT
     cal_date,
-    country_alpha2,
-    market10,
+    bp.country_alpha2,
+    bp.market10,
+    market8,
     platform_subset,
     base_product_number,
     bp.pl,
@@ -876,7 +877,9 @@ SELECT
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM all_baseprod_with_platform_subsets AS bp
 JOIN product_line_xref AS plx ON bp.pl = plx.pl
-GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, l5_description
+JOIN iso_country_code_xref AS iso ON iso.country_alpha2 = bp.country_alpha2
+WHERE market8 is not null
+GROUP BY cal_date, bp.country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, bp.market10, l5_description, market8
 """
 
 baseprod_financials_preplanet_table = spark.sql(baseprod_financials_preplanet_table)

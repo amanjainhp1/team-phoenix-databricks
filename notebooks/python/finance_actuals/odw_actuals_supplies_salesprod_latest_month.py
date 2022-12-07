@@ -1801,6 +1801,7 @@ SELECT
     cal_date,
     sp.country_alpha2,
     region_5,
+    market8,
     pl,
     sales_product_number,
     COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
@@ -1808,13 +1809,13 @@ SELECT
     COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
     COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
     COALESCE(SUM(warranty), 0) AS warranty,
-    COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units),0) AS revenue_units
 FROM supplies_findata_emea_adjusted AS sp 
 JOIN iso_country_code_xref AS geo ON (sp.country_alpha2 = geo.country_alpha2)
 WHERE region_5 IN ('AP', 'EU', 'JP', 'LA', 'NA', 'XW')
-GROUP BY cal_date, sp.country_alpha2, pl, sales_product_number, region_5
+AND market8 is not null
+GROUP BY cal_date, sp.country_alpha2, pl, sales_product_number, region_5, market8
 """
 
 all_salesprod_region5 = spark.sql(all_salesprod_region5)
@@ -6327,6 +6328,34 @@ xcode_adjusted_data2 = spark.sql(xcode_adjusted_data2)
 xcode_adjusted_data2.createOrReplaceTempView("xcode_adjusted_data2")
 
             
+xcode_adjusted_data3 = f"""
+SELECT
+    cal_date,
+    xad.country_alpha2,
+    currency,
+    iso.region_5,
+    market8,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM xcode_adjusted_data2 xad
+JOIN iso_country_code_xref iso
+    ON iso.country_alpha2 = xad.country_alpha2
+WHERE market8 is not null
+GROUP BY cal_date, xad.country_alpha2, pl, sales_product_number, ce_split, currency, iso.region_5, market8
+"""
+
+xcode_adjusted_data3 = spark.sql(xcode_adjusted_data3)
+xcode_adjusted_data3.createOrReplaceTempView("xcode_adjusted_data3")
+
+
 salesprod_preplanet_with_currency_map1 = f"""
 SELECT
     cal_date,
@@ -6347,7 +6376,7 @@ SELECT
     SUM(other_cos) * -1 AS other_cos,
     SUM(total_cos) * -1 AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM xcode_adjusted_data2
+FROM xcode_adjusted_data3
 WHERE 1=1
 AND total_sums <> 0
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
