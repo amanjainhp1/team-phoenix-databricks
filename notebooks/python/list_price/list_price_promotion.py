@@ -97,9 +97,9 @@ dateTimeStr = str(load_date)
 
 # write to parquet file in s3
 
-s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "spectrum/list_price_filtered_historical/" + dateTimeStr[:10]
+s3_list_price_output_bucket = constants["S3_BASE_BUCKET"][stack] + "spectrum/list_price_filtered_historical/" + dateTimeStr[:10]
 
-write_df_to_s3(list_price_filtered, s3_ib_output_bucket, "parquet", "overwrite")
+write_df_to_s3(list_price_filtered, s3_list_price_output_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
