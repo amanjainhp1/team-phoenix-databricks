@@ -91,6 +91,18 @@ query_list.append(["fin_prod.list_price_filtered", list_price_filtered, "append"
 
 # COMMAND ----------
 
+load_date = list_price_filtered.select('load_date').distinct().head()[0]
+
+dateTimeStr = str(load_date)
+
+# write to parquet file in s3
+
+s3_ib_output_bucket = constants["S3_BASE_BUCKET"][stack] + "spectrum/list_price_filtered_historical/" + dateTimeStr[:10]
+
+write_df_to_s3(list_price_filtered, s3_ib_output_bucket, "parquet", "overwrite")
+
+# COMMAND ----------
+
 submit_remote_query(configs , '''truncate table fin_prod.forecast_gru_sales_to_base''')
 
 # COMMAND ----------
