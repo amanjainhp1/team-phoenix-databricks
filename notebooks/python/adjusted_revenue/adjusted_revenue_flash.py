@@ -56,7 +56,8 @@ adj_rev_data = spark.sql("""
 with adjusted_revenue_staging as
          (select fiscal_year_qtr,
                  fiscal_yr,
-                 ar.market10,
+                 geography,
+                 geography_grain,
                  'NON-HQ'                          as hq_flag,
                  pl,
                  accounting_rate,
@@ -85,14 +86,16 @@ with adjusted_revenue_staging as
                          and pl not in ('GY', 'LZ'))
           group by fiscal_year_qtr,
                    fiscal_yr,
-                   ar.market10,
+                   geography,
+                   geography_grain,
                    pl,
                    accounting_rate)
 
 select 'ACTUALS'                   as record_description,
        fiscal_year_qtr,
        fiscal_yr,
-       market10,
+       geography,
+       geography_grain,
        hq_flag,
        pl,
        accounting_rate,
@@ -107,7 +110,8 @@ select 'ACTUALS'                   as record_description,
 from adjusted_revenue_staging
 group by fiscal_year_qtr,
          fiscal_yr,
-         market10,
+         geography,
+         geography_grain,
          hq_flag,
          pl,
          accounting_rate
@@ -121,7 +125,7 @@ flash_data = spark.sql("""
 with supplies_flash as
          (select fiscal_year_qtr,
                  fiscal_yr,
-                 market                                                as market10,
+                 market                                                as geography,
                  hq_flag,
                  pl,
                  sum(net_revenue)                                      as reported_revenue,
@@ -152,7 +156,7 @@ with supplies_flash as
 select 'FLASH' as record_description,
         fiscal_year_qtr,
         fiscal_yr,
-        market10,
+        geography,
         hq_flag,
         pl,
         sum(reported_revenue)       as reported_revenue,
@@ -167,7 +171,7 @@ select 'FLASH' as record_description,
 from supplies_flash
 group by fiscal_year_qtr,
     fiscal_yr,
-    market10,
+    geography,
     hq_flag,
     pl
 """)
@@ -189,7 +193,7 @@ with quarters as
         ,
      flash_markets as
          (select distinct fiscal_year_qtr,
-                          market  as    market10,
+                          market  as    geography,
                           case
                               when market = 'EMEA' then 'EMEA'
                               when market = 'APJ HQ' then 'APJ'
@@ -202,17 +206,17 @@ with quarters as
                               end as    region_5,
                           pl,
                           case
-                              when market in ('APJ HQ', 'AMS HQ') then 'HQ'
+                              when market in ('APJ HQ', 'AMS HQ', 'AMERICAS HQ') then 'HQ'
                               else 'NON-HQ'
                               end as    hq_flag,
                           max(cal_date) over (partition by market, pl order by pl) as max_cal_date
           from fin_prod.supplies_finance_flash
-          where market in ('AMS HQ', 'APJ HQ', 'EMEA', 'WORLD WIDE')
+          where market in ('AMS HQ', 'APJ HQ', 'EMEA', 'WORLD WIDE', 'AMERICAS HQ')
             and version = (select max(version) from fin_prod.supplies_finance_flash))
         ,
      dummy_flash_mkt_history as
          (select distinct q.fiscal_year_qtr,
-                          market10,
+                          geography,
                           region_3,
                           region_5,
                           hq_flag,
@@ -227,7 +231,7 @@ with quarters as
      final_dummy_history as
          (select dmy.fiscal_year_qtr,
                  fiscal_yr,
-                 market10,
+                 geography,
                  region_3,
                  region_5,
                  hq_flag,
@@ -247,11 +251,11 @@ with quarters as
                                             where net_revenue <> 0
                                               and version = (select max(version)
                                                              from fin_prod.supplies_finance_flash))
-          group by dmy.fiscal_year_qtr, market10, region_3, region_5, hq_flag, dmy.pl, fiscal_yr)
+          group by dmy.fiscal_year_qtr, geography, region_3, region_5, hq_flag, dmy.pl, fiscal_yr)
 
 select fiscal_year_qtr,
        fiscal_yr,
-       market10,
+       geography,
        hq_flag,
        pl,
        'FLASH'                     as record_description,
@@ -266,7 +270,7 @@ select fiscal_year_qtr,
 from final_dummy_history
 group by fiscal_year_qtr,
          fiscal_yr,
-         market10,
+         geography,
          hq_flag,
          pl
 """)
@@ -278,7 +282,7 @@ zero_history_data.createOrReplaceTempView("zero_history_data")
 cbm_ci_data = spark.sql("""
 with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet or "stock" item
          (select fiscal_year_qtr,
-                 ar.market10,
+                 ar.geography,
                  pl,
                  sum(inventory_usd) as ci_dollars
           from fin_prod.adjusted_revenue_salesprod ar
@@ -289,11 +293,11 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
             and version = (select max(version) from fin_prod.adjusted_revenue_salesprod)
             and fiscal_month in ('3.0', '6.0', '9.0', '12.0') -- dropping to get end of quarter balance
           group by fiscal_year_qtr,
-                   ar.market10,
+                   ar.geography,
                    pl),
      ci_inventory_unadjusted as
          (select fiscal_year_qtr,
-                 market10,
+                 geography,
                  pl,
                  sum(ci_dollars) as ci_dollars
           from adjusted_revenue_staging_ci_inventory_balance
@@ -301,11 +305,11 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                            from mdm.product_line_xref
                            where pl_category = 'SUP'
                              and technology in ('INK', 'PWA'))
-             or market10 not in ('LATIN AMERICA', 'NORTH AMERICA')
-          group by fiscal_year_qtr, market10, pl),
+             or geography not in ('LATIN AMERICA', 'NORTH AMERICA')
+          group by fiscal_year_qtr, geography, pl),
      ci_inventory_ams_post_adustment_period as
          (select fiscal_year_qtr,
-                 market10,
+                 geography,
                  pl,
                  sum(ci_dollars) as ci_dollars
           from adjusted_revenue_staging_ci_inventory_balance
@@ -313,9 +317,9 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                        from mdm.product_line_xref
                        where pl_category = 'SUP'
                          and technology in ('INK', 'PWA'))
-            and market10 in ('LATIN AMERICA', 'NORTH AMERICA')
+            and geography in ('LATIN AMERICA', 'NORTH AMERICA')
             and fiscal_year_qtr > '2021Q1'
-          group by fiscal_year_qtr, market10, pl),
+          group by fiscal_year_qtr, geography, pl),
      cbm_st_database2 as
          (select case
                      when data_type = 'ACTUALS' then 'ACTUALS - CBM_ST_BASE_QTY'
@@ -356,7 +360,7 @@ group by data_type, month, country_code, product_number, product_line_id, partne
     cbm_quarterly as
     (
 select cal_date,
-    market10,
+    market8 as geography,
     pl,
     fiscal_year_qtr,
     sum (channel_inventory_usd) as channel_inventory_usd
@@ -371,72 +375,74 @@ where day_of_month = 1
     , '12.0')
   and region_3 = 'AMS'
   and fiscal_year_qtr <= '2021Q1'
-group by fiscal_year_qtr, cal_date, market10, pl),
+  and market8 is not null
+group by fiscal_year_qtr, cal_date, market8, pl),
     americas_ink_media as
     (
 select fiscal_year_qtr,
     cal_date,
-    market10,
+    geography,
     pl,
     sum (channel_inventory_usd) as ci_usd,
     sum (channel_inventory_usd * 0.983) as finance_ink_ci
 from cbm_quarterly
-group by cal_date, market10, fiscal_year_qtr, pl),
+group by cal_date, geography, fiscal_year_qtr, pl),
     americas_ink_media2 as
     (
 select fiscal_year_qtr,
     cal_date,
-    market10,
+    geography,
     case
     when pl = 'AU' then '1N'
     else pl
     end as pl,
     sum (finance_ink_ci) as ci_dollars
 from americas_ink_media
-group by cal_date, market10, fiscal_year_qtr, pl),
+group by cal_date, geography, fiscal_year_qtr, pl),
     ci_inventory_adjusted as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     coalesce (sum (ci_dollars), 0) as ci_dollars
 from americas_ink_media2
-group by fiscal_year_qtr, market10, pl),
+group by fiscal_year_qtr, geography, pl),
     ci_inventory_fully_adjusted as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_unadjusted
-group by fiscal_year_qtr, market10, pl
+group by fiscal_year_qtr, geography, pl
 
 union all
 
 select fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_ams_post_adustment_period
-group by fiscal_year_qtr, market10, pl
+group by fiscal_year_qtr, geography, pl
 
 union all
 
 select fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_adjusted
-group by fiscal_year_qtr, market10, pl),
+group by fiscal_year_qtr, geography, pl),
     region_table as
     (
-select distinct market10, region_3
+select distinct market8 as geography, region_3
 from mdm.iso_country_code_xref
-where region_3 is not null)
+where region_3 is not null
+    and market8 is not null)
     , ci_inventory_fully_adjusted2 as
     (
 select fiscal_year_qtr,
-    ci.market10,
+    ci.geography,
     region_3,
     ci.pl,
     technology,
@@ -444,12 +450,12 @@ select fiscal_year_qtr,
 from ci_inventory_fully_adjusted ci
     left join mdm.product_line_xref plx
 on ci.pl = plx.pl
-    left join region_table iso on iso.market10 = ci.market10
-group by fiscal_year_qtr, ci.market10, ci.pl, technology, region_3),
+    left join region_table iso on iso.geography = ci.geography
+group by fiscal_year_qtr, ci.geography, ci.pl, technology, region_3),
     ci_inventory_fully_adjusted3 as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     case
@@ -458,11 +464,11 @@ select fiscal_year_qtr,
     end as technology,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_fully_adjusted2
-group by fiscal_year_qtr, market10, pl, technology, region_3),
+group by fiscal_year_qtr, geography, pl, technology, region_3),
     ci_inventory_fully_adjusted4 as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
@@ -471,30 +477,30 @@ from ci_inventory_fully_adjusted3
 where region_3 <> 'EMEA'
    or technology <> 'INK'
    or fiscal_year_qtr <> '2018Q2'
-group by fiscal_year_qtr, market10, pl, technology, region_3),
-    market10_ci_mix as
+group by fiscal_year_qtr, geography, pl, technology, region_3),
+    market_ci_mix as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
     case
     when sum (ci_dollars) over (partition by fiscal_year_qtr, region_3, technology) = 0 then null
     else ci_dollars / sum (ci_dollars) over (partition by fiscal_year_qtr, region_3, technology)
-    end as market10_mix
+    end as market_mix
 from ci_inventory_fully_adjusted3 ci
-group by fiscal_year_qtr, market10, pl, technology, region_3, ci_dollars),
-    market10_ci_mix2 as
+group by fiscal_year_qtr, geography, pl, technology, region_3, ci_dollars),
+    market_ci_mix2 as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
-    coalesce (sum (market10_mix), 0) as market10_mix
-from market10_ci_mix
-group by fiscal_year_qtr, market10, pl, technology, region_3),
+    coalesce (sum (market_mix), 0) as market_mix
+from market_ci_mix
+group by fiscal_year_qtr, geography, pl, technology, region_3),
     finance_source_ci as
     (
 select fiscal_year_qtr,
@@ -510,24 +516,24 @@ group by fiscal_year_qtr, region_3, technology),
     finance_official_ci as
     (
 select ci.fiscal_year_qtr,
-    market10,
+    geography,
     ci.region_3,
     pl,
     ci.technology,
-    sum (finance_reported_ci * coalesce (market10_mix, 0)) as ci_dollars
+    sum (finance_reported_ci * coalesce (market_mix, 0)) as ci_dollars
 from finance_source_ci ci
-    left join market10_ci_mix2 mix
+    left join market_ci_mix2 mix
 on
     ci.fiscal_year_qtr = mix.fiscal_year_qtr and
     ci.region_3 = mix.region_3 and
     ci.technology = mix.technology
 where 1 = 1
-  and market10 is not null
-group by ci.fiscal_year_qtr, ci.region_3, ci.technology, pl, market10),
+  and geography is not null
+group by ci.fiscal_year_qtr, ci.region_3, ci.technology, pl, geography),
     finance_official_ci2 as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
@@ -535,33 +541,33 @@ select fiscal_year_qtr,
 from finance_official_ci
 where 1 = 1
   and ci_dollars <> 0
-group by fiscal_year_qtr, region_3, technology, pl, market10),
+group by fiscal_year_qtr, region_3, technology, pl, geography),
     final_official_ci as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
     sum (ci_dollars) as ci_dollars
 from finance_official_ci2
-group by fiscal_year_qtr, region_3, technology, pl, market10
+group by fiscal_year_qtr, region_3, technology, pl, geography
 
 union all
 
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_fully_adjusted4
 where fiscal_year_qtr > '2017Q4'
-group by fiscal_year_qtr, region_3, technology, pl, market10),
+group by fiscal_year_qtr, region_3, technology, pl, geography),
     final_official_ci2 as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     region_3,
     pl,
     technology,
@@ -572,14 +578,14 @@ where fiscal_year_qtr not in (select distinct fiscal_year_qtr
     where net_revenue <> 0
   and version =
     (select max (version) from fin_prod.supplies_finance_flash))
-group by fiscal_year_qtr, region_3, technology, pl, market10)
+group by fiscal_year_qtr, region_3, technology, pl, geography)
 select fiscal_year_qtr,
-       market10,
+       geography,
        pl,
        'ACTUALS'       as record_description,
        sum(ci_dollars) as cbm_ci_dollars
 from final_official_ci2
-group by fiscal_year_qtr, market10, pl
+group by fiscal_year_qtr, geography, pl
 """)
 
 cbm_ci_data.createOrReplaceTempView("cbm_ci_data")
@@ -590,7 +596,7 @@ combined_adj_rev_flash_data = spark.sql("""
 with adjusted_revenue_flash as
          (select fiscal_year_qtr,
                  fiscal_yr,
-                 market10,
+                 geography,
                  hq_flag,
                  pl,
                  record_description,
@@ -606,7 +612,7 @@ with adjusted_revenue_flash as
           from adjusted_revenue_data
           group by fiscal_year_qtr,
                    fiscal_yr,
-                   market10,
+                   geography,
                    hq_flag,
                    record_description,
                    pl
@@ -615,7 +621,7 @@ with adjusted_revenue_flash as
 
           select fiscal_year_qtr,
                  fiscal_yr,
-                 market10,
+                 geography,
                  hq_flag,
                  pl,
                  record_description,
@@ -631,7 +637,7 @@ with adjusted_revenue_flash as
           from flash_data
           group by fiscal_year_qtr,
                    fiscal_yr,
-                   market10,
+                   geography,
                    hq_flag,
                    record_description,
                    pl
@@ -640,7 +646,7 @@ with adjusted_revenue_flash as
 
           select fiscal_year_qtr,
                  fiscal_yr,
-                 market10,
+                 geography,
                  hq_flag,
                  pl,
                  record_description,
@@ -656,7 +662,7 @@ with adjusted_revenue_flash as
           from zero_history_data
           group by fiscal_year_qtr,
                    fiscal_yr,
-                   market10,
+                   geography,
                    hq_flag,
                    record_description,
                    pl
@@ -665,7 +671,7 @@ with adjusted_revenue_flash as
 
           select cbm.fiscal_year_qtr,
                  fiscal_yr,
-                 market10,
+                 geography,
                  'NON-HQ'            as hq_flag,
                  pl,
                  record_description,
@@ -686,14 +692,14 @@ with adjusted_revenue_flash as
             and fiscal_month in ('3.0', '6.0', '9.0', '12.0')
           group by cbm.fiscal_year_qtr,
                    fiscal_yr,
-                   market10,
+                   geography,
                    record_description,
                    pl),
      adjusted_revenue_flash2 as
          (select cal.date                                 as cal_date,
                  arf.fiscal_year_qtr,
                  arf.fiscal_yr,
-                 market10,
+                 geography,
                  hq_flag,
                  pl,
                  record_description,
@@ -715,7 +721,7 @@ with adjusted_revenue_flash as
           group by cal.date,
                    arf.fiscal_year_qtr,
                    arf.fiscal_yr,
-                   market10,
+                   geography,
                    hq_flag,
                    record_description,
                    pl)
@@ -723,7 +729,7 @@ with adjusted_revenue_flash as
 select cal_date,
        fiscal_year_qtr,
        fiscal_yr,
-       market10,
+       geography,
        hq_flag,
        pl,
        record_description,
@@ -740,7 +746,7 @@ from adjusted_revenue_flash2
 group by cal_date,
          fiscal_year_qtr,
          fiscal_yr,
-         market10,
+         geography,
          hq_flag,
          record_description,
          pl
@@ -765,7 +771,7 @@ where day_of_month = 1
     (
 select cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -786,7 +792,7 @@ from combined_adj_rev_flash_data)
     (
 select distinct d.cal_date,
     d.fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     hq_flag
 from date_helper d
@@ -797,7 +803,7 @@ where d.cal_date between ar.min_cal_date
     (
 select c.cal_date,
     coalesce (c.fiscal_year_qtr, s.fiscal_year_qtr) as fiscal_year_qtr,
-    coalesce (c.market10, s.market10) as market10,
+    coalesce (c.geography, s.geography) as geography,
     coalesce (c.pl, s.pl) as pl,
     coalesce (c.hq_flag, s.hq_flag) as hq_flag,
     reported_revenue,
@@ -815,14 +821,14 @@ from yoy_full_cross_join c
 on
     c.cal_date = s.cal_date and
     c.fiscal_year_qtr = s.fiscal_year_qtr and
-    c.market10 = s.market10 and
+    c.geography = s.geography and
     c.pl = s.pl and
     c.hq_flag = s.hq_flag)
     , fill_gap2 as
     (
 select cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -835,16 +841,16 @@ select cal_date,
     coalesce (sum (ci_currency_impact), 0) as ci_currency_impact,
     coalesce (sum (total_inventory_impact), 0) as total_inventory_impact,
     coalesce (sum (adjusted_revenue), 0) as adjusted_revenue,
-    min (cal_date) over (partition by market10, pl order by cal_date) as min_cal_date
+    min (cal_date) over (partition by geography, pl order by cal_date) as min_cal_date
 from fill_gap1
 where 1=1
 and fiscal_year_qtr in (select distinct fiscal_year_qtr from adjusted_revenue_data)
-group by cal_date, fiscal_year_qtr, market10, pl, record_description, hq_flag)
+group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag)
 , fill_gap3 as
     (
 select cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -857,16 +863,16 @@ select cal_date,
     coalesce (sum (ci_currency_impact), 0) as ci_currency_impact,
     coalesce (sum (total_inventory_impact), 0) as total_inventory_impact,
     coalesce (sum (adjusted_revenue), 0) as adjusted_revenue,
-    min (cal_date) over (partition by market10, pl order by cal_date) as min_cal_date
+    min (cal_date) over (partition by geography, pl order by cal_date) as min_cal_date
 from fill_gap1
 where 1=1
 and fiscal_year_qtr in (select distinct fiscal_year_qtr from flash_data)
-group by cal_date, fiscal_year_qtr, market10, pl, record_description, hq_flag)
+group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag)
 , fill_gap4 as
     (
 select cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     'ACTUALS' as record_description,
     hq_flag,
@@ -886,7 +892,7 @@ union all
 
 select cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     'FLASH' as record_description,
     hq_flag,
@@ -906,7 +912,7 @@ from fill_gap3)
 select cal_date,
     min_cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -920,14 +926,14 @@ select cal_date,
     total_inventory_impact,
     adjusted_revenue,
     case when min_cal_date < cast (current_date () - day (current_date ()) + 1 as date) then 1 else 0 end as actuals_flag,
-    count (cal_date) over (partition by market10, pl
+    count (cal_date) over (partition by geography, pl
     order by cal_date rows between unbounded preceding and current row) as running_count
 from fill_gap4)
         , adjusted_revenue_full_calendar as
     (
 select cal_date,
     fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -941,11 +947,11 @@ select cal_date,
     coalesce (sum (total_inventory_impact), 0) as total_inventory_impact,
     coalesce (sum (adjusted_revenue), 0) as adjusted_revenue
 from adjusted_rev_staging_time_series ar
-group by cal_date, market10, pl, fiscal_year_qtr, record_description, hq_flag)
+group by cal_date, geography, pl, fiscal_year_qtr, record_description, hq_flag)
         , adjusted_revenue_quarterly as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -959,11 +965,11 @@ select fiscal_year_qtr,
     sum (total_inventory_impact) as total_inventory_impact,
     sum (adjusted_revenue) as adjusted_revenue
 from adjusted_revenue_full_calendar
-group by fiscal_year_qtr, market10, pl, record_description, hq_flag)
+group by fiscal_year_qtr, geography, pl, record_description, hq_flag)
         , adjusted_revenue_staging_lagged as
     (
 select fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag,
@@ -977,41 +983,41 @@ select fiscal_year_qtr,
     sum (total_inventory_impact) as total_inventory_impact,
     sum (adjusted_revenue) as adjusted_revenue,
     lag(coalesce (sum (reported_revenue), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as prior_yr_rept_revenue,      -- needs to be a full year lag
     lag(coalesce (sum (hedge), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as prior_yr_hedge,
     lag(coalesce (sum (currency), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as prior_yr_currency,
     lag(coalesce (sum (revenue_in_cc), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as prior_yr_revenue_in_cc,
     lag(coalesce (sum (inventory_change), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as inventory_change_prior_year,
     lag(coalesce (sum (ci_currency_impact), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as ci_currency_impact_prior_year,
     lag(coalesce (sum (total_inventory_impact), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as total_inventory_impact_prior_year,
     lag(coalesce (sum (adjusted_revenue), 0), 4) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as adjusted_revenue_prior_year,
     lag(coalesce (sum (cbm_ci_dollars), 0), 1) over
-    (partition by market10, pl
+    (partition by geography, pl
     order by fiscal_year_qtr) as cbm_ci_dollars_prior_period -- prior period (a.k.a., quarter) lag
 from adjusted_revenue_quarterly
 group by fiscal_year_qtr,
-    market10,
+    geography,
     pl,
     record_description,
     hq_flag)
 
 select fiscal_year_qtr,
-       market10,
+       geography,
        ar.pl,
        ar.record_description,
        hq_flag,
@@ -1037,7 +1043,7 @@ select fiscal_year_qtr,
        coalesce(sum(cbm_ci_dollars_prior_period), 0)       as cbm_ci_dollars_prior_period
 from adjusted_revenue_staging_lagged ar
 group by fiscal_year_qtr,
-         market10,
+         geography,
          ar.pl,
          record_description,
          hq_flag
@@ -1060,15 +1066,20 @@ where day_of_month = 1
     , '12.0'))
     , region_mappings as
     (
-select distinct market10, region_3, region_5
+select distinct market8 as geography, region_3, region_5
 from mdm.iso_country_code_xref
 where 1 = 1
   and region_3 is not null
   and region_5 <> 'JP'
-  and region_5 <> 'XU')
+  and region_5 <> 'XU'
+  and market8 is not null)
     , accounting_rate_applied as
     (
 select distinct accounting_rate
+from adjusted_revenue_data)
+        , market_applied as
+    (
+select distinct geography_grain
 from adjusted_revenue_data)
         ,
     adjusted_revenue_flash_full_data as
@@ -1077,7 +1088,7 @@ select record_description,
     cal.date as cal_date,
     mdb.fiscal_year_qtr,
     fiscal_yr,
-    mdb.market10,
+    mdb.geography,
     hq_flag,
     mdb.pl,
     l5_description,
@@ -1103,7 +1114,7 @@ select record_description,
 from adjusted_revenue_flash_lagged2 mdb
     left join mdm.calendar cal
 on mdb.fiscal_year_qtr = cal.fiscal_year_qtr
-    left join region_mappings iso on mdb.market10 = iso.market10
+    left join region_mappings iso on mdb.geography = iso.geography
     left join mdm.product_line_xref plx on plx.pl = mdb.pl
 where 1 = 1
   and day_of_month = 1
@@ -1113,7 +1124,7 @@ where 1 = 1
     , '12.0')
 group by cal.date,
     mdb.fiscal_year_qtr,
-    mdb.market10,
+    mdb.geography,
     hq_flag,
     mdb.pl,
     fiscal_yr,
@@ -1127,27 +1138,28 @@ select 'ADJUSTED REVENUE PLUS FLASH'                                            
        fiscal_year_qtr,
        fiscal_yr,
        case
-           when market10 = 'WORLD WIDE' then 'OTHER GEO'
-           when market10 = 'EMEA' then 'EMEA CO'
-           else market10
-           end                                                                     as market10,
+           when geography = 'WORLD WIDE' then 'OTHER GEO'
+           when geography = 'EMEA' then 'EMEA CO'
+           else geography
+           end                                                                     as geography,
+       (select geography_grain from market_applied)                                as geography_grain,
        case
-           when market10 in ('EMEA', 'CENTRAL EUROPE', 'ISE', 'NORTHERN EUROPE', 'SOUTHERN EUROPE', 'UK&I')
+           when geography in ('EMEA', 'CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA')
                then 'EMEA'
-           when market10 in ('APJ HQ', 'INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') then 'APJ'
-           when market10 in ('AMS HQ', 'LATIN AMERICA', 'NORTH AMERICA') then 'AMS'
+           when geography in ('APJ HQ', 'INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') then 'APJ'
+           when geography in ('AMS HQ', 'LATIN AMERICA', 'NORTH AMERICA', 'AMERICAS HQ') then 'AMS'
            else 'WW'
            end                                                                     as region_3,
        case
-           when market10 in ('EMEA', 'CENTRAL EUROPE', 'ISE', 'NORTHERN EUROPE', 'SOUTHERN EUROPE', 'UK&I')
+           when geography in ('EMEA', 'CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA')
                then 'EU'
-           when market10 in ('APJ HQ', 'INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') then 'AP'
-           when market10 in ('AMS HQ', 'NORTH AMERICA') then 'NA'
-           when market10 = 'LATIN AMERICA' then 'LA'
+           when geography in ('APJ HQ', 'INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') then 'AP'
+           when geography in ('AMS HQ', 'NORTH AMERICA', 'AMERICAS HQ') then 'NA'
+           when geography = 'LATIN AMERICA' then 'LA'
            else 'XW'
            end                                                                     as region_5,
        case
-           when market10 in ('APJ HQ', 'AMS HQ') then 'HQ'
+           when geography in ('APJ HQ', 'AMS HQ', 'AMERICAS HQ') then 'HQ'
            else 'NON-HQ'
            end                                                                     as hq_flag,
        pl,
@@ -1193,7 +1205,7 @@ from adjusted_revenue_flash_full_data
 group by record_description,
          cal_date,
          fiscal_year_qtr,
-         market10,
+         geography,
          pl,
          l5_description,
          technology,
@@ -1210,7 +1222,8 @@ select record,
        cal_date,
        fiscal_year_qtr,
        fiscal_yr,
-       market10,
+       geography,
+       geography_grain,
        region_3,
        region_5,
        hq_flag,
@@ -1236,7 +1249,7 @@ select record,
        sum(total_ci_change_prior_year)    as total_ci_change_prior_year,
        sum(adjusted_revenue_prior_year)   as adjusted_revenue_prior_year,
        sum(cbm_ci_dollars_prior_quarter)  as cbm_ci_dollars_prior_quarter,
-       1                                  as official,
+       CAST(1 AS BOOLEAN)                 as official,
        load_date,
        version
 from adjusted_revenue_flash_output
@@ -1244,7 +1257,8 @@ group by record,
          record_description,
          cal_date,
          fiscal_year_qtr,
-         market10,
+         geography,
+         geography_grain,
          region_3,
          region_5,
          hq_flag,

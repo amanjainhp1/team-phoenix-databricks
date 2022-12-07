@@ -142,12 +142,14 @@ supplies_revenue_flash2 as
 		pl,
 		technology,
 		case
-			when market = 'WW HQ, GF AND OTHERS' then 'WORLD WIDE'
-			when market = 'INDIA, B&SL' then 'INDIA SL & BL'
+			when market = 'WW HQ, GF AND OTHERS' then 'WORLD WIDE' -- fy22
+            when market = 'WW HEADQUARTERS L1' then 'WORLD WIDE' -- fy23
+			when market = 'INDIA, B&SL' then 'INDIA SL & BL' -- fy22
+            when market = 'INDIA B SL' then 'INDIA SL & BL' -- fy23
 				else market
 			end as market,
 		case
-			when market in ('APJ HQ', 'AMS HQ') then 'HQ' 
+			when market in ('APJ HQ', 'AMS HQ', 'AMERICAS HQ') then 'HQ' --fy22,23
 				else 'NON-HQ' 
 			end as hq_flag,
 		l6_description,
@@ -191,7 +193,8 @@ supplies_ci_flash2 as
 		pl,
 		technology,
 		case
-			when market = 'INDIA' then 'INDIA SL & BL'
+			when market = 'INDIA' then 'INDIA SL & BL' -- fy22
+            when market = 'INDIA B SL' then 'INDIA SL & BL' -- fy23
             when market = 'OTHER GEO ROLLUP' then 'WORLD WIDE'
                 else market
         end as market,
@@ -380,7 +383,7 @@ selected_ie2_market10 as
 		fiscal_yr,
 		s.pl,
 		technology,
-		s.market10 as market,
+		s.geography as market,
 		'non-hq' as hq_flag,
 	l6_description
 from fin_stage.adjusted_revenue_staging s
@@ -583,7 +586,7 @@ supp_fin_flash = spark.sql("""
         sum(hedge) as hedge,
         sum(channel_inventory) as channel_inventory,
         sum(ci_change) as ci_change,
-        1 as official,
+        CAST(1 AS BOOLEAN) AS official,
         (
             select distinct load_date from prod.version where record = 'FORECAST - SUPPLIES FINANCE FLASH' 
             and load_date = (select max(load_date) from prod.version where record = 'FORECAST - SUPPLIES FINANCE FLASH')

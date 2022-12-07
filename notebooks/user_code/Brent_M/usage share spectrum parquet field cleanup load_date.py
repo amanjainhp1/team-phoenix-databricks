@@ -1,19 +1,19 @@
 # Databricks notebook source
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
 
 # load parquet file
-usage_share_spectrum = spark.read.parquet("s3://dataos-core-prod-team-phoenix/spectrum/usage_share/2022.11.18.1/")
+usage_share_spectrum = spark.read.parquet("s3://dataos-core-prod-team-phoenix/spectrum/usage_share/2022.11.29.2/")
 
 # usage_share_spectrum.count()
 usage_share_spectrum.display()

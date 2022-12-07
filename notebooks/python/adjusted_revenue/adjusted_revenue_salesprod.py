@@ -2445,7 +2445,8 @@ adj_rev_3 = spark.sql("""
 				cal_date,
 				ar.country_alpha2,
 				country,
-				market10,
+				market8 as geography,
+                'MARKET8' as geography_grain,
 				region_5,
 				sales_product_number,
 				ar.pl,
@@ -2480,8 +2481,9 @@ adj_rev_3 = spark.sql("""
 			from adjusted_revenue ar
 			join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
 			join mdm.product_line_xref plx on plx.pl = ar.pl
+            where market8 is not null
 			group by cal_date, ar.country_alpha2, sales_product_number, ar.pl, customer_engagement, 
-			currency, market10, region_5, country, l5_description
+			currency, market8, region_5, country, l5_description
  """)
 
 adj_rev_3.createOrReplaceTempView("adjusted_revenue2")
@@ -2493,7 +2495,8 @@ adj_rev_4 = spark.sql("""
 				cal_date,
 				country_alpha2,
 				country,
-				market10,
+				geography,
+                geography_grain,
 				region_5,
 				sales_product_number,
 				pl,
@@ -2535,7 +2538,7 @@ adj_rev_4 = spark.sql("""
 				sum(adjusted_revenue) as adjusted_revenue 
 			from adjusted_revenue2
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, 
-			currency, market10, region_5, country, l5_description
+			currency, geography, geography_grain, region_5, country, l5_description
  """)
 
 adj_rev_4.createOrReplaceTempView("adjusted_revenue3")
@@ -2547,7 +2550,8 @@ adj_rev_5 = spark.sql("""
 				cal_date,
 				country_alpha2,
 				country,
-				market10,
+				geography,
+                geography_grain,
 				region_5,
 				sales_product_number,
 				pl,
@@ -2620,7 +2624,7 @@ adj_rev_5 = spark.sql("""
 				sum(cc_net_revenue) - (sum(inventory_change_impact) + sum(currency_impact_ch_inventory)) as adjusted_revenue 
 			from adjusted_revenue3
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, 
-			currency, market10, region_5, country, l5_description
+			currency, geography, geography_grain, region_5, country, l5_description
 
  """)
 
@@ -2634,7 +2638,8 @@ adj_rev_6 = spark.sql("""
 				cal_date,
 				country_alpha2,
 				country,
-				market10,
+				geography,
+                geography_grain,
 				region_5,
 				sales_product_number,
 				pl,
@@ -2663,7 +2668,7 @@ adj_rev_6 = spark.sql("""
 				coalesce(sum(currency_impact_ch_inventory), 0) as currency_impact_ch_inventory,
 				coalesce(sum(cc_inventory_impact), 0) as cc_inventory_impact,
 				sum(adjusted_revenue) as adjusted_revenue,
-				1 as official,
+				CAST(1 AS BOOLEAN) as official,
 				(select load_date from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT' 
 					and load_date = (select max(load_date) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT')) as load_date,
 				(select version from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT'
@@ -2680,12 +2685,12 @@ adj_rev_6 = spark.sql("""
 				coalesce(sum(inventory_change_impact), 0) - (coalesce(sum(monthly_inv_usd_change), 0) - coalesce(sum(price_change_x_prev_inv_qty), 0)) as inv_chg_calc_variance
 			from adjusted_revenue4
 			group by cal_date, country_alpha2, country, sales_product_number, pl, customer_engagement, 
-			currency, market10, region_5, l5_description, net_currency
+			currency, geography, geography_grain, region_5, l5_description, net_currency
 
  """)
 
 adj_rev_6.createOrReplaceTempView("adjusted_revenue_staging")
-query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "append"])
+query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "overwrite"])
 
 # COMMAND ----------
 
@@ -2700,7 +2705,8 @@ select  record
       ,cal_date
       ,country_alpha2
       ,country
-      ,market10
+      ,geography
+      ,geography_grain
       ,region_5
       ,sales_product_number
       ,pl
