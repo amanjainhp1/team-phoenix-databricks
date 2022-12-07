@@ -35,7 +35,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
