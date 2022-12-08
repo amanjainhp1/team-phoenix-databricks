@@ -1809,6 +1809,7 @@ SELECT
     COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
     COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
     COALESCE(SUM(warranty), 0) AS warranty,
+	COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units),0) AS revenue_units
 FROM supplies_findata_emea_adjusted AS sp 
@@ -6343,6 +6344,7 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
+	SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM xcode_adjusted_data2 xad
