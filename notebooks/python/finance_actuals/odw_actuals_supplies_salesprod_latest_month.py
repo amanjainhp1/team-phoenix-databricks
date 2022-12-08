@@ -6351,6 +6351,7 @@ FROM xcode_adjusted_data2 xad
 JOIN iso_country_code_xref iso
     ON iso.country_alpha2 = xad.country_alpha2
 WHERE market8 is not null
+AND total_sums <> 0
 GROUP BY cal_date, xad.country_alpha2, pl, sales_product_number, ce_split, currency, iso.region_5, market8
 """
 
@@ -6380,7 +6381,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM xcode_adjusted_data3
 WHERE 1=1
-AND total_sums <> 0
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
