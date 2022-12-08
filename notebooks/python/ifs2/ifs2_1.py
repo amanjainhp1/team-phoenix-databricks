@@ -18,7 +18,7 @@ dbutils.widgets.text("forecast_supplies_baseprod_version",'') # set forecast_sup
 dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
 dbutils.widgets.text("cartridge_demand_pages_ccs_mix_version",'')
-dbutils.widgets.text("working_forecast_version",'')
+dbutils.widgets.text("working_forecast_country_version",'')
 
 # COMMAND ----------
 
@@ -58,10 +58,10 @@ if cartridge_demand_pages_ccs_mix_version == "":
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
-working_forecast_version = dbutils.widgets.get("working_forecast_version")
-if working_forecast_version == "":
-    working_forecast_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM prod.working_forecast") \
+working_forecast_country_version = dbutils.widgets.get("working_forecast_country_version")
+if working_forecast_country_version == "":
+    working_forecast_country_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.working_forecast_country") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
 
@@ -97,8 +97,8 @@ cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
     .load()
-working_forecast = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM prod.working_forecast WHERE version = '{working_forecast_version}'") \
+working_forecast_country = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
     .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.supplies_hw_mapping") \
@@ -116,7 +116,7 @@ tables = [
   ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
   ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
   ['mdm.iso_country_code_xref' , iso_country_code_xref],
-  ['prod.working_forecast' , working_forecast],
+  ['prod.working_forecast_country' , working_forecast_country],
   ['mdm.supplies_hw_mapping', supplies_hw_mapping]
 ]
 
@@ -708,19 +708,18 @@ fsb.createOrReplaceTempView("fsb")
 
 query = '''
 select cal_date
-	, wf.geography as market10
-	, iccx.country_alpha2 
+	, geography_grain
+	, geography
+    , country
 	, platform_subset
 	, base_product_number
 	, customer_engagement
-	, vtc
-	, wf.version
-from working_forecast wf
-left join iso_country_code_xref iccx 
-	on wf.geography = iccx.market10 
-where wf.version = '{}'
+	, ((imp_corrected_cartridges - cartridges)/imp_corrected_cartridges) as vtc
+	, version
+from working_forecast_country 
+where version = '{}'
 and cal_date between '{}' and '{}'
-'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
+'''.format(working_forecast_country_version , start_ifs2_date , end_ifs2_date)
 vtc = spark.sql(query)
 vtc.createOrReplaceTempView("vtc")
 
