@@ -121,9 +121,9 @@ for table in tables:
     print(f'loading {table[0]}...')
     
     for column in df.dtypes:
-         renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
-         df = df.withColumnRenamed(column[0], renamed_column)
-         print(renamed_column) 
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column) 
         
      # Write the data to its target.
     df.write \
