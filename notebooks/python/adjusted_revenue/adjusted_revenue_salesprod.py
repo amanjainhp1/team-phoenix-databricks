@@ -2479,9 +2479,9 @@ adj_rev_3 = spark.sql("""
 				sum(cc_inventory_impact) as cc_inventory_impact,
 				sum(adjusted_revenue) as adjusted_revenue
 			from adjusted_revenue ar
-			join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
+			left join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
 			join mdm.product_line_xref plx on plx.pl = ar.pl
-            where market8 is not null
+            where country_alpha2 NOT IN ('CU', 'IR', 'KP', 'SY')
 			group by cal_date, ar.country_alpha2, sales_product_number, ar.pl, customer_engagement, 
 			currency, market8, region_5, country, l5_description
  """)
@@ -2495,7 +2495,10 @@ adj_rev_4 = spark.sql("""
 				cal_date,
 				country_alpha2,
 				country,
-				geography,
+				CASE
+                    WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
+                    WHEN country_alph2 = 'BY' OR country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
+                END AS geography,
                 geography_grain,
 				region_5,
 				sales_product_number,
@@ -2623,6 +2626,7 @@ adj_rev_5 = spark.sql("""
 
 				sum(cc_net_revenue) - (sum(inventory_change_impact) + sum(currency_impact_ch_inventory)) as adjusted_revenue 
 			from adjusted_revenue3
+            WHERE market8 is not null
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, 
 			currency, geography, geography_grain, region_5, country, l5_description
 
