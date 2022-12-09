@@ -1862,7 +1862,6 @@ SELECT
     cal_date,
     sp.country_alpha2,
     region_5,
-    market8,
     pl,
     sales_product_number,
     COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
@@ -1876,8 +1875,7 @@ SELECT
 FROM supplies_findata_emea_adjusted AS sp 
 JOIN iso_country_code_xref AS geo ON (sp.country_alpha2 = geo.country_alpha2)
 WHERE region_5 IN ('AP', 'EU', 'JP', 'LA', 'NA', 'XW')
-AND market8 is not null
-GROUP BY cal_date, sp.country_alpha2, pl, sales_product_number, region_5, market8
+GROUP BY cal_date, sp.country_alpha2, pl, sales_product_number, region_5
 """
 
 all_salesprod_region5 = spark.sql(all_salesprod_region5)
@@ -6387,36 +6385,6 @@ GROUP BY cal_date, currency, region_5, pl, sales_product_number, ce_split, count
 xcode_adjusted_data2 = spark.sql(xcode_adjusted_data2)
 xcode_adjusted_data2.createOrReplaceTempView("xcode_adjusted_data2")
 
-            
-xcode_adjusted_data3 = f"""
-SELECT
-    cal_date,
-    xad.country_alpha2,
-    currency,
-    iso.region_5,
-    market8,
-    pl,
-    sales_product_number,
-    ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
-FROM xcode_adjusted_data2 xad
-JOIN iso_country_code_xref iso
-    ON iso.country_alpha2 = xad.country_alpha2
-WHERE market8 is not null
-AND total_sums <> 0
-GROUP BY cal_date, xad.country_alpha2, pl, sales_product_number, ce_split, currency, iso.region_5, market8
-"""
-
-xcode_adjusted_data3 = spark.sql(xcode_adjusted_data3)
-xcode_adjusted_data3.createOrReplaceTempView("xcode_adjusted_data3")
-
 
 salesprod_preplanet_with_currency_map1 = f"""
 SELECT
@@ -6438,8 +6406,9 @@ SELECT
     SUM(other_cos) * -1 AS other_cos,
     SUM(total_cos) * -1 AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM xcode_adjusted_data3
+FROM xcode_adjusted_data2
 WHERE 1=1
+AND total_sums <> 0
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
