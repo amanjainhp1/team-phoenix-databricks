@@ -19,6 +19,8 @@ from pyspark.sql import functions as F
 
 # COMMAND ----------
 
+import re
+
 for table in tables:
     # Define the input and output formats and paths and the table name.
     schema = table[0].split(".")[0]

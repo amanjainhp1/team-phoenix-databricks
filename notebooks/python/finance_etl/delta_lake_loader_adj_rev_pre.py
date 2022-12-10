@@ -129,6 +129,8 @@ version = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+import re
+
 tables = [
     ['mdm.calendar', calendar],
     ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod],
