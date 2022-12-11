@@ -5501,7 +5501,12 @@ edw_product_line_restated2 = f"""
 SELECT cal_date,
     country_alpha2,
     region_5,
-    pl,
+    edw_recorded_pl,
+    CASE
+        WHEN edw_recorded_pl = 'GM' THEN 'GM'
+        WHEN edw_recorded_pl = 'EO' THEN 'EO'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -5515,7 +5520,7 @@ FROM edw_product_line_restated edw
 WHERE 1=1 
     AND    sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
     AND pl NOT IN ('IE', 'IX') -- inactive PLs for LF; at this point, any sales products in IE/TX would be unmapped or UNKN and can be dropped
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, edw_recorded_pl
 """
 
 edw_product_line_restated2 = spark.sql(edw_product_line_restated2)
