@@ -1208,9 +1208,9 @@ write_df_to_redshift(configs, ink_variable_cost_dropout , "fin_stage.ink_variabl
 
 # COMMAND ----------
 
-toner_variable_cost_dropout = 
+toner_variable_cost_dropout = """
 
-"""select distinct
+select distinct
 	forecast_base_pl.base_product_number
 	, forecast_base_pl.region_5
 from 
