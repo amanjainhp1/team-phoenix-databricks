@@ -31,11 +31,15 @@ for table in tables:
     
     # Load the data from its source.
     df = table[1]
-    renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
-    renamed_df = df.withColumnRenamed(column[0], renamed_column)
     print(f'loading {table[0]}...')
+    
+    for column in df.dtypes:
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column)     
+    
     # Write the data to its target.
-    renamed_df.write \
+    df.write \
       .format(write_format) \
       .mode(mode) \
       .option("overwriteSchema", "true")\
