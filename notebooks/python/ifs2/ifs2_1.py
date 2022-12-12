@@ -108,14 +108,14 @@ supplies_hw_mapping = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
-  ['prod.usage_share' , usage_share],
-  ['mdm.hardware_xref' , hardware_xref],
-  ['mdm.supplies_xref' , supplies_xref],
-  ['prod.decay_m13' , decay_m13],
-  ['mdm.yield' , yield_],
-  ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
-  ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
-  ['mdm.iso_country_code_xref' , iso_country_code_xref],
+ # ['prod.usage_share' , usage_share],
+ # ['mdm.hardware_xref' , hardware_xref],
+ # ['mdm.supplies_xref' , supplies_xref],
+ # ['prod.decay_m13' , decay_m13],
+ # ['mdm.yield' , yield_],
+  #['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+  #['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+  #['mdm.iso_country_code_xref' , iso_country_code_xref],
   ['prod.working_forecast_country' , working_forecast_country],
   ['mdm.supplies_hw_mapping', supplies_hw_mapping]
 ]
@@ -151,6 +151,7 @@ for table in tables:
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
                 , (year(add_months(cal_date,2)) - year(add_months('{}',2))) + 1 as year_num
+                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_num
                 , geography as market10
                 , us.platform_subset
                 , customer_engagement
@@ -177,14 +178,15 @@ query = '''select cal_date
                 , measure
                 , ib_version
                 , us.version
-                '''.format(start_ifs2_date , start_ifs2_date, end_ifs2_date)
+                '''.format(start_ifs2_date , start_ifs2_date, start_ifs2_date, end_ifs2_date)
 ink_usage_share = spark.sql(query)
-ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
+ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 ink_usage_share_pivot.createOrReplaceTempView("ink_usage_share_pivot")
 
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
                 , (year(add_months(cal_date,2)) - year(add_months('{}',2))) + 1 as year_num
+                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_num
                 , geography as market10
                 , us.platform_subset
                 , customer_engagement
@@ -210,9 +212,9 @@ query = '''select cal_date
                 , measure
                 , ib_version
                 , us.version
-                '''.format(start_ifs2_date, start_ifs2_date, end_ifs2_date)
+                '''.format(start_ifs2_date, start_ifs2_date, start_ifs2_date ,end_ifs2_date)
 toner_usage_share = spark.sql(query)
-toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
+toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
@@ -221,6 +223,7 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 query = '''select cal_date
                 , ius.year
                 , year_num
+                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -265,6 +268,7 @@ ink_usage_share_sum_till_date.display()
 query = '''select cal_date
                 , tus.year
                 , year_num
+                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -306,6 +310,7 @@ query = '''
                 , cal_date
                 , year
                 , year_num
+                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -323,6 +328,7 @@ query = '''
                 , cal_date
                 , year
                 , year_num
+                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -347,6 +353,7 @@ select usiut.record
                 , cal_date
                 , year
                 , year_num
+                , month_num
                 , region_5
                 , usiut.market10
                 , iccx.country_alpha2
@@ -553,6 +560,7 @@ SELECT distinct
         , yr.type
 		, value as value 
 		, iccx.country_alpha2
+        , yield_version
 	from yield_region yr
 	left join mdm.iso_country_code_xref iccx 
 		on yr.geography = iccx.region_5 
@@ -726,6 +734,76 @@ vtc.createOrReplaceTempView("vtc")
 # COMMAND ----------
 
 vtc.display()
+
+# COMMAND ----------
+
+query = '''
+select 
+    us.platform_subset,
+    us.base_product_number,
+    us.region_5,
+    us.market10,
+    us.country_alpha2,
+    us.cal_date,
+    us.year,
+    us.year_num,
+    us.month_num,
+    us.customer_engagement,
+    us.color_usage,
+    us.sum_of_color_usage_till_date,
+    us.k_usage,
+    us.sum_of_k_usage_till_date,
+    us.hp_share,
+    d.value as decay,
+    d.remaining_amount,
+    y.value as yield,
+    t.trade_split,
+    v.vtc,
+    us.ib_version,
+    us.version as usage_share_version,
+    d.version as decay_version,
+    y.yield_version,
+    t.version as trade_split_version,
+    v.version as vtc_version
+from usage_share us
+left join decay d
+on us.platform_subset = d.platform_subset
+and us.base_product_number = d.base_product_number
+and us.year_num = d.year_num
+and us.month_num = d.month_num
+and us.market10 = d.m10
+and us.country_alpha2 = d.country_alpha2
+left join yield_ y
+on us.platform_subset = y.platform_subset
+and us.base_product_number = y.base_product_number
+and us.region_5 = y.geography
+and us.country_alpha2 = y.country_alpha2
+left join trade_split t
+on us.platform_subset = t.platform_subset
+and us.base_product_number = t.base_product_number
+and us.market10 = t.geography
+and us.country_alpha2 = t.country_alpha2
+and us.cal_date = t.cal_date
+and us.customer_engagement = t.customer_engagement
+left join vtc v
+on us.platform_subset = v.platform_subset
+and us.base_product_number = v.base_product_number
+and us.cal_date = v.cal_date
+and us.market10 = v.geography
+and us.country_alpha2 = v.country
+and us.customer_engagement = v.customer_engagement
+
+'''
+pen_per_printer = spark.sql(query)
+pen_per_printer.createOrReplaceTempView("pen_per_printer")
+
+# COMMAND ----------
+
+pen_per_printer.display()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, pen_per_printer, "ifs2.pen_per_printer", "overwrite")
 
 # COMMAND ----------
 
