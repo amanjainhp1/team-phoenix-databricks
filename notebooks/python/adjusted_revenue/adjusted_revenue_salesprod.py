@@ -2481,7 +2481,7 @@ adj_rev_3 = spark.sql("""
 			from adjusted_revenue ar
 			left join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
 			join mdm.product_line_xref plx on plx.pl = ar.pl
-            where country_alpha2 NOT IN ('CU', 'IR', 'KP', 'SY')
+            where ar.country_alpha2 NOT IN ('CU', 'IR', 'KP', 'SY')
 			group by cal_date, ar.country_alpha2, sales_product_number, ar.pl, customer_engagement, 
 			currency, market8, region_5, country, l5_description
  """)
