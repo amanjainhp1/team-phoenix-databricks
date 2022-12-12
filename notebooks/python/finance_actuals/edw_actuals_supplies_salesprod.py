@@ -129,9 +129,9 @@ for table in tables:
     print(f'loading {table[0]}...')
     
     for column in df.dtypes:
-         renamed_column = re.sub('\$', '_dollars', re.sub(' ', '_', column[0])).lower()
-         df = df.withColumnRenamed(column[0], renamed_column)
-         print(renamed_column) 
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column) 
         
      # Write the data to its target.
     df.write \
@@ -2092,14 +2092,14 @@ SELECT
     Product_Line_ID AS pl, 
     partner,
     RTM_2 AS rtm2,
-    SUM(CAST(COALESCE(`Sell-thru_USD`,0) AS float)) AS sell_thru_usd,
-    SUM(CAST(COALESCE(`Sell-thru_Qty`,0) AS float)) AS sell_thru_qty,
-    SUM(CAST(COALESCE(`Channel_Inventory_USD`,0) AS float)) AS channel_inventory_usd,
-    (SUM(CAST(COALESCE(`Channel_Inventory_Qty`,0) AS float)) + 0.0) AS channel_inventory_qty
+    SUM(CAST(COALESCE(sell_thru_usd,0) AS float)) AS sell_thru_usd,
+    SUM(CAST(COALESCE(sell_thru_qty,0) AS float)) AS sell_thru_qty,
+    SUM(CAST(COALESCE(channel_inventory_usd,0) AS float)) AS channel_inventory_usd,
+    (SUM(CAST(COALESCE(channel_inventory_qty,0) AS float)) + 0.0) AS channel_inventory_qty
 FROM fin_stage.cbm_st_data st
 WHERE 1=1
     AND    Month > '2015-10-01' 
-    AND (COALESCE(`Sell-thru_USD`,0) + COALESCE(`Sell-thru_Qty`,0) + COALESCE(Channel_Inventory_USD,0) + COALESCE(Channel_Inventory_Qty,0)) <> 0
+    AND (COALESCE(sell_thru_usd,0) + COALESCE(sell_thru_qty,0) + COALESCE(channel_inventory_usd,0) + COALESCE(channel_inventory_qty,0)) <> 0
 GROUP BY Data_Type, Month, Country_Code, Product_Number, Product_Line_ID, partner, RTM_2
 """
 

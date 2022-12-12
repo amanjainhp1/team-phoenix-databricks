@@ -1808,7 +1808,7 @@ SELECT
     COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
     COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
     COALESCE(SUM(warranty), 0) AS warranty,
-    COALESCE(SUM(other_cos), 0) AS other_cos,
+	COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units),0) AS revenue_units
 FROM supplies_findata_emea_adjusted AS sp 
@@ -6326,7 +6326,7 @@ GROUP BY cal_date, currency, region_5, pl, sales_product_number, ce_split, count
 xcode_adjusted_data2 = spark.sql(xcode_adjusted_data2)
 xcode_adjusted_data2.createOrReplaceTempView("xcode_adjusted_data2")
 
-            
+
 salesprod_preplanet_with_currency_map1 = f"""
 SELECT
     cal_date,
