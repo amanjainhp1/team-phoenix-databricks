@@ -2626,7 +2626,7 @@ adj_rev_5 = spark.sql("""
 
 				sum(cc_net_revenue) - (sum(inventory_change_impact) + sum(currency_impact_ch_inventory)) as adjusted_revenue 
 			from adjusted_revenue3
-            WHERE market8 is not null
+            WHERE geography is not null
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, 
 			currency, geography, geography_grain, region_5, country, l5_description
 
