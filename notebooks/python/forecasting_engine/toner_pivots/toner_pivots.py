@@ -11,6 +11,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../config_forecasting_engine
+
+# COMMAND ----------
+
 # MAGIC %run ../../common/configs
 
 # COMMAND ----------
@@ -62,19 +66,6 @@ tables = [
 # COMMAND ----------
 
 # MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Global Variables
-
-# COMMAND ----------
-
-ib_version = '2022.11.17.3'
-us_version = '2022.11.18.1'
-pivots_start = '2017-11-01'
-pivots_end = '2027-10-01'
 
 # COMMAND ----------
 

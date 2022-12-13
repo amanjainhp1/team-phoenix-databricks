@@ -7,11 +7,11 @@
 
 # MAGIC %md
 # MAGIC 
-# MAGIC ## Global Variables
+# MAGIC ## Global Libraries
 
 # COMMAND ----------
 
-ib_version = '2022.08.17.1'
+# MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
 
