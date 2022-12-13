@@ -46,7 +46,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's version
-prev_version = '2022.10.03.1'
+prev_version = '2022.11.29.1'
 
 # COMMAND ----------
 

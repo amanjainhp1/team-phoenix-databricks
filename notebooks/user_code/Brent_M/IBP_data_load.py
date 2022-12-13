@@ -1,13 +1,13 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
@@ -37,19 +37,19 @@ spark = SparkSession.builder.appName('sparkdf').getOrCreate()
 # COMMAND ----------
 
 # Fix the plan_date field
-# ~30 mins
-#submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET Plan_Date = (SELECT MAX(Plan_Date) FROM IE2_ExternalPartners.dbo.ibp WHERE [version]IS NULL) WHERE [version] IS NULL;")
+# ~1 to 30 mins, depending on server load
+submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET Plan_Date = (SELECT MAX(Plan_Date) FROM IE2_ExternalPartners.dbo.ibp WHERE [version] IS NULL) WHERE [version] IS NULL;")
 
 # COMMAND ----------
 
 # Add a record to the version table
-#submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC [IE2_prod].[dbo].[AddVersion_sproc] 'ibp_fcst', 'IBP';")
+submit_remote_sqlserver_query(configs, "ie2_prod", "EXEC [IE2_prod].[dbo].[AddVersion_sproc] 'ibp_fcst', 'IBP';")
 
 # COMMAND ----------
 
 # Update the latest records with version and load_date
 # ~2 mins
-#submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET [version] = (SELECT MAX(version) FROM IE2_Prod.dbo.version WHERE record = 'ibp_fcst') WHERE [version] IS NULL;")
+submit_remote_sqlserver_query(configs, "ie2_prod", "UPDATE IE2_ExternalPartners.dbo.ibp SET [version] = (SELECT MAX(version) FROM IE2_Prod.dbo.version WHERE record = 'ibp_fcst') WHERE [version] IS NULL;")
 
 # COMMAND ----------
 
@@ -101,7 +101,7 @@ datestamp = date.strftime("%Y%m%d")
 
 # un-comment this section when finished with development
 s3_output_bucket = constants["S3_BASE_BUCKET"][stack] + "archive/ibp/" + datestamp
-# write_df_to_s3(all_ibp_records, s3_output_bucket, "parquet", "overwrite")
+write_df_to_s3(all_ibp_records, s3_output_bucket, "parquet", "overwrite")
 
 print(s3_output_bucket)
 
@@ -1131,6 +1131,10 @@ write_df_to_redshift(configs, combined_hw_allocated_mix3, "stage.ibp_hw_forecast
 
 # MAGIC %md
 # MAGIC # Final Datasets (prod)
+
+# COMMAND ----------
+
+# cross join to the version variables and promote latest data
 
 # COMMAND ----------
 
