@@ -13,7 +13,7 @@ query = f"""
 
     CALL prod.addversion_sproc('ACTUALS - ACTUAL SUPPLIES', 'ACTUALS - ACTUAL SUPPLIES');
     
-    DELETE FROM prod.actuals_supplies
+    DELETE FROM prod.actuals_supplies;
     --WHERE cal_date = (select max(cal_date) from fin_prod.actuals_supplies_salesprod);
 
     INSERT INTO prod.actuals_supplies
