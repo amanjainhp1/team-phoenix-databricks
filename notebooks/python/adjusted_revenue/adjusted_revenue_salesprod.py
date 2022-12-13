@@ -2497,7 +2497,7 @@ adj_rev_4 = spark.sql("""
 				country,
 				CASE
                     WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
-                    WHEN country_alph2 = 'BY' OR country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
+                    WHEN country_alpha2 = 'BY' OR country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
                 END AS geography,
                 geography_grain,
 				region_5,
