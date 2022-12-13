@@ -142,14 +142,12 @@ supplies_revenue_flash2 as
 		pl,
 		technology,
 		case
-			when market = 'WW HQ, GF AND OTHERS' then 'WORLD WIDE' -- fy22
-            when market = 'WW HEADQUARTERS L1' then 'WORLD WIDE' -- fy23
-			when market = 'INDIA, B&SL' then 'INDIA SL & BL' -- fy22
-            when market = 'INDIA B SL' then 'INDIA SL & BL' -- fy23
+			when market = 'WW HQ, GF AND OTHERS' then 'WORLD WIDE'
+			when market = 'INDIA, B&SL' then 'INDIA SL & BL'
 				else market
 			end as market,
 		case
-			when market in ('APJ HQ', 'AMS HQ', 'AMERICAS HQ') then 'HQ' --fy22,23
+			when market in ('APJ HQ', 'AMS HQ') then 'HQ'
 				else 'NON-HQ' 
 			end as hq_flag,
 		l6_description,
@@ -193,8 +191,7 @@ supplies_ci_flash2 as
 		pl,
 		technology,
 		case
-			when market = 'INDIA' then 'INDIA SL & BL' -- fy22
-            when market = 'INDIA B SL' then 'INDIA SL & BL' -- fy23
+			when market = 'INDIA' then 'INDIA SL & BL'
             when market = 'OTHER GEO ROLLUP' then 'WORLD WIDE'
                 else market
         end as market,
