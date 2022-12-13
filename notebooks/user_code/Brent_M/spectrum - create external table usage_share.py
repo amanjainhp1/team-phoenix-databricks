@@ -1,27 +1,18 @@
 # Databricks notebook source
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
 prod_query = """
-
-"""
-
-
-
-
-# COMMAND ----------
-
-reporting_query = """
-create external table phoenix_spectrum_reporting.usage_share
+create external table phoenix_spectrum_prod.usage_share_m8
 (
 record varchar(255),
 cal_date date,
@@ -37,9 +28,33 @@ version varchar(255),
 load_date timestamp
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/usage_share/'
+location 's3://dataos-core-prod-team-phoenix/spectrum/usage_share_m8/'
 """
 
+
+
+
+# COMMAND ----------
+
+reporting_query = """
+create external table phoenix_spectrum_reporting.usage_share_m8
+(
+record varchar(255),
+cal_date date,
+geography_grain varchar(255),
+geography varchar(255),
+platform_subset varchar(255),
+customer_engagement varchar(255),
+measure varchar(255),
+units DOUBLE PRECISION,
+ib_version varchar(255),
+source varchar(255),
+version varchar(255),
+load_date timestamp
+)
+stored as parquet 
+location 's3://dataos-core-prod-team-phoenix/spectrum/usage_share_m8/'
+"""
 
 # COMMAND ----------
 
