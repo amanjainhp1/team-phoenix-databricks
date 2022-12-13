@@ -285,9 +285,11 @@ query_list.append(["scen.ink_02_us_dmd", ink_02_us_dmd, "overwrite"])
 # COMMAND ----------
 
 # create spectrum schema var based on stack/env so this query works in all our envs
-spectrum_schema = phoenix_spectrum
+spectrum_schema = 'phoenix_spectrum'
 if stack == 'itg' or stack == 'prod':
     spectrum_schema = spectrum_schema + "_" + stack
+
+# COMMAND ----------
 
 ink_demand = f"""
 WITH dbd_01_ib_load AS
