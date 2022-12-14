@@ -108,16 +108,16 @@ supplies_hw_mapping = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
- ['prod.usage_share' , usage_share],
- ['mdm.hardware_xref' , hardware_xref],
- ['mdm.supplies_xref' , supplies_xref],
- ['prod.decay_m13' , decay_m13],
- ['mdm.yield' , yield_],
- ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
- ['mdm.iso_country_code_xref' , iso_country_code_xref],
- ['prod.working_forecast_country' , working_forecast_country],
- ['mdm.supplies_hw_mapping', supplies_hw_mapping]
+  ['prod.usage_share' , usage_share],
+  ['mdm.hardware_xref' , hardware_xref],
+  ['mdm.supplies_xref' , supplies_xref],
+  ['prod.decay_m13' , decay_m13],
+  ['mdm.yield' , yield_],
+  ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+  ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+  ['mdm.iso_country_code_xref' , iso_country_code_xref],
+  ['prod.working_forecast_country' , working_forecast_country],
+  ['mdm.supplies_hw_mapping', supplies_hw_mapping]
 ]
 
 for table in tables:
@@ -131,10 +131,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-    df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .save(save_path)
+#     df.write \
+#       .format(write_format) \
+#       .mode("overwrite") \
+#       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -151,7 +151,6 @@ for table in tables:
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
                 , (year(add_months(cal_date,2)) - year(add_months('{}',2))) + 1 as year_num
-                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_num
                 , geography as market10
                 , us.platform_subset
                 , customer_engagement
@@ -178,15 +177,14 @@ query = '''select cal_date
                 , measure
                 , ib_version
                 , us.version
-                '''.format(start_ifs2_date , start_ifs2_date, start_ifs2_date, end_ifs2_date)
+                '''.format(start_ifs2_date , start_ifs2_date, end_ifs2_date)
 ink_usage_share = spark.sql(query)
-ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
+ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 ink_usage_share_pivot.createOrReplaceTempView("ink_usage_share_pivot")
 
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
                 , (year(add_months(cal_date,2)) - year(add_months('{}',2))) + 1 as year_num
-                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_num
                 , geography as market10
                 , us.platform_subset
                 , customer_engagement
@@ -212,10 +210,19 @@ query = '''select cal_date
                 , measure
                 , ib_version
                 , us.version
-                '''.format(start_ifs2_date, start_ifs2_date, start_ifs2_date ,end_ifs2_date)
+                '''.format(start_ifs2_date, start_ifs2_date, end_ifs2_date)
 toner_usage_share = spark.sql(query)
-toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
+toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
+
+# COMMAND ----------
+
+query = '''select distinct platform_subset
+from toner_usage_share_pivot
+'''
+
+toner_platform = spark.sql(query)
+toner_platform.createOrReplaceTempView("toner_platform")
 
 # COMMAND ----------
 
@@ -223,7 +230,6 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 query = '''select cal_date
                 , ius.year
                 , year_num
-                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -260,19 +266,7 @@ ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_
 
 # COMMAND ----------
 
-query = '''
-select distinct ns.platform_subset from norm_shipments ns 
-inner join hardware_xref   xref 
-    on ns.platform_subset = xref.platform_subset
-where cal_date between '2022-11-01' and '2023-10-31' 
-and xref.product_lifecycle_status in ('N' , 'C')
-and version = (select max(version) from  norm_shipments)
-
-'''
-
-# COMMAND ----------
-
-ink_usage_share_sum_till_date.count()
+ink_usage_share_sum_till_date.display()
 
 # COMMAND ----------
 
@@ -280,7 +274,6 @@ ink_usage_share_sum_till_date.count()
 query = '''select cal_date
                 , tus.year
                 , year_num
-                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -322,7 +315,6 @@ query = '''
                 , cal_date
                 , year
                 , year_num
-                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -340,7 +332,6 @@ query = '''
                 , cal_date
                 , year
                 , year_num
-                , month_num
                 , market10
                 , platform_subset
                 , customer_engagement
@@ -365,7 +356,6 @@ select usiut.record
                 , cal_date
                 , year
                 , year_num
-                , month_num
                 , region_5
                 , usiut.market10
                 , iccx.country_alpha2
@@ -399,10 +389,6 @@ usage_share.createOrReplaceTempView("usage_share")
 # COMMAND ----------
 
 usage_share.display()
-
-# COMMAND ----------
-
-usage_share.count()
 
 # COMMAND ----------
 
@@ -531,10 +517,6 @@ decay.createOrReplaceTempView("decay")
 
 # COMMAND ----------
 
-decay.display()
-
-# COMMAND ----------
-
 query = '''
 with yield as (
 SELECT distinct 
@@ -572,7 +554,6 @@ SELECT distinct
         , yr.type
 		, value as value 
 		, iccx.country_alpha2
-        , yield_version
 	from yield_region yr
 	left join mdm.iso_country_code_xref iccx 
 		on yr.geography = iccx.region_5 
@@ -587,10 +568,6 @@ yield_.createOrReplaceTempView("yield_")
 # COMMAND ----------
 
 yield_.display()
-
-# COMMAND ----------
-
-yield_.filter(col('value').isNull()).count()
 
 # COMMAND ----------
 
@@ -745,77 +722,207 @@ vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 vtc.display()
 
 # COMMAND ----------
 
+host_yield = read_redshift_to_df(configs) \
+    .option("query", f"""SELECT * FROM stage.laser_host_assumptions""") \
+    .load()
+
+# COMMAND ----------
+
+host_yield.display()
+
+# COMMAND ----------
+
+from pyspark.sql.functions import *
+from pyspark.sql import functions as f
+
+# COMMAND ----------
+
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/"
+
+latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucket_prefix)
+
+latest_file = latest_file.split("/")[len(latest_file.split("/"))-1]
+
+print(latest_file)
+
+# COMMAND ----------
+
+## toner_host_yield
+
+toner_host_yield = spark.read \
+    .format("com.crealytics.spark.excel") \
+    .option("inferSchema", "True") \
+    .option("header","True") \
+    .option("treatEmptyValuesAsNulls", "False")\
+    .load(f"s3a://{bucket}/{bucket_prefix}/{latest_file}")
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+toner_host_yield.display()
+
+# COMMAND ----------
+
+from pyspark.sql.functions import countDistinct
+ 
+# applying the function countDistinct()
+# on df using select()
+df2 = toner_host_yield.select(countDistinct("Platform Subset"))
+
+# COMMAND ----------
+
+df_temp = toner_host_yield.withColumn("new_black",f.when(f.col("Black").isNotNull(),lit("Black")).otherwise(f.col("Black")))
+df_temp = df_temp.withColumn("new_color",f.when(f.col("Color").isNotNull(),lit("Color")).otherwise(f.col("Color")))
+df_temp = df_temp.withColumnRenamed("Platform Subset" , "platform_subset")
+df_temp = df_temp.withColumnRenamed("Product Name" , "product_name")
+df_temp = df_temp.withColumnRenamed("Black Yield" , "black_yield")
+df_temp = df_temp.withColumnRenamed("Black Large" , "black_large")
+df_temp = df_temp.withColumnRenamed("Black Large Yield" , "black_large_yield")
+df_temp = df_temp.withColumnRenamed("Color Large" , "color_large")
+df_temp = df_temp.withColumnRenamed("Color Large Yield" , "color_large_yield")
+df_temp = df_temp.withColumnRenamed("Color Yield" , "color_yield")
+df_temp.createOrReplaceTempView("df")
+
+# COMMAND ----------
+
+submit_remote_query(configs , '''CREATE TABLE IF NOT EXISTS ifs2.toner_host_yield
+(
+	status_type VARCHAR(30)  ENCODE lzo
+	,platform_subset VARCHAR(255)  ENCODE lzo
+	,in_box_cartridges VARCHAR(255)   ENCODE lzo
+	,yield_name VARCHAR(255)   ENCODE lzo
+    ,yield  VARCHAR(255)   ENCODE lzo
+    );
+    
+    GRANT ALL ON TABLE ifs2.toner_host_yield to GROUP phoenix_dev;
+''')
+
+# COMMAND ----------
+
 query = '''
-select 
-    us.platform_subset,
-    us.base_product_number,
-    us.region_5,
-    us.market10,
-    us.country_alpha2,
-    us.cal_date,
-    us.year,
-    us.year_num,
-    us.month_num,
-    us.customer_engagement,
-    us.color_usage,
-    us.sum_of_color_usage_till_date,
-    us.k_usage,
-    us.sum_of_k_usage_till_date,
-    us.hp_share,
-    d.value as decay,
-    d.remaining_amount,
-    y.value as yield,
-    t.trade_split,
-    v.vtc,
-    us.ib_version,
-    us.version as usage_share_version,
-    d.version as decay_version,
-    y.yield_version,
-    t.version as trade_split_version,
-    v.version as vtc_version
-from usage_share us
-left join decay d
-on us.platform_subset = d.platform_subset
-and us.base_product_number = d.base_product_number
-and us.year_num = d.year_num
-and us.month_num = d.month_num
-and us.market10 = d.m10
-and us.country_alpha2 = d.country_alpha2
-left join yield_ y
-on us.platform_subset = y.platform_subset
-and us.base_product_number = y.base_product_number
-and us.region_5 = y.geography
-and us.country_alpha2 = y.country_alpha2
-left join trade_split t
-on us.platform_subset = t.platform_subset
-and us.base_product_number = t.base_product_number
-and us.market10 = t.geography
-and us.country_alpha2 = t.country_alpha2
-and us.cal_date = t.cal_date
-and us.customer_engagement = t.customer_engagement
-left join vtc v
-on us.platform_subset = v.platform_subset
-and us.base_product_number = v.base_product_number
-and us.cal_date = v.cal_date
-and us.market10 = v.geography
-and us.country_alpha2 = v.country
-and us.customer_engagement = v.customer_engagement
 
+INSERT INTO ifs2.toner_host_yield
+select "status type" as status_type
+    , "platform subset" as platform_subset
+    , "In-Box Cartridge" as in_box_cartridges
+    , "yield_name" 
+    , "yield"
+ from  (select distinct "status type" ,"platform subset", "In-Box Cartridge" ,"black yield" , "color yield" , "black large yield"  , "color large yield"  from stage.laser_host_assumptions ) UNPIVOT (
+    yield for yield_name in ("black yield" , "color yield" , "black large yield" , "color large yield")
+    );
 '''
-pen_per_printer = spark.sql(query)
-pen_per_printer.createOrReplaceTempView("pen_per_printer")
+
+submit_remote_query(configs, query)
 
 # COMMAND ----------
 
-pen_per_printer.display()
+query = '''
+
+select  
+    PL
+    , platform_subset
+    , Level
+    , black_yield
+    , color_yield
+    , black_large_yield
+    , color_large_yield
+from df
+'''
+df_new = spark.sql(query)
+df_new.createOrReplaceTempView("df")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, pen_per_printer, "ifs2.pen_per_printer", "overwrite")
+df_new.display()
+
+# COMMAND ----------
+
+query = '''
+select * from df
+'''
+spark.sql(query).count()
+
+# COMMAND ----------
+
+df_new.filter(col('platform_subset') == 'Pyramid 3:1').display()
+
+# COMMAND ----------
+
+df_new.filter(col('platform_subset') == 'HOPPER 55CTO').display()
+
+# COMMAND ----------
+
+df_new_black = df_new.groupBy("platform_subset").pivot("new_black").sum("black_yield")
+df_new_black.createOrReplaceTempView("df_new_black")
+
+# COMMAND ----------
+
+df_new_black.display()
+
+# COMMAND ----------
+
+df_new_color = df_new.groupBy("platform_subset").pivot("new_color").sum("color_yield")
+df_new_color.createOrReplaceTempView("df_new_color")
+
+# COMMAND ----------
+
+df_new_color.filter(col('platform_subset') == 'Azalea').display()
+
+# COMMAND ----------
+
+query = '''
+select * from df where platform_subset = 'Pyramid 3:1'
+'''
+spark.sql(query).display()
+
+# COMMAND ----------
+
+query = '''
+
+select t.platform_subset
+    , t.pl
+    , b.Black as black
+    , c.Color as color
+from df t
+inner join df_new_black b
+    on t.platform_subset = b.platform_subset
+inner join df_new_color c
+    on t.platform_subset = c.platform_subset
+inner join toner_platform tc
+    on upper(t.platform_subset) = tc.platform_subset
+'''
+
+final = spark.sql(query)
+
+# COMMAND ----------
+
+inner join toner_platform tc
+    on t.platform_subset = tc.platform_subset
+
+# COMMAND ----------
+
+final.display()
+
+# COMMAND ----------
+
+final.filter(col('platform_subset') == 'Pyramid 3:1').display()
 
 # COMMAND ----------
 
