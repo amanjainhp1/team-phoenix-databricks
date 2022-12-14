@@ -1310,7 +1310,12 @@ for table in tables:
 
 # COMMAND ----------
 
-spark.sql('GRANT ALL ON fin_prod.adjusted_revenue_flash TO GROUP redshift_dev_group;')
+#grant team access
+query_access_grant = """
+GRANT ALL ON TABLE fin_prod.adjusted_revenue_flash TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query_access_grant)
 
 # COMMAND ----------
 
