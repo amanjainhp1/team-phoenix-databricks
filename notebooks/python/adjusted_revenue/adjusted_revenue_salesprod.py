@@ -2518,6 +2518,7 @@ adj_rev_4 = spark.sql("""
                     WHEN country_alpha2 = 'IR' THEN 'SOUTHERN EUROPE, ME & AFRICA'
                     WHEN country_alpha2 = 'KP' THEN 'GREATER ASIA'
                     WHEN country_alpha2 = 'SY' THEN 'SOUTHERN EUROPE, ME & AFRICA'
+
                     ELSE geography
                 END AS geography,
                 geography_grain,
@@ -2814,3 +2815,7 @@ for table in tables:
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+
