@@ -1005,7 +1005,10 @@ calendar_table2.createOrReplaceTempView("calendar_table2")
 
 incremental_data_raw = f"""
 SELECT 
-	l6_description,
+	CASE
+        WHEN l6_description = 'A3 LASER SUPPLIES' THEN 'A3 LASER S-PRINT SUPPLIES'
+        ELSE l6_description
+    END AS l6_description,
 	CASE	
 		WHEN market = 'AMERICAS HQ' THEN 'NORTH AMERICA'
 		WHEN market = 'APJ HQ L2' THEN 'GREATER ASIA'
