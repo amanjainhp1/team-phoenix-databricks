@@ -437,7 +437,20 @@ group by fiscal_year_qtr, geography, pl),
     (
 select distinct market8 as geography, region_3
 from mdm.iso_country_code_xref
-where region_3 is not null
+where region_3 is not nullselect distinct market8 as geography
+, case
+	when market8 IN ('CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA') then 'EMEA'
+	when market8 IN ('LATIN AMERICA', 'NORTH AMERICA') then 'AMS'
+	when market8 IN ('GREATER ASIA', 'GREATER CHINA', 'INDIA SL & BL') then 'APJ'
+	else 'WW'
+ end as region_3
+, region_5
+from ie2_prod.dbo.iso_country_code_xref
+where 1 = 1
+  and region_3 is not null
+  and region_5 <> 'JP'
+  and region_5 <> 'XU'
+  and market8 is not null
     and market8 is not null)
     , ci_inventory_fully_adjusted2 as
     (
