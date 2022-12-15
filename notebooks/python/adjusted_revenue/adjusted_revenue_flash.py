@@ -206,12 +206,12 @@ with quarters as
                               end as    region_5,
                           pl,
                           case
-                              when market in ('APJ HQ', 'AMS HQ', 'AMERICAS HQ') then 'HQ'
+                              when market in ('APJ HQ', 'AMS HQ') then 'HQ'
                               else 'NON-HQ'
                               end as    hq_flag,
                           max(cal_date) over (partition by market, pl order by pl) as max_cal_date
           from fin_prod.supplies_finance_flash
-          where market in ('AMS HQ', 'APJ HQ', 'EMEA', 'WORLD WIDE', 'AMERICAS HQ')
+          where market in ('AMS HQ', 'APJ HQ', 'EMEA', 'WORLD WIDE')
             and version = (select max(version) from fin_prod.supplies_finance_flash))
         ,
      dummy_flash_mkt_history as
@@ -398,10 +398,10 @@ select fiscal_year_qtr,
     end as pl,
     sum (finance_ink_ci) as ci_dollars
 from americas_ink_media
-group by cal_date, geography, fiscal_year_qtr, pl),
+group by cal_date, geography, fiscal_year_qtr, pl
+        ),
     ci_inventory_adjusted as
-    (
-select fiscal_year_qtr,
+    (select fiscal_year_qtr,
     geography,
     pl,
     coalesce (sum (ci_dollars), 0) as ci_dollars
@@ -433,11 +433,10 @@ select fiscal_year_qtr,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_adjusted
 group by fiscal_year_qtr, geography, pl),
+
     region_table as
     (
-select distinct market8 as geography, region_3
-from mdm.iso_country_code_xref
-where region_3 is not nullselect distinct market8 as geography
+select distinct market8 as geography
 , case
 	when market8 IN ('CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA') then 'EMEA'
 	when market8 IN ('LATIN AMERICA', 'NORTH AMERICA') then 'AMS'
@@ -445,14 +444,14 @@ where region_3 is not nullselect distinct market8 as geography
 	else 'WW'
  end as region_3
 , region_5
-from ie2_prod.dbo.iso_country_code_xref
+from mdm.iso_country_code_xref
 where 1 = 1
   and region_3 is not null
   and region_5 <> 'JP'
   and region_5 <> 'XU'
   and market8 is not null
-    and market8 is not null)
-    , ci_inventory_fully_adjusted2 as
+   ), 
+    ci_inventory_fully_adjusted2 as
     (
 select fiscal_year_qtr,
     ci.geography,
@@ -1079,13 +1078,24 @@ where day_of_month = 1
     , '12.0'))
     , region_mappings as
     (
-select distinct market8 as geography, region_3, region_5
+      
+        
+select distinct market8 as geography
+, case
+	when market8 IN ('CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA') then 'EMEA'
+	when market8 IN ('LATIN AMERICA', 'NORTH AMERICA') then 'AMS'
+	when market8 IN ('GREATER ASIA', 'GREATER CHINA', 'INDIA SL & BL') then 'APJ'
+	else 'WW'
+ end as region_3
+, region_5
 from mdm.iso_country_code_xref
 where 1 = 1
   and region_3 is not null
   and region_5 <> 'JP'
   and region_5 <> 'XU'
-  and market8 is not null)
+  and market8 is not null
+    
+    )
     , accounting_rate_applied as
     (
 select distinct accounting_rate
@@ -1160,19 +1170,19 @@ select 'ADJUSTED REVENUE PLUS FLASH'                                            
            when geography in ('EMEA', 'CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA')
                then 'EMEA'
            when geography in ('APJ HQ', 'INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') then 'APJ'
-           when geography in ('AMS HQ', 'LATIN AMERICA', 'NORTH AMERICA', 'AMERICAS HQ') then 'AMS'
+           when geography in ('AMS HQ', 'LATIN AMERICA', 'NORTH AMERICA') then 'AMS'
            else 'WW'
            end                                                                     as region_3,
        case
            when geography in ('EMEA', 'CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA')
                then 'EU'
            when geography in ('APJ HQ', 'INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') then 'AP'
-           when geography in ('AMS HQ', 'NORTH AMERICA', 'AMERICAS HQ') then 'NA'
+           when geography in ('AMS HQ', 'NORTH AMERICA') then 'NA'
            when geography = 'LATIN AMERICA' then 'LA'
            else 'XW'
            end                                                                     as region_5,
        case
-           when geography in ('APJ HQ', 'AMS HQ', 'AMERICAS HQ') then 'HQ'
+           when geography in ('APJ HQ', 'AMS HQ') then 'HQ'
            else 'NON-HQ'
            end                                                                     as hq_flag,
        pl,
