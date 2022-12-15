@@ -7988,7 +7988,10 @@ calendar_table2.createOrReplaceTempView("calendar_table2")
 # add incremental dollars to PL5T because of hierarchy restatements in FY2022.  PL G9 and K8 (mps related services) were forced into PL5T by external factors; it wasn't local finance's decision
 incremental_data_raw = f"""
 SELECT 
-    l6_description,
+    CASE
+        WHEN l6_description = 'A3 LASER SUPPLIES' THEN 'A3 LASER S-PRINT SUPPLIES'
+        ELSE l6_description
+    END AS l6_description,
     CASE    
         WHEN market = 'AMERICAS_HQ' THEN 'NORTH_AMERICA'
         WHEN market = 'APJ_HQ_L2' THEN 'GREATER_ASIA'
