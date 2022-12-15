@@ -72,7 +72,7 @@ ci_flash = spark.sql("""
 """.format(version))
 
 ci_flash.createOrReplaceTempView("ci_flash_for_insights_supplies")
-write_df_to_redshift(configs, ci_flash, "fin_stage.ci_flash_for_insights_supplies", "append")
+write_df_to_redshift(configs, ci_flash, "fin_stage.ci_flash_for_insights_supplies", "overwrite")
 
 # COMMAND ----------
 
@@ -96,7 +96,7 @@ rev_flash = spark.sql("""
 """.format(version))
 
 rev_flash.createOrReplaceTempView("rev_flash_for_insights_supplies")
-write_df_to_redshift(configs, rev_flash, "fin_stage.rev_flash_for_insights_supplies", "append")
+write_df_to_redshift(configs, rev_flash, "fin_stage.rev_flash_for_insights_supplies", "overwrite")
 
 # COMMAND ----------
 
@@ -629,7 +629,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
