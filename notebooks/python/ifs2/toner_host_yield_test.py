@@ -735,7 +735,7 @@ vtc.display()
 # COMMAND ----------
 
 host_yield = read_redshift_to_df(configs) \
-    .option("query", f"""SELECT * FROM stage.laser_host_assumptions""") \
+    .option("query", f"""SELECT * FROM ifs2.toner_host_yield""") \
     .load()
 
 # COMMAND ----------
@@ -937,6 +937,7 @@ toner_host_yield.createOrReplaceTempView("toner_host_yield")
 query = '''select distinct platform_subset from toner_host_yield'''
 
 distinct_platform = spark.sql(query)
+toner_host_yield.createOrReplaceTempView("toner_host_yield")
 
 # COMMAND ----------
 
@@ -953,10 +954,12 @@ with norm_shipment as (
 	and xref.product_lifecycle_status in ('N' , 'C')
 	and version = (select max(version) from  prod.norm_shipments)
     ) 
-   select distinct usage.platform_subset , ns.platform_subset
+   select distinct usage.platform_subset as platform_usage , ns.platform_subset as platform_norm , thy.platform_subset as platform_host
 from toner_usage_share_sum_till_date usage
-left join norm_shipment ns
-    on usage.platform_subset = ns.platform_subset'''
+inner join norm_shipment ns
+    on usage.platform_subset = ns.platform_subset
+ left join toner_host_yield thy
+     on usage.platform_subset = UPPER(thy.platform_subset)'''
 
 toner_usage_share = spark.sql(query)
 toner_usage_share.display()
