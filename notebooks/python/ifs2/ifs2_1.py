@@ -552,9 +552,8 @@ select geography
     , customer_engagement
     , value
 from host_yield hy
-left join norm_shipment_platform nsp 
+inner join norm_shipment_platform nsp 
 	on hy.platform_subset = nsp.platform_subset
-where nsp.platform_subset is not null 
 
 '''
 
@@ -566,6 +565,8 @@ host_yield_ink.createOrReplaceTempView("host_yield_ink")
 query = '''select * from host_yield_ink'''
 
 df_1 = spark.sql(query)
+
+df_1.display()
 
 # COMMAND ----------
 
