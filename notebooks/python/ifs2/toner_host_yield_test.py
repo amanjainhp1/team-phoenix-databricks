@@ -73,6 +73,9 @@ end_ifs2_date = datetime.strptime(str(end_ifs2_date),"%Y-%m-%d")
 # COMMAND ----------
 
 ## Reading source tables from redshit
+norm_shipments = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.norm_shipments WHERE version = (select max(version) from prod.norm_shipments)") \
+    .load()
 usage_share = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.usage_share WHERE version = '{usage_share_version}'") \
     .load()
@@ -117,7 +120,8 @@ tables = [
   ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
   ['mdm.iso_country_code_xref' , iso_country_code_xref],
   ['prod.working_forecast_country' , working_forecast_country],
-  ['mdm.supplies_hw_mapping', supplies_hw_mapping]
+  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
+  ['prod.norm_shipments' , norm_shipments]
 ]
 
 for table in tables:
@@ -772,10 +776,6 @@ toner_host_yield = spark.read \
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 toner_host_yield.display()
 
 # COMMAND ----------
@@ -923,6 +923,50 @@ final.display()
 # COMMAND ----------
 
 final.filter(col('platform_subset') == 'Pyramid 3:1').display()
+
+# COMMAND ----------
+
+toner_host_yield = read_redshift_to_df(configs) \
+    .option("query", f"""SELECT * FROM ifs2.toner_host_yield""") \
+    .load()
+
+toner_host_yield.createOrReplaceTempView("toner_host_yield")
+
+# COMMAND ----------
+
+query = '''select distinct platform_subset from toner_host_yield'''
+
+distinct_platform = spark.sql(query)
+
+# COMMAND ----------
+
+distinct_platform.count()
+
+# COMMAND ----------
+
+query = '''
+with norm_shipment as (
+	select distinct ns.platform_subset from norm_shipments ns 
+	inner join hardware_xref   xref 
+		on ns.platform_subset = xref.platform_subset
+	where cal_date between '2022-11-01' and '2023-10-31' 
+	and xref.product_lifecycle_status in ('N' , 'C')
+	and version = (select max(version) from  prod.norm_shipments)
+    ) 
+   select distinct usage.platform_subset , ns.platform_subset
+from toner_usage_share_sum_till_date usage
+left join norm_shipment ns
+    on usage.platform_subset = ns.platform_subset'''
+
+toner_usage_share = spark.sql(query)
+toner_usage_share.display()
+
+# COMMAND ----------
+
+query = '''select distinct platform_subset from toner_usage_share_sum_till_date'''
+
+count_platform_usage = spark.sql(query)
+count_platform_usage.count()
 
 # COMMAND ----------
 

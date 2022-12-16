@@ -635,6 +635,10 @@ q = spark.sql(query)
 
 # COMMAND ----------
 
+q.filter((col('platform_subset') == 'BUGATTI 60 MANAGED 9C') & (col('cal_date')=='2034-10-01') & (col('country_alpha2')=='CD')).display()
+
+# COMMAND ----------
+
 query = '''
 select 
     country_alpha2
