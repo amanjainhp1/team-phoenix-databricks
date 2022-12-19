@@ -7,6 +7,13 @@
 
 # COMMAND ----------
 
+# pull in working forecast from SFAI (DELETE ME LATER; MIGRATE TO RS)
+working_forecast = read_sql_server_to_df(configs) \
+    .option("dbtable", "IE2_Prod.dbo.working_forecast") \
+    .load()
+
+# COMMAND ----------
+
 # load S3 tables to df
 edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
@@ -23,9 +30,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 iso_cc_rollup_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_cc_rollup_xref") \
     .load()
-working_forecast = read_redshift_to_df(configs) \
-    .option("query", "SELECT * FROM prod.working_forecast WHERE version = (SELECT max(version) from prod.working_forecast)") \
-    .load()
+#working_forecast = read_redshift_to_df(configs) \
+#    .option("query", "SELECT * FROM prod.working_forecast WHERE version = (SELECT max(version) from prod.working_forecast)") \
+#    .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()

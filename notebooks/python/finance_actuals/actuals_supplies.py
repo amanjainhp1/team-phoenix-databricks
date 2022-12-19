@@ -51,6 +51,7 @@ query = f"""
 	FROM fin_prod.actuals_supplies_baseprod
 	WHERE 1=1
 	AND revenue_units != 0
+    AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 	--AND cal_date = (select max(cal_date) from fin_prod.actuals_supplies_baseprod)
 	GROUP BY record, cal_date, country_alpha2, base_product_number, version, market10, customer_engagement, platform_subset
 """
