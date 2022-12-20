@@ -158,6 +158,34 @@ df.createOrReplaceTempView("yield_")
 
 # COMMAND ----------
 
+# eligible platform subsets for ink
+query = '''
+(
+select distinct platform_subset
+from hardware_xref hx
+where hx.product_lifecycle_status in ('N')
+and hx.technology in ('INK','PWA')
+and hx.official = 1
+)
+union
+(
+select distinct ns.platform_subset 
+from norm_shipments ns
+inner join hardware_xref hx
+on ns.platform_subset = hx.platform_subset
+where ns.cal_date between '2022-11-01' and '2023-10-31'
+and hx.technology in ('INK','PWA')
+and hx.product_lifecycle_status in ('C')
+and hx.official = 1
+)
+
+'''
+
+ink_ps = spark.sql(query)
+ink_ps.createOrReplaceTempView("ink_ps")
+
+# COMMAND ----------
+
 ## Creating dataframes for usage and share drivers for ink and toner
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
@@ -175,6 +203,8 @@ query = '''select cal_date
                 , ib_version
                 , us.version
                from usage_share us
+               inner join ink_ps ps
+               on ps.platform_subset = us.platform_subset
                inner join hardware_xref hw on us.platform_subset = hw.platform_subset
                where 1=1
                 and hw.technology in ('INK', 'PWA')
@@ -227,6 +257,10 @@ query = '''select cal_date
 toner_usage_share = spark.sql(query)
 toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
+
+# COMMAND ----------
+
+ink_usage_share_pivot.count()
 
 # COMMAND ----------
 
