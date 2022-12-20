@@ -2379,8 +2379,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_ChinaRoute
                                 , CASE
-                                ELSE null
-                                , CASE
                                 WHEN [Greater China_E] is not null then 'SELF'
                                 WHEN [Greater China_E] is null and [North America] is not null then 'NA'
                                 WHEN [Greater China_E] is null and [UK&I] is not null then 'UK'
