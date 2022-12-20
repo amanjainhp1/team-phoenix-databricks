@@ -2041,8 +2041,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_China2
                                 , CASE
-                                ELSE null
-                                , CASE
                                 WHEN [Greater China_E] is not null then [Greater China_E]*1
                                 WHEN [Greater China_E] is null and [North America] is not null then [North America]*Greater_China_Ena
                                 WHEN [Greater China_E] is null and [UK&I] is not null then [UK&I]*1/UKIgc
