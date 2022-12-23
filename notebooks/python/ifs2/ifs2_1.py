@@ -19,6 +19,7 @@ dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
 dbutils.widgets.text("cartridge_demand_pages_ccs_mix_version",'')
 dbutils.widgets.text("working_forecast_country_version",'')
+dbutils.widgets.text("discounting_factor",'')
 
 # COMMAND ----------
 
@@ -64,6 +65,10 @@ if working_forecast_country_version == "":
         .option("query", "SELECT MAX(version) FROM prod.working_forecast_country") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
+    
+discounting_factor = dbutils.widgets.get("discounting_factor")
+if discounting_factor == "":
+    discounting_factor = 0.115
 
 # COMMAND ----------
 
@@ -76,7 +81,7 @@ end_ifs2_date = datetime.strptime(str(end_ifs2_date),"%Y-%m-%d")
 norm_shipments = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.norm_shipments WHERE version = (select max(version) from prod.norm_shipments)") \
     .load()
-usage_share = read_redshift_to_df(configs) \
+usage_share1 = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.usage_share WHERE version = '{usage_share_version}'") \
     .load()
 hardware_xref = read_redshift_to_df(configs) \
@@ -111,7 +116,7 @@ supplies_hw_mapping = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
- ['prod.usage_share' , usage_share],
+ ['prod.usage_share1' , usage_share1],
  ['mdm.hardware_xref' , hardware_xref],
  ['mdm.supplies_xref' , supplies_xref],
  ['prod.decay_m13' , decay_m13],
@@ -135,10 +140,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-#     df.write \
-#       .format(write_format) \
-#       .mode("overwrite") \
-#       .save(save_path)
+    df.write \
+        .format(write_format) \
+        .mode("overwrite") \
+        .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -154,35 +159,47 @@ for table in tables:
 query = '''select * from mdm.yield'''
 
 df = spark.sql(query)
-df.createOrReplaceTempView("yield_")
+df.createOrReplaceTempView("yield_main")
 
 # COMMAND ----------
 
-# eligible platform subsets for ink
+# eligible platform subsets for ink - removed PW
 query = '''
-(
-select distinct platform_subset
-from hardware_xref hx
-where hx.product_lifecycle_status in ('N')
-and hx.technology in ('INK','PWA')
-and hx.official = 1
-)
-union
-(
+
 select distinct ns.platform_subset 
 from norm_shipments ns
 inner join hardware_xref hx
 on ns.platform_subset = hx.platform_subset
 where ns.cal_date between '2022-11-01' and '2023-10-31'
-and hx.technology in ('INK','PWA')
-and hx.product_lifecycle_status in ('C')
+and hx.technology in ('INK')
+and hx.product_lifecycle_status in ('C','N')
 and hx.official = 1
-)
+
 
 '''
 
 ink_ps = spark.sql(query)
 ink_ps.createOrReplaceTempView("ink_ps")
+
+# COMMAND ----------
+
+# eligible platform subsets for toner
+query = '''
+
+select distinct ns.platform_subset 
+from norm_shipments ns
+inner join hardware_xref hx
+on ns.platform_subset = hx.platform_subset
+where ns.cal_date between '2022-11-01' and '2023-10-31'
+and hx.technology in ('LASER')
+and hx.product_lifecycle_status in ('C','N')
+and hx.official = 1
+
+
+'''
+
+toner_ps = spark.sql(query)
+toner_ps.createOrReplaceTempView("toner_ps")
 
 # COMMAND ----------
 
@@ -202,7 +219,7 @@ query = '''select cal_date
                     end as units
                 , ib_version
                 , us.version
-               from usage_share us
+               from usage_share1 us
                inner join ink_ps ps
                on ps.platform_subset = us.platform_subset
                inner join hardware_xref hw on us.platform_subset = hw.platform_subset
@@ -238,7 +255,9 @@ query = '''select cal_date
                     end as units
                 , ib_version
                 , us.version
-               from usage_share us
+               from usage_share1 us
+               inner join toner_ps ps
+               on ps.platform_subset = us.platform_subset
                inner join hardware_xref hw on us.platform_subset = hw.platform_subset
                where 1=1
                 and hw.technology in ('LASER')
@@ -260,7 +279,8 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
 
-ink_usage_share_pivot.count()
+# ink_usage_share_pivot.count()
+# ink_usage_share_pivot.select('platform_subset').distinct().display()
 
 # COMMAND ----------
 
@@ -300,48 +320,6 @@ query = '''select cal_date
                 ,version
                 from ink_usage_share_pivot ius
                 '''
-ink_usage_share_sum_till_date = spark.sql(query)
-ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_date")
-
-# COMMAND ----------
-
-query = '''
-select distinct ns.platform_subset from norm_shipments ns 
-inner join hardware_xref   xref 
-    on ns.platform_subset = xref.platform_subset
-where cal_date between '2022-11-01' and '2023-10-31' 
-and xref.product_lifecycle_status in ('N' , 'C')
-and version = (select max(version) from  norm_shipments)
-and xref.official = 1
-
-'''
-norm_platform = spark.sql(query)
-norm_platform.createOrReplaceTempView("norm_platform")
-
-# COMMAND ----------
-
-query = '''
-
-select cal_date
-                , year
-                , year_num
-                , month_num
-                , market10
-                , ink_p.platform_subset
-                , customer_engagement
-                , hw_product_family
-                , COLOR_USAGE
-                , sum_of_color_usage_till_date
-                , K_USAGE
-                , sum_of_k_usage_till_date
-                , HP_SHARE
-                , ib_version
-                , version
-from ink_usage_share_sum_till_date ink_p
-inner join norm_platform np
-    on ink_p.platform_subset = np.platform_subset  
-'''
-
 ink_usage_share_sum_till_date = spark.sql(query)
 ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_date")
 
@@ -387,33 +365,6 @@ query = '''select cal_date
                 ,version
                 from toner_usage_share_pivot tus
                 '''
-toner_usage_share_sum_till_date = spark.sql(query)
-toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_till_date")
-
-# COMMAND ----------
-
-query = '''
-
-select cal_date
-                , year
-                , year_num
-                , month_num
-                , market10
-                , toner_p.platform_subset
-                , customer_engagement
-                , hw_product_family
-                , COLOR_USAGE
-                , sum_of_color_usage_till_date
-                , K_USAGE
-                , sum_of_k_usage_till_date
-                , HP_SHARE
-                , ib_version
-                , version
-from toner_usage_share_sum_till_date toner_p
-inner join norm_platform np
-    on toner_p.platform_subset = np.platform_subset  
-'''
-
 toner_usage_share_sum_till_date = spark.sql(query)
 toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_till_date")
 
@@ -502,208 +453,6 @@ usage_share.createOrReplaceTempView("usage_share")
 
 query = '''select * from usage_share'''
 df = spark.sql(query)
-
-# COMMAND ----------
-
-## host_yield calc
-
-query = '''
-
-with temp_yield as (
-SELECT distinct 
-	y.record
-    ,geography
-      ,y.base_product_number
-  ,sup.cartridge_alias
-  ,sup.type
-  ,sup.crg_chrome
-  ,sup.k_color
-  ,sup.size
-  ,sup.supplies_family
-  ,sup.supplies_group
-  ,value
-  ,effective_date
-  ,version as yield_version
-  ,ROW_NUMBER() over( partition by y.base_product_number, y.geography order by y.effective_date desc) as rn
-  FROM yield_ as y
-  left join supplies_xref as sup on sup.base_product_number = y.base_product_number 
-  where sup.official = 1
-  and geography_grain = 'REGION_5'
-  --where effective_date < (add_months(current_date ,-1)) 
- )
- ,  yield_region as (
-  select distinct y.*
-  from temp_yield y
-  where y.rn = 1
-  order by y.base_product_number
-  	, y.effective_date
-  	) 
- , yield_ps as 
- (
-	select distinct yr.geography 
-		, yr.base_product_number
-		, crg_chrome
-		, yr.type
-		, shm.host_multiplier 
-		, shm.platform_subset
-		,k_color
-		, shm.customer_engagement 
-		, hx.product_lifecycle_status
-		, value as value
-		, yr.effective_date
-		, yr.yield_version
-	from yield_region yr
-	left join supplies_hw_mapping shm 
-		on yr.base_product_number = shm.base_product_number 
-	inner join hardware_xref hx on shm.platform_subset = hx.platform_subset 
-		and yr.geography = shm.geography 
-	where shm.official = 1
-	and hx.technology in ('INK','PWA')
-	and hx.official = 1
-)
-, host_yield as 
-(
-	select geography, platform_subset, crg_chrome, customer_engagement , base_product_number , value  --, effective_date, yield_version
-	from yield_ps
-	where host_multiplier > 0
-	and crg_chrome <> 'HEAD'
-	--group by geography, platform_subset, crg_chrome, customer_engagement ,base_product_number   --, effective_date, yield_version
-	--having count(base_product_number) > 1
-)
-, norm_shipment_platform as 
-(
-	select distinct ns.platform_subset from norm_shipments ns 
-	inner join hardware_xref   xref 
-		on ns.platform_subset = xref.platform_subset
-	where cal_date between '2022-11-01' and '2023-10-31' 
-	and xref.product_lifecycle_status in ('N' , 'C')
-	and version = (select max(version) from  prod.norm_shipments)
-)
-
-select geography 
-    , hy.platform_subset
-    , crg_chrome
-    , customer_engagement
-    , value
-from host_yield hy
-inner join norm_shipment_platform nsp 
-	on hy.platform_subset = nsp.platform_subset
-
-'''
-
-host_yield_ink = spark.sql(query)
-host_yield_ink.createOrReplaceTempView("host_yield_ink")
-
-# COMMAND ----------
-
-query = '''select * from host_yield_ink'''
-
-df_1 = spark.sql(query)
-
-df_1.display()
-
-# COMMAND ----------
-
-## ink join with host_yield
-
-query = '''
-
-select u.record
-    , u.cal_date
-    , u.year
-    , u.year_num
-    , u.month_num
-    , u.region_5
-    , u.market10
-    , u.country_alpha2
-    , u.platform_subset
-    , u.base_product_number
-    , u.crg_chrome
-    , u.customer_engagement
-    , hyn.value as host_yield
-    , u.hw_product_family
-    , u.COLOR_USAGE
-    , u.sum_of_color_usage_till_date
-    , u.K_USAGE
-    , u.sum_of_k_usage_till_date
-    , u.HP_SHARE
-    , u.ib_version
-    , u.version
-from usage_share u
-left join host_yield_ink hyn
-    on u.platform_subset = hyn.platform_subset
-    and u.region_5 = hyn.geography
-    and u.crg_chrome = hyn.crg_chrome
-    and u.customer_engagement = hyn.customer_engagement
-where u.record = 'INK'
-'''
-
-t = spark.sql(query)
-t.createOrReplaceTempView("tpoi")
-
-# COMMAND ----------
-
-t.filter((col('platform_subset') == 'PALERMO HI I-INK') &(col('country_alpha2') == 'XV')& (col('base_product_number') == 'N9J82A') & (col('cal_date') == '2030-01-01') & (col('crg_chrome')=='BLK')).display()
-
-# COMMAND ----------
-
-query = '''
-
-select country_alpha2
-    , platform_subset
-    , cal_date
-    , crg_chrome
-    , customer_engagement
-    , base_product_number
-    , count(host_yield) as count_host
-from tpoi
-where record = 'INK'
-group by country_alpha2
-    , platform_subset
-    , cal_date
-    , crg_chrome
-    , customer_engagement
-    , base_product_number
-'''
-
-q = spark.sql(query)
-
-# COMMAND ----------
-
-q.filter((col('platform_subset') == 'BUGATTI 60 MANAGED 9C') & (col('cal_date')=='2034-10-01') & (col('country_alpha2')=='CD')).display()
-
-# COMMAND ----------
-
-query = '''
-select 
-    country_alpha2
-    , platform_subset
-    , crg_chrome
-    , customer_engagement
-    , base_product_number
-    , count_host
-from 
-'''
-
-poiu = sparl.sql(query)
-
-q.filter(col('count_host')>1).count()
-
-# COMMAND ----------
-
-q.filter(col('count_host')>1).display()
-
-# COMMAND ----------
-
-t.filter((col('platform_subset') == 'PALERMO HI I-INKTACCOLA YET1') & (col('market10') == 'NORTH AMERICA')).display()t.filter((col('platform_subset') == 'TACCOLA YET1') & (col('market10') == 'NORTH AMERICA')).display()
-
-# COMMAND ----------
-
-usage_share.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).display()
-
-# COMMAND ----------
-
-usage_share.count()
 
 # COMMAND ----------
 
@@ -854,7 +603,7 @@ SELECT distinct
   ,version as yield_version
 --  ,y.official ##need to ask
   ,ROW_NUMBER() over( partition by y.base_product_number, y.geography order by y.effective_date desc) as rn
-  FROM mdm.yield as y
+  FROM yield_main as y
   left join mdm.supplies_xref as sup on sup.base_product_number = y.base_product_number 
   where effective_date < (add_months('{}',-1)) 
  )
@@ -891,80 +640,85 @@ yield_.display()
 
 # COMMAND ----------
 
+# host yield for ink
 query = '''
-select geography, platform_subset, base_product_number, customer_engagement, crg_chrome, value as host_yield, country_alpha2
-from yield_
-where type in ('HOST','TRADE/HOST')
-
-'''
-host_yield = spark.sql(query)
-host_yield.createOrReplaceTempView("host_yield")
-
-
-# COMMAND ----------
-
-host_yield.count()
-
-# COMMAND ----------
-
-## platform subsets present in usage share but not in host yield
-query = '''
-select distinct platform_subset
-from ink_usage_share_sum_till_date iusstd
-where platform_subset not in (select distinct platform_subset from host_yield)
-
-'''
-spark.sql(query).display()
-
-# COMMAND ----------
-
-## platform subsets present in usage share with hosts
-query = '''
-
-select distinct platform_subset
-from ink_usage_share_sum_till_date iusstd
-where platform_subset in (select distinct platform_subset from host_yield)
-
-'''
-spark.sql(query).display()
-
-# COMMAND ----------
-
-## platform subsets with multiple hosts
-query = '''
-
-select distinct platform_subset from
+with y1 as (
+SELECT distinct 
+	y.record
+    ,geography
+      ,y.base_product_number
+  ,sup.cartridge_alias
+  ,sup.type
+  ,sup.crg_chrome
+  ,sup.k_color
+  ,sup.size
+  ,sup.supplies_family
+  ,sup.supplies_group
+  ,value
+  ,effective_date
+  ,version as yield_version
+  ,ROW_NUMBER() over( partition by y.base_product_number, y.geography order by y.effective_date desc) as rn
+  FROM yield_main as y
+  left join supplies_xref as sup on sup.base_product_number = y.base_product_number 
+  where sup.official = 1
+  and geography_grain = 'REGION_5'
+  --where effective_date < (add_months(current_date ,-1)) 
+ )
+ ,  yield_region as (
+  select distinct y.*
+  from y1 y
+  where y.rn = 1
+  order by y.base_product_number
+  	, y.effective_date
+  	) 
+ , yield_ps as 
+ (
+	select distinct yr.geography 
+		, yr.base_product_number
+		, crg_chrome
+		, yr.type
+		, shm.host_multiplier 
+		, shm.platform_subset
+		,k_color
+		, shm.customer_engagement 
+		, value as value
+		, yr.effective_date
+		, yr.yield_version
+	from yield_region yr
+	left join supplies_hw_mapping shm 
+		on yr.base_product_number = shm.base_product_number 
+	where shm.official = 1
+)
+, host_yield as 
 (
-    select geography, platform_subset, crg_chrome, count(base_product_number), country_alpha2, customer_engagement
-    from host_yield
-    group by geography, platform_subset, crg_chrome, country_alpha2, customer_engagement
-    having count(base_product_number) > 1
+	select geography, platform_subset, crg_chrome, customer_engagement ,value as host_yield 
+	from yield_ps
+	where host_multiplier > 0
+	and crg_chrome not in ('HEAD','NA')
+), all_ps as
+(
+select distinct  ns.platform_subset 
+from norm_shipments ns
+inner join hardware_xref hx
+on ns.platform_subset = hx.platform_subset
+where ns.cal_date between '2022-11-01' and '2023-10-31'
+and version = (select max(version) from norm_shipments)
+and hx.technology in ('INK')
+and hx.product_lifecycle_status in ('C','N')
+and hx.official = 1
 )
 
+select hy.* from host_yield hy
+inner join all_ps ps
+on hy.platform_subset = ps.platform_subset
 '''
-spark.sql(query).display()
+
+host_yield_ink = spark.sql(query)
+host_yield_ink.createOrReplaceTempView("host_yield_ink")
 
 # COMMAND ----------
 
-test2.display()
-
-# COMMAND ----------
-
-query = '''
-select distinct platform_subset
-from usage_share
-where record = 'INK'
-
-'''
-test3 = spark.sql(query)
-test3.count()
-
-# COMMAND ----------
-
-usage_share_hostYield.groupby("country_alpha2","platform_subset","crg_chrome","customer_engagement").sum("host_yield").display()
-
-# COMMAND ----------
-
+# trade split
 query = '''
 select cal_date
 		, cdpcm.geography
@@ -1023,6 +777,7 @@ fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
+# vtc
 query = '''
 select cal_date
 	, geography_grain
@@ -1046,6 +801,7 @@ vtc.display()
 
 # COMMAND ----------
 
+# final join
 query = '''
 select 
     us.platform_subset,
@@ -1057,6 +813,8 @@ select
     us.year,
     us.year_num,
     us.month_num,
+    ((12*(us.year_num-1))+us.month_num) as month,
+    POWER(1 + double({})/12,((12*(us.year_num-1))+us.month_num)) as discounting_factor,
     us.customer_engagement,
     us.color_usage,
     us.sum_of_color_usage_till_date,
@@ -1066,6 +824,7 @@ select
     d.value as decay,
     d.remaining_amount,
     y.value as yield,
+    hy.host_yield as host_yield,
     t.trade_split,
     v.vtc,
     us.ib_version,
@@ -1087,6 +846,11 @@ on us.platform_subset = y.platform_subset
 and us.base_product_number = y.base_product_number
 and us.region_5 = y.geography
 and us.country_alpha2 = y.country_alpha2
+left join host_yield_ink hy
+on us.platform_subset = hy.platform_subset
+and us.region_5 = hy.geography
+and us.customer_engagement = hy.customer_engagement
+and us.crg_chrome = hy.crg_chrome
 left join trade_split t
 on us.platform_subset = t.platform_subset
 and us.base_product_number = t.base_product_number
@@ -1102,7 +866,7 @@ and us.market10 = v.geography
 and us.country_alpha2 = v.country
 and us.customer_engagement = v.customer_engagement
 
-'''
+'''.format(discounting_factor)
 pen_per_printer = spark.sql(query)
 pen_per_printer.createOrReplaceTempView("pen_per_printer")
 
