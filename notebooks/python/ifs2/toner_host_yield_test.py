@@ -221,6 +221,60 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
 
+select distinct ns.platform_subset , product_lifecycle_status
+from prod.norm_shipments ns
+inner join mdm.hardware_xref hx
+on ns.platform_subset = hx.platform_subset
+where ns.cal_date between '2022-11-01' and '2023-10-31'
+and version = (select max(version) from prod.norm_shipments)
+and hx.technology in ('INK','PWA')
+and hx.product_lifecycle_status in ('C','N')
+and hx.official = 1
+
+
+# COMMAND ----------
+
+spark.sql('''select distinct ns.platform_subset from norm_shipments ns 
+	inner join hardware_xref   xref 
+		on ns.platform_subset = xref.platform_subset
+	where cal_date between '2022-11-01' and '2023-10-31' 
+	and xref.product_lifecycle_status in ('N' , 'C')
+	and version = (select max(version) from  norm_shipments)
+    and official =1
+    and xref.technology in ('INK','PWA')''').display()
+
+# COMMAND ----------
+
+query = '''
+with norm_shipment as (
+	select distinct ns.platform_subset from norm_shipments ns 
+	inner join hardware_xref   xref 
+		on ns.platform_subset = xref.platform_subset
+	where cal_date between '2022-11-01' and '2023-10-31' 
+	and xref.product_lifecycle_status in ('N' , 'C')
+	and version = (select max(version) from  norm_shipments)
+    and official =1
+    and xref.technology in ('INK','PWA')
+    ) 
+   select distinct usage.platform_subset as platform_usage , ns.platform_subset as platform_norm 
+from norm_shipment ns
+left join  ink_usage_share_pivot usage
+    on usage.platform_subset = ns.platform_subset
+     '''
+
+ink_usage_share = spark.sql(query)
+ink_usage_share.display()
+
+# COMMAND ----------
+
+ink_usage_share_pivotquery = '''
+select usage.platform_subset
+from ink_usage_share_pivot usage
+inner join 
+'''
+
+# COMMAND ----------
+
 query = '''select distinct platform_subset
 from toner_usage_share_pivot
 '''
@@ -753,7 +807,6 @@ from pyspark.sql import functions as f
 
 # COMMAND ----------
 
-
 bucket = f"dataos-core-{stack}-team-phoenix-fin" 
 bucket_prefix = "landing/odw/"
 
@@ -952,17 +1005,30 @@ with norm_shipment as (
 		on ns.platform_subset = xref.platform_subset
 	where cal_date between '2022-11-01' and '2023-10-31' 
 	and xref.product_lifecycle_status in ('N' , 'C')
-	and version = (select max(version) from  prod.norm_shipments)
+	and version = (select max(version) from  norm_shipments)
+    and official = 1
+    and xref.technology = 'LASER'
     ) 
-   select distinct usage.platform_subset as platform_usage , ns.platform_subset as platform_norm , thy.platform_subset as platform_host
-from toner_usage_share_sum_till_date usage
-inner join norm_shipment ns
+   select distinct usage.platform_subset as platform_usage , ns.platform_subset as platform_norm , UPPER(thy.platform_subset) as platform_host , xref.predecessor
+from norm_shipment ns
+left join toner_usage_share_sum_till_date usage
     on usage.platform_subset = ns.platform_subset
  left join toner_host_yield thy
-     on usage.platform_subset = UPPER(thy.platform_subset)'''
+     on usage.platform_subset = UPPER(thy.platform_subset)
+ left join hardware_xref xref
+     on thy.platform_subset is null 
+     and usage.platform_subset = xref.predecessor
+     and xref.platform_subset = UPPER(thy.platform_subset)
+     where thy.platform_subset is null
+ order by platform_usage
+     '''
 
 toner_usage_share = spark.sql(query)
 toner_usage_share.display()
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
