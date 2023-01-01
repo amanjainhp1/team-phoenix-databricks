@@ -1092,6 +1092,7 @@ forecast_base_pl = spark.sql(forecast_base_pl)
 forecast_base_pl = forecast_base_pl.withColumn("load_date" , lit(None).cast(StringType())) \
                 .withColumn("version" , lit(None).cast(StringType()))
 write_df_to_redshift(configs, forecast_base_pl, "fin_stage.forecast_base_pl", "overwrite")
+forecast_base_pl.createOrReplaceTempView("forecast_base_pl")
 
 # COMMAND ----------
 
@@ -1207,9 +1208,9 @@ write_df_to_redshift(configs, ink_variable_cost_dropout , "fin_stage.ink_variabl
 
 # COMMAND ----------
 
-toner_variable_cost_dropout = 
+toner_variable_cost_dropout = """
 
-"""select distinct
+select distinct
 	forecast_base_pl.base_product_number
 	, forecast_base_pl.region_5
 from 

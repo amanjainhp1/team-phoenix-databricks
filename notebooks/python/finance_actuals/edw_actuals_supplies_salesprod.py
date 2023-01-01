@@ -129,9 +129,9 @@ for table in tables:
     print(f'loading {table[0]}...')
     
     for column in df.dtypes:
-         renamed_column = re.sub('\$', '_dollars', re.sub(' ', '_', column[0])).lower()
-         df = df.withColumnRenamed(column[0], renamed_column)
-         print(renamed_column) 
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column) 
         
      # Write the data to its target.
     df.write \
@@ -1361,6 +1361,7 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
 WHERE cal_date < '2021-11-01'  -- edw is system of record thru FY21; odw is system of record thereafter
+AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, base_product_number, sales_product_number, sales_product_option
 """
 
@@ -2031,6 +2032,17 @@ spark.table("fin_stage.edw_supplies_combined_findata").createOrReplaceTempView("
 
 # COMMAND ----------
 
+finance_sys_recorded_pl = f"""
+SELECT distinct cal_date,
+    sales_product_number,
+    pl as fin_pl
+FROM edw_supplies_combined_findata
+"""
+
+finance_sys_recorded_pl = spark.sql(finance_sys_recorded_pl)
+finance_sys_recorded_pl.createOrReplaceTempView("finance_sys_recorded_pl")
+
+
 salesprod_emea_supplies = f"""
 SELECT cal_date,
     sup.country_alpha2,
@@ -2092,14 +2104,14 @@ SELECT
     Product_Line_ID AS pl, 
     partner,
     RTM_2 AS rtm2,
-    SUM(CAST(COALESCE(`Sell-thru_USD`,0) AS float)) AS sell_thru_usd,
-    SUM(CAST(COALESCE(`Sell-thru_Qty`,0) AS float)) AS sell_thru_qty,
-    SUM(CAST(COALESCE(`Channel_Inventory_USD`,0) AS float)) AS channel_inventory_usd,
-    (SUM(CAST(COALESCE(`Channel_Inventory_Qty`,0) AS float)) + 0.0) AS channel_inventory_qty
+    SUM(CAST(COALESCE(sell_thru_usd,0) AS float)) AS sell_thru_usd,
+    SUM(CAST(COALESCE(sell_thru_qty,0) AS float)) AS sell_thru_qty,
+    SUM(CAST(COALESCE(channel_inventory_usd,0) AS float)) AS channel_inventory_usd,
+    (SUM(CAST(COALESCE(channel_inventory_qty,0) AS float)) + 0.0) AS channel_inventory_qty
 FROM fin_stage.cbm_st_data st
 WHERE 1=1
     AND    Month > '2015-10-01' 
-    AND (COALESCE(`Sell-thru_USD`,0) + COALESCE(`Sell-thru_Qty`,0) + COALESCE(Channel_Inventory_USD,0) + COALESCE(Channel_Inventory_Qty,0)) <> 0
+    AND (COALESCE(sell_thru_usd,0) + COALESCE(sell_thru_qty,0) + COALESCE(channel_inventory_usd,0) + COALESCE(channel_inventory_qty,0)) <> 0
 GROUP BY Data_Type, Month, Country_Code, Product_Number, Product_Line_ID, partner, RTM_2
 """
 
@@ -2146,11 +2158,7 @@ SELECT
         THEN LEFT(sales_product_number, 6)
         ELSE sales_product_number
     END AS sales_product_number,
-    CASE
-        WHEN sales_product_number = '4HY97A' AND pl = 'G0' THEN 'E5'
-        WHEN pl = 'IE' THEN 'TX'
-        ELSE pl
-    END AS pl,
+    pl,
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM channel_inventory
@@ -2159,6 +2167,25 @@ GROUP BY cal_date, country_alpha2, sales_product_number, pl
 
 channel_inventory2 = spark.sql(channel_inventory2)
 channel_inventory2.createOrReplaceTempView("channel_inventory2")
+
+channel_inventory_pl_restated = f"""
+SELECT 
+    ci2.cal_date,
+    country_alpha2,
+    ci2.sales_product_number,
+    fin_pl as pl,
+    SUM(sell_thru_usd) AS sell_thru_usd,
+    SUM(sell_thru_qty) AS sell_thru_qty
+FROM channel_inventory2 ci2
+JOIN finance_sys_recorded_pl fpl
+    ON fpl.cal_date = ci2.cal_date
+    AND fpl.sales_product_number = ci2.sales_product_number
+GROUP BY ci2.cal_date, country_alpha2, ci2.sales_product_number, fin_pl
+"""
+
+channel_inventory_pl_restated = spark.sql(channel_inventory_pl_restated)
+channel_inventory_pl_restated.createOrReplaceTempView("channel_inventory_pl_restated")
+
 
 document_currency_countries = f"""
 SELECT DISTINCT    iso.country_alpha2
@@ -2179,11 +2206,15 @@ tier1_emea_raw = f"""
 SELECT
     cal_date,
     st.country_alpha2,
-    pl,
+    CASE
+        WHEN sales_product_number = '4HY97A' AND pl = 'G0'
+        THEN 'E5'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
-FROM channel_inventory2 AS st
+FROM channel_inventory_pl_restated AS st
 JOIN iso_country_code_xref AS geo ON st.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA'
   AND sell_thru_usd > 0
@@ -5501,7 +5532,12 @@ edw_product_line_restated2 = f"""
 SELECT cal_date,
     country_alpha2,
     region_5,
-    pl,
+    edw_recorded_pl,
+    CASE
+        WHEN edw_recorded_pl = 'GM' THEN 'GM'
+        WHEN edw_recorded_pl = 'EO' THEN 'EO'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -5515,7 +5551,7 @@ FROM edw_product_line_restated edw
 WHERE 1=1 
     AND    sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
     AND pl NOT IN ('IE', 'IX') -- inactive PLs for LF; at this point, any sales products in IE/TX would be unmapped or UNKN and can be dropped
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, edw_recorded_pl
 """
 
 edw_product_line_restated2 = spark.sql(edw_product_line_restated2)
@@ -7851,6 +7887,8 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM xcode_adjusted_data2
+WHERE 1=1 
+AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
@@ -7983,7 +8021,10 @@ calendar_table2.createOrReplaceTempView("calendar_table2")
 # add incremental dollars to PL5T because of hierarchy restatements in FY2022.  PL G9 and K8 (mps related services) were forced into PL5T by external factors; it wasn't local finance's decision
 incremental_data_raw = f"""
 SELECT 
-    l6_description,
+    CASE
+        WHEN l6_description = 'A3 LASER SUPPLIES' THEN 'A3 LASER S-PRINT SUPPLIES'
+        ELSE l6_description
+    END AS l6_description,
     CASE    
         WHEN market = 'AMERICAS_HQ' THEN 'NORTH_AMERICA'
         WHEN market = 'APJ_HQ_L2' THEN 'GREATER_ASIA'

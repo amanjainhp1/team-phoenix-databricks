@@ -193,17 +193,20 @@ SELECT record
 FROM "prod"."version"
 WHERE record in ('IB', 'NORM_SHIPMENTS')
     AND version = '{version}'
-)SELECT 'NORM_SHIPS_CE' AS record
-    , ns.month_begin AS cal_date
-    , ns.region_5 AS region_5
+)
+
+SELECT 
+    ns.record
+    , ns.cal_date
+    , ns.region_5
     , ns.country_alpha2
     , ns.platform_subset
-    , UPPER(ns.split_name) AS customer_engagement
+    , ns.customer_engagement
     , ns.split_value
     , ns.units AS units
     , vars.load_date
     , vars.version
-FROM "stage"."ib_04_units_ce_splits_pre" AS ns
+FROM "stage"."norm_shipments_ce" AS ns
 CROSS JOIN ib_promo_01_filter_vars AS vars
 WHERE 1=1
     AND vars.record = 'NORM_SHIPMENTS'

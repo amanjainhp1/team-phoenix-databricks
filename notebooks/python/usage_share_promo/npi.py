@@ -407,57 +407,106 @@ npi_helper_4.createOrReplaceTempView("npi_helper_4")
 # COMMAND ----------
 
 #Add share values for Big Ink (set to 1)
-hw_bi = read_redshift_to_df(configs) \
-  .option("query","""
-    SELECT distinct platform_subset
-    FROM "mdm"."hardware_xref"
-    WHERE product_lifecycle_status_share='N'
-    AND brand='BIG INK'
-    """) \
-  .load()
-hw_bi.createOrReplaceTempView("hw_bi")
+#Full list of Big Ink platforms
+#hw_bi = read_redshift_to_df(configs) \
+#  .option("query","""
+#    SELECT distinct platform_subset, brand
+#    FROM "mdm"."hardware_xref"
+#    WHERE product_lifecycle_status_share='N'
+#    AND technology = 'INK'
+#    """) \
+#  .load()
+#hw_bi.createOrReplaceTempView("hw_bi")
 
-npi_helper_4_bia = """
-SELECT distinct platform_subset
-FROM npi_helper_4 
-WHERE platform_subset in (select distinct platform_subset from hw_bi)
-AND measure='HP_SHARE'
-"""
-npi_helper_4_bia=spark.sql(npi_helper_4_bia)
-npi_helper_4_bia.createOrReplaceTempView("npi_helper_4_bia")
+#Full list of I-INK platforms
+#hw_ii = """SELECT distinct ib.platform_subset 
+#    FROM ib_info_r5 ib
+#    INNER JOIN hw_bi hw
+#    ON ib.platform_subset=hw.platform_subset
+#    WHERE ib.customer_engagement = 'I-INK' 
+#"""
+#hw_ii=spark.sql(hw_ii)
+#hw_ii.createOrReplaceTempView("hw_ii")
 
-npi_helper_4_bi = """
-SELECT record
-      ,cal_date
-      ,geography_grain
-      ,country_alpha2
-      ,platform_subset
-      ,customer_engagement
-      ,forecast_process_note
-      ,post_processing_note
-      ,data_source
-      ,version
-      ,'HP_SHARE' as measure
-      ,CAST(1 as int) as units
-      ,proxy_used
-      ,ib_version
-      ,load_date
-FROM npi_helper_4 
-WHERE platform_subset in (select distinct platform_subset from hw_bi)
-AND platform_subset not in (select distinct platform_subset from npi_helper_4_bia)
-AND measure='USAGE'
-"""
+#npi_helper_4_bia = """
+#SELECT distinct platform_subset
+#FROM npi_helper_4 
+#WHERE platform_subset in (select distinct platform_subset from hw_bi where brand='BIG INK')
+#AND measure='HP_SHARE'
+#"""
+#npi_helper_4_bia=spark.sql(npi_helper_4_bia)
+#npi_helper_4_bia.createOrReplaceTempView("npi_helper_4_bia")
 
-npi_helper_4_bi=spark.sql(npi_helper_4_bi)
-npi_helper_4_bi.createOrReplaceTempView("npi_helper_4_bi")
+#npi_helper_4_iia = """
+#SELECT distinct platform_subset
+#FROM npi_helper_4 
+#WHERE platform_subset in (select distinct platform_subset from hw_ii)
+#AND measure='HP_SHARE' AND customer_engagement='I-INK'
+#"""
+#npi_helper_4_iia=spark.sql(npi_helper_4_iia)
+#npi_helper_4_iia.createOrReplaceTempView("npi_helper_4_iia")
 
-npi_helper_4 = """
-SELECT * FROM npi_helper_4
-UNION ALL
-SELECT * FROM npi_helper_4_bi
-"""
-npi_helper_4=spark.sql(npi_helper_4)
-npi_helper_4.createOrReplaceTempView("npi_helper_4")
+#npi_helper_4_bi = """
+#SELECT record
+#      ,cal_date
+#      ,geography_grain
+#      ,country_alpha2
+#      ,platform_subset
+#      ,customer_engagement
+#      ,forecast_process_note
+#      ,post_processing_note
+#      ,data_source
+#      ,version
+#      ,'HP_SHARE' as measure
+#      ,CAST(1 as int) as units
+#      ,proxy_used
+#      ,ib_version
+#      ,load_date
+#FROM npi_helper_4 
+#WHERE platform_subset in (select distinct platform_subset from hw_bi)
+#AND platform_subset not in (select distinct platform_subset from npi_helper_4_bia)
+#AND measure='USAGE'
+#"""
+
+#npi_helper_4_bi=spark.sql(npi_helper_4_bi)
+#npi_helper_4_bi.createOrReplaceTempView("npi_helper_4_bi")
+
+#npi_helper_4_ii = """
+#SELECT record
+#      ,cal_date
+#      ,geography_grain
+#      ,country_alpha2
+#      ,platform_subset
+#      ,customer_engagement
+#      ,forecast_process_note
+#      ,post_processing_note
+#      ,data_source
+#      ,version
+#      ,'HP_SHARE' as measure
+#      ,CAST(1 as int) as units
+#      ,proxy_used
+#      ,ib_version
+#      ,load_date
+#FROM npi_helper_4 
+#WHERE platform_subset in (select distinct platform_subset from hw_ii)
+#AND platform_subset not in (select distinct platform_subset from npi_helper_4_iia)
+#AND measure='USAGE'
+#AND customer_engagement='I-INK'
+#"""
+
+#npi_helper_4_ii=spark.sql(npi_helper_4_ii)
+#npi_helper_4_ii.createOrReplaceTempView("npi_helper_4_ii")
+
+
+#npi_helper_4 = """
+#SELECT * FROM npi_helper_4
+#UNION ALL
+#SELECT * FROM npi_helper_4_bi
+#UNION ALL
+#SELECT * FROM npi_helper_4_ii
+#"""
+#npi_helper_4=spark.sql(npi_helper_4)
+#npi_helper_4.createOrReplaceTempView("npi_helper_4")
 
 # COMMAND ----------
 

@@ -1395,7 +1395,7 @@ usageSummary2Tr5 <- reshape2::dcast(usageSummary2R5Keep, printer_platform_name ~
 usageSummary2TEmkt10[usageSummary2TEmkt10 == 0] <- NA
 
 usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platform_market_code,aa1.[Central Europe_Developed],aa1.[Central Europe_Emerging]
-                  ,aa1.[Greater Asia_Developed],aa1.[Greater Asia_Emerging],aa1.[Greater China_Developed],aa1.[Greater China_Emerging]
+                  ,aa1.[Greater Asia_Developed],aa1.[Greater Asia_Emerging],aa1.[Greater China_Emerging]
                   ,aa1.[India SL & BL_Emerging],aa1.[ISE_Emerging],aa1.[Latin America_Emerging],aa1.[North America_Developed]
                   ,aa1.[Northern Europe_Developed],aa1.[Southern Europe_Developed],aa1.[UK&I_Developed]
                            --North America_Developed
@@ -1404,7 +1404,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[North America_Developed],0) as [Central Europe_Emerging_wt]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[North America_Developed],0) as [Greater Asia_Developed_wt]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[North America_Developed],0) as [Greater Asia_Emerging_wt]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[North America_Developed],0) as [Greater China_Developed_wt]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[North America_Developed],0) as [Greater China_Emerging_wt]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[North America_Developed],0) as [India SL & BL_Emerging_wt]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[North America_Developed],0) as [ISE_Emerging_wt]
@@ -1418,7 +1417,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Central Europe_Developed],0) as [Central Europe_Emerging_wt2]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Central Europe_Developed],0) as [Greater Asia_Developed_wt2]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Central Europe_Developed],0) as [Greater Asia_Emerging_wt2]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Central Europe_Developed],0) as [Greater China_Developed_wt2]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Central Europe_Developed],0) as [Greater China_Emerging_wt2]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Central Europe_Developed],0) as [India SL & BL_Emerging_wt2]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Central Europe_Developed],0) as [ISE_Emerging_wt2]
@@ -1432,7 +1430,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Central Europe_Emerging],0) as [Central Europe_Emerging_wt3]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Central Europe_Emerging],0) as [Greater Asia_Developed_wt3]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Central Europe_Emerging],0) as [Greater Asia_Emerging_wt3]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Central Europe_Emerging],0) as [Greater China_Developed_wt3]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Central Europe_Emerging],0) as [Greater China_Emerging_wt3]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Central Europe_Emerging],0) as [India SL & BL_Emerging_wt3]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Central Europe_Emerging],0) as [ISE_Emerging_wt3]
@@ -1446,7 +1443,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Greater Asia_Developed],0) as [Central Europe_Emerging_wt4]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Greater Asia_Developed],0) as [Greater Asia_Developed_wt4]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Greater Asia_Developed],0) as [Greater Asia_Emerging_wt4]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Greater Asia_Developed],0) as [Greater China_Developed_wt4]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Greater Asia_Developed],0) as [Greater China_Emerging_wt4]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Greater Asia_Developed],0) as [India SL & BL_Emerging_wt4]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Greater Asia_Developed],0) as [ISE_Emerging_wt4]
@@ -1460,7 +1456,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Greater Asia_Emerging],0) as [Central Europe_Emerging_wt5]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Greater Asia_Emerging],0) as [Greater Asia_Developed_wt5]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Greater Asia_Emerging],0) as [Greater Asia_Emerging_wt5]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Greater Asia_Emerging],0) as [Greater China_Developed_wt5]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Greater Asia_Emerging],0) as [Greater China_Emerging_wt5]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Greater Asia_Emerging],0) as [India SL & BL_Emerging_wt5]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Greater Asia_Emerging],0) as [ISE_Emerging_wt5]
@@ -1468,27 +1463,12 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Northern Europe_Developed]/aa1.[Greater Asia_Emerging],0) as [Northern Europe_Developed_wt5]
                            , COALESCE(aa1.[Southern Europe_Developed]/aa1.[Greater Asia_Emerging],0) as [Southern Europe_Developed_wt5]
                            , COALESCE(aa1.[UK&I_Developed]/aa1.[Greater Asia_Emerging],0) as [UK&I_Developed_wt5]
-                           --Greater China_Developed
-                           , COALESCE(aa1.[North America_Developed]/aa1.[Greater China_Developed],0) as [North America_Developed_wt6]
-                           , COALESCE(aa1.[Central Europe_Developed]/aa1.[Greater China_Developed],0) as [Central Europe_Developed_wt6]
-                           , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Greater China_Developed],0) as [Central Europe_Emerging_wt6]
-                           , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Greater China_Developed],0) as [Greater Asia_Developed_wt6]
-                           , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Greater China_Developed],0) as [Greater Asia_Emerging_wt6]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Greater China_Developed],0) as [Greater China_Developed_wt6]
-                           , COALESCE(aa1.[Greater China_Emerging]/aa1.[Greater China_Developed],0) as [Greater China_Emerging_wt6]
-                           , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Greater China_Developed],0) as [India SL & BL_Emerging_wt6]
-                           , COALESCE(aa1.[ISE_Emerging]/aa1.[Greater China_Developed],0) as [ISE_Emerging_wt6]
-                           , COALESCE(aa1.[Latin America_Emerging]/aa1.[Greater China_Developed],0) as [Latin America_Emerging_wt6]
-                           , COALESCE(aa1.[Northern Europe_Developed]/aa1.[Greater China_Developed],0) as [Northern Europe_Developed_wt6]
-                           , COALESCE(aa1.[Southern Europe_Developed]/aa1.[Greater China_Developed],0) as [Southern Europe_Developed_wt6]
-                           , COALESCE(aa1.[UK&I_Developed]/aa1.[Greater China_Developed],0) as [UK&I_Developed_wt6]
                            --Greater China_Emerging
                            , COALESCE(aa1.[North America_Developed]/aa1.[Greater China_Emerging],0) as [North America_Developed_wt7]
                            , COALESCE(aa1.[Central Europe_Developed]/aa1.[Greater China_Emerging],0) as [Central Europe_Developed_wt7]
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Greater China_Emerging],0) as [Central Europe_Emerging_wt7]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Greater China_Emerging],0) as [Greater Asia_Developed_wt7]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Greater China_Emerging],0) as [Greater Asia_Emerging_wt7]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Greater China_Emerging],0) as [Greater China_Developed_wt7]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Greater China_Emerging],0) as [Greater China_Emerging_wt7]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Greater China_Emerging],0) as [India SL & BL_Emerging_wt7]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Greater China_Emerging],0) as [ISE_Emerging_wt7]
@@ -1502,7 +1482,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[India SL & BL_Emerging],0) as [Central Europe_Emerging_wt8]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[India SL & BL_Emerging],0) as [Greater Asia_Developed_wt8]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[India SL & BL_Emerging],0) as [Greater Asia_Emerging_wt8]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[India SL & BL_Emerging],0) as [Greater China_Developed_wt8]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[India SL & BL_Emerging],0) as [Greater China_Emerging_wt8]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[India SL & BL_Emerging],0) as [India SL & BL_Emerging_wt8]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[India SL & BL_Emerging],0) as [ISE_Emerging_wt8]
@@ -1516,7 +1495,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[ISE_Emerging],0) as [Central Europe_Emerging_wt9]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[ISE_Emerging],0) as [Greater Asia_Developed_wt9]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[ISE_Emerging],0) as [Greater Asia_Emerging_wt9]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[ISE_Emerging],0) as [Greater China_Developed_wt9]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[ISE_Emerging],0) as [Greater China_Emerging_wt9]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[ISE_Emerging],0) as [India SL & BL_Emerging_wt9]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[ISE_Emerging],0) as [ISE_Emerging_wt9]
@@ -1530,7 +1508,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Latin America_Emerging],0) as [Central Europe_Emerging_wt10]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Latin America_Emerging],0) as [Greater Asia_Developed_wt10]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Latin America_Emerging],0) as [Greater Asia_Emerging_wt10]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Latin America_Emerging],0) as [Greater China_Developed_wt10]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Latin America_Emerging],0) as [Greater China_Emerging_wt10]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Latin America_Emerging],0) as [India SL & BL_Emerging_wt10]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Latin America_Emerging],0) as [ISE_Emerging_wt10]
@@ -1544,7 +1521,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Northern Europe_Developed],0) as [Central Europe_Emerging_wt11]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Northern Europe_Developed],0) as [Greater Asia_Developed_wt11]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Northern Europe_Developed],0) as [Greater Asia_Emerging_wt11]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Northern Europe_Developed],0) as [Greater China_Developed_wt11]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Northern Europe_Developed],0) as [Greater China_Emerging_wt11]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Northern Europe_Developed],0) as [India SL & BL_Emerging_wt11]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Northern Europe_Developed],0) as [ISE_Emerging_wt11]
@@ -1558,7 +1534,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[Southern Europe_Developed],0) as [Central Europe_Emerging_wt12]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[Southern Europe_Developed],0) as [Greater Asia_Developed_wt12]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[Southern Europe_Developed],0) as [Greater Asia_Emerging_wt12]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[Southern Europe_Developed],0) as [Greater China_Developed_wt12]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[Southern Europe_Developed],0) as [Greater China_Emerging_wt12]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[Southern Europe_Developed],0) as [India SL & BL_Emerging_wt12]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[Southern Europe_Developed],0) as [ISE_Emerging_wt12]
@@ -1572,7 +1547,6 @@ usageSummary2TEde <- sqldf("select aa1.printer_platform_name, aa2.CM, aa2.platfo
                            , COALESCE(aa1.[Central Europe_Emerging]/aa1.[UK&I_Developed],0) as [Central Europe_Emerging_wt13]
                            , COALESCE(aa1.[Greater Asia_Developed]/aa1.[UK&I_Developed],0) as [Greater Asia_Developed_wt13]
                            , COALESCE(aa1.[Greater Asia_Emerging]/aa1.[UK&I_Developed],0) as [Greater Asia_Emerging_wt13]
-                           , COALESCE(aa1.[Greater China_Developed]/aa1.[UK&I_Developed],0) as [Greater China_Developed_wt13]
                            , COALESCE(aa1.[Greater China_Emerging]/aa1.[UK&I_Developed],0) as [Greater China_Emerging_wt13]
                            , COALESCE(aa1.[India SL & BL_Emerging]/aa1.[UK&I_Developed],0) as [India SL & BL_Emerging_wt13]
                            , COALESCE(aa1.[ISE_Emerging]/aa1.[UK&I_Developed],0) as [ISE_Emerging_wt13]
@@ -1595,41 +1569,39 @@ usageSummary2TE <- sqldf("select a.[printer_platform_name],a.[CM],a.[platform_ma
 ,b.[Greater China_wt6],b.[India_wt6],b.[ISE_wt6],b.[Latin America_wt6],b.[Northern Europe_wt6],b.[Southern Europe_wt6],b.[UK&I_wt6],b.[North America_wt7]
 ,b.[Central Europe_wt7],b.[Greater Asia_wt7],b.[Greater China_wt7],b.[India_wt7],b.[ISE_wt7],b.[Latin America_wt7],b.[Northern Europe_wt7],b.[Southern Europe_wt7] ,b.[UK&I_wt7],b.[North America_wt8],b.[Central Europe_wt8],b.[Greater Asia_wt8],b.[Greater China_wt8],b.[India_wt8],b.[ISE_wt8],b.[Latin America_wt8]
 ,b.[Northern Europe_wt8],b.[Southern Europe_wt8],b.[UK&I_wt8],b.[North America_wt9],b.[Central Europe_wt9],b.[Greater Asia_wt9],b.[Greater China_wt9],b.[India_wt9]      ,b.[ISE_wt9],b.[Latin America_wt9],b.[Northern Europe_wt9],b.[Southern Europe_wt9],b.[UK&I_wt9],b.[North America_wt10],b.[Central Europe_wt10],b.[Greater Asia_wt10]   ,b.[Greater China_wt10],b.[India_wt10],b.[ISE_wt10],b.[Latin America_wt10],b.[Northern Europe_wt10],b.[Southern Europe_wt10],b.[UK&I_wt10] 
-,c.[Central Europe_Developed],c.[Central Europe_Emerging],c.[Greater Asia_Developed],c.[Greater Asia_Emerging],c.[Greater China_Developed],c.[Greater China_Emerging]
+,c.[Central Europe_Developed],c.[Central Europe_Emerging],c.[Greater Asia_Developed],c.[Greater Asia_Emerging],c.[Greater China_Emerging]
 ,c.[India SL & BL_Emerging],c.[ISE_Emerging],c.[Latin America_Emerging],c.[North America_Developed],c.[Northern Europe_Developed]
 ,c.[Southern Europe_Developed],c.[UK&I_Developed],c.[North America_Developed_wt],c.[Central Europe_Developed_wt],c.[Central Europe_Emerging_wt]
-,c.[Greater Asia_Developed_wt],c.[Greater Asia_Emerging_wt],c.[Greater China_Developed_wt],c.[Greater China_Emerging_wt],c.[India SL & BL_Emerging_wt]
+,c.[Greater Asia_Developed_wt],c.[Greater Asia_Emerging_wt],c.[Greater China_Emerging_wt],c.[India SL & BL_Emerging_wt]
 ,c.[ISE_Emerging_wt],c.[Latin America_Emerging_wt],c.[Northern Europe_Developed_wt],c.[Southern Europe_Developed_wt],c.[UK&I_Developed_wt]
 ,c.[North America_Developed_wt2],c.[Central Europe_Developed_wt2],c.[Central Europe_Emerging_wt2],c.[Greater Asia_Developed_wt2],c.[Greater Asia_Emerging_wt2]
-,c.[Greater China_Developed_wt2],c.[Greater China_Emerging_wt2],c.[India SL & BL_Emerging_wt2],c.[ISE_Emerging_wt2],c.[Latin America_Emerging_wt2]
+,c.[Greater China_Emerging_wt2],c.[India SL & BL_Emerging_wt2],c.[ISE_Emerging_wt2],c.[Latin America_Emerging_wt2]
 ,c.[Northern Europe_Developed_wt2],c.[Southern Europe_Developed_wt2],c.[UK&I_Developed_wt2],c.[North America_Developed_wt3],c.[Central Europe_Developed_wt3]
-,c.[Central Europe_Emerging_wt3],c.[Greater Asia_Developed_wt3],c.[Greater Asia_Emerging_wt3],c.[Greater China_Developed_wt3],c.[Greater China_Emerging_wt3]
+,c.[Central Europe_Emerging_wt3],c.[Greater Asia_Developed_wt3],c.[Greater Asia_Emerging_wt3],c.[Greater China_Emerging_wt3]
 ,c.[India SL & BL_Emerging_wt3],c.[ISE_Emerging_wt3],c.[Latin America_Emerging_wt3],c.[Northern Europe_Developed_wt3],c.[Southern Europe_Developed_wt3]
 ,c.[UK&I_Developed_wt3],c.[North America_Developed_wt4],c.[Central Europe_Developed_wt4],c.[Central Europe_Emerging_wt4],c.[Greater Asia_Developed_wt4]
-,c.[Greater Asia_Emerging_wt4],c.[Greater China_Developed_wt4],c.[Greater China_Emerging_wt4],c.[India SL & BL_Emerging_wt4],c.[ISE_Emerging_wt4]
+,c.[Greater Asia_Emerging_wt4],c.[Greater China_Emerging_wt4],c.[India SL & BL_Emerging_wt4],c.[ISE_Emerging_wt4]
 ,c.[Latin America_Emerging_wt4],c.[Northern Europe_Developed_wt4],c.[Southern Europe_Developed_wt4],c.[UK&I_Developed_wt4],c.[North America_Developed_wt5]
-,c.[Central Europe_Developed_wt5],c.[Central Europe_Emerging_wt5],c.[Greater Asia_Developed_wt5],c.[Greater Asia_Emerging_wt5],c.[Greater China_Developed_wt5]
+,c.[Central Europe_Developed_wt5],c.[Central Europe_Emerging_wt5],c.[Greater Asia_Developed_wt5],c.[Greater Asia_Emerging_wt5]
 ,c.[Greater China_Emerging_wt5],c.[India SL & BL_Emerging_wt5],c.[ISE_Emerging_wt5],c.[Latin America_Emerging_wt5],c.[Northern Europe_Developed_wt5]
-,c.[Southern Europe_Developed_wt5],c.[UK&I_Developed_wt5],c.[North America_Developed_wt6],c.[Central Europe_Developed_wt6],c.[Central Europe_Emerging_wt6]
-,c.[Greater Asia_Developed_wt6],c.[Greater Asia_Emerging_wt6],c.[Greater China_Developed_wt6],c.[Greater China_Emerging_wt6],c.[India SL & BL_Emerging_wt6]
-,c.[ISE_Emerging_wt6],c.[Latin America_Emerging_wt6],c.[Northern Europe_Developed_wt6],c.[Southern Europe_Developed_wt6],c.[UK&I_Developed_wt6]
+,c.[Southern Europe_Developed_wt5],c.[UK&I_Developed_wt5]
 ,c.[North America_Developed_wt7],c.[Central Europe_Developed_wt7],c.[Central Europe_Emerging_wt7],c.[Greater Asia_Developed_wt7],c.[Greater Asia_Emerging_wt7]
-,c.[Greater China_Developed_wt7],c.[Greater China_Emerging_wt7],c.[India SL & BL_Emerging_wt7],c.[ISE_Emerging_wt7],c.[Latin America_Emerging_wt7]
+,c.[Greater China_Emerging_wt7],c.[India SL & BL_Emerging_wt7],c.[ISE_Emerging_wt7],c.[Latin America_Emerging_wt7]
 ,c.[Northern Europe_Developed_wt7],c.[Southern Europe_Developed_wt7],c.[UK&I_Developed_wt7],c.[North America_Developed_wt8],c.[Central Europe_Developed_wt8]
-,c.[Central Europe_Emerging_wt8],c.[Greater Asia_Developed_wt8],c.[Greater Asia_Emerging_wt8],c.[Greater China_Developed_wt8],c.[Greater China_Emerging_wt8]
+,c.[Central Europe_Emerging_wt8],c.[Greater Asia_Developed_wt8],c.[Greater Asia_Emerging_wt8],c.[Greater China_Emerging_wt8]
 ,c.[India SL & BL_Emerging_wt8],c.[ISE_Emerging_wt8],c.[Latin America_Emerging_wt8],c.[Northern Europe_Developed_wt8],c.[Southern Europe_Developed_wt8]
 ,c.[UK&I_Developed_wt8],c.[North America_Developed_wt9],c.[Central Europe_Developed_wt9],c.[Central Europe_Emerging_wt9],c.[Greater Asia_Developed_wt9]
-,c.[Greater Asia_Emerging_wt9],c.[Greater China_Developed_wt9],c.[Greater China_Emerging_wt9],c.[India SL & BL_Emerging_wt9],c.[ISE_Emerging_wt9]
+,c.[Greater Asia_Emerging_wt9],c.[Greater China_Emerging_wt9],c.[India SL & BL_Emerging_wt9],c.[ISE_Emerging_wt9]
 ,c.[Latin America_Emerging_wt9],c.[Northern Europe_Developed_wt9],c.[Southern Europe_Developed_wt9],c.[UK&I_Developed_wt9],c.[North America_Developed_wt10]
-,c.[Central Europe_Developed_wt10],c.[Central Europe_Emerging_wt10],c.[Greater Asia_Developed_wt10],c.[Greater Asia_Emerging_wt10],c.[Greater China_Developed_wt10]
+,c.[Central Europe_Developed_wt10],c.[Central Europe_Emerging_wt10],c.[Greater Asia_Developed_wt10],c.[Greater Asia_Emerging_wt10]
 ,c.[Greater China_Emerging_wt10],c.[India SL & BL_Emerging_wt10],c.[ISE_Emerging_wt10],c.[Latin America_Emerging_wt10],c.[Northern Europe_Developed_wt10]
 ,c.[Southern Europe_Developed_wt10],c.[UK&I_Developed_wt10],c.[North America_Developed_wt11],c.[Central Europe_Developed_wt11],c.[Central Europe_Emerging_wt11]
-,c.[Greater Asia_Developed_wt11],c.[Greater Asia_Emerging_wt11],c.[Greater China_Developed_wt11],c.[Greater China_Emerging_wt11],c.[India SL & BL_Emerging_wt11]
+,c.[Greater Asia_Developed_wt11],c.[Greater Asia_Emerging_wt11],c.[Greater China_Emerging_wt11],c.[India SL & BL_Emerging_wt11]
 ,c.[ISE_Emerging_wt11],c.[Latin America_Emerging_wt11],c.[Northern Europe_Developed_wt11],c.[Southern Europe_Developed_wt11],c.[UK&I_Developed_wt11]
 ,c.[North America_Developed_wt12],c.[Central Europe_Developed_wt12],c.[Central Europe_Emerging_wt12],c.[Greater Asia_Developed_wt12],c.[Greater Asia_Emerging_wt12]
-,c.[Greater China_Developed_wt12],c.[Greater China_Emerging_wt12],c.[India SL & BL_Emerging_wt12],c.[ISE_Emerging_wt12],c.[Latin America_Emerging_wt12]
+,c.[Greater China_Emerging_wt12],c.[India SL & BL_Emerging_wt12],c.[ISE_Emerging_wt12],c.[Latin America_Emerging_wt12]
 ,c.[Northern Europe_Developed_wt12],c.[Southern Europe_Developed_wt12],c.[UK&I_Developed_wt12],c.[North America_Developed_wt13],c.[Central Europe_Developed_wt13]
-,c.[Central Europe_Emerging_wt13],c.[Greater Asia_Developed_wt13],c.[Greater Asia_Emerging_wt13],c.[Greater China_Developed_wt13],c.[Greater China_Emerging_wt13]
+,c.[Central Europe_Emerging_wt13],c.[Greater Asia_Developed_wt13],c.[Greater Asia_Emerging_wt13],c.[Greater China_Emerging_wt13]
 ,c.[India SL & BL_Emerging_wt13],c.[ISE_Emerging_wt13],c.[Latin America_Emerging_wt13],c.[Northern Europe_Developed_wt13],c.[Southern Europe_Developed_wt13]
 ,c.[UK&I_Developed_wt13]
                          from usageSummary2TEr5 a 
@@ -1654,7 +1626,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt]) as Greater_Asia_Dna
                    , avg([Greater Asia_Emerging_wt]) as Greater_Asia_Ena
                    , avg([Greater China_wt]) as Greater_Chinana
-                   , avg([Greater China_Developed_wt]) as Greater_China_Dna
                    , avg([Greater China_Emerging_wt]) as Greater_China_Ena
                    , avg([India_wt]) as Indiana
                    , avg([Latin America_wt]) as Latin_Americana
@@ -1672,9 +1643,7 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt3]) as Greater_Asia_Dcee
                    , avg([Greater Asia_Emerging_wt3]) as Greater_Asia_Ecee
                    , avg([Greater China_wt2]) as Greater_Chinace
-                   , avg([Greater China_Developed_wt2]) as Greater_China_Dced
                    , avg([Greater China_Emerging_wt2]) as Greater_China_Eced
-                   , avg([Greater China_Developed_wt3]) as Greater_China_Dcee
                    , avg([Greater China_Emerging_wt3]) as Greater_China_Ecee
                    , avg([India_wt2]) as Indiace
                    , avg([Latin America_wt2]) as Latin_Americace
@@ -1692,16 +1661,12 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt5]) as Greater_Asia_Dgae
                    , avg([Greater Asia_Emerging_wt4]) as Greater_Asia_Egad
                    , avg([Greater China_wt3]) as Greater_Chinaga
-                   , avg([Greater China_Developed_wt4]) as Greater_China_Dgad
                    , avg([Greater China_Emerging_wt4]) as Greater_China_Egad
-                   , avg([Greater China_Developed_wt5]) as Greater_China_Dgae
                    , avg([Greater China_Emerging_wt5]) as Greater_China_Egae
                    , avg([India_wt3]) as Indiaga
                    , avg([Latin America_wt3]) as Latin_Americaga
                    --
                    , avg([Central Europe_wt4]) as Central_Europegc
-                   , avg([Central Europe_Emerging_wt6]) as Central_Europe_Egcd
-                   , avg([Central Europe_Developed_wt6]) as Central_Europe_Dgcd
                    , avg([Central Europe_Emerging_wt7]) as Central_Europe_Egce
                    , avg([Central Europe_Developed_wt7]) as Central_Europe_Dgce
                    , avg([Northern Europe_wt4]) as Northern_Europegc
@@ -1709,12 +1674,8 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([ISE_wt4]) as ISEgc
                    , avg([UK&I_wt4]) as UKIgc
                    , avg([Greater Asia_wt4]) as Greater_Asiagc
-                   , avg([Greater Asia_Developed_wt6]) as Greater_Asia_Dgcd
-                   , avg([Greater Asia_Emerging_wt6]) as Greater_Asia_Egcd
                    , avg([Greater Asia_Developed_wt7]) as Greater_Asia_Dgce
                    , avg([Greater Asia_Emerging_wt7]) as Greater_Asia_Egce
-                   , avg([Greater China_Developed_wt7]) as Greater_China_Dgce
-                   , avg([Greater China_Emerging_wt6]) as Greater_China_Egcd
                    , avg([North America_wt4]) as North_Americagc
                    , avg([India_wt4]) as Indiagc
                    , avg([Latin America_wt4]) as Latin_Americagc
@@ -1730,7 +1691,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt8]) as Greater_Asia_Dia
                    , avg([Greater Asia_Emerging_wt8]) as Greater_Asia_Eia
                    , avg([Greater China_wt5]) as Greater_Chinaia
-                   , avg([Greater China_Developed_wt8]) as Greater_China_Dia
                    , avg([Greater China_Emerging_wt8]) as Greater_China_Eia
                    , avg([North America_wt5]) as North_Americaia
                    , avg([Latin America_wt5]) as Latin_Americaia
@@ -1746,7 +1706,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt9]) as Greater_Asia_Dis
                    , avg([Greater Asia_Emerging_wt9]) as Greater_Asia_Eis
                    , avg([Greater China_wt6]) as Greater_Chinais
-                   , avg([Greater China_Developed_wt9]) as Greater_China_Dis
                    , avg([Greater China_Emerging_wt9]) as Greater_China_Eis
                    , avg([India_wt6]) as Indiais
                    , avg([Latin America_wt6]) as Latin_Americais
@@ -1762,7 +1721,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt10]) as Greater_Asia_Dla
                    , avg([Greater Asia_Emerging_wt10]) as Greater_Asia_Ela
                    , avg([Greater China_wt7]) as Greater_Chinala
-                   , avg([Greater China_Developed_wt10]) as Greater_China_Dla
                    , avg([Greater China_Emerging_wt10]) as Greater_China_Ela
                    , avg([India_wt7]) as Indiala
                    , avg([North America_wt7]) as North_Americala
@@ -1778,7 +1736,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt11]) as Greater_Asia_Dne
                    , avg([Greater Asia_Emerging_wt11]) as Greater_Asia_Ene
                    , avg([Greater China_wt8]) as Greater_Chinane
-                   , avg([Greater China_Developed_wt11]) as Greater_China_Dne
                    , avg([Greater China_Emerging_wt11]) as Greater_China_Ene
                    , avg([India_wt8]) as Indiane
                    , avg([Latin America_wt8]) as Latin_Americane
@@ -1794,7 +1751,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt12]) as Greater_Asia_Dse
                    , avg([Greater Asia_Emerging_wt12]) as Greater_Asia_Ese
                    , avg([Greater China_wt9]) as Greater_Chinase
-                   , avg([Greater China_Developed_wt12]) as Greater_China_Dse
                    , avg([Greater China_Emerging_wt12]) as Greater_China_Ese
                    , avg([India_wt9]) as Indiase
                    , avg([Latin America_wt9]) as Latin_Americase
@@ -1810,7 +1766,6 @@ wtaverage <- sqldf('select cm, platform_market_code
                    , avg([Greater Asia_Developed_wt13]) as Greater_Asia_Duk
                    , avg([Greater Asia_Emerging_wt13]) as Greater_Asia_Euk
                    , avg([Greater China_wt10]) as Greater_Chinauk
-                   , avg([Greater China_Developed_wt13]) as Greater_China_Duk
                    , avg([Greater China_Emerging_wt13]) as Greater_China_Euk
                    , avg([India_wt10]) as Indiauk
                    , avg([Latin America_wt10]) as Latin_Americauk
@@ -1837,27 +1792,27 @@ wtaverage[is.na(wtaverage)] <- 1
 
 usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Central_Europe_Dna],aa2.[Central_Europe_Ena],aa2.[Northern_Europena]
 ,aa2.[Southern_Europena],aa2.[ISEna],aa2.[UKIna],aa2.[Greater_Asiana],aa2.[Greater_Asia_Dna],aa2.[Greater_Asia_Ena],aa2.[Greater_Chinana]
-,aa2.[Greater_China_Dna],aa2.[Greater_China_Ena],aa2.[Indiana],aa2.[Latin_Americana],aa2.[North_Americace],aa2.[Central_Europe_Eced],aa2.[Central_Europe_Dcee]
+,aa2.[Greater_China_Ena],aa2.[Indiana],aa2.[Latin_Americana],aa2.[North_Americace],aa2.[Central_Europe_Eced],aa2.[Central_Europe_Dcee]
 ,aa2.[Northern_Europece],aa2.[Southern_Europece],aa2.[ISEce],aa2.[UKIce],aa2.[Greater_Asiace],aa2.[Greater_Asia_Dced],aa2.[Greater_Asia_Eced]
-,aa2.[Greater_Asia_Dcee],aa2.[Greater_Asia_Ecee],aa2.[Greater_Chinace],aa2.[Greater_China_Dced],aa2.[Greater_China_Eced],aa2.[Greater_China_Dcee]
+,aa2.[Greater_Asia_Dcee],aa2.[Greater_Asia_Ecee],aa2.[Greater_Chinace],aa2.[Greater_China_Eced]
 ,aa2.[Greater_China_Ecee],aa2.[Indiace],aa2.[Latin_Americace],aa2.[Central_Europega],aa2.[Central_Europe_Egad],aa2.[Central_Europe_Dgad],aa2.[Central_Europe_Egae]
-,aa2.[Central_Europe_Dgae],aa2.[Northern_Europega],aa2.[Southern_Europega],aa2.[ISEga],aa2.[UKIga],aa2.[North_Americaga],aa2.[Greater_Asia_Dgae],aa2.[Greater_Asia_Egad],aa2.[Greater_Chinaga],aa2.[Greater_China_Dgad],aa2.[Greater_China_Egad],aa2.[Greater_China_Dgae],aa2.[Greater_China_Egae],aa2.[Indiaga],aa2.[Latin_Americaga]
-,aa2.[Central_Europegc],aa2.[Central_Europe_Egcd],aa2.[Central_Europe_Dgcd],aa2.[Central_Europe_Egce],aa2.[Central_Europe_Dgce],aa2.[Northern_Europegc]
-,aa2.[Southern_Europegc],aa2.[ISEgc],aa2.[UKIgc],aa2.[Greater_Asiagc],aa2.[Greater_Asia_Dgcd],aa2.[Greater_Asia_Egcd],aa2.[Greater_Asia_Dgce],aa2.[Greater_Asia_Egce]
-,aa2.[Greater_China_Dgce],aa2.[Greater_China_Egcd],aa2.[North_Americagc],aa2.[Indiagc],aa2.[Latin_Americagc],aa2.[Central_Europeia],aa2.[Central_Europe_Eia]
+,aa2.[Central_Europe_Dgae],aa2.[Northern_Europega],aa2.[Southern_Europega],aa2.[ISEga],aa2.[UKIga],aa2.[North_Americaga],aa2.[Greater_Asia_Dgae],aa2.[Greater_Asia_Egad],aa2.[Greater_Chinaga],aa2.[Greater_China_Egad],aa2.[Greater_China_Egae],aa2.[Indiaga],aa2.[Latin_Americaga]
+,aa2.[Central_Europegc],aa2.[Central_Europe_Egce],aa2.[Central_Europe_Dgce],aa2.[Northern_Europegc]
+,aa2.[Southern_Europegc],aa2.[ISEgc],aa2.[UKIgc],aa2.[Greater_Asiagc],aa2.[Greater_Asia_Dgce],aa2.[Greater_Asia_Egce]
+,aa2.[North_Americagc],aa2.[Indiagc],aa2.[Latin_Americagc],aa2.[Central_Europeia],aa2.[Central_Europe_Eia]
 ,aa2.[Central_Europe_Dia],aa2.[Northern_Europeia],aa2.[Southern_Europeia],aa2.[ISEia],aa2.[UKIia],aa2.[Greater_Asiaia],aa2.[Greater_Asia_Dia]
-,aa2.[Greater_Asia_Eia],aa2.[Greater_Chinaia],aa2.[Greater_China_Dia],aa2.[Greater_China_Eia],aa2.[North_Americaia],aa2.[Latin_Americaia],aa2.[Central_Europeis]
+,aa2.[Greater_Asia_Eia],aa2.[Greater_Chinaia],aa2.[Greater_China_Eia],aa2.[North_Americaia],aa2.[Latin_Americaia],aa2.[Central_Europeis]
 ,aa2.[Central_Europe_Eis],aa2.[Central_Europe_Dis],aa2.[Northern_Europeis],aa2.[Southern_Europeis],aa2.[North_Americais],aa2.[UKIis],aa2.[Greater_Asiais]
-,aa2.[Greater_Asia_Dis],aa2.[Greater_Asia_Eis],aa2.[Greater_Chinais],aa2.[Greater_China_Dis],aa2.[Greater_China_Eis],aa2.[Indiais],aa2.[Latin_Americais]
+,aa2.[Greater_Asia_Dis],aa2.[Greater_Asia_Eis],aa2.[Greater_Chinais],aa2.[Greater_China_Eis],aa2.[Indiais],aa2.[Latin_Americais]
 ,aa2.[Central_Europela],aa2.[Central_Europe_Ela],aa2.[Central_Europe_Dla],aa2.[Northern_Europela],aa2.[Southern_Europela],aa2.[ISEla],aa2.[UKIla]
-,aa2.[Greater_Asiala],aa2.[Greater_Asia_Dla],aa2.[Greater_Asia_Ela],aa2.[Greater_Chinala],aa2.[Greater_China_Dla],aa2.[Greater_China_Ela],aa2.[Indiala]
+,aa2.[Greater_Asiala],aa2.[Greater_Asia_Dla],aa2.[Greater_Asia_Ela],aa2.[Greater_Chinala],aa2.[Greater_China_Ela],aa2.[Indiala]
 ,aa2.[North_Americala],aa2.[Central_Europene],aa2.[Central_Europe_Ene],aa2.[Central_Europe_Dne],aa2.[Nort_Americane],aa2.[Southern_Europene],aa2.[ISEne]
-,aa2.[UKIne],aa2.[Greater_Asiane],aa2.[Greater_Asia_Dne],aa2.[Greater_Asia_Ene],aa2.[Greater_Chinane],aa2.[Greater_China_Dne],aa2.[Greater_China_Ene]
+,aa2.[UKIne],aa2.[Greater_Asiane],aa2.[Greater_Asia_Dne],aa2.[Greater_Asia_Ene],aa2.[Greater_Chinane],aa2.[Greater_China_Ene]
 ,aa2.[Indiane],aa2.[Latin_Americane],aa2.[Central_Europese],aa2.[Central_Europe_Ese],aa2.[Central_Europe_Dse],aa2.[Northern_Europese],aa2.[North_Americase]
-,aa2.[ISEse],aa2.[UKIse],aa2.[Greater_Asiase],aa2.[Greater_Asia_Dse],aa2.[Greater_Asia_Ese],aa2.[Greater_Chinase],aa2.[Greater_China_Dse]
+,aa2.[ISEse],aa2.[UKIse],aa2.[Greater_Asiase],aa2.[Greater_Asia_Dse],aa2.[Greater_Asia_Ese],aa2.[Greater_Chinase]
 ,aa2.[Greater_China_Ese],aa2.[Indiase],aa2.[Latin_Americase],aa2.[Central_Europeuk],aa2.[Central_Europe_Euk],aa2.[Central_Europe_Duk],aa2.[Northern_Europeuk]
 ,aa2.[Southern_Europeuk],aa2.[ISEuk],aa2.[North_Americauk],aa2.[Greater_Asiauk],aa2.[Greater_Asia_Duk],aa2.[Greater_Asia_Euk],aa2.[Greater_Chinauk]
-,aa2.[Greater_China_Duk],aa2.[Greater_China_Euk],aa2.[Indiauk],aa2.[Latin_Americauk],aa2.[LAa],aa2.[APa],aa2.[APa2],aa2.[LAa2], aa2.[LAa3]
+,aa2.[Greater_China_Euk],aa2.[Indiauk],aa2.[Latin_Americauk],aa2.[LAa],aa2.[APa],aa2.[APa2],aa2.[LAa2], aa2.[LAa3]
                               from usageSummary2TE aa1
                               inner join 
                               wtaverage aa2
@@ -1899,7 +1854,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [North America] is null and [ISE] is not null then [ISE]*1/ISEna
                                 WHEN [North America] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dna
                                 WHEN [North America] is null and [Greater Asia_Emerging] is not null then [Greater Asia_Emerging]*1/Greater_Asia_Ena
-                                WHEN [North America] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dna
                                 WHEN [North America] is null and [Greater China_Emerging] is not null then [Greater China_Emerging]*1/Greater_China_Ena
                                 WHEN [North America] is null and [Latin America] is not null then [Latin America]*1/Latin_Americana
                                 ELSE null
@@ -1931,7 +1885,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [UK&I] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europeuk
                                 WHEN [UK&I] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Duk
                                 WHEN [UK&I] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Duk
-                                WHEN [UK&I] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Duk
                                 WHEN [UK&I] is null and [ISE] is not null then [ISE]*1/ISEuk
                                 WHEN [UK&I] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiauk
                                 WHEN [UK&I] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Euk
@@ -1960,7 +1913,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Northern Europe] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europene
                                 WHEN [Northern Europe] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dne
                                 WHEN [Northern Europe] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dne
-                                WHEN [Northern Europe] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dne
                                 WHEN [Northern Europe] is null and [ISE] is not null then [ISE]*1/ISEne
                                 WHEN [Northern Europe] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiane
                                 WHEN [Northern Europe] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Ene
@@ -1989,7 +1941,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Southern Europe] is null and [Northern Europe] is not null then [Northern Europe]*1/Northern_Europese
                                 WHEN [Southern Europe] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dse
                                 WHEN [Southern Europe] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dse
-                                WHEN [Southern Europe] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dse
                                 WHEN [Southern Europe] is null and [ISE] is not null then [ISE]*1/ISEse
                                 WHEN [Southern Europe] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiase
                                 WHEN [Southern Europe] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Ese
@@ -2019,7 +1970,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [ISE] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europeis
                                 WHEN [ISE] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dis
                                 WHEN [ISE] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dis
-                                WHEN [ISE] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dis
                                 WHEN [ISE] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiais
                                 WHEN [ISE] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Eis
                                 WHEN [ISE] is null and [Greater Asia_Emerging] is not null then [Greater Asia_Emerging]*1/Greater_Asia_Eis
@@ -2047,12 +1997,11 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Central Europe_Developed] is null and [Northern Europe] is not null then [Northern Europe]*1/Northern_Europece
                                 WHEN [Central Europe_Developed] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europece
                                 WHEN [Central Europe_Developed] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dcee
-                                WHEN [Central Europe_Developed] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dced
                                 WHEN [Central Europe_Developed] is null and [ISE] is not null then [ISE]*1/ISEce
                                 WHEN [Central Europe_Developed] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiace
                                 WHEN [Central Europe_Developed] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Dcee
                                 WHEN [Central Europe_Developed] is null and [Greater Asia_Emerging] is not null then [Greater Asia_Emerging]*1/Greater_Asia_Dcee
-                                WHEN [Central Europe_Developed] is null and [Greater China_Emerging] is not null then [Greater China_Emerging]*1/Greater_China_Dcee
+                                WHEN [Central Europe_Developed] is null and [Greater China_Emerging] is not null then [Greater China_Emerging]*1/Greater_China_Ecee
                                 WHEN [Central Europe_Developed] is null and [Latin America] is not null then [Latin America]*1/Latin_Americace
                                 ELSE null
                                 END as Central_Europe_D2
@@ -2064,7 +2013,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Central Europe_Emerging] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europece
                                 WHEN [Central Europe_Emerging] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dcee
                                 WHEN [Central Europe_Emerging] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dcee
-                                WHEN [Central Europe_Emerging] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dcee
                                 WHEN [Central Europe_Emerging] is null and [ISE] is not null then [ISE]*1/ISEce
                                 WHEN [Central Europe_Emerging] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiace
                                 WHEN [Central Europe_Emerging] is null and [Greater Asia_Emerging] is not null then [Greater Asia_Emerging]*1/Greater_Asia_Ecee
@@ -2100,7 +2048,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [India SL & BL] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europeia
                                 WHEN [India SL & BL] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dia
                                 WHEN [India SL & BL] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dia
-                                WHEN [India SL & BL] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dia
                                 WHEN [India SL & BL] is null and [ISE] is not null then [ISE]*1/ISEia
                                 WHEN [India SL & BL] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Eia
                                 WHEN [India SL & BL] is null and [Greater Asia_Emerging] is not null then [Greater Asia_Emerging]*1/Greater_Asia_Eia
@@ -2128,7 +2075,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater Asia_Developed] is null and [Northern Europe] is not null then [Northern Europe]*1/Northern_Europega
                                 WHEN [Greater Asia_Developed] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europega
                                 WHEN [Greater Asia_Developed] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dgad
-                                WHEN [Greater Asia_Developed] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dgad
                                 WHEN [Greater Asia_Developed] is null and [ISE] is not null then [ISE]*1/ISEga
                                 WHEN [Greater Asia_Developed] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiaga
                                 WHEN [Greater Asia_Developed] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Egad
@@ -2144,7 +2090,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater Asia_Emerging] is null and [Northern Europe] is not null then [Northern Europe]*1/Northern_Europega
                                 WHEN [Greater Asia_Emerging] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europega
                                 WHEN [Greater Asia_Emerging] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dgae
-                                WHEN [Greater Asia_Emerging] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dgae
                                 WHEN [Greater Asia_Emerging] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dgae
                                 WHEN [Greater Asia_Emerging] is null and [ISE] is not null then [ISE]*1/ISEga
                                 WHEN [Greater Asia_Emerging] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiaga
@@ -2167,22 +2112,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_China2
                                 , CASE
-                                WHEN [Greater China_Developed] is not null then [Greater China_Developed]*1
-                                WHEN [Greater China_Developed] is null and [North America] is not null then [North America]*Greater_China_Dna
-                                WHEN [Greater China_Developed] is null and [UK&I] is not null then [UK&I]*1/UKIgc
-                                WHEN [Greater China_Developed] is null and [Northern Europe] is not null then [Northern Europe]*1/Northern_Europegc
-                                WHEN [Greater China_Developed] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europegc
-                                WHEN [Greater China_Developed] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dgcd
-                                WHEN [Greater China_Developed] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dgcd
-                                WHEN [Greater China_Developed] is null and [ISE] is not null then [ISE]*1/ISEgc
-                                WHEN [Greater China_Developed] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiagc
-                                WHEN [Greater China_Developed] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Egcd
-                                WHEN [Greater China_Developed] is null and [Greater Asia_Emerging] is not null then [Greater Asia_Emerging]*1/Greater_Asia_Egcd
-                                WHEN [Greater China_Developed] is null and [Greater China_Emerging] is not null then [Greater China_Emerging]*1/Greater_China_Egcd
-                                WHEN [Greater China_Developed] is null and [Latin America] is not null then [Latin America]*1/Latin_Americagc
-                                ELSE null
-                                END as Greater_China_D2
-                                , CASE
                                 WHEN [Greater China_Emerging] is not null then [Greater China_Emerging]*1
                                 WHEN [Greater China_Emerging] is null and [North America] is not null then [North America]*Greater_China_Ena
                                 WHEN [Greater China_Emerging] is null and [UK&I] is not null then [UK&I]*1/UKIgc
@@ -2190,7 +2119,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater China_Emerging] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europegc
                                 WHEN [Greater China_Emerging] is null and [Central Europe_Developed] is not null then [Central Europe_developed]*1/Central_Europe_Dgce
                                 WHEN [Greater China_Emerging] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dgce
-                                WHEN [Greater China_Emerging] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_Asia_Dgce
                                 WHEN [Greater China_Emerging] is null and [ISE] is not null then [ISE]*1/ISEgc
                                 WHEN [Greater China_Emerging] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiagc
                                 WHEN [Greater China_Emerging] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Egce
@@ -2226,7 +2154,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Latin America] is null and [Southern Europe] is not null then [Southern Europe]*1/Southern_Europela
                                 WHEN [Latin America] is null and [Central Europe_Developed] is not null then [Central Europe_Developed]*1/Central_Europe_Dla
                                 WHEN [Latin America] is null and [Greater Asia_Developed] is not null then [Greater Asia_Developed]*1/Greater_Asia_Dla
-                                WHEN [Latin America] is null and [Greater China_Developed] is not null then [Greater China_Developed]*1/Greater_China_Dla
                                 WHEN [Latin America] is null and [ISE] is not null then [ISE]*1/ISEla
                                 WHEN [Latin America] is null and [India SL & BL] is not null then [India SL & BL]*1/Indiala
                                 WHEN [Latin America] is null and [Central Europe_Emerging] is not null then [Central Europe_Emerging]*1/Central_Europe_Ela
@@ -2261,7 +2188,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [North America_Developed] is null and [Southern Europe_Developed] is not null then 'SE'
                                 WHEN [North America_Developed] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [North America_Developed] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [North America_Developed] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [North America_Developed] is null and [ISE_Emerging] is not null then 'IS'
                                 WHEN [North America_Developed] is null and [India SL & BL_Emerging] is not null then 'IN'
                                 WHEN [North America_Developed] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2297,7 +2223,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [UK&I] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [UK&I] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [UK&I] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [UK&I] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [UK&I] is null and [ISE] is not null then 'IS'
                                 WHEN [UK&I] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [UK&I] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2326,7 +2251,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Northern Europe] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Northern Europe] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [Northern Europe] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Northern Europe] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Northern Europe] is null and [ISE] is not null then 'IS'
                                 WHEN [Northern Europe] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Northern Europe] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2355,7 +2279,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Southern Europe] is null and [Northern Europe] is not null then 'NE'
                                 WHEN [Southern Europe] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [Southern Europe] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Southern Europe] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Southern Europe] is null and [ISE] is not null then 'IS'
                                 WHEN [Southern Europe] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Southern Europe] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2385,7 +2308,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [ISE] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [ISE] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [ISE] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [ISE] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [ISE] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [ISE] is null and [Central Europe_Emerging] is not null then 'CEE'
                                 WHEN [ISE] is null and [Greater Asia_Emerging] is not null then 'GAE'
@@ -2413,7 +2335,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Central Europe_Developed] is null and [Northern Europe] is not null then 'NE'
                                 WHEN [Central Europe_Developed] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Central Europe_Developed] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Central Europe_Developed] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Central Europe_Developed] is null and [ISE] is not null then 'IS'
                                 WHEN [Central Europe_Developed] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Central Europe_Developed] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2430,7 +2351,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Central Europe_Emerging] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Central Europe_Emerging] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [Central Europe_Emerging] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Central Europe_Emerging] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Central Europe_Emerging] is null and [ISE] is not null then 'IS'
                                 WHEN [Central Europe_Emerging] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Central Europe_Emerging] is null and [Greater Asia_Emerging] is not null then 'GAE'
@@ -2466,7 +2386,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [India SL & BL] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [India SL & BL] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [India SL & BL] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [India SL & BL] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [India SL & BL] is null and [ISE] is not null then 'IS'
                                 WHEN [India SL & BL] is null and [Central Europe_Emerging] is not null then 'CEE'
                                 WHEN [India SL & BL] is null and [Greater Asia_Emerging] is not null then 'GAE'
@@ -2494,7 +2413,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater Asia_Developed] is null and [Northern Europe] is not null then 'NE'
                                 WHEN [Greater Asia_Developed] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Greater Asia_Developed] is null and [Central Europe_Developed] is not null then 'CED'
-                                WHEN [Greater Asia_Developed] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Greater Asia_Developed] is null and [ISE] is not null then 'IS'
                                 WHEN [Greater Asia_Developed] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Greater Asia_Developed] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2510,7 +2428,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater Asia_Emerging] is null and [Northern Europe] is not null then 'NE'
                                 WHEN [Greater Asia_Emerging] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Greater Asia_Emerging] is null and [Central Europe_Developed] is not null then 'CED'
-                                WHEN [Greater Asia_Emerging] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Greater Asia_Emerging] is null and [Greater Asia_Developed] is not null then 'GAD'
                                 WHEN [Greater Asia_Emerging] is null and [ISE] is not null then 'IS'
                                 WHEN [Greater Asia_Emerging] is null and [India SL & BL] is not null then 'IN'
@@ -2533,21 +2450,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 ELSE null
                                 END as Greater_ChinaRoute
                                 , CASE
-                                WHEN [Greater China_Developed] is not null then 'SELF'
-                                WHEN [Greater China_Developed] is null and [North America] is not null then 'NA'
-                                WHEN [Greater China_Developed] is null and [UK&I] is not null then 'UK'
-                                WHEN [Greater China_Developed] is null and [Northern Europe] is not null then 'NE'
-                                WHEN [Greater China_Developed] is null and [Southern Europe] is not null then 'SE'
-                                WHEN [Greater China_Developed] is null and [Central Europe_Developed] is not null then 'CED'
-                                WHEN [Greater China_Developed] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Greater China_Developed] is null and [ISE] is not null then 'IS'
-                                WHEN [Greater China_Developed] is null and [India SL & BL] is not null then 'IN'
-                                WHEN [Greater China_Developed] is null and [Central Europe_Emerging] is not null then 'CEE'
-                                WHEN [Greater China_Developed] is null and [Greater Asia_Emerging] is not null then 'GAE'
-                                WHEN [Greater China_Developed] is null and [Greater China_Emerging] is not null then 'GCE'
-                                WHEN [Greater China_Developed] is null and [Latin America] is not null then [Latin America]*1/Latin_Americagc
-                                ELSE null
-                                END as Greater_China_DRoute
                                 , CASE
                                 WHEN [Greater China_Emerging] is not null then 'SELF'
                                 WHEN [Greater China_Emerging] is null and [North America] is not null then 'NA'
@@ -2556,7 +2458,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Greater China_Emerging] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Greater China_Emerging] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [Greater China_Emerging] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Greater China_Emerging] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Greater China_Emerging] is null and [ISE] is not null then 'IS'
                                 WHEN [Greater China_Emerging] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Greater China_Emerging] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2592,7 +2493,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                                 WHEN [Latin America] is null and [Southern Europe] is not null then 'SE'
                                 WHEN [Latin America] is null and [Central Europe_Developed] is not null then 'CED'
                                 WHEN [Latin America] is null and [Greater Asia_Developed] is not null then 'GAD'
-                                WHEN [Latin America] is null and [Greater China_Developed] is not null then 'GCD'
                                 WHEN [Latin America] is null and [ISE] is not null then 'IS'
                                 WHEN [Latin America] is null and [India SL & BL] is not null then 'IN'
                                 WHEN [Latin America] is null and [Central Europe_Emerging] is not null then 'CEE'
@@ -2624,7 +2524,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               WHEN a.market10 = 'ISE' then f.ISE2
                               WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='DEVELOPED' then f.Greater_Asia_D2
                               WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='EMERGING' then f.Greater_Asia_E2
-                              WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='DEVELOPED' then f.Greater_China_D2
                               WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='EMERGING' then f.Greater_China_E2
                               WHEN a.market10 = 'INDIA SL & BL' then f.India2
                               END
@@ -2659,7 +2558,6 @@ usageSummary2TE_D2<-sqldf('select aa1.*,aa2.[EUa],aa2.[Central_Europena],aa2.[Ce
                               WHEN a.market10 = 'ISE' then f.ISE_ERoute
                               WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='DEVELOPED' then f.Greater_Asia_DRoute
                               WHEN a.market10 = 'GREATER ASIA' AND a.developed_emerging='EMERGING' then f.Greater_Asia_ERoute
-                              WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='DEVELOPED' then f.Greater_China_DRoute
                               WHEN a.market10 = 'GREATER CHINA' AND a.developed_emerging='EMERGING' then f.Greater_China_ERoute
                               WHEN a.market10 = 'INDIA SL & BL' then f.India_ERoute
                               END
@@ -2904,7 +2802,6 @@ old <- SparkR::collect(SparkR::sql(paste("
     , CASE WHEN printer_region_code='INDIA SL & BL' THEN  INTRODATE ELSE NULL END AS INTRODATE_IN
     , CASE WHEN printer_region_code='GREATER ASIA' AND developed_emerging='DEVELOPED' THEN INTRODATE ELSE NULL END AS INTRODATE_GAD
     , CASE WHEN printer_region_code='GREATER ASIA' AND developed_emerging='EMERGING' THEN INTRODATE ELSE NULL END AS INTRODATE_GAE
-    , CASE WHEN printer_region_code='GREATER CHINA' AND developed_emerging='DEVELOPED' THEN INTRODATE ELSE NULL END AS INTRODATE_GCD
     , CASE WHEN printer_region_code='GREATER CHINA' AND developed_emerging='EMERGING' THEN INTRODATE ELSE NULL END AS INTRODATE_GCE
     , CASE WHEN printer_region_code='LATIN AMERICA' THEN  INTRODATE ELSE NULL END AS INTRODATE_LA
     FROM
@@ -2923,7 +2820,6 @@ old <- SparkR::collect(SparkR::sql(paste("
     , MAX(INTRODATE_IN) AS INTRODATE_IN
     , MAX(INTRODATE_GAD) AS INTRODATE_GAD
     , MAX(INTRODATE_GAE) AS INTRODATE_GAE
-    , MAX(INTRODATE_GCD) AS INTRODATE_GCD
     , MAX(INTRODATE_GCE) AS INTRODATE_GCE
     , MAX(INTRODATE_LA) AS INTRODATE_LA
     , MIN(INTRODATE) AS INTRODATE
@@ -2963,7 +2859,7 @@ old <- SparkR::collect(SparkR::sql(paste("
 # Step - 51 attching introdate, platform type with PoR table
 
 PoR2 <- sqldf('select aa1.*, aa2.INTRODATE_NA, aa2.INTRODATE_NE, aa2.INTRODATE_SE, aa2.INTRODATE_CED, aa2.INTRODATE_CEE, aa2.INTRODATE_UK, aa2.INTRODATE_IS, aa2.INTRODATE_IN, aa2.INTRODATE_GAD
-              , aa2.INTRODATE_GAE, aa2.INTRODATE_GCD, aa2.INTRODATE_GCE, aa2.INTRODATE_LA, aa2.INTRODATE as Intro_FYearMo, aa2.platform_type
+              , aa2.INTRODATE_GAE, aa2.INTRODATE_GCE, aa2.INTRODATE_LA, aa2.INTRODATE as Intro_FYearMo, aa2.platform_type
               from PoR aa1
               inner join
               old aa2
@@ -3033,7 +2929,7 @@ PoR2model <- PoR2B
 # Step - 53 attaching calculated_iMPV with raw_iMPV data
 
 PoR2model_iMPV <- sqldf('select aa1.*, aa2.NA2, aa2.EU2, aa2.AP2, aa2.LA2, North_America2, UKI2, Northern_Europe2, Southern_Europe2, ISE2, Central_Europe2, India2, Greater_Asia2, Greater_China2,Latin_America2, North_America_D2, UKI_D2, Northern_Europe_D2, Southern_Europe_D2, ISE_E2, Central_Europe_D2, Central_Europe_E2, India_E2, Greater_Asia_D2, Greater_Asia_E2,
-Greater_China_D2, Greater_China_E2, Latin_America_E2
+ Greater_China_E2, Latin_America_E2
                         from PoR2model aa1 
                         left outer join 
                         usagesummaryNAEUAP aa2 
@@ -3115,7 +3011,7 @@ PoR2model_iMPV3 <- sqldf('select *
 
 # ---- Step - 58 attaching regional coefficients -------------------------------------------#
 
-PoR2model_iMPV4 <- sqldf('select aa1.*, 1 as NAa, aa2.EUa, aa2.APa, aa2.LAa, 1 as North_Americana, aa2.UKIna, aa2.Northern_Europena, aa2.Southern_Europena, aa2.ISEna, aa2.Central_Europena, aa2.Indiana, aa2.Greater_Asiana, aa2.Greater_Chinana,aa2.Latin_Americana, aa2.Greater_Asia_Dna, aa2.Greater_Asia_Ena, aa2.Greater_China_Dna, aa2.Greater_China_Ena, aa2.Central_Europe_Dna, aa2.Central_Europe_Ena
+PoR2model_iMPV4 <- sqldf('select aa1.*, 1 as NAa, aa2.EUa, aa2.APa, aa2.LAa, 1 as North_Americana, aa2.UKIna, aa2.Northern_Europena, aa2.Southern_Europena, aa2.ISEna, aa2.Central_Europena, aa2.Indiana, aa2.Greater_Asiana, aa2.Greater_Chinana,aa2.Latin_Americana, aa2.Greater_Asia_Dna, aa2.Greater_Asia_Ena, aa2.Greater_China_Ena, aa2.Central_Europe_Dna, aa2.Central_Europe_Ena
                            from PoR2model_iMPV3 aa1
                            inner join 
                            wtaverage aa2
@@ -3176,9 +3072,6 @@ PoR2model_iMPV5 <- sqldf('select *
                          , case when Greater_China2 is null then North_America3*Greater_Chinana
                           else Greater_China2
                           end as Greater_China3
-                          , case when Greater_China2 is null then North_America3*Greater_China_Dna
-                          else Greater_China2
-                          end as Greater_China_D3
                           , case when Greater_China2 is null then North_America3*Greater_China_Ena
                           else Greater_China2
                           end as Greater_China_E3
@@ -3277,11 +3170,6 @@ route5 <- sqldf("select platform_market_code as platform_market_code, CM as CM,p
                 --end as Greater_Chinas
                 , case
                 when Greater_China2 is not null then 'POPULATED'
-                when Greater_China_D3 is null then null
-                else 'MODELED'
-                end as GCDs
-                , case
-                when Greater_China2 is not null then 'POPULATED'
                 when Greater_China_E3 is null then null
                 else 'MODELED'
                 end as GCEs
@@ -3372,7 +3260,6 @@ new <- sqldf("
              , COALESCE(a.[Central Europe_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBCentral_EuropeE
              , COALESCE(a.[ISE_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBISE
              , COALESCE(a.[India SL & BL_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBIndia
-             , COALESCE(a.[Greater China_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_ChinaD
              , COALESCE(a.[Greater China_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_ChinaE
              , COALESCE(a.[Greater Asia_D]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_AsiaD
              , COALESCE(a.[Greater Asia_E]/b.sumINSTALLED_BASE_COUNT,0) as pctIBGreater_AsiaE
@@ -3408,7 +3295,7 @@ new2 <- sqldf('select aa1.*, aa2.product_usage_por_pages, aa2.platform_type
 # Step 63 - Attaching the Regional Coeffieicnt (RC) to the respective platform
 
 new3 <- sqldf('select aa1.*, aa2.[Central_Europena],aa2.[Central_Europe_Dna],aa2.[Central_Europe_Ena],aa2.[Northern_Europena],aa2.[Southern_Europena],aa2.[ISEna]
-  ,aa2.[UKIna],aa2.[Greater_Asiana],aa2.[Greater_Asia_Dna],aa2.[Greater_Asia_Ena],aa2.[Greater_Chinana],aa2.[Greater_China_Dna],aa2.[Greater_China_Ena]
+  ,aa2.[UKIna],aa2.[Greater_Asiana],aa2.[Greater_Asia_Dna],aa2.[Greater_Asia_Ena],aa2.[Greater_Chinana],aa2.[Greater_China_Ena]
   ,aa2.[Indiana],aa2.[Latin_Americana]
               from new2 aa1
               inner join 
@@ -3434,7 +3321,6 @@ new3$NA2 <- new3$product_usage_por_pages/(new3$pctIBNorth_America +
                                                 new3$pctIBIndia*new3$Indiana +
                                                 new3$pctIBGreater_AsiaD*new3$Greater_Asia_Dna +
                                                 new3$pctIBGreater_AsiaE*new3$Greater_Asia_Ena +
-                                                new3$pctIBGreater_ChinaD*new3$Greater_China_Dna +
                                                 new3$pctIBGreater_ChinaE*new3$Greater_Asia_Ena
 
 )
@@ -3453,7 +3339,6 @@ new3$IS2 <- new3$NA2*new3$ISEna
 new3$IN2 <- new3$NA2*new3$Indiana
 new3$GAD2 <-new3$NA2*new3$Greater_Asia_Dna
 new3$GAE2 <-new3$NA2*new3$Greater_Asia_Ena
-new3$GCD2 <-new3$NA2*new3$Greater_China_Dna 
 new3$GCE2 <-new3$NA2*new3$Greater_Asia_Ena
 
 # COMMAND ----------
@@ -3468,7 +3353,6 @@ new4 <- sqldf('select aa1.*
               , aa2.`Central Europe_E`/12 as CEEd
               , aa2.`Greater Asia_D`/12 as GADd
               , aa2.`Greater Asia_E`/12 as GAEd
-              , aa2.`Greater China_D`/12 as GCDd
               , aa2.`Greater China_E`/12 as GCEd
               , aa2.`India SL & BL_E`/12 as INd
               , aa2.`ISE_E`/12 as ISd
@@ -3494,7 +3378,6 @@ new4$CED3 <- new4$CED2/((1+new4$CEDd)^30)
 new4$CEE3 <- new4$CEE2/((1+new4$CEEd)^30)
 new4$GAD3 <- new4$GAD2/((1+new4$GADd)^30)
 new4$GAE3 <- new4$GAE2/((1+new4$GAEd)^30)
-new4$GCD3 <- new4$GCD2/((1+new4$GCDd)^30)
 new4$GCE3 <- new4$GCE2/((1+new4$GCEd)^30)
 new4$IN3 <- new4$IN2/((1+new4$INd)^30)
 new4$IS3 <- new4$IS2/((1+new4$ISd)^30)
@@ -3519,7 +3402,6 @@ route6 <- sqldf('select platform_market_code as platform_market_code, CM as CM, 
                 , case when CEE3 is not null then "FUTURE" else null end as CEEs               
                 , case when GAD3 is not null then "FUTURE" else null end as GADs               
                 , case when GAE3 is not null then "FUTURE" else null end as GAEs  
-                , case when GCD3 is not null then "FUTURE" else null end as GCDs  
                 , case when GCE3 is not null then "FUTURE" else null end as GCEs
                 , case when IN3 is not null then "FUTURE" else null end as INs
                 , case when IS3 is not null then "FUTURE" else null end as ISs
@@ -3540,7 +3422,6 @@ route1B <- sqldf("SELECT platform_market_code, CM, printer_platform_name
                      WHEN printer_region_code='Central_Europe_ERoute' THEN 'CEEs'
                      WHEN printer_region_code='Greater_Asia_DRoute' THEN 'GADs'
                      WHEN printer_region_code='Greater_Asia_ERoute' THEN 'GAEs'
-                     WHEN printer_region_code='Greater_China_DRoute' THEN 'GCDs'
                      WHEN printer_region_code='Greater_China_ERoute' THEN 'GCEs'
                      WHEN printer_region_code='India_ERoute' THEN 'INs'
                      WHEN printer_region_code='ISE_ERoute' THEN 'ISs'
@@ -3567,7 +3448,6 @@ routeT <- reshape2::dcast(route, platform_market_code + CM +printer_platform_nam
                        WHEN Route = 'IN' THEN 'PROXIED: IN ;'||CM||platform_market_code
                        WHEN Route = 'GAD' THEN 'PROXIED: GAD ;'||CM||platform_market_code
                        WHEN Route = 'GAE' THEN 'PROXIED: GAE ;'||CM||platform_market_code
-                       WHEN Route = 'GCD' THEN 'PROXIED: GCD ;'||CM||platform_market_code
                        WHEN Route = 'GCE' THEN 'PROXIED: GCE ;'||CM||platform_market_code
                        WHEN Route = 'CED' THEN 'PROXIED: CED ;'||CM||platform_market_code
                        WHEN Route = 'CEE' THEN 'PROXIED: CEE ;'||CM||platform_market_code
@@ -3604,7 +3484,6 @@ normdataOLD <- sqldf('select platform_market_code, CM
                      , India3 AS INE
                      , Greater_Asia_D3 AS GAD
                      , Greater_Asia_E3 AS GAE
-                     , Greater_China_D3 AS GCD
                      , Greater_China_E3 AS GCE
                      , LA3 AS LA
                      FROM PoR2model_iMPV5
@@ -3622,7 +3501,6 @@ normdataNew <- sqldf('select platform_market_code, CM
                      , IN3 AS INE
                      , GAD3 AS GAD
                      , GAE3 AS GAE
-                     , GCD3 AS GCD
                      , GCE3 AS GCE
                      , LA3 AS LA
                      FROM new4
@@ -3645,7 +3523,7 @@ normdata2 <- reshape2::melt(normdata, id.vars = c("platform_market_code", "CM", 
 normdatadate <- sqldf('select platform_market_code, CM
                       , printer_platform_name
                       , INTRODATE_NA AS NA, INTRODATE_NE AS NE, INTRODATE_SE AS SE, INTRODATE_CED AS CED, INTRODATE_CEE AS CEE, INTRODATE_UK AS UK, INTRODATE_IS AS [IS], INTRODATE_IN AS [IN]
-                      , INTRODATE_GAD AS GAD, INTRODATE_GAE AS GAE, INTRODATE_GCD AS GCD, INTRODATE_GCE AS GCE, INTRODATE_LA AS LA
+                      , INTRODATE_GAD AS GAD, INTRODATE_GAE AS GAE, INTRODATE_GCE AS GCE, INTRODATE_LA AS LA
                       FROM PoR2model
                       ')
 
@@ -3662,7 +3540,6 @@ combined <- sqldf('select aa1.PLATFORM_TYPE
                   , aa2.CEEs as CEE_route
                   , aa2.GADs as GAD_route
                   , aa2.GAEs as GAE_route
-                  , aa2.GCDs as GCD_route
                   , aa2.GCEs as GCE_route
                   , aa2.INs as IN_route
                   , aa2.ISs as IS_route
@@ -3675,7 +3552,6 @@ combined <- sqldf('select aa1.PLATFORM_TYPE
                   , aa1.INTRODATE_CEE
                   , aa1.INTRODATE_GAD
                   , aa1.INTRODATE_GAE
-                  , aa1.INTRODATE_GCD
                   , aa1.INTRODATE_GCE
                   , aa1.INTRODATE_IN
                   , aa1.INTRODATE_IS
@@ -3706,7 +3582,6 @@ combined2 <- sqldf('select aa2.*
                    , aa1.INE as IN_iMPV
                    , aa1.GAD as GAD_iMPV
                    , aa1.GAE as GAE_iMPV
-                   , aa1.GCD as GCD_iMPV
                    , aa1.GCE as GCE_iMPV
                    , aa1.LA as LA_iMPV
                    from
@@ -3767,7 +3642,6 @@ normdataFinal0 <- sqldf("
                           WHEN src.mde='CED' AND por.Central_Europe_D3 IS NOT NULL THEN por.Central_Europe_D3
                           WHEN src.mde='GAD' AND por.Greater_Asia_D3 IS NOT NULL THEN por.Greater_Asia_D3
                           WHEN src.mde='GAE' AND por.Greater_Asia_E3 IS NOT NULL THEN por.Greater_Asia_E3
-                          WHEN src.mde='GCD' AND por.Greater_China_D3 IS NOT NULL THEN por.Greater_China_D3
                           WHEN src.mde='GCE' AND por.Greater_China_E3 IS NOT NULL THEN por.Greater_China_E3
                           WHEN src.mde='IN' AND por.India3 IS NOT NULL THEN por.India3
                           WHEN src.mde='IS' AND por.ISE3 IS NOT NULL THEN por.ISE3
@@ -3792,7 +3666,6 @@ normdataFinal0 <- sqldf("
                             WHEN src.mde='CED' AND por.Central_Europe_D3 IS NOT NULL THEN upper('proxied: CEE ;'||por.CM||por.platform_market_code)
                             WHEN src.mde='GAD' AND por.Greater_Asia_D3 IS NOT NULL THEN upper('proxied: GAD ;'||por.CM||por.platform_market_code)
                             WHEN src.mde='GAE' AND por.Greater_Asia_E3 IS NOT NULL THEN upper('proxied: GAE ;'||por.CM||por.platform_market_code)
-                            WHEN src.mde='GCD' AND por.Greater_China_D3 IS NOT NULL THEN upper('proxied: GCD ;'||por.CM||por.platform_market_code)
                             WHEN src.mde='GCE' AND por.Greater_China_E3 IS NOT NULL THEN upper('proxied: GCE ;'||por.CM||por.platform_market_code)
                             WHEN src.mde='IN' AND por.India3 IS NOT NULL THEN upper('proxied: ISB ;'||por.CM||por.platform_market_code)
                             WHEN src.mde='IS' AND por.ISE3 IS NOT NULL THEN upper('proxied: ISE ;'||por.CM||por.platform_market_code)

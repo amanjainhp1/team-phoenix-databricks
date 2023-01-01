@@ -129,6 +129,8 @@ version = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+import re
+
 tables = [
     ['mdm.calendar', calendar],
     ['fin_prod.actuals_supplies_salesprod', actuals_supplies_salesprod],
@@ -160,14 +162,19 @@ for table in tables:
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
-    df = table[1]
-    renamed_df = df.select([F.col(col).alias(col.replace(' ', '_')) for col in df.columns])
+    df = table[1]    
     print(f'loading {table[0]}...')
+    
+    for column in df.dtypes:
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column)
+    
     # Write the data to its target.
-    renamed_df.write \
+    df.write \
       .format(write_format) \
       .mode("overwrite") \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")

@@ -155,7 +155,8 @@ redshift_accounting_rates_records2.withColumn("effectivedate", redshift_accounti
 # COMMAND ----------
 
 # write the updated dataframe to the prod.acct_rates table
-write_df_to_redshift(configs, redshift_accounting_rates_records2, "prod.acct_rates", "overwrite")
+#write_df_to_redshift(configs, redshift_accounting_rates_records2, "prod.acct_rates", "overwrite")
+write_df_to_redshift(configs=configs, df=redshift_accounting_rates_records2, destination="prod.acct_rates", mode="append", preactions="TRUNCATE prod.acct_rates;")
 
 # COMMAND ----------
 
@@ -210,3 +211,7 @@ s3 = boto3.resource('s3')
 s3.Object('dataos-core-prod-team-phoenix','archive/acct_rates/' + datestamp + '/T0000047_O').copy_from(CopySource='dataos-core-prod-team-phoenix/landing/Accounting_Rates/unzipped/T0000047_O')
 s3.Object('dataos-core-prod-team-phoenix','landing/Accounting_Rates/unzipped/T0000047_O').delete()
 s3.Object('dataos-core-prod-team-phoenix','landing/Accounting_Rates/T0000047_o.zip').delete()
+
+# COMMAND ----------
+
+

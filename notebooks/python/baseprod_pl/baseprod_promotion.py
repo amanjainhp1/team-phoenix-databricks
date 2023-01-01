@@ -110,8 +110,7 @@ tables = [
   ['prod.currency_hedge' ,currency_hedge],
   ['prod.working_forecast_country' ,working_forecast_country],
   ['prod.version' ,version],
-  ['prod.trade_forecast' ,trade_forecast]
-  
+  ['prod.trade_forecast' ,trade_forecast]  
 ]
 
 

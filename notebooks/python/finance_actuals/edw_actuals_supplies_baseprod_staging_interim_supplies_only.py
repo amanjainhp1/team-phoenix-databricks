@@ -657,7 +657,11 @@ SELECT
     country_alpha2,
     market10,
     base_product_number,
-    base_product_line_code AS pl,
+    CASE
+        WHEN sales_product_line_code = 'GM' THEN 'GM'
+        WHEN sales_product_line_code = 'EO' THEN 'EO'
+        ELSE base_product_line_code 
+    END AS pl,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -672,7 +676,7 @@ SELECT
     official,
     version 
 FROM salesprod_data_convert_to_baseprod_data
-GROUP BY record, cal_date, country_alpha2, base_product_number, base_product_line_code, customer_engagement, official, version, market10
+GROUP BY record, cal_date, country_alpha2, base_product_number, base_product_line_code, customer_engagement, official, version, market10, sales_product_line_code
 
 UNION ALL
 

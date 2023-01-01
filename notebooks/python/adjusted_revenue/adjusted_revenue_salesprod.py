@@ -2445,7 +2445,8 @@ adj_rev_3 = spark.sql("""
 				cal_date,
 				ar.country_alpha2,
 				country,
-				market10,
+				market8 as geography,
+                'MARKET8' as geography_grain,
 				region_5,
 				sales_product_number,
 				ar.pl,
@@ -2478,10 +2479,10 @@ adj_rev_3 = spark.sql("""
 				sum(cc_inventory_impact) as cc_inventory_impact,
 				sum(adjusted_revenue) as adjusted_revenue
 			from adjusted_revenue ar
-			join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
+			left join mdm.iso_country_code_xref iso on ar.country_alpha2 = iso.country_alpha2
 			join mdm.product_line_xref plx on plx.pl = ar.pl
-			group by cal_date, ar.country_alpha2, sales_product_number, ar.pl, customer_engagement, 
-			currency, market10, region_5, country, l5_description
+            group by cal_date, ar.country_alpha2, sales_product_number, ar.pl, customer_engagement, 
+			currency, market8, region_5, country, l5_description
  """)
 
 adj_rev_3.createOrReplaceTempView("adjusted_revenue2")
@@ -2491,9 +2492,36 @@ adj_rev_3.createOrReplaceTempView("adjusted_revenue2")
 adj_rev_4 = spark.sql("""
  select
 				cal_date,
-				country_alpha2,
-				country,
-				market10,
+				CASE
+                    WHEN country_alpha2 = 'BY' THEN 'HU'
+                    WHEN country_alpha2 = 'RU' THEN 'HU'
+                    WHEN country_alpha2 = 'CU' THEN 'MX'
+                    WHEN country_alpha2 = 'IR' THEN 'LB'
+                    WHEN country_alpha2 = 'KP' THEN 'KR'
+                    WHEN country_alpha2 = 'SY' THEN 'LB'
+                    ELSE country_alpha2
+                END AS country_alpha2,
+				CASE
+                    WHEN country = 'BELARUS' THEN 'HUNGARY'
+                    WHEN country = 'RUSSIAN FEDERATION' THEN 'HUNGARY'
+                    WHEN country = 'CUBA' THEN 'MEXICO'
+                    WHEN country = 'NORTH KOREA' THEN 'SOUTH KOREA'
+                    WHEN country = 'IRAN' THEN 'LEBANON'
+                    WHEN country = 'SYRIA' THEN 'LEBANON'
+                    ELSE country                
+                END AS country,
+				CASE
+                    WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
+                    WHEN country_alpha2 = 'BY' THEN 'CENTRAL & EASTERN EUROPE'
+                    WHEN country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
+                    WHEN country_alpha2 = 'CU' THEN 'LATIN AMERICA'
+                    WHEN country_alpha2 = 'IR' THEN 'SOUTHERN EUROPE, ME & AFRICA'
+                    WHEN country_alpha2 = 'KP' THEN 'GREATER ASIA'
+                    WHEN country_alpha2 = 'SY' THEN 'SOUTHERN EUROPE, ME & AFRICA'
+
+                    ELSE geography
+                END AS geography,
+                geography_grain,
 				region_5,
 				sales_product_number,
 				pl,
@@ -2535,7 +2563,7 @@ adj_rev_4 = spark.sql("""
 				sum(adjusted_revenue) as adjusted_revenue 
 			from adjusted_revenue2
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, 
-			currency, market10, region_5, country, l5_description
+			currency, geography, geography_grain, region_5, country, l5_description
  """)
 
 adj_rev_4.createOrReplaceTempView("adjusted_revenue3")
@@ -2547,7 +2575,8 @@ adj_rev_5 = spark.sql("""
 				cal_date,
 				country_alpha2,
 				country,
-				market10,
+				geography,
+                geography_grain,
 				region_5,
 				sales_product_number,
 				pl,
@@ -2620,7 +2649,7 @@ adj_rev_5 = spark.sql("""
 				sum(cc_net_revenue) - (sum(inventory_change_impact) + sum(currency_impact_ch_inventory)) as adjusted_revenue 
 			from adjusted_revenue3
 			group by cal_date, country_alpha2, sales_product_number, pl, customer_engagement, 
-			currency, market10, region_5, country, l5_description
+			currency, geography, geography_grain, region_5, country, l5_description
 
  """)
 
@@ -2634,7 +2663,8 @@ adj_rev_6 = spark.sql("""
 				cal_date,
 				country_alpha2,
 				country,
-				market10,
+				geography,
+                geography_grain,
 				region_5,
 				sales_product_number,
 				pl,
@@ -2680,7 +2710,7 @@ adj_rev_6 = spark.sql("""
 				coalesce(sum(inventory_change_impact), 0) - (coalesce(sum(monthly_inv_usd_change), 0) - coalesce(sum(price_change_x_prev_inv_qty), 0)) as inv_chg_calc_variance
 			from adjusted_revenue4
 			group by cal_date, country_alpha2, country, sales_product_number, pl, customer_engagement, 
-			currency, market10, region_5, l5_description, net_currency
+			currency, geography, geography_grain, region_5, l5_description, net_currency
 
  """)
 
@@ -2700,7 +2730,8 @@ select  record
       ,cal_date
       ,country_alpha2
       ,country
-      ,market10
+      ,geography
+      ,geography_grain
       ,region_5
       ,sales_product_number
       ,pl
@@ -2784,3 +2815,7 @@ for table in tables:
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+

@@ -284,8 +284,6 @@ query_list.append(["scen.ink_02_us_dmd", ink_02_us_dmd, "overwrite"])
 
 # COMMAND ----------
 
-
-
 ink_demand = f"""
 WITH dbd_01_ib_load AS
     (SELECT ib.cal_date

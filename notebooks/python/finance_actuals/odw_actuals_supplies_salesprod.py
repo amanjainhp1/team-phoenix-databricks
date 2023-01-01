@@ -121,9 +121,9 @@ for table in tables:
     print(f'loading {table[0]}...')
     
     for column in df.dtypes:
-         renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
-         df = df.withColumnRenamed(column[0], renamed_column)
-         print(renamed_column) 
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column) 
         
      # Write the data to its target.
     df.write \
@@ -558,6 +558,8 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
+WHERE 1=1 
+AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
@@ -1024,6 +1026,17 @@ spark.table("fin_stage.odw_supplies_combined_findata").createOrReplaceTempView("
 
 # COMMAND ----------
 
+finance_sys_recorded_pl = f"""
+SELECT distinct cal_date,
+    sales_product_number,
+    pl as fin_pl
+FROM odw_supplies_combined_findata
+"""
+
+finance_sys_recorded_pl = spark.sql(finance_sys_recorded_pl)
+finance_sys_recorded_pl.createOrReplaceTempView("finance_sys_recorded_pl")
+
+
 salesprod_emea_supplies = f"""
 SELECT cal_date,
     sup.country_alpha2,
@@ -1141,11 +1154,7 @@ SELECT
         THEN LEFT(sales_product_number, 6)
         ELSE sales_product_number
     END AS sales_product_number,
-    CASE
-        WHEN sales_product_number = '4HY97A' AND pl = 'G0'
-        THEN 'E5'
-        ELSE pl
-    END AS pl,
+    pl,
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM channel_inventory
@@ -1156,15 +1165,38 @@ channel_inventory2 = spark.sql(channel_inventory2)
 channel_inventory2.createOrReplaceTempView("channel_inventory2")
 
 
+channel_inventory_pl_restated = f"""
+SELECT 
+    ci2.cal_date,
+    country_alpha2,
+    ci2.sales_product_number,
+    fin_pl as pl,
+    SUM(sell_thru_usd) AS sell_thru_usd,
+    SUM(sell_thru_qty) AS sell_thru_qty
+FROM channel_inventory2 ci2
+JOIN finance_sys_recorded_pl fpl
+    ON fpl.cal_date = ci2.cal_date
+    AND fpl.sales_product_number = ci2.sales_product_number
+GROUP BY ci2.cal_date, country_alpha2, ci2.sales_product_number, fin_pl
+"""
+
+channel_inventory_pl_restated = spark.sql(channel_inventory_pl_restated)
+channel_inventory_pl_restated.createOrReplaceTempView("channel_inventory_pl_restated")
+
+
 tier1_emea_raw = f"""
 SELECT
     cal_date,
     st.country_alpha2,
-    pl,
+    CASE
+        WHEN sales_product_number = '4HY97A' AND pl = 'G0'
+        THEN 'E5'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
-FROM channel_inventory2 AS st
+FROM channel_inventory_pl_restated AS st
 JOIN iso_country_code_xref AS geo ON st.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA'
   AND sell_thru_usd > 0
@@ -3040,7 +3072,11 @@ iink_country.createOrReplaceTempView("iink_country")
 itp_units_ibp = f"""    
 SELECT 
     cal_date,
-    market10,
+    CASE
+        WHEN market10 = 'CENTRAL AND EASTERN EUROPE'
+        THEN 'CENTRAL EUROPE'
+        ELSE market10
+    END AS market10,
     sales_product as sales_product_number,
     sum(units) as revenue_units
 FROM itp_laser_landing
@@ -4046,7 +4082,12 @@ edw_product_line_restated2 = f"""
 SELECT cal_date,
     country_alpha2,
     region_5,
-    pl,
+    edw_recorded_pl,
+    CASE
+        WHEN edw_recorded_pl = 'GM' THEN 'GM'
+        WHEN edw_recorded_pl = 'EO' THEN 'EO'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -4059,7 +4100,7 @@ SELECT cal_date,
     SUM(revenue_units) AS revenue_units
 FROM edw_product_line_restated edw
 WHERE 1=1 
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, edw_recorded_pl
 """
 
 edw_product_line_restated2 = spark.sql(edw_product_line_restated2)
@@ -6381,7 +6422,7 @@ GROUP BY cal_date, currency, region_5, pl, sales_product_number, ce_split, count
 xcode_adjusted_data2 = spark.sql(xcode_adjusted_data2)
 xcode_adjusted_data2.createOrReplaceTempView("xcode_adjusted_data2")
 
-            
+
 salesprod_preplanet_with_currency_map1 = f"""
 SELECT
     cal_date,
@@ -6405,6 +6446,7 @@ SELECT
 FROM xcode_adjusted_data2
 WHERE 1=1
 AND total_sums <> 0
+AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 

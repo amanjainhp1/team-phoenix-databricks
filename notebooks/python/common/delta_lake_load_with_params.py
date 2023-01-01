@@ -19,6 +19,8 @@ from pyspark.sql import functions as F
 
 # COMMAND ----------
 
+import re
+
 for table in tables:
     # Define the input and output formats and paths and the table name.
     schema = table[0].split(".")[0]
@@ -29,13 +31,18 @@ for table in tables:
     
     # Load the data from its source.
     df = table[1]
-    renamed_df = df.select([F.col(col).alias(col.replace(' ', '_')) for col in df.columns])
     print(f'loading {table[0]}...')
+    
+    for column in df.dtypes:
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column)     
+    
     # Write the data to its target.
-    renamed_df.write \
+    df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
