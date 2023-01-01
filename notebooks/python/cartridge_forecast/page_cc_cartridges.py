@@ -558,3 +558,63 @@ query_list.append(["stage.page_cc_cartridges", page_cc_cartridges, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+submit_remote_query(configs, 
+"""
+with ac_ce as (
+select ac.cal_date,ac.market10,ac.country_alpha2,ac.platform_subset,ac.base_product_number,CASE WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%STND%' THEN 'STD'
+       WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%YET2%' THEN 'HP+'
+                ELSE ac.customer_engagement END AS customer_engagement,ac.base_quantity
+from prod.actuals_supplies ac 
+left join mdm.hardware_xref hw on hw.platform_subset = ac.platform_subset
+where ac.official = 1
+),
+
+act_m10 as (
+select cal_date,market10,platform_subset,base_product_number,customer_engagement,SUM(base_quantity) base_quantity
+from ac_ce
+group by cal_date,market10,platform_subset,base_product_number,customer_engagement
+)
+
+UPDATE stage.page_cc_cartridges
+set imp_corrected_cartridges = ac.base_quantity, cartridges = ac.base_quantity
+FROM stage.page_cc_cartridges ccs
+INNER JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
+						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement                 
+"""
+)
+
+
+# COMMAND ----------
+
+submit_remote_query(configs, 
+"""
+with ac_ce as (
+select ac.cal_date,ac.market10,ac.country_alpha2,ac.platform_subset,ac.base_product_number,CASE WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%STND%' THEN 'STD'
+       WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%YET2%' THEN 'HP+'
+                ELSE ac.customer_engagement END AS customer_engagement,ac.base_quantity
+from prod.actuals_supplies ac 
+left join mdm.hardware_xref hw on hw.platform_subset = ac.platform_subset
+where ac.official = 1
+),
+
+act_m10 as (
+select cal_date,market10,platform_subset,base_product_number,customer_engagement,SUM(base_quantity) base_quantity
+from ac_ce
+group by cal_date,market10,platform_subset,base_product_number,customer_engagement
+)
+
+UPDATE stage.page_cc_cartridges 
+set imp_corrected_cartridges = 0, cartridges = 0
+FROM (select ccs.* from stage.page_cc_cartridges ccs
+LEFT JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
+						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement 
+WHERE ccs.cal_date <= (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1) 
+and ac.base_quantity is null) cc
+where stage.page_cc_cartridges.cal_date = cc.cal_date and stage.page_cc_cartridges.geography  = cc.geography  and stage.page_cc_cartridges.platform_subset = cc.platform_subset 
+and stage.page_cc_cartridges.base_product_number = cc.base_product_number and stage.page_cc_cartridges.customer_engagement = cc.customer_engagement 
+"""
+)
+
