@@ -7,9 +7,12 @@
 
 # COMMAND ----------
 
-submit_remote_query(configs, """UPDATE prod.instant_ink_enrollees
-SET official = 0
-WHERE UPPER(data_source) = 'FCST'""")
+try:
+    row_count = read_redshift_to_df(configs).option("dbtable", "prod.instant_ink_enrollees").load().count()
+    if row_count > 0:
+        submit_remote_query(configs, """TRUNCATE TABLE prod.instant_ink_enrollees""")
+except Exception as error:
+    print ("An exception has occured:", error)
 
 # COMMAND ----------
 
@@ -57,9 +60,6 @@ SELECT
 ,1 official
 FROM app_bm_instant_ink_bi.app_bm_instant_ink_bi.fcst_work_6f_summary_output_PR
 WHERE UPPER(program_type) = 'INSTANT INK' AND UPPER(forecast_type) = 'RK_MARKET ENROLEE FORECAST'
-AND year_month > (select case when cast(date_part(month,cast(max(year_month) as date)) as integer) < 10 THEN date_part(year,cast(max(year_month) as date)) || '0' || date_part(month,cast(max(year_month) as date))
-when cast(date_part(year,cast(max(year_month) as date)) as integer) >=10 then date_part(year,cast(max(year_month) as date)) || date_part(month,cast(max(year_month) as date)) end mon
-from prod.instant_ink_enrollees WHERE official = 1 AND UPPER(data_source) = 'ACT')
 """
 
 final_iink_enrollees = read_redshift_to_df(configs) \
