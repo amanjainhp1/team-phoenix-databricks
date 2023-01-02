@@ -140,10 +140,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-    df.write \
-        .format(write_format) \
-        .mode("overwrite") \
-        .save(save_path)
+ ##   df.write \
+ ##       .format(write_format) \
+ ##       .mode("overwrite") \
+ ##       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -744,7 +744,7 @@ trade_split.display()
 
 # COMMAND ----------
 
-##financail_forecast inputs
+##financial_forecast inputs
 query = '''
 select distinct fsb.record
 		, shm.platform_subset
@@ -816,10 +816,20 @@ select
     ((12*(us.year_num-1))+us.month_num) as month,
     POWER(1 + double({})/12,((12*(us.year_num-1))+us.month_num)) as discounting_factor,
     us.customer_engagement,
-    us.color_usage,
-    us.sum_of_color_usage_till_date,
-    us.k_usage,
-    us.sum_of_k_usage_till_date,
+    us.crg_chrome,
+--    us.color_usage,
+--    us.sum_of_color_usage_till_date,
+--    us.k_usage,
+--    us.sum_of_k_usage_till_date,
+    case when us.crg_chrome = 'BLK' then us.k_usage
+        else us.color_usage
+        end as usage,
+    case when us.crg_chrome = 'BLK' then us.sum_of_k_usage_till_date
+        else us.sum_of_color_usage_till_date
+        end as sum_of_usage_till_date,
+    case when (us.sum_of_color_usage_till_date - hy.host_yield) < 0 then 0
+        else (us.sum_of_color_usage_till_date - hy.host_yield)
+        end as after_market_usage_cumulative,
     us.hp_share,
     d.value as decay,
     d.remaining_amount,
@@ -867,12 +877,12 @@ and us.country_alpha2 = v.country
 and us.customer_engagement = v.customer_engagement
 
 '''.format(discounting_factor)
-pen_per_printer = spark.sql(query)
-pen_per_printer.createOrReplaceTempView("pen_per_printer")
+pen_per_printer1 = spark.sql(query)
+pen_per_printer1.createOrReplaceTempView("pen_per_printer1")
 
 # COMMAND ----------
 
-pen_per_printer.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+pen_per_printer1.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
@@ -884,11 +894,150 @@ pen_per_printer.display()
 
 # COMMAND ----------
 
-
+query = '''
+    select
+        platform_subset,
+        base_product_number,
+        region_5,
+        market10,
+        country_alpha2,
+        cal_date,
+        year,
+        year_num,
+        month_num,
+        month,
+        customer_engagement,
+        crg_chrome,
+        usage,
+        host_yield,
+        after_market_usage_cumulative,
+        after_market_usage_cumulative - lag(after_market_usage_cumulative) over (partition by platform_subset, base_product_number,region_5, country_alpha2, customer_engagement order by month) as after_market_usage,
+        hp_share,
+        decay,
+        remaining_amount,
+        yield,
+        trade_split,
+        vtc,
+        discounting_factor,
+        ib_version,
+        usage_share_version,
+        decay_version,
+        yield_version,
+        trade_split_version,
+        vtc_version
+        from pen_per_printer1
+'''
+pen_per_printer2 = spark.sql(query)
+pen_per_printer2.createOrReplaceTempView("pen_per_printer2")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, pen_per_printer, "ifs2.pen_per_printer", "overwrite")
+pen_per_printer2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+
+# COMMAND ----------
+
+query = '''select
+        platform_subset,
+        base_product_number,
+        region_5,
+        market10,
+        country_alpha2,
+        cal_date,
+        year,
+        year_num,
+        month_num,
+        month,
+        customer_engagement,
+        crg_chrome,
+        usage,
+        host_yield,
+        after_market_usage_cumulative,
+        after_market_usage,
+        hp_share,
+        decay,
+        remaining_amount,
+        yield,
+        trade_split,
+        vtc,
+        ((after_market_usage * hp_share * remaining_amount * trade_split)/yield) * 1 as pen_per_printer,
+        discounting_factor,
+        ib_version,
+        usage_share_version,
+        decay_version,
+        yield_version,
+        trade_split_version,
+        vtc_version
+        from pen_per_printer2
+'''
+pen_per_printer = spark.sql(query)
+pen_per_printer.createOrReplaceTempView("pen_per_printer")
+
+# COMMAND ----------
+
+pen_per_printer.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+
+# COMMAND ----------
+
+query = '''select
+        ppp.platform_subset,
+        ppp.base_product_number,
+        ppp.region_5,
+        ppp.market10,
+        ppp.country_alpha2,
+        ppp.cal_date,
+        year,
+        year_num,
+        month_num,
+        month,
+        customer_engagement,
+        crg_chrome,
+        usage,
+        host_yield,
+        after_market_usage_cumulative,
+        after_market_usage,
+        hp_share,
+        decay,
+        remaining_amount,
+        yield,
+        trade_split,
+        vtc,
+        pen_per_printer,
+        discounting_factor,
+        fsb.insights_base_units,
+		fsb.baseprod_gru as baseprod_gru,
+		fsb.baseprod_contra_per_unit as baseprod_contra_per_unit,
+		fsb.baseprod_variable_cost_per_unit as baseprod_variable_cost_per_unit,
+		fsb.baseprod_fixed_cost_per_unit as baseprod_fixed_cost_per_unit,
+        (fsb.baseprod_gru - fsb.baseprod_contra_per_unit) * pen_per_printer as aru,
+        (fsb.baseprod_gru - fsb.baseprod_contra_per_unit - (fsb.baseprod_variable_cost_per_unit + fsb.baseprod_fixed_cost_per_unit)) * pen_per_printer as gmu,
+        ((fsb.baseprod_gru - fsb.baseprod_contra_per_unit) * pen_per_printer)/discounting_factor as ifs2_aru,
+        ((fsb.baseprod_gru - fsb.baseprod_contra_per_unit - (fsb.baseprod_variable_cost_per_unit + fsb.baseprod_fixed_cost_per_unit)) * pen_per_printer)/discounting_factor as ifs_gmu,
+        ib_version,
+        usage_share_version,
+        decay_version,
+        yield_version,
+        trade_split_version,
+        vtc_version,
+        fsb.version as forecast_supplies_baseprod_version
+        from pen_per_printer ppp
+        inner join fsb fsb
+        on ppp.platform_subset = fsb.platform_subset
+        and ppp.base_product_number = fsb.base_product_number
+        and ppp.region_5 = fsb.region_5
+        and ppp.market10 = fsb.market10
+		and ppp.country_alpha2 = fsb.country_alpha2
+		and ppp.cal_date = fsb.cal_date
+'''
+ifs2 = spark.sql(query)
+ifs2.createOrReplaceTempView("ifs2")
+
+# COMMAND ----------
+
+ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, ifs2, "ifs2.ifs2", "overwrite")
 
 # COMMAND ----------
 
