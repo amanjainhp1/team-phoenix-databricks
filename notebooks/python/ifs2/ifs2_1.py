@@ -959,7 +959,7 @@ query = '''select
         yield,
         trade_split,
         vtc,
-        ((after_market_usage * hp_share * remaining_amount * trade_split)/yield) * 1 as pen_per_printer,
+        ((after_market_usage * hp_share * remaining_amount * trade_split)/yield) * abs(vtc) as pen_per_printer,
         discounting_factor,
         ib_version,
         usage_share_version,
