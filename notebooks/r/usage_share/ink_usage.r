@@ -2720,7 +2720,7 @@ PoR2model$model <- ifelse(PoR2model$platform_type=="OLD",ifelse(is.na(PoR2model$
 
 
 PoR2model$rawMPV <- (as.numeric(PoR2model$model))
-str(PoR2model)
+#str(PoR2model)
 
 #write.csv(paste(mainDir,subDir1,"/","PoR2model_iMPVmodeled_OLD_platforms",".csv", sep=''), x=PoR2model,row.names=FALSE, na="")
 
@@ -2728,7 +2728,7 @@ str(PoR2model)
 
 # Step - 53 attaching calculated_iMPV with raw_iMPV data
 
-PoR2model_iMPV <- sqldf('select aa1.*, aa2.NA2, aa2.EU2, aa2.AP2, aa2.LA2, North_America2, UKI2, Northern_Europe2, Southern_Europe2, ISE2, Central_Europe2, India2, Greater_Asia2, Greater_China2,Latin_America2, North_America_D2, UKI_D2, Northern_Europe_D2, Southern_Europe_D2, ISE_E2, Central_Europe_D2, Central_Europe_E2, India_E2, Greater_Asia_D2, Greater_Asia_E2
+PoR2model_iMPV <- sqldf('select aa1.*, aa2.NA2, aa2.EU2, aa2.AP2, aa2.LA2, North_America2, UKI2, Northern_Europe2, Southern_Europe2, ISE2, Central_Europe2, India2, Greater_Asia2, Greater_China2,Latin_America2, North_America_D2, UKI_D2, Northern_Europe_D2, Southern_Europe_D2, ISE_E2, Central_Europe_D2, Central_Europe_E2, India_E2, Greater_Asia_D2, Greater_Asia_E2, Greater_China_E2
                         from PoR2model aa1 
                         left outer join 
                         usagesummaryNAEUAP aa2 
@@ -2807,7 +2807,7 @@ PoR2model_iMPV3 <- sqldf('select *
 # COMMAND ----------
 
 # ---- Step - 58 attaching regional coefficients -------------------------------------------#
-
+PoR2model_iMPV4 <- sqldf('select aa1.*, 1 as NAa, aa2.EUa, aa2.APa, aa2.LAa, 1 as North_Americana, aa2.UKIna, aa2.Northern_Europena, aa2.Southern_Europena, aa2.ISEna, aa2.Central_Europena, aa2.Indiana, aa2.Greater_Asiana, aa2.Greater_Chinana,aa2.Latin_Americana, aa2.Greater_Asia_Dna, aa2.Greater_Asia_Ena, aa2.Greater_China_Ena, aa2.Central_Europe_Dna, aa2.Central_Europe_Ena
                          from PoR2model_iMPV3 aa1
                          left join 
                          wtaverage aa2
@@ -2821,6 +2821,7 @@ PoR2model_iMPV3 <- sqldf('select *
 PoR2model_iMPV4a <- sqldf("SELECT product_brand, UPPER(rtm) as rtm, avg(NAa) as NAa, avg(EUa) as EUa, avg(APa) as APa, avg(LAa) as LAa, avg(North_Americana) as North_Americana
     , avg(UKIna) as UKIna, avg(Northern_Europena) as Northern_Europena, avg(Southern_Europena) as Southern_Europena, avg(ISEna) as ISEna, avg(Central_Europena) as Central_Europena
     , avg(Indiana) as Indiana, avg(Greater_Asiana) as Greater_Asiana, avg(Greater_Chinana) as Greater_Chinana, avg(Latin_Americana) as Latin_Americana
+    , avg(Greater_Asia_Dna) as Greater_Asia_Dna, avg(Greater_Asia_Ena) as Greater_Asia_Ena
     , avg(Greater_China_Ena) as Greater_China_Ena, avg(Central_Europe_Dna) as Central_Europe_Dna, avg(Central_Europe_Ena) as Central_Europe_Ena
     FROM PoR2model_iMPV4
     GROUP BY product_brand, UPPER(rtm)
@@ -2829,6 +2830,7 @@ PoR2model_iMPV4a <- sqldf("SELECT product_brand, UPPER(rtm) as rtm, avg(NAa) as 
 PoR2model_iMPV4 <- sqldf("select aa1.*
                 , 1 as NAa, CASE WHEN aa2.EUa is not null THEN aa2.EUa ELSE aa3.EUa END as EUa, CASE WHEN aa2.APa is not null THEN aa2.APa ELSE aa3.APa END AS APa
                 , CASE WHEN aa2.LAa is not null THEN aa2.LAa ELSE aa3.LAa END as LAa
+		, 1 as North_Americana, CASE WHEN aa2.UKIna is not null THEN aa2.UKIna ELSE aa3.UKIna END AS UKIna, CASE WHEN aa2.Northern_Europena is not null THEN aa2.Northern_Europena ELSE aa3.Northern_Europena END as Northern_Europena, CASE WHEN aa2.Southern_Europena is not null THEN aa2.Southern_Europena ELSE aa3.Southern_Europena END AS Southern_Europena, CASE WHEN aa2.ISEna is not null THEN aa2.ISEna ELSE aa3.ISEna END AS ISEna, CASE WHEN aa2.Central_Europena is not null THEN aa2.Central_Europena ELSE aa3.Central_Europena END AS Central_Europena, CASE WHEN aa2.Indiana is not null THEN aa2.Indiana ELSE aa3.Indiana END AS Indiana, CASE WHEN aa2.Greater_Asiana is not null THEN aa2.Greater_Asiana ELSE aa3.Greater_Asiana END AS Greater_Asiana, CASE WHEN aa2.Greater_Chinana is not null THEN aa2.Greater_Chinana ELSE aa3.Greater_Chinana END AS Greater_Chinana, CASE WHEN aa2.Latin_Americana is not null THEN aa2.Latin_Americana ELSE aa3.Latin_Americana END AS Latin_Americana, CASE WHEN aa2.Greater_Asia_Dna is not null THEN aa2.Greater_Asia_Dna ELSE aa3.Greater_Asia_Dna END AS Greater_Asia_Dna, CASE WHEN aa2.Greater_Asia_Ena is not null THEN aa2.Greater_Asia_Ena ELSE aa3.Greater_Asia_Ena END AS Greater_Asia_Ena, CASE WHEN aa2.Greater_China_Ena is not null THEN aa2.Greater_China_Ena ELSE aa3.Greater_China_Ena END AS Greater_China_Ena, CASE WHEN aa2.Central_Europe_Dna is not null THEN aa2.Central_Europe_Dna ELSE aa3.Central_Europe_Dna END AS Central_Europe_Dna, CASE WHEN aa2.Central_Europe_Ena is not null THEN aa2.Central_Europe_Ena ELSE aa3.Central_Europe_Ena END AS Central_Europe_Ena
                  FROM PoR2model_iMPV3 aa1
                          LEFT JOIN wtaverage aa2
                          on aa1.platform_division_code =aa2.platform_division_code and aa1.product_brand = aa2.product_brand and aa1.rtm=aa2.rtm
@@ -3105,7 +3107,7 @@ wtaverage2 <- sqldf("select product_brand, platform_division_code, rtm, avg(EUa)
                     group by product_brand, platform_division_code, rtm")
 
 new3 <- sqldf('select distinct aa1.*, aa2.[Central_Europena],aa2.[Central_Europe_Dna],aa2.[Central_Europe_Ena],aa2.[Northern_Europena],aa2.[Southern_Europena],aa2.[ISEna]
-  ,aa2.[Indiana],aa2.[Latin_Americana]
+  ,aa2.[Indiana],aa2.[Latin_Americana], aa2.[UKIna], aa2.[Greater_Asia_Dna], aa2.[Greater_Asia_Ena], aa2.[Greater_China_Ena]
               from new2 aa1
               inner join 
               wtaverage2 aa2
