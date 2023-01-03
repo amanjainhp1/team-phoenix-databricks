@@ -141,9 +141,9 @@ for table in tables:
     print(f'loading {table[0]}...')
     # Write the data to its target.
  ##   df.write \
- ##       .format(write_format) \
- ##       .mode("overwrite") \
- ##       .save(save_path)
+ ##      .format(write_format) \
+ ##      .mode("overwrite") \
+ ##      .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -155,6 +155,7 @@ for table in tables:
     print(f'{table[0]} loaded')
 
 # COMMAND ----------
+
 
 query = '''select * from mdm.yield'''
 
@@ -279,11 +280,6 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
 
-# ink_usage_share_pivot.count()
-# ink_usage_share_pivot.select('platform_subset').distinct().display()
-
-# COMMAND ----------
-
 ## Aggregating usage share drivers for ink at required level
 query = '''select cal_date
                 , ius.year
@@ -322,10 +318,6 @@ query = '''select cal_date
                 '''
 ink_usage_share_sum_till_date = spark.sql(query)
 ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_date")
-
-# COMMAND ----------
-
-ink_usage_share_sum_till_date.count()
 
 # COMMAND ----------
 
@@ -427,10 +419,16 @@ select usiut.record
                 , crg_chrome
                 , usiut.customer_engagement
                 , hw_product_family
-                , COLOR_USAGE
-                , sum_of_color_usage_till_date
-                , K_USAGE
-                , sum_of_k_usage_till_date
+                ,case when crg_chrome = 'BLK' then k_usage
+                else color_usage
+                end as usage
+                ,case when crg_chrome = 'BLK' then sum_of_k_usage_till_date
+                else sum_of_color_usage_till_date
+                end as sum_of_usage_till_date
+            --    , COLOR_USAGE
+            --    , sum_of_color_usage_till_date
+            --    , K_USAGE
+            --    , sum_of_k_usage_till_date
                 , HP_SHARE
                 , ib_version
                 , usiut.version
@@ -448,11 +446,6 @@ select usiut.record
 '''
 usage_share = spark.sql(query)
 usage_share.createOrReplaceTempView("usage_share")
-
-# COMMAND ----------
-
-query = '''select * from usage_share'''
-df = spark.sql(query)
 
 # COMMAND ----------
 
@@ -581,10 +574,6 @@ decay.createOrReplaceTempView("decay")
 
 # COMMAND ----------
 
-decay.display()
-
-# COMMAND ----------
-
 query = '''
 with yield as (
 SELECT distinct 
@@ -636,10 +625,6 @@ yield_.createOrReplaceTempView("yield_")
 
 # COMMAND ----------
 
-yield_.display()
-
-# COMMAND ----------
-
 # host yield for ink
 query = '''
 with y1 as (
@@ -687,6 +672,7 @@ SELECT distinct
 	from yield_region yr
 	left join supplies_hw_mapping shm 
 		on yr.base_product_number = shm.base_product_number 
+        and yr.geography = shm.geography
 	where shm.official = 1
 )
 , host_yield as 
@@ -737,10 +723,6 @@ and cal_date between '{}' and '{}'
 '''.format(cartridge_demand_pages_ccs_mix_version , start_ifs2_date , end_ifs2_date)
 trade_split = spark.sql(query)
 trade_split.createOrReplaceTempView("trade_split")
-
-# COMMAND ----------
-
-trade_split.display()
 
 # COMMAND ----------
 
@@ -797,13 +779,10 @@ vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
-vtc.display()
-
-# COMMAND ----------
-
 # final join
 query = '''
 select 
+    us.record,
     us.platform_subset,
     us.base_product_number,
     us.region_5,
@@ -821,14 +800,10 @@ select
 --    us.sum_of_color_usage_till_date,
 --    us.k_usage,
 --    us.sum_of_k_usage_till_date,
-    case when us.crg_chrome = 'BLK' then us.k_usage
-        else us.color_usage
-        end as usage,
-    case when us.crg_chrome = 'BLK' then us.sum_of_k_usage_till_date
-        else us.sum_of_color_usage_till_date
-        end as sum_of_usage_till_date,
-    case when (us.sum_of_color_usage_till_date - hy.host_yield) < 0 then 0
-        else (us.sum_of_color_usage_till_date - hy.host_yield)
+    us.usage,
+    us.sum_of_usage_till_date,
+    case when (us.sum_of_usage_till_date - hy.host_yield) < 0 then 0
+        else (us.sum_of_usage_till_date - hy.host_yield)
         end as after_market_usage_cumulative,
     us.hp_share,
     d.value as decay,
@@ -851,6 +826,8 @@ and us.year_num = d.year_num
 and us.month_num = d.month_num
 and us.market10 = d.m10
 and us.country_alpha2 = d.country_alpha2
+and us.customer_engagement = d.split_name
+and us.region_5 = d.region_5
 left join yield_ y
 on us.platform_subset = y.platform_subset
 and us.base_product_number = y.base_product_number
@@ -886,16 +863,9 @@ pen_per_printer1.filter((col('platform_subset') == 'MALBEC YET1') & (col('market
 
 # COMMAND ----------
 
-pen_per_printer.count()
-
-# COMMAND ----------
-
-pen_per_printer.display()
-
-# COMMAND ----------
-
 query = '''
     select
+        record,
         platform_subset,
         base_product_number,
         region_5,
@@ -937,6 +907,7 @@ pen_per_printer2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market
 # COMMAND ----------
 
 query = '''select
+        record,
         platform_subset,
         base_product_number,
         region_5,
@@ -979,6 +950,7 @@ pen_per_printer.filter((col('platform_subset') == 'MALBEC YET1') & (col('market1
 # COMMAND ----------
 
 query = '''select
+        ppp.record,
         ppp.platform_subset,
         ppp.base_product_number,
         ppp.region_5,
@@ -1033,7 +1005,7 @@ ifs2.createOrReplaceTempView("ifs2")
 
 # COMMAND ----------
 
-ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US') ).orderBy('cal_date').display()
 
 # COMMAND ----------
 
