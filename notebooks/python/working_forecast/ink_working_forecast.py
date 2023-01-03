@@ -37,7 +37,7 @@ WITH geography_mapping AS
       FROM scen.working_forecast_usage_share AS us_scen
       WHERE 1 = 1
         AND us_scen.upload_type = 'WORKING-FORECAST'
-        AND UPPER(us_scen.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
+        AND UPPER(us_scen.user_name) IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_us_prep AS
     (SELECT fv.user_name
@@ -115,7 +115,7 @@ WITH dmd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = (SELECT MAX(version) FROM prod.ib)
+       AND ib.version = '2022.11.29.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -284,13 +284,6 @@ query_list.append(["scen.ink_02_us_dmd", ink_02_us_dmd, "overwrite"])
 
 # COMMAND ----------
 
-# create spectrum schema var based on stack/env so this query works in all our envs
-spectrum_schema = 'phoenix_spectrum'
-if stack == 'itg' or stack == 'prod':
-    spectrum_schema = spectrum_schema + "_" + stack
-
-# COMMAND ----------
-
 ink_demand = f"""
 WITH dbd_01_ib_load AS
     (SELECT ib.cal_date
@@ -305,7 +298,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = (SELECT MAX(version) FROM prod.ib)
+       AND ib.version = '2022.11.29.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -336,11 +329,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM {spectrum_schema}.usage_share AS us
+     FROM prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = (SELECT MAX(version) FROM {spectrum_schema}.usage_share)
+       AND us.version = '2022.12.16.1'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -455,11 +448,10 @@ query_list.append(["scen.ink_demand", ink_demand, "overwrite"])
 
 ink_03_usage_share = """
 WITH override_filters  AS
-    (SELECT MAX(ib.version)    AS ib_version
-          , MAX(us.us_version) AS us_version
-     FROM prod.ib
-     CROSS JOIN (SELECT MAX(version) AS us_version
-                 FROM prod.usage_share) AS us)
+    (SELECT '2022.11.29.1'    AS ib_version
+          , '2022.12.16.1' AS us_version
+)
+
 
    , ink_usage_share AS
     (SELECT uss.geography_grain
@@ -1431,7 +1423,7 @@ WITH geography_mapping     AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND UPPER(smr.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
+       AND UPPER(smr.user_name) IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_mix_rate_prep   AS
     (SELECT fv.user_name
@@ -2268,7 +2260,7 @@ WITH cfadj_01_c2c                AS
          ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.11.29.1'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -2492,7 +2484,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+        AND ns.version = '2022.11.29.1'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -2796,7 +2788,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(iso.region_5)
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.11.29.1'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -2829,7 +2821,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(cc.country_level_1) -- region_8
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.11.29.1'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -2870,7 +2862,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(iso.market10)
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.11.29.1'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -2993,7 +2985,7 @@ WITH wel_01_stf_enroll    AS
      LEFT JOIN mdm.iso_country_code_xref AS iso
          ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = (SELECT MAX(version) FROM prod.ib)
+       AND ib.version = '2022.11.29.1'
        AND ib.cal_date > CAST('2022-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -3093,7 +3085,7 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.11.29.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -3181,7 +3173,7 @@ WITH vtc_01_analytic_cartridges AS
                    AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = (SELECT MAX(version) FROM prod.norm_shipments))
+       AND hw.version = '2022.11.29.1')
 
    , c2c_vtc_06_vol_count       AS
     (SELECT DISTINCT geography
@@ -3445,7 +3437,7 @@ WITH geography_mapping   AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = '2022.11.29.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -3527,7 +3519,7 @@ WITH geography_mapping   AS
     (SELECT 'IB'         AS record
           , 'SYSTEM'     AS user_name
           , NULL         AS load_date
-          , MAX(version) AS version
+          , '2022.11.29.1' AS version
      FROM prod.ib
 
      UNION ALL
@@ -3535,7 +3527,7 @@ WITH geography_mapping   AS
      SELECT 'USAGE_SHARE' AS record
           , 'SYSTEM'      AS user_name
           , NULL          AS load_date
-          , MAX(version)  AS version
+          , '2022.12.16.1'  AS version
      FROM prod.usage_share
 
      UNION ALL
@@ -3547,7 +3539,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_usage_share AS us_scen
      WHERE 1 = 1
        AND us_scen.upload_type = 'WORKING-FORECAST'
-       AND us_scen.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
+       AND us_scen.user_name IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3558,7 +3550,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND smr.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
+       AND smr.user_name IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3569,7 +3561,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_yield AS scen_y
      WHERE 1 = 1
        AND scen_y.upload_type = 'WORKING-FORECAST'
-       AND scen_y.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
+       AND scen_y.user_name IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3580,7 +3572,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_channel_fill AS cf
      WHERE 1 = 1
        AND cf.upload_type = 'WORKING-FORECAST'
-       AND cf.user_name IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
+       AND cf.user_name IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3591,7 +3583,7 @@ WITH geography_mapping   AS
      FROM scen.working_forecast_supplies_spares AS ssp
      WHERE 1 = 1
        AND ssp.upload_type = 'WORKING-FORECAST'
-       AND UPPER(ssp.user_name) IN ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
+       AND UPPER(ssp.user_name) IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 
      UNION ALL
 
@@ -3603,7 +3595,7 @@ WITH geography_mapping   AS
      WHERE 1 = 1
        AND v.upload_type = 'WORKING-FORECAST'
        AND UPPER(v.user_name) IN
-           ('SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
+           ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_cf_prep       AS
     (SELECT fv.user_name
