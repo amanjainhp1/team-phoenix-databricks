@@ -3414,7 +3414,9 @@ route6 <- sqldf('select platform_market_code as platform_market_code, CM as CM, 
 
 route6B <- reshape2::melt(route6 , id.vars = c("platform_market_code", "CM","printer_platform_name"),variable.name = "printer_region_code", value.name = "Route")
 
-route1 <- usagesummaryNAEUAP[c(2,3,1, 509, 512, 514, 516, 518, 520, 521, 524, 526, 527, 529, 530, 533)] #need route columns
+route1 <- usagesummaryNAEUAP[c('platform_market_code','CM','printer_platform_name', 'Central_Europe_DRoute', 'Central_Europe_ERoute', 'Greater_Asia_DRoute'
+                               , 'Greater_Asia_ERoute', 'Greater_China_ERoute', 'India_ERoute', 'ISE_ERoute', 'Latin_America_ERoute', 'North_America_DRoute'
+                               , 'Northern_Europe_DRoute', 'Northern_Europe_DRoute', 'Southern_Europe_DRoute', 'UKI_DRoute')] #need route columns
 route1B <- reshape2::melt(route1 , id.vars = c("platform_market_code", "CM","printer_platform_name"),variable.name = "printer_region_code", value.name = "Route")
 route1B <- sqldf("SELECT platform_market_code, CM, printer_platform_name
                 ,CASE WHEN printer_region_code='Central_Europe_DRoute' THEN 'CEDs'
