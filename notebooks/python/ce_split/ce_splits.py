@@ -2,6 +2,9 @@
 import json
 from datetime import date
 from pyspark.sql.functions import *
+import json
+from datetime import date
+from pyspark.sql import functions as f
 
 # COMMAND ----------
 
@@ -26,22 +29,67 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
+
+
+f_report_units_query = """
+SELECT *
+FROM ie2_landing.dbo.ce_splits_override_landing
+"""
+
+f_report_units = read_sql_server_to_df(configs) \
+    .option("query", f_report_units_query) \
+    .load()
+
+write_df_to_redshift(configs, f_report_units, "stage.ce_splits_override", "overwrite")
+
+# COMMAND ----------
+
 max_version_info = call_redshift_addversion_sproc(configs, 'CE_SPLITS_I-INK', 'FORECASTER INPUT')
 
 # COMMAND ----------
 
-tables = ['prod.instant_ink_enrollees', 'mdm.iso_country_code_xref', 'mdm.hardware_xref', 'prod.norm_shipments', 'mdm.calendar']
+## Reading source tables from redshit
+instant_ink_enrollees = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.instant_ink_enrollees") \
+    .load()
+hardware_xref = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM mdm.hardware_xref") \
+    .load()
+iso_country_code_xref = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
+    .load()
+ce_splits_override = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM stage.ce_splits_override") \
+    .load()
+calendar = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM mdm.calendar") \
+    .load()
+norm_shipments = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.norm_shipments") \
+    .load()
+
+# COMMAND ----------
+
+## Populating delta tables
+tables = [
+  ['prod.instant_ink_enrollees' , instant_ink_enrollees],
+  ['mdm.hardware_xref' , hardware_xref],
+  ['mdm.calendar' , calendar],
+  ['mdm.iso_country_code_xref' , iso_country_code_xref],
+  ['prod.norm_shipments' , norm_shipments],
+  ['stage.ce_splits_override', ce_splits_override]
+]
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
-    schema = table.split(".")[0]
-    table_name = table.split(".")[1]
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
-    df = get_data_by_table(table)
-        
+    df = table[1]
+    print(f'loading {table[0]}...')
     # Write the data to its target.
     df.write \
       .format(write_format) \
@@ -51,9 +99,11 @@ for table in tables:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
     # Create the table.
-    spark.sql("CREATE TABLE " + table + " USING DELTA LOCATION '" + save_path + "'")
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
     
-    spark.table(table).createOrReplaceTempView(table_name + "_df_view")
+    spark.table(table[0]).createOrReplaceTempView(table_name + "_df_view")
+    
+    print(f'{table[0]} loaded')
 
 # COMMAND ----------
 
@@ -349,7 +399,7 @@ FROM ce_ps_max_per_month_country_view d
 LEFT JOIN calendar_df_view c 
 ON 1 = 1
 WHERE c.Day_of_Month = 1 
-AND (c.Date BETWEEN d.max_year_month AND add_months(d.max_year_month, 15*12))
+AND (c.Date BETWEEN add_months(d.max_year_month, 1) AND add_months(d.max_year_month, (15*12)-1))
 ORDER BY platform_subset, country_alpha2, split_name, date
 '''
 
@@ -410,9 +460,40 @@ ON ce.platform_subset = hw.platform_subset
 WHERE hw.technology = 'INK' AND ce.official = 1;
 """
 
-submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], update_official_query)
+submit_remote_query(configs, update_official_query)
 
 # COMMAND ----------
 
 # write data to redshift
 write_df_to_redshift(configs, final_ce, "prod.ce_splits", "append")
+
+# COMMAND ----------
+
+# delete ce for overrides
+query = '''
+delete from prod.ce_splits 
+where platform_subset in (
+select distinct platform_subset from stage.ce_splits_override where official = 1)
+and official = 1
+'''
+
+submit_remote_query(configs , query)
+
+# COMMAND ----------
+
+ce_splits_override = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM stage.ce_splits_override where official = 1") \
+    .load()
+
+# COMMAND ----------
+
+ce_splits_override = ce_splits_override \
+    .select('record', 'platform_subset', 'region_5', 'country_alpha2', 'em_dm', 'business_model',
+            'month_begin', 'split_name', 'pre_post_flag', 'value') \
+    .withColumn('official', f.lit(1)) \
+    .withColumn('load_date', f.lit(max_version_info[1])) \
+    .withColumn('version', f.lit(max_version_info[0]))
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, ce_splits_override, "prod.ce_splits", "append")
