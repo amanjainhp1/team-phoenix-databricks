@@ -2728,7 +2728,7 @@ str(PoR2model)
 
 # Step - 53 attaching calculated_iMPV with raw_iMPV data
 
-PoR2model_iMPV <- sqldf('select aa1.*, aa2.NA2, aa2.EU2, aa2.AP2, aa2.LA2, North_America2, UKI2, Northern_Europe2, Southern_Europe2, ISE2, Central_Europe2, India2, Greater_Asia2, Greater_China2,Latin_America2, North_America_D2, UKI_D2, Northern_Europe_D2, Southern_Europe_D2, ISE_E2, Central_Europe_D2, Central_Europe_E2, India_E2, Greater_Asia_D2, Greater_Asia_E2,
+PoR2model_iMPV <- sqldf('select aa1.*, aa2.NA2, aa2.EU2, aa2.AP2, aa2.LA2, North_America2, UKI2, Northern_Europe2, Southern_Europe2, ISE2, Central_Europe2, India2, Greater_Asia2, Greater_China2,Latin_America2, North_America_D2, UKI_D2, Northern_Europe_D2, Southern_Europe_D2, ISE_E2, Central_Europe_D2, Central_Europe_E2, India_E2, Greater_Asia_D2, Greater_Asia_E2
                         from PoR2model aa1 
                         left outer join 
                         usagesummaryNAEUAP aa2 
@@ -2887,7 +2887,6 @@ PoR2model_iMPV5 <- sqldf('select *
                          , case when Greater_China2 is null then North_America3*Greater_Chinana
                           else Greater_China2
                           end as Greater_China3
-                          else Greater_China2
                           , case when Greater_China2 is null then North_America3*Greater_China_Ena
                           else Greater_China2
                           end as Greater_China_E3
