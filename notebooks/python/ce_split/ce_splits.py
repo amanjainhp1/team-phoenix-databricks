@@ -29,7 +29,7 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
-
+## Get SFAI ce_splits_override data into redshift
 
 f_report_units_query = """
 SELECT *
