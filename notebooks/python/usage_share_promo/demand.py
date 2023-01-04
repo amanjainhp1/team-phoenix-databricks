@@ -439,6 +439,7 @@ update_version = f"""
       """
 
 update_version=spark.sql(update_version)
+update_version=update_version.withColumn("load_date", update_version.load_date.cast('timestamp'))
 update_version.createOrReplaceTempView("update_version")
 # COMMAND ----------
 
