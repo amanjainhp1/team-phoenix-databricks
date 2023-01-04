@@ -167,19 +167,8 @@ zeroi$SumMPV <- ifelse(zeroi$UsageDenominator>0,zeroi$SumN*zeroi$UsageNumerator/
 
 #Get Market10 Information
 country_info <- SparkR::collect(SparkR::sql("
-                      WITH mkt10 AS (
-                           SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM iso_cc_rollup_xref
-                           WHERE country_scenario='MARKET10'
-                      ),
-                      rgn5 AS (
-                            SELECT country_alpha2, region_5, developed_emerging, country 
-                            FROM iso_country_code_xref
-                      )
-                      SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
-                            FROM rgn5 a
-                            LEFT JOIN mkt10 b
-                            ON a.country_alpha2=b.country_alpha2
+                     SELECT country_alpha2, region_5, market10, developed_emerging, country
+                           FROM iso_country_code_xref
                            "))
 
 #######SELECT IB VERSION#####
