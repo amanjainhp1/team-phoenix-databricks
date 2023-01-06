@@ -6,6 +6,7 @@ Jobs:
   - adjusted-rev-flash-update
   - base-usage-share
   - base-forecast
+  - ce-split
   - create-demand-file
   - edw-all-history-actuals-update
   - finance-etl-wd8-load
