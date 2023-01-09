@@ -4,6 +4,10 @@ from pyspark.sql import functions as func
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -221,30 +225,6 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
 
-select distinct ns.platform_subset , product_lifecycle_status
-from prod.norm_shipments ns
-inner join mdm.hardware_xref hx
-on ns.platform_subset = hx.platform_subset
-where ns.cal_date between '2022-11-01' and '2023-10-31'
-and version = (select max(version) from prod.norm_shipments)
-and hx.technology in ('INK','PWA')
-and hx.product_lifecycle_status in ('C','N')
-and hx.official = 1
-
-
-# COMMAND ----------
-
-spark.sql('''select distinct ns.platform_subset from norm_shipments ns 
-	inner join hardware_xref   xref 
-		on ns.platform_subset = xref.platform_subset
-	where cal_date between '2022-11-01' and '2023-10-31' 
-	and xref.product_lifecycle_status in ('N' , 'C')
-	and version = (select max(version) from  norm_shipments)
-    and official =1
-    and xref.technology in ('INK','PWA')''').display()
-
-# COMMAND ----------
-
 query = '''
 with norm_shipment as (
 	select distinct ns.platform_subset from norm_shipments ns 
@@ -264,14 +244,6 @@ left join  ink_usage_share_pivot usage
 
 ink_usage_share = spark.sql(query)
 ink_usage_share.display()
-
-# COMMAND ----------
-
-ink_usage_share_pivotquery = '''
-select usage.platform_subset
-from ink_usage_share_pivot usage
-inner join 
-'''
 
 # COMMAND ----------
 
@@ -788,70 +760,18 @@ vtc.display()
 
 # COMMAND ----------
 
-host_yield = read_redshift_to_df(configs) \
-    .option("query", f"""SELECT * FROM ifs2.toner_host_yield""") \
-    .load()
+query = '''
+select '' as status_type
+    , platform_subset
+    , `in box cartridges` as in_box_cartridges
+    , 
+     from new_host
+'''
+temp = spark.sql(query)
 
 # COMMAND ----------
 
-host_yield.display()
-
-# COMMAND ----------
-
-from pyspark.sql.functions import *
-from pyspark.sql import functions as f
-
-# COMMAND ----------
-
-# MAGIC %run ../common/s3_utils
-
-# COMMAND ----------
-
-bucket = f"dataos-core-{stack}-team-phoenix-fin" 
-bucket_prefix = "landing/odw/"
-
-latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucket_prefix)
-
-latest_file = latest_file.split("/")[len(latest_file.split("/"))-1]
-
-print(latest_file)
-
-# COMMAND ----------
-
-## toner_host_yield
-
-toner_host_yield = spark.read \
-    .format("com.crealytics.spark.excel") \
-    .option("inferSchema", "True") \
-    .option("header","True") \
-    .option("treatEmptyValuesAsNulls", "False")\
-    .load(f"s3a://{bucket}/{bucket_prefix}/{latest_file}")
-
-# COMMAND ----------
-
-toner_host_yield.display()
-
-# COMMAND ----------
-
-from pyspark.sql.functions import countDistinct
- 
-# applying the function countDistinct()
-# on df using select()
-df2 = toner_host_yield.select(countDistinct("Platform Subset"))
-
-# COMMAND ----------
-
-df_temp = toner_host_yield.withColumn("new_black",f.when(f.col("Black").isNotNull(),lit("Black")).otherwise(f.col("Black")))
-df_temp = df_temp.withColumn("new_color",f.when(f.col("Color").isNotNull(),lit("Color")).otherwise(f.col("Color")))
-df_temp = df_temp.withColumnRenamed("Platform Subset" , "platform_subset")
-df_temp = df_temp.withColumnRenamed("Product Name" , "product_name")
-df_temp = df_temp.withColumnRenamed("Black Yield" , "black_yield")
-df_temp = df_temp.withColumnRenamed("Black Large" , "black_large")
-df_temp = df_temp.withColumnRenamed("Black Large Yield" , "black_large_yield")
-df_temp = df_temp.withColumnRenamed("Color Large" , "color_large")
-df_temp = df_temp.withColumnRenamed("Color Large Yield" , "color_large_yield")
-df_temp = df_temp.withColumnRenamed("Color Yield" , "color_yield")
-df_temp.createOrReplaceTempView("df")
+temp.display()
 
 # COMMAND ----------
 
@@ -869,116 +789,6 @@ submit_remote_query(configs , '''CREATE TABLE IF NOT EXISTS ifs2.toner_host_yiel
 
 # COMMAND ----------
 
-query = '''
-
-INSERT INTO ifs2.toner_host_yield
-select "status type" as status_type
-    , "platform subset" as platform_subset
-    , "In-Box Cartridge" as in_box_cartridges
-    , "yield_name" 
-    , "yield"
- from  (select distinct "status type" ,"platform subset", "In-Box Cartridge" ,"black yield" , "color yield" , "black large yield"  , "color large yield"  from stage.laser_host_assumptions ) UNPIVOT (
-    yield for yield_name in ("black yield" , "color yield" , "black large yield" , "color large yield")
-    );
-'''
-
-submit_remote_query(configs, query)
-
-# COMMAND ----------
-
-query = '''
-
-select  
-    PL
-    , platform_subset
-    , Level
-    , black_yield
-    , color_yield
-    , black_large_yield
-    , color_large_yield
-from df
-'''
-df_new = spark.sql(query)
-df_new.createOrReplaceTempView("df")
-
-# COMMAND ----------
-
-df_new.display()
-
-# COMMAND ----------
-
-query = '''
-select * from df
-'''
-spark.sql(query).count()
-
-# COMMAND ----------
-
-df_new.filter(col('platform_subset') == 'Pyramid 3:1').display()
-
-# COMMAND ----------
-
-df_new.filter(col('platform_subset') == 'HOPPER 55CTO').display()
-
-# COMMAND ----------
-
-df_new_black = df_new.groupBy("platform_subset").pivot("new_black").sum("black_yield")
-df_new_black.createOrReplaceTempView("df_new_black")
-
-# COMMAND ----------
-
-df_new_black.display()
-
-# COMMAND ----------
-
-df_new_color = df_new.groupBy("platform_subset").pivot("new_color").sum("color_yield")
-df_new_color.createOrReplaceTempView("df_new_color")
-
-# COMMAND ----------
-
-df_new_color.filter(col('platform_subset') == 'Azalea').display()
-
-# COMMAND ----------
-
-query = '''
-select * from df where platform_subset = 'Pyramid 3:1'
-'''
-spark.sql(query).display()
-
-# COMMAND ----------
-
-query = '''
-
-select t.platform_subset
-    , t.pl
-    , b.Black as black
-    , c.Color as color
-from df t
-inner join df_new_black b
-    on t.platform_subset = b.platform_subset
-inner join df_new_color c
-    on t.platform_subset = c.platform_subset
-inner join toner_platform tc
-    on upper(t.platform_subset) = tc.platform_subset
-'''
-
-final = spark.sql(query)
-
-# COMMAND ----------
-
-inner join toner_platform tc
-    on t.platform_subset = tc.platform_subset
-
-# COMMAND ----------
-
-final.display()
-
-# COMMAND ----------
-
-final.filter(col('platform_subset') == 'Pyramid 3:1').display()
-
-# COMMAND ----------
-
 toner_host_yield = read_redshift_to_df(configs) \
     .option("query", f"""SELECT * FROM ifs2.toner_host_yield""") \
     .load()
@@ -987,14 +797,7 @@ toner_host_yield.createOrReplaceTempView("toner_host_yield")
 
 # COMMAND ----------
 
-query = '''select distinct platform_subset from toner_host_yield'''
-
-distinct_platform = spark.sql(query)
-toner_host_yield.createOrReplaceTempView("toner_host_yield")
-
-# COMMAND ----------
-
-distinct_platform.count()
+toner_host_yield.display()
 
 # COMMAND ----------
 
@@ -1028,15 +831,15 @@ toner_usage_share.display()
 
 # COMMAND ----------
 
+## pivot temp code
 
-
-# COMMAND ----------
-
-query = '''select distinct platform_subset from toner_usage_share_sum_till_date'''
-
-count_platform_usage = spark.sql(query)
-count_platform_usage.count()
-
-# COMMAND ----------
-
-
+select NULL as status_type
+    , "platform_subset" as platform_subset
+    , "in_box_cartridge" as in_box_cartridges
+    , "yield_name" 
+    , "yield"
+ from  (select distinct "platform_subset", "in_box_cartridge" ,"black_yield" , color_yield
+		from ifs2.host_yield_new  ) UNPIVOT (
+    yield for yield_name in ("black_yield" , "color_yield" )
+    )
+ where yield <> 0
