@@ -1,4 +1,8 @@
 # Databricks notebook source
+# MAGIC %md # Import libraries
+
+# COMMAND ----------
+
 from pyspark.sql.functions import *
 from pyspark.sql import functions as func
 
@@ -9,6 +13,10 @@ from pyspark.sql import functions as func
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %md # Widgets
 
 # COMMAND ----------
 
@@ -74,6 +82,10 @@ if discounting_factor == "":
 
 start_ifs2_date = datetime.strptime(str(start_ifs2_date),"%Y-%m-%d")
 end_ifs2_date = datetime.strptime(str(end_ifs2_date),"%Y-%m-%d")
+
+# COMMAND ----------
+
+# MAGIC %md # Delta tables
 
 # COMMAND ----------
 
@@ -201,6 +213,10 @@ and hx.official = 1
 
 toner_ps = spark.sql(query)
 toner_ps.createOrReplaceTempView("toner_ps")
+
+# COMMAND ----------
+
+# MAGIC %md # Usage Share
 
 # COMMAND ----------
 
@@ -449,6 +465,10 @@ usage_share.createOrReplaceTempView("usage_share")
 
 # COMMAND ----------
 
+# MAGIC %md # Decay
+
+# COMMAND ----------
+
 ## Decay at platform_subset, region5, customer_engagement level split on months
 query = '''
 with months as (
@@ -574,6 +594,10 @@ decay.createOrReplaceTempView("decay")
 
 # COMMAND ----------
 
+# MAGIC %md # Yield
+
+# COMMAND ----------
+
 query = '''
 with yield as (
 SELECT distinct 
@@ -622,6 +646,10 @@ SELECT distinct
 '''.format(start_ifs2_date)
 yield_ = spark.sql(query)
 yield_.createOrReplaceTempView("yield_")
+
+# COMMAND ----------
+
+# MAGIC %md # Host Yield
 
 # COMMAND ----------
 
@@ -735,6 +763,10 @@ toner_host_yield.display()
 
 # COMMAND ----------
 
+# MAGIC %md # Trade split
+
+# COMMAND ----------
+
 # trade split
 query = '''
 select cal_date
@@ -754,6 +786,10 @@ and cal_date between '{}' and '{}'
 '''.format(cartridge_demand_pages_ccs_mix_version , start_ifs2_date , end_ifs2_date)
 trade_split = spark.sql(query)
 trade_split.createOrReplaceTempView("trade_split")
+
+# COMMAND ----------
+
+# MAGIC %md # Financial forecast inputs
 
 # COMMAND ----------
 
@@ -790,6 +826,10 @@ fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
+# MAGIC %md # vtc
+
+# COMMAND ----------
+
 # vtc
 query = '''
 select cal_date
@@ -820,6 +860,10 @@ p.display()
 # COMMAND ----------
 
 usage_share.display()
+
+# COMMAND ----------
+
+# MAGIC %md # Final join
 
 # COMMAND ----------
 
@@ -1050,6 +1094,10 @@ ifs2.createOrReplaceTempView("ifs2")
 # COMMAND ----------
 
 ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US') ).orderBy('cal_date').display()
+
+# COMMAND ----------
+
+# MAGIC %md # Write to redshift
 
 # COMMAND ----------
 
