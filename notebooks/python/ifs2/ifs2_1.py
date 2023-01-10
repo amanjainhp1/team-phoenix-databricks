@@ -704,6 +704,37 @@ host_yield_ink.createOrReplaceTempView("host_yield_ink")
 
 # COMMAND ----------
 
+host_yield_ink.display()
+
+# COMMAND ----------
+
+toner_host_yield.display()
+
+# COMMAND ----------
+
+## yield name should be consistent
+
+query = '''
+SELECT platform_subset 
+    , cast when (yield_name == 'black_yied')  then 'BLACK'
+        else 'COLOR'
+        end as yield_name
+    , yield
+FROM ifs2.toner_host_yield
+where yield_name in ('black yield', 'color yield' , 'black_yield' , 'color_yield')
+'''
+toner_host_yield = read_redshift_to_df(configs) \
+    .option("query", query) \
+    .load()
+
+toner_host_yield.createOrReplaceTempView("toner_host_yield")
+
+# COMMAND ----------
+
+toner_host_yield.display()
+
+# COMMAND ----------
+
 # trade split
 query = '''
 select cal_date
@@ -776,6 +807,19 @@ and cal_date between '{}' and '{}'
 '''.format(working_forecast_country_version , start_ifs2_date , end_ifs2_date)
 vtc = spark.sql(query)
 vtc.createOrReplaceTempView("vtc")
+
+# COMMAND ----------
+
+query = '''select  *
+from usage_share
+where record = 'TONER' and crg_chrome is null and country_alpha2 is not null
+'''
+p = spark.sql(query)
+p.display()
+
+# COMMAND ----------
+
+usage_share.display()
 
 # COMMAND ----------
 
