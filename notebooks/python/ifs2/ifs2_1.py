@@ -433,6 +433,9 @@ select usiut.record
                 , usiut.platform_subset
                 , shm.base_product_number
                 , crg_chrome
+                , case when (usiut.record = 'TONER' and crg_chrome = 'BLK') then 'BLACK'
+         when (usiut.record = 'TONER' and crg_chrome in ('CYN','MAG','YEL','MUL')) then 'COLOR'  -- work on MUL
+        else 'NONE' end as crg_chrome_type
                 , usiut.customer_engagement
                 , hw_product_family
                 ,case when crg_chrome = 'BLK' then k_usage
@@ -462,6 +465,10 @@ select usiut.record
 '''
 usage_share = spark.sql(query)
 usage_share.createOrReplaceTempView("usage_share")
+
+# COMMAND ----------
+
+usage_share.display()
 
 # COMMAND ----------
 
@@ -722,7 +729,8 @@ and hx.product_lifecycle_status in ('C','N')
 and hx.official = 1
 )
 
-select hy.* from host_yield hy
+select 'INK' as record, 
+    hy.* from host_yield hy
 inner join all_ps ps
 on hy.platform_subset = ps.platform_subset
 '''
@@ -736,18 +744,17 @@ host_yield_ink.display()
 
 # COMMAND ----------
 
-toner_host_yield.display()
-
-# COMMAND ----------
-
 ## yield name should be consistent
 
 query = '''
-SELECT platform_subset 
-    , cast when (yield_name == 'black_yied')  then 'BLACK'
+SELECT 'TONER' as record
+    , NULL as geography
+    , UPPER(platform_subset) as platform_subset 
+    , case when (yield_name IN ('black_yield' , 'black yield'))  then 'BLACK'
         else 'COLOR'
-        end as yield_name
-    , yield
+        end as crg_chrome
+    , NULL as customer_engagement
+    , cast(yield as float) as host_yield
 FROM ifs2.toner_host_yield
 where yield_name in ('black yield', 'color yield' , 'black_yield' , 'color_yield')
 '''
@@ -756,6 +763,31 @@ toner_host_yield = read_redshift_to_df(configs) \
     .load()
 
 toner_host_yield.createOrReplaceTempView("toner_host_yield")
+
+# COMMAND ----------
+
+toner_host_yield.display()
+
+# COMMAND ----------
+
+query = '''
+select * from host_yield_ink
+
+UNION
+
+select * from toner_host_yield
+'''
+
+host_yield = spark.sql(query)
+host_yield.createOrReplaceTempView("host_yield")
+
+# COMMAND ----------
+
+host_yield.display()
+
+# COMMAND ----------
+
+usage_share.display()
 
 # COMMAND ----------
 
@@ -921,11 +953,18 @@ on us.platform_subset = y.platform_subset
 and us.base_product_number = y.base_product_number
 and us.region_5 = y.geography
 and us.country_alpha2 = y.country_alpha2
-left join host_yield_ink hy
-on us.platform_subset = hy.platform_subset
+left join host_yield hy
+on (
+hy.record = 'INK'
+and us.platform_subset = hy.platform_subset
 and us.region_5 = hy.geography
 and us.customer_engagement = hy.customer_engagement
-and us.crg_chrome = hy.crg_chrome
+and us.crg_chrome = hy.crg_chrome)
+or (
+hy.record = 'TONER'
+and us.platform_subset = hy.platform_subset
+and us.crg_chrome_type = hy.crg_chrome
+)
 left join trade_split t
 on us.platform_subset = t.platform_subset
 and us.base_product_number = t.base_product_number
@@ -944,6 +983,10 @@ and us.customer_engagement = v.customer_engagement
 '''.format(discounting_factor)
 pen_per_printer1 = spark.sql(query)
 pen_per_printer1.createOrReplaceTempView("pen_per_printer1")
+
+# COMMAND ----------
+
+pen_per_printer1.filter((col('platform_subset') == 'BETELGEUSE') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == 'W2110A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
