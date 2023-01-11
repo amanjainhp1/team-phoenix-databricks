@@ -445,7 +445,7 @@ if redshift_row_count > 0:
             .load()
 
     dataDF = odw_actuals_deliveries_schema_df.union(dataDF)
-    write_df_to_redshift(configs, dataDF, "prod.odw_actuals_deliveries", "append")
+	write_df_to_redshift(configs, dataDF, "prod.odw_actuals_deliveries", "append")
 	write_df_to_sqlserver(configs=configs, df=dataDF, destination="IE2_Prod.ms4.actuals_deliveries", mode="append")
 
 # COMMAND ----------
