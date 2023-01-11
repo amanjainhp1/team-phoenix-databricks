@@ -1,4 +1,35 @@
 # Databricks notebook source
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/"
+
+# COMMAND ----------
+
+# MAGIC 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
+shipment_actuals_latest_file = retrieve_latest_s3_object_by_prefix(bucket, bucket_prefix)
+
+shipment_actuals_latest_file = shipment_actuals_latest_file.split("/")[len(shipment_actuals_latest_file.split("/"))-1]
+
+print(shipment_actuals_latest_file)
+
+# COMMAND ----------
+
+odw_actuals_deliveries_df = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{bucket}/{bucket_prefix}/{shipment_actuals_latest_file}")
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, odw_actuals_deliveries_df, "ifs2.toner_host_yield", "append")
+
+# COMMAND ----------
+
 from pyspark.sql.functions import *
 from pyspark.sql import functions as func
 
@@ -781,11 +812,40 @@ submit_remote_query(configs , '''CREATE TABLE IF NOT EXISTS ifs2.toner_host_yiel
 	,platform_subset VARCHAR(255)  ENCODE lzo
 	,in_box_cartridges VARCHAR(255)   ENCODE lzo
 	,yield_name VARCHAR(255)   ENCODE lzo
-    ,yield  VARCHAR(255)   ENCODE lzo
+    ,yield   DOUBLE PRECISION   ENCODE RAW
     );
     
     GRANT ALL ON TABLE ifs2.toner_host_yield to GROUP phoenix_dev;
 ''')
+
+# COMMAND ----------
+
+query = '''
+with temp as (
+select status_type , platform_subset , in_box_cartridges , yield_name , yield , replace(yield , ',' ,'') as host_yield
+from toner_host_yield
+)
+select status_type , platform_subset , in_box_cartridges , yield_name , cast(host_yield as float) as yield
+from temp 
+'''
+
+toner_host = spark.sql(query)
+
+# COMMAND ----------
+
+toner_host.display()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, toner_host, "ifs2.toner_host_yield", "overwrite")
+
+# COMMAND ----------
+
+toner_host.display()
+
+# COMMAND ----------
+
+submit_remote_query(configs , '''truncate table ifs2''')
 
 # COMMAND ----------
 

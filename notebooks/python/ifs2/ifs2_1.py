@@ -5,6 +5,7 @@
 
 from pyspark.sql.functions import *
 from pyspark.sql import functions as func
+from pyspark.sql.types import *
 
 # COMMAND ----------
 
@@ -296,6 +297,21 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
 
+spark.sql('''select distinct platform_subset from toner_usage_share_pivot''').display()
+
+# COMMAND ----------
+
+query = '''
+select distinct ts.platform_subset , hy.platform_subset
+from toner_usage_share_pivot ts
+left join host_yield_toner hy
+on ts.platform_subset = hy.platform_subset
+'''
+temp = spark.sql(query)
+temp.display()
+
+# COMMAND ----------
+
 ## Aggregating usage share drivers for ink at required level
 query = '''select cal_date
                 , ius.year
@@ -375,6 +391,10 @@ query = '''select cal_date
                 '''
 toner_usage_share_sum_till_date = spark.sql(query)
 toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_till_date")
+
+# COMMAND ----------
+
+spark.sql('''select distinct platform_subset from toner_usage_share_sum_till_date''').display()
 
 # COMMAND ----------
 
@@ -468,7 +488,7 @@ usage_share.createOrReplaceTempView("usage_share")
 
 # COMMAND ----------
 
-usage_share.display()
+spark.sql('''select distinct platform_subset from usage_share where record = 'TONER' ''').display()
 
 # COMMAND ----------
 
@@ -740,42 +760,40 @@ host_yield_ink.createOrReplaceTempView("host_yield_ink")
 
 # COMMAND ----------
 
-host_yield_ink.display()
+host_yield_ink.count()
 
 # COMMAND ----------
 
-## yield name should be consistent
-
 query = '''
-SELECT 'TONER' as record
+select 'TONER' as record
     , NULL as geography
     , UPPER(platform_subset) as platform_subset 
-    , case when (yield_name IN ('black_yield' , 'black yield'))  then 'BLACK'
+    , case when (yield_name IN ('BLACK_YIELD' , 'BLACK YIELD'))  then 'BLACK'
         else 'COLOR'
         end as crg_chrome
     , NULL as customer_engagement
-    , cast(yield as float) as host_yield
-FROM ifs2.toner_host_yield
-where yield_name in ('black yield', 'color yield' , 'black_yield' , 'color_yield')
+    , yield 
+from ifs2.toner_host_yield
 '''
-toner_host_yield = read_redshift_to_df(configs) \
+
+host_yield_toner = read_redshift_to_df(configs) \
     .option("query", query) \
     .load()
-
-toner_host_yield.createOrReplaceTempView("toner_host_yield")
+host_yield_toner = host_yield_toner.withColumn("yield",host_yield_toner["yield"].cast(DoubleType()))
+host_yield_toner.createOrReplaceTempView("host_yield_toner")
 
 # COMMAND ----------
 
-toner_host_yield.display()
+host_yield_toner.display()
 
 # COMMAND ----------
 
 query = '''
 select * from host_yield_ink
 
-UNION
+UNION ALL
 
-select * from toner_host_yield
+select * from host_yield_toner
 '''
 
 host_yield = spark.sql(query)
@@ -783,15 +801,11 @@ host_yield.createOrReplaceTempView("host_yield")
 
 # COMMAND ----------
 
-host_yield.display()
+host_yield.filter(col('record')=='TONER').display()
 
 # COMMAND ----------
 
-usage_share.display()
-
-# COMMAND ----------
-
-toner_host_yield.display()
+host_yield.count()
 
 # COMMAND ----------
 
@@ -1136,7 +1150,15 @@ ifs2.createOrReplaceTempView("ifs2")
 
 # COMMAND ----------
 
-ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US') ).orderBy('cal_date').display()
+ifs2.filter((col('platform_subset') == 'BETELGEUSE') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == 'W2110A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+
+# COMMAND ----------
+
+ifs2.filter((col('platform_subset') == 'RUBY LITE 60 MANAGED')).orderBy('cal_date').display()
+
+# COMMAND ----------
+
+ifs2.filter((col('platform_subset') == 'RUBY LITE 60 MANAGED') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US') ).orderBy('cal_date').display()
 
 # COMMAND ----------
 
@@ -1148,4 +1170,4 @@ write_df_to_redshift(configs, ifs2, "ifs2.ifs2", "overwrite")
 
 # COMMAND ----------
 
-
+ifs2.count()
