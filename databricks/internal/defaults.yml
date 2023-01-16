@@ -25,4 +25,4 @@ splunk:
 airflow_gitops:
   publish_job_ids: true
   repo: https://github.azc.ext.hp.com/hp-data-platform/k8s-dataos-core-dev-2.git
-  path: 'flux2-green/airflow-dev/teams/databricks-springboard-job-ids-cm.yaml'
+  path: 'flux2-blue/airflow-dev/teams/databricks-springboard-job-ids-cm.yaml'

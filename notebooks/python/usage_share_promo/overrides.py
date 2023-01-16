@@ -717,7 +717,7 @@ with step1 as (
     , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
     , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
-FROM us_table us 
+FROM update_table us 
 GROUP BY us.cal_date
     	, us.geography_grain
 	, us.geography

@@ -23,9 +23,16 @@
             "encode": "lzo"
         },
         {
-            "description": "market10",
-            "name": "market10",
-            "type": "VARCHAR(100)",
+            "description": "geography",
+            "name": "geography",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "geography_grain",
+            "name": "geography_grain",
+            "type": "VARCHAR(255)",
             "nullable": true,
             "encode": "lzo"
         },
