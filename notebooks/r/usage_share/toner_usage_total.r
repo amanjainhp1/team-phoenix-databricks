@@ -578,9 +578,9 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                       on s.platform_market_code=o.platform_market_code and s.CM=o.CM  
                         and s.region_5=o.region_5 and s.developed_emerging=o.developed_emerging
                      ")
-  outcome_a <- sqldf("SELECT platform_market_code, CM, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
+  outcome_a <- sqldf("SELECT platform_market_code, CM, developed_emerging, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome_o
-                     group by platform_market_code, CM, developed_emerging, month")
+                     group by platform_market_code, CM, developed_emerging")
   
   outcome_b <- sqldf("SELECT platform_market_code, market10, developed_emerging, month, avg(b1) as b1, avg(seasonality) as seasonality , avg(mo_Smooth) as mo_Smooth
                      from outcome_o
@@ -662,7 +662,7 @@ stratpl <- sqldf("SELECT distinct platform_market_code from outcome0")
                     and s.developed_emerging=r2.developed_emerging and s.region_5=r2.region_5
                   left join outcome_a a
                   on s.platform_market_code=a.platform_market_code and s.CM=a.CM 
-                    and s.developed_emerging=a.developed_emerging and s.month=a.month 
+                    and s.developed_emerging=a.developed_emerging
                   left join outcome_b b
                   on s.platform_market_code=b.platform_market_code 
                     and s.market10=b.market10 and s.developed_emerging=b.developed_emerging and s.month=b.month 
