@@ -1,0 +1,26 @@
+CREATE OR REPLACE VIEW financials.v_adjusted_revenue_yoy_ci_cbm_dollars
+AS SELECT adjusted_revenue_cbm_details.cal_date, adjusted_revenue_cbm_details.fiscal_year_qtr, adjusted_revenue_cbm_details.fiscal_yr, adjusted_revenue_cbm_details.geography, adjusted_revenue_cbm_details.geography_grain, adjusted_revenue_cbm_details.region_3, adjusted_revenue_cbm_details.region_5, adjusted_revenue_cbm_details.pl, adjusted_revenue_cbm_details.hq_flag, adjusted_revenue_cbm_details.l5_description, adjusted_revenue_cbm_details.technology, adjusted_revenue_cbm_details.accounting_rate, sum(adjusted_revenue_cbm_details.beginning_ci) AS beginning_ci, sum(adjusted_revenue_cbm_details.ending_ci) AS ending_ci, sum(adjusted_revenue_cbm_details.change_in_cbm_ci) AS change_in_reported_ci, sum(adjusted_revenue_cbm_details.change_in_ci) - sum(adjusted_revenue_cbm_details.change_in_cbm_ci) AS pricing_or_contra_impact, sum(adjusted_revenue_cbm_details.change_in_ci) AS net_change_in_ci, sum(adjusted_revenue_cbm_details.ci_valuaton_impact) AS ci_valuaton_impact, sum(adjusted_revenue_cbm_details.change_in_ci_incld_valuation_impact) AS change_in_ci_incld_valuation_impact, adjusted_revenue_cbm_details.flash, adjusted_revenue_cbm_details.version
+   FROM ( SELECT ci.cal_date, ci.fiscal_year_qtr, ci.fiscal_yr, ci.geography, ci.geography_grain, ci.region_3, ci.region_5, ci.hq_flag, ci.pl, ci.l5_description, ci.technology, ci.accounting_rate, ci.version, ci.flash, sum(ci.prior_period_ci_dollars) AS beginning_ci, sum(ci.ci_dollars) AS ending_ci, sum(ci.ci_dollars) - sum(ci.prior_period_ci_dollars) AS change_in_cbm_ci, sum(ci.inventory_change_impact) AS change_in_ci, sum(ci.currency_impact_ch_inventory) AS ci_valuaton_impact, sum(ci.ci_change_current_period) AS change_in_ci_incld_valuation_impact
+           FROM ( SELECT f.record_description, f.cal_date, f.fiscal_year_qtr, f.fiscal_yr, f.geography, f.geography_grain, f.region_3, f.region_5, f.hq_flag, f.pl, f.l5_description, plx.l6_description, f.technology, f.accounting_rate, sum(f.cbm_ci_dollars) AS ci_dollars, sum(f.cbm_ci_dollars_prior_quarter) AS prior_period_ci_dollars, sum(f.inventory_change) AS inventory_change_impact, sum(f.ci_currency_impact) AS currency_impact_ch_inventory, sum(f.total_inventory_change) AS ci_change_current_period, 
+                        CASE
+                            WHEN f.version::text = '2021.05.18.1'::text THEN 'May Flash'::text
+                            WHEN f.version::text = '2021.08.12.1'::text THEN 'Q321 Actuals @ July Rates'::text
+                            WHEN f.version::text = '2021.08.12.2'::text THEN 'Aug Flash @ Aug Rates'::text
+                            WHEN f.version::text = '2021.11.10.1'::text THEN 'Q421 Actuals @ Oct Rates'::text
+                            WHEN f.version::text = '2022.02.17.1'::text THEN 'Q122 Actuals @ Jan Rates'::text
+                            WHEN f.version::text = '2022.05.03.1'::text THEN 'April Flash @ May Rates'::text
+                            WHEN f.version::text = '2022.05.12.1'::text THEN 'Q222 Actuals @ April Rates'::text
+                            WHEN f.version::text = '2022.08.15.1'::text THEN 'Q322 Actuals @ July Rates'::text
+                            WHEN f.version::text = '2022.11.09.1'::text THEN 'Q422 Actuals @ Oct Rates'::text
+                            ELSE concat(to_char(f.load_date, 'Month'::text), ' Flash'::text)
+                        END AS flash, f.version, f.load_date
+                   FROM fin_prod.adjusted_revenue_flash f
+              LEFT JOIN mdm.product_line_xref plx ON f.pl::text = plx.pl::text
+             WHERE 1 = 1 AND (f.version::text = '2022.02.17.1'::text OR f.version::text = '2022.05.12.1'::text OR f.version::text = '2022.08.15.1'::text OR f.version::text = '2022.10.13.1'::text OR f.version::text = '2022.11.09.1'::text OR f.version::text = '2022.11.11.1'::text)
+             GROUP BY f.record_description, f.cal_date, f.fiscal_year_qtr, f.fiscal_yr, f.geography, f.geography_grain, f.region_3, f.region_5, f.hq_flag, f.pl, f.l5_description, plx.l6_description, f.technology, f.accounting_rate, f.version, f.load_date) ci
+          GROUP BY ci.cal_date, ci.fiscal_year_qtr, ci.geography, ci.geography_grain, ci.pl, ci.l5_description, ci.technology, ci.fiscal_yr, ci.region_3, ci.region_5, ci.hq_flag, ci.accounting_rate, ci.version, ci.flash) adjusted_revenue_cbm_details
+  GROUP BY adjusted_revenue_cbm_details.cal_date, adjusted_revenue_cbm_details.fiscal_year_qtr, adjusted_revenue_cbm_details.geography, adjusted_revenue_cbm_details.geography_grain, adjusted_revenue_cbm_details.pl, adjusted_revenue_cbm_details.l5_description, adjusted_revenue_cbm_details.technology, adjusted_revenue_cbm_details.fiscal_yr, adjusted_revenue_cbm_details.region_3, adjusted_revenue_cbm_details.region_5, adjusted_revenue_cbm_details.hq_flag, adjusted_revenue_cbm_details.accounting_rate, adjusted_revenue_cbm_details.version, adjusted_revenue_cbm_details.flash;
+  
+  -- Permissions
+
+  grant delete, insert, references, select, trigger, update on financials.v_adjusted_revenue_yoy_ci_cbm_dollars to group phoenix_dev;
