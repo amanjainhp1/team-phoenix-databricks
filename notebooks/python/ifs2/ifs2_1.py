@@ -124,6 +124,9 @@ working_forecast_country = read_redshift_to_df(configs) \
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.supplies_hw_mapping") \
     .load()
+toner_host_yield = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM ifs2.toner_host_yield") \
+    .load()
 
 # COMMAND ----------
 
@@ -139,7 +142,8 @@ tables = [
  ['mdm.iso_country_code_xref' , iso_country_code_xref],
  ['prod.working_forecast_country' , working_forecast_country],
  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
- ['prod.norm_shipments' , norm_shipments]
+ ['prod.norm_shipments' , norm_shipments],
+ ['ifs2.toner_host_yield' , toner_host_yield]
 ]
 
 for table in tables:
@@ -153,10 +157,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
- ##   df.write \
- ##      .format(write_format) \
- ##      .mode("overwrite") \
- ##      .save(save_path)
+#     df.write \
+#       .format(write_format) \
+#       .mode("overwrite") \
+#       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -168,7 +172,6 @@ for table in tables:
     print(f'{table[0]} loaded')
 
 # COMMAND ----------
-
 
 query = '''select * from mdm.yield'''
 
@@ -297,21 +300,6 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
 
-spark.sql('''select distinct platform_subset from toner_usage_share_pivot''').display()
-
-# COMMAND ----------
-
-query = '''
-select distinct ts.platform_subset , hy.platform_subset
-from toner_usage_share_pivot ts
-left join host_yield_toner hy
-on ts.platform_subset = hy.platform_subset
-'''
-temp = spark.sql(query)
-temp.display()
-
-# COMMAND ----------
-
 ## Aggregating usage share drivers for ink at required level
 query = '''select cal_date
                 , ius.year
@@ -391,10 +379,6 @@ query = '''select cal_date
                 '''
 toner_usage_share_sum_till_date = spark.sql(query)
 toner_usage_share_sum_till_date.createOrReplaceTempView("toner_usage_share_sum_till_date")
-
-# COMMAND ----------
-
-spark.sql('''select distinct platform_subset from toner_usage_share_sum_till_date''').display()
 
 # COMMAND ----------
 
@@ -485,10 +469,6 @@ select usiut.record
 '''
 usage_share = spark.sql(query)
 usage_share.createOrReplaceTempView("usage_share")
-
-# COMMAND ----------
-
-spark.sql('''select distinct platform_subset from usage_share where record = 'TONER' ''').display()
 
 # COMMAND ----------
 
@@ -760,31 +740,21 @@ host_yield_ink.createOrReplaceTempView("host_yield_ink")
 
 # COMMAND ----------
 
-host_yield_ink.count()
-
-# COMMAND ----------
-
 query = '''
 select 'TONER' as record
     , NULL as geography
     , UPPER(platform_subset) as platform_subset 
     , case when (yield_name IN ('BLACK_YIELD' , 'BLACK YIELD'))  then 'BLACK'
-        else 'COLOR'
+         when (yield_name IN ('COLOR_YIELD' , 'COLOR YIELD')) then 'COLOR'
         end as crg_chrome
     , NULL as customer_engagement
     , yield 
-from ifs2.toner_host_yield
+from toner_host_yield
 '''
 
-host_yield_toner = read_redshift_to_df(configs) \
-    .option("query", query) \
-    .load()
+host_yield_toner = spark.sql(query)
 host_yield_toner = host_yield_toner.withColumn("yield",host_yield_toner["yield"].cast(DoubleType()))
 host_yield_toner.createOrReplaceTempView("host_yield_toner")
-
-# COMMAND ----------
-
-host_yield_toner.display()
 
 # COMMAND ----------
 
@@ -798,14 +768,6 @@ select * from host_yield_toner
 
 host_yield = spark.sql(query)
 host_yield.createOrReplaceTempView("host_yield")
-
-# COMMAND ----------
-
-host_yield.filter(col('record')=='TONER').display()
-
-# COMMAND ----------
-
-host_yield.count()
 
 # COMMAND ----------
 
@@ -896,26 +858,13 @@ vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
-query = '''select  *
-from usage_share
-where record = 'TONER' and crg_chrome is null and country_alpha2 is not null
-'''
-p = spark.sql(query)
-p.display()
-
-# COMMAND ----------
-
-usage_share.display()
-
-# COMMAND ----------
-
 # MAGIC %md # Final join
 
 # COMMAND ----------
 
 # final join
 query = '''
-select 
+select distinct
     us.record,
     us.platform_subset,
     us.base_product_number,
@@ -1000,11 +949,11 @@ pen_per_printer1.createOrReplaceTempView("pen_per_printer1")
 
 # COMMAND ----------
 
-pen_per_printer1.filter((col('platform_subset') == 'BETELGEUSE') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == 'W2110A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+pen_per_printer1.filter((col('platform_subset') == 'AGATE 22 MANAGED') & (col('country_alpha2') == 'BG') & (col('base_product_number') == 'W9100MC') & (col('crg_chrome') == 'BLK') & (col('cal_date')== '2025-12-01')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
-pen_per_printer1.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+pen_per_printer1.filter((col('platform_subset') == 'MALBEC YET1') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
@@ -1128,7 +1077,7 @@ query = '''select
         (fsb.baseprod_gru - fsb.baseprod_contra_per_unit) * pen_per_printer as aru,
         (fsb.baseprod_gru - fsb.baseprod_contra_per_unit - (fsb.baseprod_variable_cost_per_unit + fsb.baseprod_fixed_cost_per_unit)) * pen_per_printer as gmu,
         ((fsb.baseprod_gru - fsb.baseprod_contra_per_unit) * pen_per_printer)/discounting_factor as ifs2_aru,
-        ((fsb.baseprod_gru - fsb.baseprod_contra_per_unit - (fsb.baseprod_variable_cost_per_unit + fsb.baseprod_fixed_cost_per_unit)) * pen_per_printer)/discounting_factor as ifs_gmu,
+        ((fsb.baseprod_gru - fsb.baseprod_contra_per_unit - (fsb.baseprod_variable_cost_per_unit + fsb.baseprod_fixed_cost_per_unit)) * pen_per_printer)/discounting_factor as ifs2_gmu,
         ib_version,
         usage_share_version,
         decay_version,
@@ -1154,7 +1103,10 @@ ifs2.filter((col('platform_subset') == 'BETELGEUSE') & (col('market10') == 'NORT
 
 # COMMAND ----------
 
-ifs2.filter((col('platform_subset') == 'RUBY LITE 60 MANAGED')).orderBy('cal_date').display()
+query = '''
+select platform_subset
+    
+'''
 
 # COMMAND ----------
 
