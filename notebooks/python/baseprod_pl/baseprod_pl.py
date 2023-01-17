@@ -610,7 +610,7 @@ with  __dbt__CTE__bpp_18_revenue_sum AS (
 
 
 SELECT
-		product_line_scenarios_xref.pl_level_1
+		base_gru.base_product_line_code
 		, country_currency_map.currency_iso_code
 		, base_gru.cal_date
 		, SUM(coalesce(base_gru.cartridges, 0) * coalesce(base_gru.base_gru, 0)) AS revenue_sum
@@ -619,14 +619,9 @@ SELECT
 	INNER JOIN
 	country_currency_map country_currency_map
 		ON country_currency_map.country_alpha2 = base_gru.country_alpha2
-	INNER JOIN
-	product_line_scenarios_xref product_line_scenarios_xref
-		ON product_line_scenarios_xref.pl = base_gru.base_product_line_code
-	WHERE
-		product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-		AND product_line_scenarios_xref.version = (SELECT version FROM base_product_filter_vars WHERE record = 'PRODUCT_LINE_SCENARIOS')
-	GROUP BY
-		product_line_scenarios_xref.pl_level_1
+	where 1=1
+	group by
+		base_gru.base_product_line_code
 		, country_currency_map.currency_iso_code
 		, base_gru.cal_date
 ),  __dbt__CTE__bpp_19_revenue_currency_per AS (
