@@ -1,13 +1,13 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
@@ -39,7 +39,3 @@ redshift_ltf_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_sqlserver(configs, redshift_ltf_records, "ie2_staging.dbo.ib_02_ce_splits", "overwrite")
-
-# COMMAND ----------
-
-
