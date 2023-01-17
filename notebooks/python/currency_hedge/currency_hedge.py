@@ -1,9 +1,16 @@
 # Databricks notebook source
 # 10/6/2022 - Brent Merrick
-# You should receive an email from julio-cesar.quintero-cornejo@hp.com, with the currency hedge Excel workbook
-# Before running this notebook, copy the "Oct FY21 Hedge G-L FX Impact HPI 03.10.2022_NoLINKS - Reviewed.xlsx" file
-# to the /landing/currency_hedge/ bucket.
+# You should receive an email from Mokry, Mateusz <mokry.mateusz@hp.com>, with the currency hedge Excel workbook
+# Before running this notebook, copy the "Print_Supplies_FX gain_loss_Dec'23_WD2.xlsb" file to *.xlsx to convert from Binary to xlsx then move
 # The file listed above will not be that name, EXACTLY, but will be very close
+
+#  Expand all rows and columns in the spreadsheet
+#  Change the date format in column A to yyyy-mm-dd
+#  copy/paste values from column A
+#  change format of all the numbers from $xxx to number (xxx,xxx.00 and -xx,xxx.00)
+# save to the /landing/currency_hedge/ bucket.
+
+
 
 # COMMAND ----------
 
@@ -38,7 +45,7 @@ latest_file = paths[len(paths)-1]
 # COMMAND ----------
 
 #Location of Excel sheet
-#sampleDataFilePath = "s3://dataos-core-dev-team-phoenix/landing/currency_hedge/Oct FY21 Hedge G-L FX Impact HPI 03.10.2022_NoLINKS - Reviewed.xlsx"
+#sampleDataFilePath = "s3://dataos-core-dev-team-phoenix/landing/currency_hedge/Print_Supplies_FX gain_loss_Dec'23_WD2.xlsx"
 sampleDataFilePath = latest_file
 
 #flags required for reading the excel
@@ -46,7 +53,7 @@ isHeaderOn = "true"
 isInferSchemaOn = "false"
 
 #sheetname of excel file
-sample1Address = "'Revenue Currency Hedge'!A2"
+sample1Address = "'Gain_Loss_Summary'!A4"
 
 #read excelfile
 sample1DF = spark.read.format("com.crealytics.spark.excel") \
@@ -64,41 +71,53 @@ today = datetime.today()
 today_as_string = f"{str(today.year)[2:4]}-{today.month}" if dbutils.widgets.get("spreadsheet_startdate") == "" else dbutils.widgets.get("spreadsheet_startdate")
 
 sample1DF = sample1DF \
-    .withColumnRenamed("Product Category", "product_category") \
-    .withColumnRenamed("Currency", "currency") \
-    .withColumnRenamed(sample1DF.columns[2], today_as_string) # messed up column will always be 3rd position and be current month and year e.g. Oct 
+    .withColumnRenamed("Calendar month", "month") \
+    .withColumnRenamed("Currency", "currency")
 
 # COMMAND ----------
 
-# create a list of the column names and filter out columns that won't be part of the unpivot process
-col_list = sample1DF.columns
-filtered_cols = [x for x in col_list if not x.startswith("_c")] #or what ever they start with
-filtered_sample1DF = sample1DF.select(filtered_cols)
+filtered_sample1DF = sample1DF.drop("Fiscal month", "Market", "Country", "Segment Code")
+
+# COMMAND ----------
+
+col_list = filtered_sample1DF.columns
+filtered_cols = [x for x in col_list]
+filtered_sample2DF = filtered_sample1DF.select(filtered_cols)
+
+# filtered_sample2DF.display()
 
 # COMMAND ----------
 
 # remove first two columns from column list
-months_list = list(filtered_sample1DF.columns[2:len(filtered_sample1DF.columns)])
+profit_center_list = list(filtered_sample2DF.columns[2:len(filtered_sample2DF.columns)])
+#print(profit_center_list)
 
 # COMMAND ----------
 
 # Unpivot the data
 
 # unpivot
-unpivotExpr = f"stack({len(months_list)}"
+unpivotExpr = f"stack({len(profit_center_list)}"
 
-for month in months_list:
-  unpivotExpr = unpivotExpr + f", '{month}', `{month}`"
+for profit_center in profit_center_list:
+  unpivotExpr = unpivotExpr + f", '{profit_center}', `{profit_center}`"
 
-unpivotExpr = unpivotExpr + ") as (month,revenue_currency_hedge)"
+unpivotExpr = unpivotExpr + ") as (profit_center,revenue_currency_hedge)"
 
 unpivotDF = filtered_sample1DF \
-    .select("product_category", "currency", expr(unpivotExpr)) \
-    .select("product_category", "currency", to_date(col("month"),"yy-MM").alias("month"), "revenue_currency_hedge")
+    .select("month", "currency", expr(unpivotExpr)) \
+    .select("month", "currency", "profit_center", "revenue_currency_hedge")
+
+unpivotDF_filtered_1 = unpivotDF.filter(unpivotDF.profit_center.startswith('P'))
+unpivotDF_filtered_2 = unpivotDF_filtered_1.where("currency <> 'null'")
+unpivotDF_filtered_3 = unpivotDF_filtered_2.where("profit_center not in ('PWP Supplies','PWI Packaging Supplies')")
+
+unpivotDF_filtered_4 = unpivotDF_filtered_3.select("profit_center", "currency", "month", "revenue_currency_hedge")
+
 
 # COMMAND ----------
 
-unpivotDF.display()
+unpivotDF_filtered_4.display()
 
 # COMMAND ----------
 
@@ -109,19 +128,54 @@ max_load_date = str(max_info[1])
 
 # COMMAND ----------
 
-# Add load_date and verison to Dataframe
-unpivotDF_records = unpivotDF \
+
+unpivotDF_records = unpivotDF_filtered_4 \
     .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
     .withColumn("version", lit(max_version)) \
-    .withColumn("revenue_currency_hedge",col("revenue_currency_hedge").cast("double")) \
-    .filter(unpivotDF.product_category.isNotNull()) \
-    .filter(unpivotDF.revenue_currency_hedge.isNotNull()) \
-    .filter("revenue_currency_hedge <> 0")
+    .withColumn("month",col("month").cast("DATE")) \
+    .withColumn("revenue_currency_hedge",col("revenue_currency_hedge").cast("double"))
 
 # COMMAND ----------
 
-# write the updated dataframe to the prod.acct_rates table
-write_df_to_redshift(configs, unpivotDF_records, "prod.currency_hedge", "overwrite")
+unpivotDF_records.display()
+
+# COMMAND ----------
+
+
+write_df_to_redshift(configs, unpivotDF_records, "stage.currency_hedge_stage", "append")
+
+# COMMAND ----------
+
+# pull the data from the stage table and promote to prod
+currency_hedge_stage_query = """
+select
+    profit_center,
+    currency,
+    CAST(month as date) as "month",
+    revenue_currency_hedge,
+    load_date,
+    version
+from stage.currency_hedge_stage
+where 1=1
+    and CAST(month as date) >= add_months(date_trunc('month', CURRENT_DATE), 0)
+    and revenue_currency_hedge <> 0
+order by 3
+"""
+
+# execute query from stage table
+currency_hedge_stage_records = read_redshift_to_df(configs) \
+    .option("query", currency_hedge_stage_query) \
+    .load()
+
+
+
+# COMMAND ----------
+
+currency_hedge_stage_records.display()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs=configs, df=currency_hedge_stage_records, destination="prod.currency_hedge", mode="overwrite")
 
 # COMMAND ----------
 
