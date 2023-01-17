@@ -3090,7 +3090,7 @@ new2 <- sqldf('select aa1.*, aa2.product_usage_por_pages, aa2.platform_type
 
 wtaverage2 <- sqldf("select product_brand, platform_division_code, rtm, avg(EUa) as EUa, avg([Central_Europena]) as [Central_Europena], avg([Central_Europe_Dna]) as [Central_Europe_Dna] 
                     ,avg([Central_Europe_Ena]) as [Central_Europe_Ena], avg([Northern_Europena]) as [Northern_Europena], avg([Southern_Europena]) as [Southern_Europena]
-                    ,avg([ISEna]) as [ISEna], avg([UKIna]) as [UKIna], avg([Greater_Asiana]) as [Greater_Asiana], avg([Greater_Asia_Dna]) as [Greater_Asia_Dna]
+                    ,avg([ISEna]) as [ISEna], avg([UKIna]) as [UKIna], avg([Greater_Asiana]) as [Greater_Asiana], avg([Greater_Asia_Dna]) as [Greater_Asia_Dna], avg([Greater_Asia_Ena]) as [Greater_Asia_Ena]
                     ,avg([Greater_China_Ena]) as [Greater_China_Ena], avg([Indiana]) as [Indiana], avg([Latin_Americana]) as [Latin_Americana]
                     from wtaverage
                     group by product_brand, platform_division_code, rtm")
