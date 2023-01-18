@@ -7955,6 +7955,33 @@ planet_cleaned = spark.sql(planet_cleaned)
 planet_cleaned.createOrReplaceTempView("planet_cleaned")
 
 
+planet_cleaned2 = f"""
+SELECT
+    cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    CASE
+        WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
+        WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+        WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
+        ELSE pl
+    END AS pl,
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,            
+    SUM(p_total_cos_excluding_warranty) AS p_total_cos_excluding_warranty -- this is really other cost of sales
+FROM planet_cleaned
+GROUP BY cal_date, country_alpha2, region_5, pl, Fiscal_Yr
+"""
+        
+planet_cleaned2 = spark.sql(planet_cleaned2)
+planet_cleaned2.createOrReplaceTempView("planet_cleaned2")
+
+
+
 planet_targets_excluding_toner_sacp_restatements = f"""
 SELECT cal_date,
     Fiscal_Yr,
@@ -7966,7 +7993,7 @@ SELECT cal_date,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos_excluding_warranty) AS p_total_cos
-FROM planet_cleaned
+FROM planet_cleaned2
 WHERE 1=1
 
 -- the profit centers for which there will be restatements provided by Finance

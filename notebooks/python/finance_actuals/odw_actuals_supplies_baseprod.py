@@ -932,7 +932,12 @@ planet_targets = f"""
 SELECT cal_date,
     Fiscal_Yr,
     region_5,
-    pl,
+    CASE
+        WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
+        WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+        WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
+        ELSE pl
+    END AS pl,
     SUM(p_gross_revenue) AS p_gross_revenue,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts, 

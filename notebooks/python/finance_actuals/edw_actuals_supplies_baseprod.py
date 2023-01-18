@@ -932,6 +932,32 @@ planet_data = spark.sql(planet_data)
 planet_data.createOrReplaceTempView("planet_data")
 
 
+planet_data_2023_restatements = f"""
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    CASE
+        WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
+        WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+        WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
+        ELSE pl
+    END AS pl,
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
+FROM planet_data
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_data_2023_restatements = spark.sql(planet_data_2023_restatements)
+planet_data_2023_restatements.createOrReplaceTempView("planet_data_2023_restatements")
+
+
 planet_system_targets = f"""
 SELECT cal_date,
     Fiscal_Yr,
@@ -949,7 +975,7 @@ SELECT cal_date,
     SUM(p_total_cos) - SUM(p_warranty) AS p_other_cos,
     SUM(p_total_cos) AS p_total_cos,
     SUM(p_gross_profit) AS p_gross_profit
-FROM planet_data
+FROM planet_data_2023_restatements
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
 
