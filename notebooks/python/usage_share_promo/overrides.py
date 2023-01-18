@@ -706,10 +706,10 @@ with step1 as (
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-	, CASE WHEN us.measure = 'HP_SHARE' THEN us.data_source
+	, CASE WHEN us.measure = 'HP_SHARE' THEN us.source
            ELSE NULL
            END AS source_s
-    , CASE WHEN us.measure like '%USAGE%' THEN us.data_source
+    , CASE WHEN us.measure like '%USAGE%' THEN us.source
             ELSE NULL
             END AS source_u
     , us.ib_version
@@ -725,7 +725,7 @@ GROUP BY us.cal_date
 	, us.customer_engagement
     	, us.ib_version
     	, us.measure
-    	, us.data_source
+    	, us.source
 	) , step2 as (
     SELECT 
        u.cal_date
