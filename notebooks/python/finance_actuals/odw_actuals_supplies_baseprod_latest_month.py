@@ -926,7 +926,7 @@ planet_data = spark.sql(planet_data)
 planet_data.createOrReplaceTempView("planet_data")
 
 
-planet_targets = f"""
+planet_2023_restatements = f"""
 SELECT cal_date,
     Fiscal_Yr,
     region_5,
@@ -944,6 +944,26 @@ SELECT cal_date,
     SUM(p_other_cos) AS p_other_cos,
     SUM(p_total_cos) AS p_total_cos
 FROM planet_data
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_2023_restatements = spark.sql(planet_2023_restatements)
+planet_2023_restatements.createOrReplaceTempView("planet_2023_restatements")
+
+
+planet_targets = f"""
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    pl,
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts, 
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts, 
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_2023_restatements
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
 
