@@ -4083,11 +4083,7 @@ SELECT cal_date,
     country_alpha2,
     region_5,
     edw_recorded_pl,
-    CASE
-        WHEN edw_recorded_pl = 'GM' THEN 'GM'
-        WHEN edw_recorded_pl = 'EO' THEN 'EO'
-        ELSE pl
-    END AS pl,
+    pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
