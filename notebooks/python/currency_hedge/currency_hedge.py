@@ -175,7 +175,7 @@ currency_hedge_stage_records.display()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs=configs, df=currency_hedge_stage_records, destination="prod.currency_hedge", mode="overwrite")
+write_df_to_redshift(configs=configs, df=currency_hedge_stage_records, destination="fin_prod.currency_hedge", mode="append")
 
 # COMMAND ----------
 
