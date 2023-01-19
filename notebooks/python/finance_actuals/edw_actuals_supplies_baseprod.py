@@ -938,7 +938,7 @@ SELECT cal_date,
     region_5,
     CASE
         WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
-        WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+        --WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL' -- will get overridden by prior restatements; need to implement later down
         WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
         ELSE pl
     END AS pl,
@@ -1168,6 +1168,32 @@ GROUP BY cal_date, region_5, pl, Fiscal_Yr
 planet_targets = spark.sql(planet_targets)
 planet_targets.createOrReplaceTempView("planet_targets")
 
+
+planet_targets_2023_restatements = f"""
+-- 2023 finance hierarchy restatements (part 2) -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    CASE
+      WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+      ELSE pl
+    END AS pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+	SUM(p_net_currency) AS p_net_currency,
+	SUM(p_contractual_discounts) AS p_contractual_discounts,
+	SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+	SUM(p_net_revenue) AS p_net_revenue,
+	SUM(p_warranty) AS p_warranty,
+	SUM(p_other_cos) AS p_other_cos,
+	SUM(p_total_cos) AS p_total_cos,
+	SUM(p_gross_profit) AS p_gross_profit
+FROM planet_targets            
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_targets_2023_restatements = spark.sql(planet_targets_2023_restatements)
+planet_targets_2023_restatements.createOrReplaceTempView("planet_targets_2023_restatements")
+
 # COMMAND ----------
 
 #add targets to base product dataset
@@ -1222,7 +1248,7 @@ SELECT
 	COALESCE(SUM(p_total_cos), 0) AS p_total_cos,
 	COALESCE(SUM(p_gross_profit), 0) AS p_gross_profit
 FROM baseprod_prep_for_planet_targets AS bp 
-LEFT JOIN planet_targets AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr)
+LEFT JOIN planet_targets_2023_restatements AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr)
 GROUP BY bp.cal_date, bp.region_5, bp.pl, bp.Fiscal_Yr
 """
 
