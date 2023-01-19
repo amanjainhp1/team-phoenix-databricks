@@ -81,7 +81,7 @@ for table in tables:
 
 # COMMAND ----------
 
-# usage_share_country_abridged
+# usage_share_country_abridged (hp pages only)
 usage_share_country01 = f"""
 SELECT cal_date
     , geography as country_alpha2
@@ -168,9 +168,8 @@ SELECT cal_date
     , platform_subset
     , 'EST_DIRECT_FULFILLMENT' AS customer_engagement
     , sum(hp_pages) as hp_pages
-FROM usage_share_country02
+FROM usage_share_country04
 WHERE 1=1
-    AND customer_engagement = 'TRAD'
 GROUP BY cal_date
     , country_alpha2
     , platform_subset
@@ -186,9 +185,8 @@ SELECT cal_date
     , platform_subset
     , 'EST_INDIRECT_FULFILLMENT' AS customer_engagement
     , sum(hp_pages) as hp_pages
-FROM usage_share_country02
+FROM usage_share_country04
 WHERE 1=1
-    AND customer_engagement = 'TRAD'
 GROUP BY cal_date
     , country_alpha2
     , platform_subset
@@ -441,7 +439,7 @@ shm_08_map_geo_2 = f"""
 SELECT DISTINCT platform_subset
     , base_product_number
     , country_alpha2
-    , 'EST_DIRECT_FULFILLMENT' AS customer_engagement
+    , customer_engagement
 FROM shm_06_remove_dupes_01
 WHERE customer_engagement = 'TRAD'
 """
@@ -455,8 +453,7 @@ SELECT DISTINCT platform_subset
     , base_product_number
     , country_alpha2
     , 'EST_INDIRECT_FULFILLMENT' AS customer_engagement
-FROM shm_06_remove_dupes_01
-WHERE customer_engagement = 'TRAD'
+FROM shm_08_map_geo_2
 """
 
 shm_09_map_geo_3 = spark.sql(shm_09_map_geo_3)
@@ -467,9 +464,8 @@ shm_10_map_geo_4 = f"""
 SELECT DISTINCT platform_subset
     , base_product_number
     , country_alpha2
-    , customer_engagement
-FROM shm_06_remove_dupes_01
-WHERE customer_engagement = 'TRAD'
+    , 'EST_DIRECT_FULFILLMENT' AS customer_engagement
+FROM shm_08_map_geo_2
 """
 
 shm_10_map_geo_4 = spark.sql(shm_10_map_geo_4)
@@ -512,7 +508,7 @@ shm_11_map_geo_5.createOrReplaceTempView("shm_11_map_geo_5")
 
 
 shm_12_map_geo_6 = f"""
-SELECT platform_subset
+SELECT distinct platform_subset
     , base_product_number
     , country_alpha2
     , customer_engagement
@@ -526,6 +522,12 @@ shm_12_map_geo_6.createOrReplaceTempView("shm_12_map_geo_6")
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC select *
+# MAGIC from usage_share_country04
+
+# COMMAND ----------
+
 # add base product number to usage share country
 usage_share_baseprod_01 = f"""
 SELECT usc.cal_date
@@ -534,7 +536,7 @@ SELECT usc.cal_date
     , shm.base_product_number
     , usc.customer_engagement
     , sum(hp_pages) as hp_pages
-FROM usage_share_country04 usc
+FROM usage_share_country08 usc
 JOIN shm_12_map_geo_6 shm
     ON usc.country_alpha2 = shm.country_alpha2
     AND usc.platform_subset = shm.platform_subset
@@ -580,3 +582,4 @@ usage_share_baseprod_02.createOrReplaceTempView("usage_share_baseprod_02")
 # MAGIC select *
 # MAGIC from usage_share_baseprod_02
 # MAGIC where customer_engagement = 'EST_INDIRECT_FULFILLMENT'
+# MAGIC limit 5;
