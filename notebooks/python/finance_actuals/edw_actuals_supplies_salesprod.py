@@ -7956,6 +7956,7 @@ planet_cleaned.createOrReplaceTempView("planet_cleaned")
 
 
 planet_cleaned2 = f"""
+-- 2023 finance hierarchy restatements (part 1)
 SELECT
     cal_date,
     Fiscal_Yr,
@@ -7963,7 +7964,7 @@ SELECT
     region_5,
     CASE
         WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
-        WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+     -- WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL' -- excluded here as 2020-21 restatements from FY22 hier changes will override this
         WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
         ELSE pl
     END AS pl,
@@ -8157,6 +8158,29 @@ planet_targets_2020_2021_restated = spark.sql(planet_targets_2020_2021_restated)
 planet_targets_2020_2021_restated.createOrReplaceTempView("planet_targets_2020_2021_restated")
 
 
+planet_targets_2023_restatements = f"""
+-- 2023 finance hierarchy restatements (part 2) -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    CASE
+      WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+      ELSE pl
+    END AS pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_2020_2021_restated            
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_targets_2023_restatements = spark.sql(planet_targets_2023_restatements)
+planet_targets_2023_restatements.createOrReplaceTempView("planet_targets_2023_restatements")
+
+
 salesprod_prep_for_planet_targets = f"""
 SELECT
     sp.cal_date,
@@ -8199,7 +8223,7 @@ SELECT
     COALESCE(SUM(p_warranty), 0) AS p_warranty,
     COALESCE(SUM(p_total_cos), 0) AS p_total_cos
 FROM salesprod_prep_for_planet_targets AS sp 
-LEFT JOIN planet_targets_2020_2021_restated AS p ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr)
+LEFT JOIN planet_targets_2023_restatements AS p ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr)
 GROUP BY sp.cal_date, sp.region_5, sp.pl, sp.Fiscal_Yr
 """
 
@@ -8225,7 +8249,7 @@ SELECT
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
-FROM planet_targets_2020_2021_restated AS p
+FROM planet_targets_2023_restatements AS p
 LEFT JOIN salesprod_prep_for_planet_targets AS sp ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr)
 WHERE gross_revenue IS NULL OR net_currency IS NULL OR contractual_discounts IS NULL OR discretionary_discounts IS NULL OR total_cos IS NULL
 GROUP BY p.cal_date, p.Fiscal_Yr, p.region_5, p.pl
