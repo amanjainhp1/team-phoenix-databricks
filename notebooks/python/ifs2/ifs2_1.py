@@ -81,6 +81,10 @@ if discounting_factor == "":
 
 # COMMAND ----------
 
+start_ifs2_date
+
+# COMMAND ----------
+
 start_ifs2_date = datetime.strptime(str(start_ifs2_date),"%Y-%m-%d")
 end_ifs2_date = datetime.strptime(str(end_ifs2_date),"%Y-%m-%d")
 
@@ -157,10 +161,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-#     df.write \
-#       .format(write_format) \
-#       .mode("overwrite") \
-#       .save(save_path)
+##    df.write \
+##        .format(write_format) \
+##        .mode("overwrite") \
+##        .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -228,7 +232,8 @@ toner_ps.createOrReplaceTempView("toner_ps")
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
                 , (year(add_months(cal_date,2)) - year(add_months('{}',2))) + 1 as year_num
-                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_num
+                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_df
+                , (month(add_months(cal_date,2)))  as month_num
                 , geography as market10
                 , us.platform_subset
                 , customer_engagement
@@ -259,13 +264,14 @@ query = '''select cal_date
                 , us.version
                 '''.format(start_ifs2_date , start_ifs2_date, start_ifs2_date, end_ifs2_date)
 ink_usage_share = spark.sql(query)
-ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
+ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","month_df","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 ink_usage_share_pivot.createOrReplaceTempView("ink_usage_share_pivot")
 
 query = '''select cal_date
                 , year(add_months(cal_date,2)) as year
                 , (year(add_months(cal_date,2)) - year(add_months('{}',2))) + 1 as year_num
-                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_num
+                , (month(add_months(cal_date,2)) - month(add_months('{}',2))) + 1 as month_df
+                , (month(add_months(cal_date,2))) as month_num
                 , geography as market10
                 , us.platform_subset
                 , customer_engagement
@@ -295,7 +301,7 @@ query = '''select cal_date
                 , us.version
                 '''.format(start_ifs2_date, start_ifs2_date, start_ifs2_date ,end_ifs2_date)
 toner_usage_share = spark.sql(query)
-toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
+toner_usage_share_pivot = toner_usage_share.groupBy("cal_date","year","year_num","month_df","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 
 # COMMAND ----------
@@ -304,6 +310,7 @@ toner_usage_share_pivot.createOrReplaceTempView("toner_usage_share_pivot")
 query = '''select cal_date
                 , ius.year
                 , year_num
+                , month_df
                 , month_num
                 , market10
                 , platform_subset
@@ -345,6 +352,7 @@ ink_usage_share_sum_till_date.createOrReplaceTempView("ink_usage_share_sum_till_
 query = '''select cal_date
                 , tus.year
                 , year_num
+                , month_df
                 , month_num
                 , market10
                 , platform_subset
@@ -387,6 +395,7 @@ query = '''
                 , cal_date
                 , year
                 , year_num
+                , month_df
                 , month_num
                 , market10
                 , platform_subset
@@ -405,6 +414,7 @@ query = '''
                 , cal_date
                 , year
                 , year_num
+                , month_df
                 , month_num
                 , market10
                 , platform_subset
@@ -430,6 +440,7 @@ select usiut.record
                 , cal_date
                 , year
                 , year_num
+                , month_df
                 , month_num
                 , region_5
                 , usiut.market10
@@ -875,8 +886,8 @@ select distinct
     us.year,
     us.year_num,
     us.month_num,
-    ((12*(us.year_num-1))+us.month_num) as month,
-    POWER(1 + double({})/12,((12*(us.year_num-1))+us.month_num)) as discounting_factor,
+    ((12*(us.year_num-1))+us.month_df) as month,
+    POWER(1 + double({})/12,((12*(us.year_num-1))+us.month_df)) as discounting_factor,
     us.customer_engagement,
     us.crg_chrome,
 --    us.color_usage,
@@ -1103,10 +1114,7 @@ ifs2.filter((col('platform_subset') == 'BETELGEUSE') & (col('market10') == 'NORT
 
 # COMMAND ----------
 
-query = '''
-select platform_subset
-    
-'''
+ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
