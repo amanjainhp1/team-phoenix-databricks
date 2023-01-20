@@ -320,8 +320,8 @@ table_month <- sqldf("
                 --, c.developed_emerging as de
                 , SUM(a.ci_numerator) as ci_numerator
                 , SUM(a.ci_denominator) as ci_denominator
-                , SUM(a.ps_numerator) as ps_numerator
-                , SUM(a.ps_denominator) as ps_denominator
+                , SUM(a.ps_numerator)/sum(ib.ib) as ps_numerator
+                , SUM(a.ps_denominator)/sum(ib.ib) as ps_denominator
                 , SUM(a.usage_numerator) as usage_numerator
                 , SUM(a.usage_denominator) as usage_denominator
                 , SUM(a.printer_count_month_ps) as printer_count_month_ps
@@ -2409,7 +2409,7 @@ final_list7$Pages_PS <- final_list7$Pages_Device_Use*cast(final_list7$Page_Share
 # final_list7 <- as.data.frame(final_list7)
 
 # #Change PWA to CCs
-
+                                            
 final_list7$Usage <- ifelse(final_list7$technology!='PWA',final_list7$Usage,
                             ifelse(final_list7$Region=="AP",final_list7$Usage*0.040,
                             ifelse(final_list7$Region=="EU",final_list7$Usage*0.036,
@@ -2425,14 +2425,16 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
                             ifelse(final_list7$Region=="LA",final_list7$Usage_c*0.038,
                                    final_list7$Usage_c*0.037))))))
 
- final_list7$total_pages <- final_list7$Usage*final_list7$ib
- final_list7$hp_pages <- final_list7$Usage*final_list7$ib*final_list7$Page_Share     
+ final_list7$total_pages <- ifelse(final_list7$CM != 'M',((final_list7$Usage_k+lit(3)*final_list7$Usage_c)*final_list7$ib),(final_list7$Usage_k)*final_list7$ib)
+ final_list7$hp_pages <- ifelse(final_list7$CM != 'M',(final_list7$Usage_k+(lit(3)*final_list7$Usage_c))*final_list7$ib*final_list7$Page_Share, final_list7$Usage_k*final_list7$ib*final_list7$Page_Share)     
  final_list7$total_kpages <- final_list7$Usage_k*final_list7$ib 
- final_list7$total_cpages <- final_list7$Usage_c*final_list7$ib
+ final_list7$total_cpages <-  ifelse(final_list7$CM != 'M',lit(3)*final_list7$Usage_c*final_list7$ib,0)
  final_list7$hp_kpages <- final_list7$Usage_k*final_list7$ib*final_list7$Page_Share 
- final_list7$hp_cpages <- final_list7$Usage_c*final_list7$ib*final_list7$Page_Share
+ final_list7$hp_cpages <-  ifelse(final_list7$CM != 'M',lit(3)*final_list7$Usage_c*final_list7$ib*final_list7$Page_Share,0)
  final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(lit(1)-final_list7$Page_Share) 
- final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share)
+ final_list7$nonhp_cpages <-  ifelse(final_list7$CM != 'M',lit(3)*final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share),0)
+ final_list7$total_pages_old <- final_list7$Usage*final_list7$ib
+ final_list7$hp_pages_old <- final_list7$Usage*final_list7$ib*final_list7$Page_Share
 
 # COMMAND ----------
 
@@ -2446,7 +2448,7 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 final_list8$dm_version <- dm_version
 today <- datestamp
-vsn <- '2022.01.19.1'  #for DUPSM
+vsn <- '2023.01.20.1'  #for DUPSM
 rec1 <- 'usage_share'
 geog1 <- 'country'
 tempdir(check=TRUE)
