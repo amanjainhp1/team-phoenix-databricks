@@ -3954,11 +3954,28 @@ salesprod_edw_spread.createOrReplaceTempView("salesprod_edw_spread")
 
 # COMMAND ----------
 
+rdma_correction_2023_restatements = f"""
+SELECT 
+    sales_product_number,
+    CASE
+      WHEN sales_product_line_code = '65' THEN 'UD'
+      WHEN sales_product_line_code = 'EO' THEN 'GL'
+      WHEN sales_product_line_code = 'GM' THEN 'K6'
+      ELSE sales_product_line_code
+    END AS sales_product_line_code
+FROM rdma_base_to_sales_product_map
+WHERE 1=1
+"""
+
+rdma_correction_2023_restatements = spark.sql(rdma_correction_2023_restatements)
+rdma_correction_2023_restatements.createOrReplaceTempView("rdma_correction_2023_restatements")
+
+
 rdma_updated_sku_PLs = f"""
 SELECT 
     DISTINCT sales_product_number,
     sales_product_line_code
-FROM rdma_base_to_sales_product_map
+FROM rdma_correction_2023_restatements
 WHERE 1=1
 """
 
