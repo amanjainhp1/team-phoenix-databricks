@@ -501,7 +501,7 @@ npi_helper_4_ii.createOrReplaceTempView("npi_helper_4_ii")
 
 %sql
 
-
+create temporary view sql_result as
 SELECT * FROM npi_helper_4
 UNION ALL
 SELECT * FROM npi_helper_4_bi
