@@ -449,7 +449,7 @@ npi_helper_4_iia.createOrReplaceTempView("npi_helper_4_iia")
 npi_helper_4_bi = """
 SELECT record
       ,cal_date
-      ,geography_grain#
+      ,geography_grain
       ,country_alpha2
       ,platform_subset
       ,customer_engagement
