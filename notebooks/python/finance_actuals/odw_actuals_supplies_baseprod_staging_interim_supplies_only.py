@@ -154,6 +154,8 @@ SELECT
     sales_product_number,
     CASE
         WHEN sales_product_line_code = '65' THEN 'UD'
+        WHEN sales_product_line_code = 'EO' THEN 'GL'
+        WHEN sales_product_line_code = 'GM' THEN 'K6'
         ELSE sales_product_line_code
     END AS sales_product_line_code,
     base_product_number,
