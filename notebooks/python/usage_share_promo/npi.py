@@ -501,7 +501,7 @@ npi_helper_4_ii.createOrReplaceTempView("npi_helper_4_ii")
 
 %sql
 
-create temporary view sql_result as
+create temporary view npi_helper_4b as
 SELECT * FROM npi_helper_4
 UNION ALL
 SELECT * FROM npi_helper_4_bi
@@ -510,8 +510,8 @@ SELECT * FROM npi_helper_4_ii
 
 # COMMAND ----------
 
-npi_helper_4 = spark.sql("select * from sql_result")
-npi_helper_4.createOrReplaceTempView("npi_helper_4")
+#npi_helper_4 = spark.sql("select * from sql_result")
+#npi_helper_4.createOrReplaceTempView("npi_helper_4")
 
 # COMMAND ----------
 
@@ -559,7 +559,7 @@ SELECT record
       ,measure
       ,CAST(min(cal_date) AS DATE) AS min_us_date
       ,CAST(max(cal_date) AS DATE) AS max_us_date
-FROM npi_helper_4
+FROM npi_helper_4b
     WHERE units is not null and units>0
 GROUP BY 
 record
@@ -737,11 +737,10 @@ npi_norm_final_landing.count()
 
 #check for duplicates
 check_dups_df = npi_norm_final_landing \
-    .groupby(['cal_date', 'platform_subset', 'customer_engagement', 'geography', 'measure']) \
-    .count() \
-    .where('count > 1') \	
-    .sort('platform_subset', ascending=True) 
-    #.show()
+   .groupby(['cal_date', 'platform_subset', 'customer_engagement', 'geography', 'measure']) \
+   .count() \
+   .where('count > 1') \
+   .sort('platform_subset', ascending=True) 
 
 # COMMAND ----------
 
