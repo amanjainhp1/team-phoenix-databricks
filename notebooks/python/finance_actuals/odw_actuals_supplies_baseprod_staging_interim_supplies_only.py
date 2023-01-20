@@ -164,7 +164,7 @@ SELECT
     END AS base_product_line_code,
     base_prod_per_sales_prod_qty,
     base_product_amount_percent
-FROM rdma_base_to_sales_product_map_abridged
+FROM rdma_salesprod_to_baseprod_map_abridged
 """
 
 rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections = spark.sql(rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections)
