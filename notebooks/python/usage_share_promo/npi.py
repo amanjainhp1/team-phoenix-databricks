@@ -501,18 +501,18 @@ npi_helper_4_ii.createOrReplaceTempView("npi_helper_4_ii")
 
 %sql
 
-npi_helper_4 = """
+
 SELECT * FROM npi_helper_4
 UNION ALL
 SELECT * FROM npi_helper_4_bi
 UNION ALL
 SELECT * FROM npi_helper_4_ii
-"""
+
 #npi_helper_4=spark.sql(npi_helper_4)
 #npi_helper_4.createOrReplaceTempView("npi_helper_4")
 # COMMAND ----------
 
-npi_helper_4 = sqlContext.sql("select * from npi_helper4")
+npi_helper_4 = spark.sql("select * from sql_result")
 npi_helper_4.createOrReplaceTempView("npi_helper_4")
 
 # COMMAND ----------
