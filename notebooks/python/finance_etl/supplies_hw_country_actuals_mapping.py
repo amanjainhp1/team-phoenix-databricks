@@ -20,13 +20,13 @@ product_line_xref = read_redshift_to_df(configs) \
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
-odw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_actuals_supplies_salesprod") \
+actuals_supplies_salesprod = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
     .load()
 
 # COMMAND ----------
 
-odw_actuals_supplies_salesprod.createOrReplaceTempView("odw_actuals_supplies_salesprod")
+actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
 
 # COMMAND ----------
 
@@ -77,7 +77,7 @@ for table in tables:
 # COMMAND ----------
 
 # call version sproc
-#addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS SUPPLIES HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING", "ACTUALS SUPPLIES HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING")
+addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING", "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING")
 
 # COMMAND ----------
 
@@ -522,12 +522,6 @@ shm_12_map_geo_6.createOrReplaceTempView("shm_12_map_geo_6")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from usage_share_country04
-
-# COMMAND ----------
-
 # add base product number to usage share country
 usage_share_baseprod_01 = f"""
 SELECT usc.cal_date
@@ -541,6 +535,8 @@ JOIN shm_12_map_geo_6 shm
     ON usc.country_alpha2 = shm.country_alpha2
     AND usc.platform_subset = shm.platform_subset
     AND usc.customer_engagement = shm.customer_engagement
+JOIN actuals_supplies_salesprod ass
+    ON ass.cal_date = usc.cal_date
 GROUP BY usc.cal_date
     , usc.country_alpha2
     , usc.platform_subset
@@ -552,7 +548,7 @@ usage_share_baseprod_01 = spark.sql(usage_share_baseprod_01)
 usage_share_baseprod_01.createOrReplaceTempView("usage_share_baseprod_01")
 
 
-# calc mix of printers attached to a particular base product in a particular month etc.
+# calc mix of printers attached to a particular base product in a particular month etc. where month coincides with financial actuals
 usage_share_baseprod_02 = f"""
 SELECT cal_date
     , country_alpha2
@@ -564,6 +560,7 @@ SELECT cal_date
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
     END AS page_mix
+    , current_date() as load_date
 FROM usage_share_baseprod_01
 GROUP BY cal_date
     , country_alpha2
@@ -578,8 +575,4 @@ usage_share_baseprod_02.createOrReplaceTempView("usage_share_baseprod_02")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from usage_share_baseprod_02
-# MAGIC where customer_engagement = 'EST_INDIRECT_FULFILLMENT'
-# MAGIC limit 5;
+write_df_to_redshift(configs, usage_share_baseprod_02, "stage.supplies_hw_country_actuals_mapping", "overwrite", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
