@@ -8208,7 +8208,7 @@ SELECT cal_date,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
-FROM planet_targets_2020_2021_restated            
+FROM planet_targets_2023_restatements            
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
 
