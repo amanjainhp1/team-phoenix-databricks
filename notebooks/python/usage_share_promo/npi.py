@@ -401,8 +401,9 @@ FROM npi_helper_3
 """
 
 npi_helper_4=spark.sql(overrides_norm_landing)
-npi_helper_4=npi_helper_4.distinct()
+npi_helper_4=npi_helper_4.distinct().cache()
 npi_helper_4.createOrReplaceTempView("npi_helper_4")
+npi_helper_4.count()
 
 # COMMAND ----------
 
