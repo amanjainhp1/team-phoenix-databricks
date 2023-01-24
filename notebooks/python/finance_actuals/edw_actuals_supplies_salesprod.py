@@ -7971,34 +7971,6 @@ planet_cleaned = spark.sql(planet_cleaned)
 planet_cleaned.createOrReplaceTempView("planet_cleaned")
 
 
-planet_cleaned2 = f"""
--- 2023 finance hierarchy restatements (part 1)
-SELECT
-    cal_date,
-    Fiscal_Yr,
-    country_alpha2,
-    region_5,
-    CASE
-        WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
-     -- WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL' -- excluded here as 2020-21 restatements from FY22 hier changes will override this
-        WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
-        ELSE pl
-    END AS pl,
-    SUM(p_gross_revenue) AS p_gross_revenue,
-    SUM(p_net_currency) AS p_net_currency,
-    SUM(p_contractual_discounts) AS p_contractual_discounts,
-    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
-    SUM(p_warranty) AS p_warranty,            
-    SUM(p_total_cos_excluding_warranty) AS p_total_cos_excluding_warranty -- this is really other cost of sales
-FROM planet_cleaned
-GROUP BY cal_date, country_alpha2, region_5, pl, Fiscal_Yr
-"""
-        
-planet_cleaned2 = spark.sql(planet_cleaned2)
-planet_cleaned2.createOrReplaceTempView("planet_cleaned2")
-
-
-
 planet_targets_excluding_toner_sacp_restatements = f"""
 SELECT cal_date,
     Fiscal_Yr,
@@ -8010,7 +7982,7 @@ SELECT cal_date,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos_excluding_warranty) AS p_total_cos
-FROM planet_cleaned2
+FROM planet_cleaned
 WHERE 1=1
 
 -- the profit centers for which there will be restatements provided by Finance
@@ -8061,10 +8033,8 @@ calendar_table2.createOrReplaceTempView("calendar_table2")
 # add incremental dollars to PL5T because of hierarchy restatements in FY2022.  PL G9 and K8 (mps related services) were forced into PL5T by external factors; it wasn't local finance's decision
 incremental_data_raw = f"""
 SELECT 
-    CASE
-        WHEN l6_description = 'A3 LASER SUPPLIES' THEN 'A3 LASER S-PRINT SUPPLIES'
-        ELSE l6_description
-    END AS l6_description,
+    pl,
+    l6_description,
     CASE    
         WHEN market = 'AMERICAS HQ' THEN 'NORTH AMERICA'
         WHEN market = 'APJ HQ L2' THEN 'GREATER ASIA'
@@ -8085,7 +8055,7 @@ SELECT
     SUM(COALESCE(warranty,0)  * -1) as warranty,
     SUM((COALESCE(total_cost_of_sales,0) - COALESCE(warranty, 0))  * -1) as total_cos
 FROM supplies_finance_hier_restatements_2020_2021
-GROUP BY market, l6_description, sacp_date_period
+GROUP BY market, l6_description, sacp_date_period, pl
 """
 
 incremental_data_raw = spark.sql(incremental_data_raw)
@@ -8112,7 +8082,6 @@ SELECT
     SUM(total_cos) AS total_cos
 FROM incremental_data_raw r 
 left join calendar_table2 cal ON r.sacp_fiscal_period = cal.sacp_fiscal_period
-left join product_line_xref plx ON r.l6_description = plx.L6_Description
 WHERE 1=1
 GROUP BY cal_date, market10, fiscal_yr, pl
 """
@@ -8175,12 +8144,14 @@ planet_targets_2020_2021_restated.createOrReplaceTempView("planet_targets_2020_2
 
 
 planet_targets_2023_restatements = f"""
--- 2023 finance hierarchy restatements (part 2) -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
+-- 2023 finance hierarchy restatements -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
 SELECT cal_date,
     Fiscal_Yr,
     region_5,
     CASE
       WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+      WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
+      WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
       ELSE pl
     END AS pl,    
     SUM(p_gross_revenue) AS p_gross_revenue,
