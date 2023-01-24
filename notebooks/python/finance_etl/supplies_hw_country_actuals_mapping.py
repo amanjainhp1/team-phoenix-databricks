@@ -577,7 +577,7 @@ usage_share_baseprod_02.createOrReplaceTempView("usage_share_baseprod_02")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, usage_share_baseprod_02, "stage.supplies_hw_country_actuals_mapping", "overwrite", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
+write_df_to_redshift(configs, usage_share_baseprod_02, "stage.supplies_hw_country_actuals_mapping", "append", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
