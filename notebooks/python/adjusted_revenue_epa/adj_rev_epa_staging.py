@@ -620,10 +620,6 @@ adj_rev_with_iink_sku_pnl.createOrReplaceTempView("adjusted_revenue_with_iink_sk
 
 # COMMAND ----------
 
-spark.sql("""select count(*) from adjusted_revenue_with_iink_sku_pnl""").show()
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Five
@@ -802,10 +798,6 @@ salesprod_minus_baseprod.createOrReplaceTempView("salesprod_missing_baseprod")
 
 # COMMAND ----------
 
-spark.sql("""select count(*) from salesprod_missing_baseprod""").show()
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Six
@@ -875,10 +867,6 @@ WITH baseprod_data AS
 """)
 
 adj_rev_base_product_data.createOrReplaceTempView("adjusted_revenue_base_product_data")
-
-# COMMAND ----------
-
-spark.sql("""select count(*) from adjusted_revenue_base_product_data""").show()
 
 # COMMAND ----------
 
@@ -1004,10 +992,6 @@ SELECT
 """)
 
 orig_official_fin.createOrReplaceTempView("original_official_financials")
-
-# COMMAND ----------
-
-spark.sql("""select count(*) from original_official_financials""").show()
 
 # COMMAND ----------
 
@@ -1200,10 +1184,6 @@ official_baseprod_targets AS
 """)
 
 baseprod_detailed_targets.createOrReplaceTempView("baseprod_targets_detailed")
-
-# COMMAND ----------
-
-spark.sql("""select count(*) from baseprod_targets_detailed""").show()
 
 # COMMAND ----------
 
@@ -3375,9 +3355,9 @@ SELECT record
 	  ,load_date
 	  ,version
 	  ,is_host
-""").show()
+""")
 
-#write_df_to_redshift(configs, adj_rev_epa, "fin_prod.adjusted_revenue_epa", "overwrite")
+write_df_to_redshift(configs, adj_rev_epa, "fin_prod.adjusted_revenue_epa", "append")
 
 # COMMAND ----------
 
@@ -3390,14 +3370,156 @@ submit_remote_query(configs, query_access_grant)
 
 # COMMAND ----------
 
-adjusted_revenue_epa = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.adjusted_revenue_epa") \
-    .load()
-
-final_table = [
-    ['fin_prod.adjusted_revenue_epa', adjusted_revenue_epa, "overwrite"]
-]
+# MAGIC %md
+# MAGIC 
+# MAGIC # Driver Output
 
 # COMMAND ----------
 
-# MAGIC %run "../common/delta_lake_load_with_params" $tables=final_table
+adj_rev_salesprod_dropped = spark.sql("""
+	SELECT		
+       cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,sales_product_number
+      ,pl
+      ,customer_engagement
+      ,sum(net_revenue) as net_revenue
+	  ,sum(cc_net_revenue) as cc_net_revenue
+	  ,sum(inventory_change_impact) as inventory_change_impact
+	  ,sum(cc_inventory_impact) as cc_inventory_impact
+	  ,sum(adjusted_revenue) as adjusted_revenue
+	FROM adjusted_revenue_negative
+    WHERE 1=1	
+    GROUP BY   cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,sales_product_number
+      ,pl
+      ,customer_engagement
+""")
+
+write_df_to_redshift(configs, adj_rev_salesprod_dropped, "fin_prod.adjusted_revenue_epa_adjrev_salesprod_dropped_data", "overwrite")
+
+# COMMAND ----------
+
+query_access_grant = """
+GRANT ALL ON TABLE fin_prod.adjusted_revenue_epa_adjrev_salesprod_dropped_data TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query_access_grant)
+
+# COMMAND ----------
+
+epa_sales_to_base_conversion = spark.sql("""
+	SELECT		
+       cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,sales_product_number
+      ,sales_product_line_code as pl
+      ,customer_engagement
+      ,sum(net_revenue) as net_revenue
+	  ,sum(cc_net_revenue) as cc_net_revenue
+	  ,sum(inventory_change_impact) as inventory_change_impact
+	  ,sum(cc_inventory_impact) as cc_inventory_impact
+	  ,sum(adjusted_revenue) as adjusted_revenue
+	FROM salesprod_missing_baseprod
+    WHERE 1=1	
+    GROUP BY   cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,sales_product_number
+      ,sales_product_line_code
+      ,customer_engagement
+""")
+
+write_df_to_redshift(configs, epa_sales_to_base_conversion, "fin_prod.adjusted_revenue_epa_sales_to_base_conversion_unknowns", "overwrite")
+
+# COMMAND ----------
+
+query_access_grant = """
+GRANT ALL ON TABLE fin_prod.adjusted_revenue_epa_sales_to_base_conversion_unknowns TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query_access_grant)
+
+# COMMAND ----------
+
+epa_actuals_baseprod_negative_net_revenue = spark.sql("""
+	SELECT		
+       cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,base_product_number
+	  ,pl
+      ,customer_engagement
+      ,sum(net_revenue) as net_revenue
+	  ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+	FROM baseprod_targets_detailed
+    WHERE 1=1
+		AND net_revenue < 0
+    GROUP BY  cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+""")
+
+write_df_to_redshift(configs, epa_actuals_baseprod_negative_net_revenue, "fin_prod.adjusted_revenue_epa_actuals_baseprod_negative_net_revenue", "overwrite")
+
+# COMMAND ----------
+
+query_access_grant = """
+GRANT ALL ON TABLE fin_prod.adjusted_revenue_epa_actuals_baseprod_negative_net_revenue TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query_access_grant)
+
+# COMMAND ----------
+
+epa_actuals_baseprod_dropped_data = spark.sql("""
+	SELECT		
+       cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,base_product_number
+	  ,pl
+      ,customer_engagement
+      ,sum(net_revenue) as net_revenue
+	  ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+	FROM financials_dropped_out
+    WHERE 1=1
+		AND net_revenue <= 0
+    GROUP BY  cal_date
+      ,country_alpha2
+      ,market10
+	  ,region_5
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+""")
+
+write_df_to_redshift(configs, epa_actuals_baseprod_dropped_data, "fin_prod.adjusted_revenue_epa_actuals_baseprod_dropped_data", "overwrite")
+
+# COMMAND ----------
+
+query_access_grant = """
+GRANT ALL ON TABLE fin_prod.adjusted_revenue_epa_actuals_baseprod_dropped_data TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query_access_grant)
