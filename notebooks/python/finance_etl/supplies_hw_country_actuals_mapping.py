@@ -20,13 +20,13 @@ product_line_xref = read_redshift_to_df(configs) \
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
-actuals_supplies_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
+odw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only") \
     .load()
 
 # COMMAND ----------
 
-actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
+odw_actuals_supplies_baseprod_staging_interim_supplies_only.createOrReplaceTempView("odw_actuals_supplies_baseprod_staging_interim_supplies_only")
 
 # COMMAND ----------
 
@@ -535,8 +535,10 @@ JOIN shm_12_map_geo_6 shm
     ON usc.country_alpha2 = shm.country_alpha2
     AND usc.platform_subset = shm.platform_subset
     AND usc.customer_engagement = shm.customer_engagement
-JOIN actuals_supplies_salesprod ass
-    ON ass.cal_date = usc.cal_date
+JOIN odw_actuals_supplies_baseprod_staging_interim_supplies_only bss
+    ON bss.cal_date = usc.cal_date
+WHERE 1=1
+    AND hp_pages <> 0
 GROUP BY usc.cal_date
     , usc.country_alpha2
     , usc.platform_subset
@@ -550,12 +552,12 @@ usage_share_baseprod_01.createOrReplaceTempView("usage_share_baseprod_01")
 
 # calc mix of printers attached to a particular base product in a particular month etc. where month coincides with financial actuals
 usage_share_baseprod_02 = f"""
-SELECT cal_date
+SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS record 
+    , cal_date
     , country_alpha2
     , platform_subset
     , base_product_number
     , customer_engagement
-    , sum(hp_pages) as hp_pages
     , CASE
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
@@ -576,3 +578,7 @@ usage_share_baseprod_02.createOrReplaceTempView("usage_share_baseprod_02")
 # COMMAND ----------
 
 write_df_to_redshift(configs, usage_share_baseprod_02, "stage.supplies_hw_country_actuals_mapping", "overwrite", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
+
+# COMMAND ----------
+
+
