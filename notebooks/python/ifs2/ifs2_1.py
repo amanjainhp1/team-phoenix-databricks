@@ -161,10 +161,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-##    df.write \
-##        .format(write_format) \
-##        .mode("overwrite") \
-##        .save(save_path)
+    df.write \
+        .format(write_format) \
+        .mode("overwrite") \
+        .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -794,7 +794,7 @@ select cal_date
 		, base_product_number
 		, customer_engagement
 		, country_alpha2
-		, (pgs_ccs_mix * 3) as trade_split
+		, (pgs_ccs_mix) as trade_split
 		, cdpcm.version
 from ifs2.cartridge_demand_pages_ccs_mix cdpcm
 left join mdm.iso_country_code_xref iccx
@@ -858,7 +858,7 @@ select cal_date
 	, platform_subset
 	, base_product_number
 	, customer_engagement
-	, ((imp_corrected_cartridges - cartridges)/imp_corrected_cartridges) as vtc
+	, (imp_corrected_cartridges/cartridges) as vtc
 	, version
 from working_forecast_country 
 where version = '{}'
@@ -904,7 +904,9 @@ select distinct
     d.remaining_amount,
     y.value as yield,
     hy.host_yield as host_yield,
-    t.trade_split,
+    case when (us.record = 'INK' and us.crg_chrome in ('CYN','MAG','YEL','MUL')) then t.trade_split*3
+        else t.trade_split
+        end as trade_split, 
     v.vtc,
     us.ib_version,
     us.version as usage_share_version,
