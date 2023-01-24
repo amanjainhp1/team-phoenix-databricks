@@ -103,9 +103,9 @@ with step1 as (
     , CASE WHEN us.measure like '%USAGE%' THEN us.source
         ELSE NULL
         END AS source_u
-	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
-    , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
-    , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
+	--, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
+    	, SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
+    	, SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
 FROM us_table us 
 GROUP BY us.cal_date
@@ -122,7 +122,7 @@ GROUP BY us.cal_date
       ,u.customer_engagement
       ,MAX(u.source_s) as source_s
       ,MAX(u.source_u) as source_u
-      ,SUM(u.usage) AS usage
+      ,SUM(u.usage_k+lit(3)*usage_c) AS usage
       ,SUM(u.page_share) AS page_share
       ,SUM(u.usage_c) AS usage_c
       ,SUM(u.usage_k) AS usage_k
@@ -166,10 +166,10 @@ GROUP BY
       ,MAX(u.source_u) as source_u
       ,SUM(u.usage*coalesce(ib,0)) AS pages
       ,SUM(u.page_share*usage*coalesce(ib,0)) AS hp_pages
-      ,SUM(u.usage_c*coalesce(ib,0)) AS color_pages
+      ,SUM(lit(3)*u.usage_c*coalesce(ib,0)) AS color_pages
       ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
       ,SUM(u.page_share*usage_k*coalesce(ib,0)) AS hp_k_pages
-      ,SUM(u.page_share*usage_c*coalesce(ib,0)) AS hp_c_pages
+      ,SUM(u.page_share*lit(3)*usage_c*coalesce(ib,0)) AS hp_c_pages
       ,SUM(coalesce(ib,0)) as ib
     FROM step2 u
     GROUP BY 
@@ -207,7 +207,7 @@ GROUP BY
 	, h4.customer_engagement
 	, h4.pages/nullif(ib,0) AS usage
 	, h4.hp_pages/nullif(pages,0) AS page_share
-	, h4.color_pages/nullif(ib,0) AS usage_c
+	, (h4.color_pages/nullif(ib,0))/lit(3) AS usage_c
 	, h4.black_pages/nullif(ib,0) AS usage_k
     , h4.pages as total_pages
 	, h4.hp_pages
