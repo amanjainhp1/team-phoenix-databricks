@@ -163,6 +163,7 @@ SELECT
         WHEN base_product_line_code = '65' THEN 'UD'
         WHEN base_product_line_code = 'EO' THEN 'GL'
         WHEN base_product_line_code = 'GM' THEN 'K6'
+        ELSE base_product_line_code
     END AS base_product_line_code,
     base_prod_per_sales_prod_qty,
     base_product_amount_percent
