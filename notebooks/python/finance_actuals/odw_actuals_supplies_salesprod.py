@@ -1203,7 +1203,7 @@ WHERE region_3 = 'EMEA'
   AND sell_thru_qty > 0
   AND st.country_alpha2 IN 
     (
-        SELECT distinct    country_alpha2
+        SELECT distinct country_alpha2
         FROM odw_document_currency doc
         WHERE 1=1
             AND revenue <> 0
@@ -5410,12 +5410,17 @@ emea_salesprod_xcode_adjusted2.createOrReplaceTempView("emea_salesprod_xcode_adj
 
 # COMMAND ----------
 
-edw_document_currency_raw = f"""
+edw_document_currency_2023_restatements = f"""
 SELECT
     cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
     country_alpha2,
     region_5,
     document_currency_code,
@@ -5428,6 +5433,30 @@ WHERE 1=1
     AND cal_date > '2021-10-01'
     AND day_of_month = 1
     --AND cal_date = (SELECT MAX(cal_date) FROM odw_document_currency)
+GROUP BY cal_date,
+    Fiscal_year_qtr,
+    Fiscal_yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
+"""
+
+edw_document_currency_2023_restatements = spark.sql(edw_document_currency_2023_restatements)
+edw_document_currency_2023_restatements.createOrReplaceTempView("edw_document_currency_2023_restatements")
+
+
+edw_document_currency_raw = f"""
+SELECT
+    cal_date,
+    Fiscal_year_qtr,
+    Fiscal_yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue 
+FROM edw_document_currency_2023_restatements
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
