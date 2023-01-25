@@ -20,13 +20,13 @@ product_line_xref = read_redshift_to_df(configs) \
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
-odw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only") \
+actuals_supplies_salesprod = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
     .load()
 
 # COMMAND ----------
 
-odw_actuals_supplies_baseprod_staging_interim_supplies_only.createOrReplaceTempView("odw_actuals_supplies_baseprod_staging_interim_supplies_only")
+actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
 
 # COMMAND ----------
 
@@ -535,8 +535,8 @@ JOIN shm_12_map_geo_6 shm
     ON usc.country_alpha2 = shm.country_alpha2
     AND usc.platform_subset = shm.platform_subset
     AND usc.customer_engagement = shm.customer_engagement
-JOIN odw_actuals_supplies_baseprod_staging_interim_supplies_only bss
-    ON bss.cal_date = usc.cal_date
+JOIN actuals_supplies_salesprod ass
+    ON ass.cal_date = usc.cal_date
 WHERE 1=1
     AND hp_pages <> 0
 GROUP BY usc.cal_date
