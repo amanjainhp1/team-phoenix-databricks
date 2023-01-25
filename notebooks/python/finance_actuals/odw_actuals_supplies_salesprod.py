@@ -4100,7 +4100,12 @@ SELECT cal_date,
     country_alpha2,
     region_5,
     edw_recorded_pl,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'GM' THEN 'K6'
+        WHEN pl = 'EO' THEN 'GL'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
