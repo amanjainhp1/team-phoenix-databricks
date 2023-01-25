@@ -5549,7 +5549,12 @@ SELECT cal_date,
     country_alpha2,
     region_5,
     edw_recorded_pl,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'GM' THEN 'K6'
+        WHEN pl = 'EO' THEN 'GL'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -5561,7 +5566,7 @@ SELECT cal_date,
     SUM(revenue_units) AS revenue_units
 FROM edw_product_line_restated edw
 WHERE 1=1 
-    AND    sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
+    AND sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
     AND pl NOT IN ('IE', 'IX') -- inactive PLs for LF; at this point, any sales products in IE/TX would be unmapped or UNKN and can be dropped
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, edw_recorded_pl
 """
