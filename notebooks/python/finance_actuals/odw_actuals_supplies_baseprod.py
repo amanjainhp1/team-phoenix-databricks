@@ -52,15 +52,15 @@ hardware_xref = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 tables = [
-    ['fin_prod.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only],
-    ['fin_prod.odw_sacp_actuals', sacp_actuals],
+    ['fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only],
+    ['fin_stage.odw_sacp_actuals', sacp_actuals],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.iso_cc_rollup_xref', iso_cc_rollup_xref],
     ['prod.working_forecast', working_forecast],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['mdm.calendar', calendar],
     ['mdm.product_line_xref', product_line_xref],
-    #['prod.ib', ib],
+    #['stage.ib', ib],
     ['fin_prod.odw_actuals_supplies_salesprod', odw_actuals_supplies_salesprod],
     ['mdm.hardware_xref', hardware_xref]
 ]
@@ -123,7 +123,7 @@ SELECT
     SUM(equivalent_units) AS equivalent_units,
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
-FROM odw_actuals_supplies_baseprod_staging_interim_supplies_only
+FROM fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only
 WHERE 1=1
 GROUP BY cal_date, country_alpha2, base_product_number, pl, customer_engagement, market10
 """
@@ -142,10 +142,10 @@ SELECT
     base_product_number,
     SUM(adjusted_cartridges) AS units,
     version
-FROM working_forecast
-WHERE version = (select max(version) from working_forecast)
-    AND cal_date BETWEEN (SELECT MIN(cal_date) FROM odw_actuals_supplies_salesprod) 
-                    AND (SELECT MAX(cal_date) FROM odw_actuals_supplies_salesprod)
+FROM prod.working_forecast
+WHERE version = (select max(version) from prod.working_forecast)
+    AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
+                    AND (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
     AND adjusted_cartridges <> 0
     AND geography_grain = 'MARKET10'
 GROUP BY 
@@ -190,13 +190,13 @@ SELECT cal_date,
     sum(units) as units,
     ib.version
 FROM ib ib
-LEFT JOIN iso_country_code_xref iso
+LEFT JOIN mdm.iso_country_code_xref iso
     ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 --AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
 AND units <> 0
 AND units IS NOT NULL
-AND cal_date <= (SELECT MAX(cal_date) FROM odw_actuals_supplies_salesprod)
+AND cal_date <= (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
 GROUP BY
     cal_date,
     platform_subset,
@@ -214,7 +214,7 @@ installed_base_history.createOrReplaceTempView("installed_base_history")
 shm_01_iso = f"""
 SELECT DISTINCT market10
     , region_5
-FROM iso_country_code_xref
+FROM mdm.iso_country_code_xref
 where 1=1
     AND NOT market10 IS NULL
     AND region_5 NOT IN ('XU','XW')
@@ -232,8 +232,8 @@ SELECT DISTINCT shm.platform_subset
            WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%YET2%' THEN 'HP+'
            WHEN hw.technology = 'LASER' THEN 'TRAD'
            ELSE shm.customer_engagement END AS customer_engagement
-FROM supplies_hw_mapping AS shm
-JOIN hardware_xref AS hw
+FROM mdm.supplies_hw_mapping AS shm
+JOIN mdm.hardware_xref AS hw
     ON hw.platform_subset = shm.platform_subset
 WHERE 1=1
     AND hw.official = 1
@@ -253,8 +253,8 @@ SELECT DISTINCT shm.platform_subset
            WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%YET2%' THEN 'HP+'
            WHEN hw.technology = 'LASER' THEN 'TRAD'
            ELSE shm.customer_engagement END AS customer_engagement
-FROM supplies_hw_mapping AS shm
-JOIN hardware_xref AS hw
+FROM mdm.supplies_hw_mapping AS shm
+JOIN mdm.hardware_xref AS hw
     ON hw.platform_subset = shm.platform_subset
 JOIN shm_01_iso AS iso
     ON iso.region_5 = shm.geography
@@ -275,12 +275,12 @@ SELECT DISTINCT shm.platform_subset
            WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%YET2%' THEN 'HP+'
            WHEN hw.technology = 'LASER' THEN 'TRAD'
            ELSE shm.customer_engagement END AS customer_engagement
-FROM supplies_hw_mapping AS shm
-JOIN hardware_xref AS hw
+FROM mdm.supplies_hw_mapping AS shm
+JOIN mdm.hardware_xref AS hw
     ON hw.platform_subset = shm.platform_subset
-JOIN iso_cc_rollup_xref  AS cc
+JOIN mdm.iso_cc_rollup_xref  AS cc
     ON cc.country_level_1 = shm.geography  -- gives us cc.country_alpha2
-JOIN iso_country_code_xref AS iso
+JOIN mdm.iso_country_code_xref AS iso
     ON iso.country_alpha2 = cc.country_alpha2     -- changed geography_grain to geography
 WHERE 1=1
     AND shm.official = 1
@@ -728,7 +728,7 @@ date_helper = f"""
 SELECT
     date_key
     , Date AS cal_date
-FROM calendar
+FROM mdm.calendar
 WHERE day_of_month = 1
 """
 
@@ -746,9 +746,9 @@ SELECT
 FROM date_helper
 CROSS JOIN map_ptr_to_crtg2
 WHERE cal_date BETWEEN 
-    (SELECT MIN(cal_date) FROM odw_actuals_supplies_salesprod) 
+    (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
     AND 
-    (SELECT MAX(cal_date) FROM odw_actuals_supplies_salesprod)
+    (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
 """
 
 hw_supplies_map3 = spark.sql(hw_supplies_map3)
@@ -763,7 +763,7 @@ SELECT distinct cal_date,
     SUM(printers_per_baseprod) AS printers_per_baseprod,
     1 / SUM(printers_per_baseprod) AS hw_mix
 FROM hw_supplies_map3 m
-LEFT JOIN iso_country_code_xref iso ON m.market10 = iso.market10
+LEFT JOIN mdm.iso_country_code_xref iso ON m.market10 = iso.market10
 GROUP BY platform_subset, base_product_number, m.market10, cal_date
 """
 
@@ -884,7 +884,7 @@ SELECT
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM all_baseprod_with_platform_subsets AS bp
-JOIN product_line_xref AS plx ON bp.pl = plx.pl
+JOIN mdm.product_line_xref AS plx ON bp.pl = plx.pl
 GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, l5_description
 """
 
@@ -907,19 +907,19 @@ SELECT
     SUM(warranty) as p_warranty,
     SUM(other_cos) as p_other_cos,
     SUM(total_cos) AS p_total_cos
-FROM odw_sacp_actuals AS p
-JOIN calendar AS cal ON cal.Date = p.cal_date
+FROM fin_stage.odw_sacp_actuals AS p
+JOIN mdm.calendar AS cal ON cal.Date = p.cal_date
 WHERE pl IN 
     (
     SELECT DISTINCT (pl) 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
     )
     AND Fiscal_Yr > '2016'
     AND Day_of_Month = 1 
     AND gross_revenue + net_currency + contractual_discounts + discretionary_discounts + other_cos + warranty + total_cos != 0
-    --AND cal_date = (SELECT MAX(cal_date) FROM odw_sacp_actuals)
+    --AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.odw_sacp_actuals)
     AND cal_date > '2021-10-01'
 GROUP BY cal_date, pl, region_5, Fiscal_Yr
 """
@@ -991,8 +991,8 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(gross_profit) AS gross_profit
 FROM baseprod_financials_preplanet_table AS bp
-LEFT JOIN iso_country_code_xref AS iso ON bp.country_alpha2 = iso.country_alpha2 AND bp.market10 = iso.market10
-JOIN calendar AS cal ON bp.cal_date = cal.Date
+LEFT JOIN mdm.iso_country_code_xref AS iso ON bp.country_alpha2 = iso.country_alpha2 AND bp.market10 = iso.market10
+JOIN mdm.calendar AS cal ON bp.cal_date = cal.Date
 WHERE Fiscal_Yr > '2016'
 AND Day_of_Month = 1
 GROUP BY bp.cal_date, bp.pl, region_5, Fiscal_Yr
@@ -1118,8 +1118,8 @@ SELECT
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM baseprod_planet_tieout AS p
-JOIN iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
-JOIN product_line_xref AS plx ON p.pl = plx.pl
+JOIN mdm.iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
+JOIN mdm.product_line_xref AS plx ON p.pl = plx.pl
 GROUP BY cal_date, p.country_alpha2, market10, platform_subset, base_product_number, p.pl, l5_description, customer_engagement
 """
 
@@ -1157,7 +1157,7 @@ FROM planet_adjusts
 WHERE pl IN 
     (
         SELECT DISTINCT (pl) 
-        FROM product_line_xref 
+        FROM mdm.product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LF') 
             AND PL_category IN ('SUP')
     )
@@ -1191,12 +1191,12 @@ SELECT
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM planet_adjusts p
-JOIN calendar cal ON cal.Date = p.cal_date
+JOIN mdm.calendar cal ON cal.Date = p.cal_date
 WHERE Day_of_Month = 1 
 and pl IN 
     (
     SELECT DISTINCT (pl) 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('LLCS')
         AND PL_category IN ('LLC')
     )
