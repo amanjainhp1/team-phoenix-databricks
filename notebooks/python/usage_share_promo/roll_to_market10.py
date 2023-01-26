@@ -313,7 +313,7 @@ GROUP BY
 	, h4.customer_engagement
 	, h4.pages/nullif(ib,0) AS usage
 	, h4.hp_pages/nullif(pages,0) AS page_share
-	, h4.color_pages/nullif(ib,0) AS usage_c
+	, (h4.color_pages/nullif(ib,0))/lit(3) AS usage_c
 	, h4.black_pages/nullif(ib,0) AS usage_k
 	, h4.pages total_pages
       	, h4.hp_pages AS hp_pages
@@ -334,7 +334,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'USAGE' as measure
 	, usage as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_u_w*100,0),"% WF",round(data_source_u_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_u_w*100,0),"% WF, ",round(data_source_u_e*100,0),"% EP") as source
 FROM step5
 WHERE usage IS NOT NULL
     AND usage > 0
@@ -345,7 +345,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_SHARE' as measure
 	, page_share as units
-	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% MA, ",round(data_source_s_m*100,0),"% MD",round(data_source_s_w*100,0),"% WF",round(data_source_s_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_s*100,0),"% T, ",round(data_source_s_n*100,0),"% N, ",round(data_source_s_o*100,0),"% MA, ",round(data_source_s_m*100,0),"% MD, ",round(data_source_s_w*100,0),"% WF, ",round(data_source_s_e*100,0),"% EP") as source
 FROM step5
 WHERE page_share IS NOT NULL
     AND page_share > 0
@@ -356,7 +356,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'COLOR_USAGE' as measure
 	, usage_c as units
-	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% MA, ",round(data_source_c_m*100,0),"% MD",round(data_source_c_w*100,0),"% WF",round(data_source_c_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_c*100,0),"% T, ",round(data_source_c_n*100,0),"% N, ",round(data_source_c_o*100,0),"% MA, ",round(data_source_c_m*100,0),"% MD, ",round(data_source_c_w*100,0),"% WF, ",round(data_source_c_e*100,0),"% EP") as source
 FROM step5
 WHERE usage_c IS NOT NULL
     AND usage_c > 0
@@ -367,7 +367,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'K_USAGE' as measure
 	, usage_k as units
-	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% MA, ",round(data_source_k_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_k*100,0),"% T, ",round(data_source_k_n*100,0),"% N, ",round(data_source_k_o*100,0),"% MA, ",round(data_source_k_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE usage_k IS NOT NULL
     AND usage_k > 0
@@ -378,7 +378,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'TOTAL_PAGES' as measure
 	, total_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE total_pages IS NOT NULL
     AND total_pages > 0
@@ -389,7 +389,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'TOTAL_COLOR_PAGES' as measure
 	, total_color_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE total_color_pages IS NOT NULL
     AND total_color_pages > 0
@@ -400,7 +400,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'TOTAL_K_PAGES' as measure
 	, total_k_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE total_k_pages IS NOT NULL
     AND total_k_pages > 0
@@ -411,7 +411,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_PAGES' as measure
 	, hp_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE hp_pages IS NOT NULL
     AND hp_pages > 0
@@ -422,7 +422,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'NON_HP_PAGES' as measure
 	, non_hp_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE non_hp_pages IS NOT NULL
     AND non_hp_pages > 0
@@ -433,7 +433,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'NON_HP_K_PAGES' as measure
 	, non_hp_k_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE non_hp_k_pages IS NOT NULL
     AND non_hp_k_pages > 0
@@ -444,7 +444,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'NON_HP_COLOR_PAGES' as measure
 	, non_hp_color_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE non_hp_color_pages IS NOT NULL
     AND non_hp_color_pages > 0
@@ -455,7 +455,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_K_PAGES' as measure
 	, hp_k_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE hp_k_pages IS NOT NULL
     AND hp_k_pages > 0
@@ -466,7 +466,7 @@ SELECT cal_date
 	, customer_engagement
 	, 'HP_COLOR_PAGES' as measure
 	, hp_color_pages as units
-	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD",round(data_source_k_w*100,0),"% WF",round(data_source_k_e*100,0),"% EP") as source
+	, CONCAT(round(data_source_u*100,0),"% T, ",round(data_source_u_n*100,0),"% N, ",round(data_source_u_o*100,0),"% MA, ",round(data_source_u_m*100,0),"% MD, ",round(data_source_k_w*100,0),"% WF, ",round(data_source_k_e*100,0),"% EP") as source
 FROM step5
 WHERE hp_color_pages IS NOT NULL
     AND hp_color_pages > 0
