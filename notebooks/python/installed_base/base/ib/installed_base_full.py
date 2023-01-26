@@ -4,6 +4,10 @@
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
 
@@ -1003,7 +1007,7 @@ WHERE 1=1
     , pre.split_name
     , pre.platform_subset
     , pre.printer_installs
-    , CASE WHEN pre.ib <= 0.0 THEN 1e-3 ELSE pre.ib END AS ib
+    , CASE WHEN pre.ib < 1 THEN 1 ELSE pre.ib END AS ib
 FROM ib_staging_temp_pre AS pre
 WHERE 1=1
     AND pre.record IN ('IB_TRAD', 'IB_IINK')
