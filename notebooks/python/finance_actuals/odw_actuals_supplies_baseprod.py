@@ -87,6 +87,7 @@ for table in tables:
 
 # COMMAND ----------
 
+#excluding from delta table load process for now because of its size (change later)
 supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
@@ -348,27 +349,6 @@ GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, 
 
 baseprod_financials_preplanet_table = spark.sql(baseprod_financials_preplanet_table)
 baseprod_financials_preplanet_table.createOrReplaceTempView("baseprod_financials_preplanet_table")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select 
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(net_revenue) AS net_revenue,
-# MAGIC     SUM(warranty) AS warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos ) AS total_cos,
-# MAGIC     SUM(gross_profit) AS gross_profit,
-# MAGIC     SUM(revenue_units) AS revenue_units,
-# MAGIC     SUM(equivalent_units) AS equivalent_units,
-# MAGIC     SUM(yield_x_units) AS yield_x_units,
-# MAGIC     SUM(yield_x_units_black_only) AS yield_x_units_black_only,
-# MAGIC     count(*) as row_count
-# MAGIC from baseprod_financials_preplanet_table
-# MAGIC where platform_subset = 'NA'
 
 # COMMAND ----------
 
