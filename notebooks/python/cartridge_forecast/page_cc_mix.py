@@ -242,7 +242,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = ('2022.11.29.1')
+       AND ib.version = ('2023.01.18.2')
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -275,7 +275,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = ('2022.12.16.1')
+       AND us.version = ('2023.01.05.1')
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -1054,7 +1054,7 @@ WITH pcm_02_hp_demand AS
                    , v.consumable_type
                    , v.cartridge_volume
                    , pf.yield
-                   , CASE
+                   , CASE WHEN hw.technology <> 'INK' THEN v.cartridge_volume * pf.yield
                          WHEN hw.technology = 'INK' AND v.k_color = 'BLACK'
                              THEN v.cartridge_volume * pf.yield *
                                   SUM(dmd.black_demand)
