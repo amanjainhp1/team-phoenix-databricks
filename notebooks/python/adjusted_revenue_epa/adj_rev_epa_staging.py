@@ -633,9 +633,19 @@ WITH
     (
         SELECT 
             sales_product_number,
-            sales_product_line_code,
+            CASE
+                WHEN sales_product_line_code = 'GM' THEN 'K6'
+                WHEN sales_product_line_code = 'EO' THEN 'GL'
+                WHEN sales_product_line_code = '65' THEN 'UD'
+                ELSE sales_product_line_code
+            END AS sales_product_line_code,
             base_product_number,
-            base_product_line_code,
+            CASE
+                WHEN base_product_line_code = 'GM' THEN 'K6'
+                WHEN base_product_line_code = 'EO' THEN 'GL'
+                WHEN base_product_line_code = '65' THEN 'UD'
+                ELSE base_product_line_code
+            END AS base_product_line_code,
             base_prod_per_sales_prod_qty,
             base_product_amount_percent
         FROM mdm.rdma_base_to_sales_product_map
