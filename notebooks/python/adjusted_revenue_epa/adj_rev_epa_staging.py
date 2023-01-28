@@ -87,7 +87,7 @@ adj_rev_fin = spark.sql("""
 SELECT 
 		cal_date,
 		country_alpha2,
-		geography as market10,
+		geography as market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -129,7 +129,7 @@ adj_rev_cleaned = spark.sql("""
 SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -152,7 +152,7 @@ SELECT
 		AND total_sums_cleanup <> 0
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -189,7 +189,7 @@ official_salesprod_targets AS
 (
 	SELECT 
       cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 	  ,SUM(net_revenue) AS net_revenue
@@ -202,7 +202,7 @@ official_salesprod_targets AS
 	AND sales_product_number <> 'EDW_TIE_TO_PLANET'
 	AND pl <> 'GD'
   GROUP BY  cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 
@@ -210,7 +210,7 @@ official_salesprod_targets AS
 
 	SELECT 
       cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 	  ,SUM(net_revenue) AS net_revenue
@@ -226,7 +226,7 @@ official_salesprod_targets AS
 	AND Fiscal_Yr >= (SELECT Start_Fiscal_Yr FROM two_years)
 	AND pl <> 'GD'
   GROUP BY  cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 
@@ -234,7 +234,7 @@ official_salesprod_targets AS
 
 	SELECT 
       cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 	  ,SUM(net_revenue) AS net_revenue
@@ -246,14 +246,14 @@ official_salesprod_targets AS
   WHERE 1=1
 	AND pl = 'GD'
   GROUP BY  cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 )
 
 	SELECT 
       cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 	  ,IFNULL(SUM(net_revenue), 0) AS net_revenue
@@ -264,7 +264,7 @@ official_salesprod_targets AS
   FROM official_salesprod_targets 
   WHERE 1=1
   GROUP BY  cal_date
-      ,market10
+      ,market8
       ,pl
       ,customer_engagement
 """)
@@ -284,7 +284,7 @@ adj_rev_positive = spark.sql("""
 SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -312,7 +312,7 @@ SELECT
 		AND sales_product_number NOT IN ('BIRDS', 'CTSS', 'CISS', 'EST_MPS_REVENUE_JV') -- for now, drop all of them; will add back what we want later
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -327,7 +327,7 @@ adj_rev_negative = spark.sql("""
 SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -354,7 +354,7 @@ SELECT
 		OR sales_product_number IN ('Birds', 'CTSS', 'CISS', 'est_mps_revenue_jv')
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -376,7 +376,7 @@ adj_rev_excl_gd = spark.sql("""
 SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -399,7 +399,7 @@ SELECT
 		AND pl <> 'GD'
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -414,7 +414,7 @@ adj_rev_gd = spark.sql("""
 SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		--sales_product_number, -- sales product number will be assigned based upon unit mix; prior to this, the only GD sales prod nbr is "edw_tie_to_planet"
 		pl,
@@ -437,7 +437,7 @@ SELECT
 		AND pl = 'GD'
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		--sales_product_number,
 		pl,
@@ -451,20 +451,22 @@ adj_rev_gd.createOrReplaceTempView("adjusted_revenue_GD")
 iink_unit_mix = spark.sql("""
 SELECT 
 		cal_date,
-		market10,
+		market8,
 		sales_product_number,
 		pl,
 		customer_engagement,
 		SUM(revenue_units) as revenue_units,	
 		CASE
-			WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-			ELSE revenue_units / SUM(revenue_units) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+			WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+			ELSE revenue_units / SUM(revenue_units) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 		END AS unit_mix
-	FROM fin_prod.actuals_supplies_salesprod 
+	FROM fin_prod.actuals_supplies_salesprod ass
+    LEFT JOIN mdm.iso_country_code_xref iso
+        ON ass.country_alpha2 = iso.country_alpha2
 	WHERE 1=1
 	AND pl = 'GD'
 	AND revenue_units > 0
-	GROUP BY cal_date, pl, customer_engagement, sales_product_number, market10, revenue_units
+	GROUP BY cal_date, pl, customer_engagement, sales_product_number, market8, revenue_units
 """)
 
 iink_unit_mix.createOrReplaceTempView("iink_units_mix")
@@ -475,7 +477,7 @@ adj_rev_gd_add_skus =  spark.sql("""
 SELECT
 		gd.cal_date,
 		gd.country_alpha2,
-		gd.market10,
+		gd.market8,
 		gd.region_5,
 		iink.sales_product_number,
 		gd.pl,
@@ -496,14 +498,14 @@ SELECT
 	FROM adjusted_revenue_GD gd
 	INNER JOIN iink_units_mix iink ON
 		gd.cal_date = iink.cal_date AND
-		gd.market10 = iink.market10 AND
+		gd.market8 = iink.market8 AND
 		gd.pl = iink.pl AND
 		gd.customer_engagement = iink.customer_engagement
 	WHERE 1=1
 	GROUP BY 
 		gd.cal_date,
 		gd.country_alpha2,
-		gd.market10,
+		gd.market8,
 		gd.region_5,
 		iink.sales_product_number,
 		gd.pl,
@@ -522,7 +524,7 @@ WITH
 	SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -544,7 +546,7 @@ WITH
 	WHERE 1=1
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -555,7 +557,7 @@ WITH
 	SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -577,7 +579,7 @@ WITH
 	WHERE 1=1
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -587,7 +589,7 @@ WITH
 	SELECT
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -609,7 +611,7 @@ WITH
 	WHERE 1=1
 	GROUP BY cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		sales_product_number,
 		pl,
@@ -724,7 +726,7 @@ adj_rev_baseprod_conversion = spark.sql("""
 SELECT 
 				cal_date,
 				country_alpha2,
-				market10,
+				market8,
 				region_5,
 				sp.sales_product_number,
 				sp.pl AS sales_product_line_code,
@@ -750,7 +752,7 @@ SELECT
 			WHERE 1=1
 			GROUP BY cal_date,
 				country_alpha2,
-				market10,
+				market8,
 				region_5,
 				sp.sales_product_number,
 				sp.pl,
@@ -767,7 +769,7 @@ salesprod_minus_baseprod = spark.sql("""
 SELECT 
 				cal_date,
 				country_alpha2,
-				market10,
+				market8,
 				region_5,
 				sp.sales_product_number,
 				sp.pl AS sales_product_line_code,
@@ -795,7 +797,7 @@ SELECT
 				AND base_product_number IS NULL
 			GROUP BY cal_date,
 				country_alpha2,
-				market10,
+				market8,
 				region_5,
 				sp.sales_product_number,
 				sp.pl,
@@ -821,7 +823,7 @@ WITH baseprod_data AS
 			SELECT 
 				cal_date,
 				country_alpha2,
-				market10,
+				market8,
 				region_5,
 				base_product_number,
 				base_product_line_code,
@@ -840,13 +842,13 @@ WITH baseprod_data AS
 				SUM(cc_inventory_impact) AS cc_inventory_impact,
 				SUM(adjusted_revenue) AS adjusted_revenue
 			FROM adjusted_revenue_baseprod_conversion
-			GROUP BY cal_date, country_alpha2, base_product_line_code, customer_engagement, base_product_number, market10, region_5
+			GROUP BY cal_date, country_alpha2, base_product_line_code, customer_engagement, base_product_number, market8, region_5
 		)
 				
 			SELECT 
 				cal_date,
 				country_alpha2,
-				market10,
+				market8,
 				region_5,
 				base_product_number,
 				base_product_line_code AS pl,
@@ -873,7 +875,7 @@ WITH baseprod_data AS
 						AND Technology IN ('INK', 'LASER', 'PWA')
 						AND pl NOT IN ('GY', 'LZ')
 				)
-			GROUP BY cal_date, country_alpha2, base_product_line_code, customer_engagement, base_product_number, market10, region_5
+			GROUP BY cal_date, country_alpha2, base_product_line_code, customer_engagement, base_product_number, market8, region_5
 """)
 
 adj_rev_base_product_data.createOrReplaceTempView("adjusted_revenue_base_product_data")
@@ -973,7 +975,7 @@ orig_official_fin = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market8 as market10
+      ,market8
 	  ,case
 			when market8 IN ('CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA') then 'EU'
 			when market8 IN ('LATIN AMERICA') THEN 'LA'
@@ -1016,7 +1018,7 @@ official_fin_excl_edw_plug = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1033,7 +1035,7 @@ SELECT
 	AND pl <> 'GD'
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1049,7 +1051,7 @@ orig_official_edw_plugs = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1069,7 +1071,7 @@ SELECT
 	AND pl <> 'GD'
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1089,7 +1091,7 @@ official_baseprod_targets AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1104,7 +1106,7 @@ official_baseprod_targets AS
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1116,7 +1118,7 @@ official_baseprod_targets AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1131,7 +1133,7 @@ official_baseprod_targets AS
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1143,7 +1145,7 @@ official_baseprod_targets AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1159,7 +1161,7 @@ official_baseprod_targets AS
 	AND pl = 'GD'
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1170,7 +1172,7 @@ official_baseprod_targets AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1185,7 +1187,7 @@ official_baseprod_targets AS
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1208,7 +1210,7 @@ baseprod_detail_positive_unit = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1224,7 +1226,7 @@ SELECT
 	AND revenue_units >= 0
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1240,7 +1242,7 @@ baseprod_official_wo_gd = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1256,7 +1258,7 @@ SELECT
 	AND pl <> 'GD'
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1272,7 +1274,7 @@ baseprod_fin_official_w_gd = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,pl
       ,customer_engagement
@@ -1286,7 +1288,7 @@ SELECT
 	AND pl = 'GD'
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,pl
       ,customer_engagement
@@ -1299,22 +1301,24 @@ baseprod_fin_official_w_gd.createOrReplaceTempView("baseprod_fin_official_w_GD")
 iink_units_mix_base_w_printer = spark.sql("""
 SELECT 
 		cal_date,
-		market10,
+		market8,
 		base_product_number,
 		platform_subset,
 		pl,
 		customer_engagement,
 		SUM(revenue_units) as revenue_units,	
 		CASE
-			WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-			ELSE revenue_units / SUM(revenue_units) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+			WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+			ELSE revenue_units / SUM(revenue_units) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 		END AS unit_mix
-	FROM fin_prod.actuals_supplies_baseprod 
+	FROM fin_prod.actuals_supplies_baseprod asb
+    LEFT JOIN mdm.iso_country_code_xref iso 
+        ON iso.country_alpha2 = asb.country_alpha2
 	WHERE 1=1
 	AND pl = 'GD'
 	AND revenue_units > 0
 	AND platform_subset <> 'NA'
-	GROUP BY cal_date, pl, customer_engagement, base_product_number, market10, revenue_units, platform_subset
+	GROUP BY cal_date, pl, customer_engagement, base_product_number, market8, revenue_units, platform_subset
 """)
 
 iink_units_mix_base_w_printer.createOrReplaceTempView("iink_units_mix_base_w_printer")
@@ -1325,7 +1329,7 @@ baseprod_fin_gd_add_sku_data = spark.sql("""
 SELECT
 		gd.cal_date,
 		gd.country_alpha2,
-		gd.market10,
+		gd.market8,
 		gd.region_5,
 		iink.base_product_number,
 		iink.platform_subset,
@@ -1339,14 +1343,14 @@ SELECT
 	FROM baseprod_fin_official_w_GD gd
 	INNER JOIN iink_units_mix_base_w_printer iink ON
 		gd.cal_date = iink.cal_date AND
-		gd.market10 = iink.market10 AND
+		gd.market8 = iink.market8 AND
 		gd.pl = iink.pl AND
 		gd.customer_engagement = iink.customer_engagement
 	WHERE 1=1
 	GROUP BY 
 		gd.cal_date,
 		gd.country_alpha2,
-		gd.market10,
+		gd.market8,
 		gd.region_5,
 		iink.base_product_number,
 		iink.platform_subset,
@@ -1364,7 +1368,7 @@ WITH financial_data_excluding_GD AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1379,7 +1383,7 @@ WITH financial_data_excluding_GD AS
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1391,7 +1395,7 @@ WITH financial_data_excluding_GD AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1406,7 +1410,7 @@ WITH financial_data_excluding_GD AS
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1417,7 +1421,7 @@ WITH financial_data_excluding_GD AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1432,7 +1436,7 @@ WITH financial_data_excluding_GD AS
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1455,7 +1459,7 @@ fin_gold_dataset = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1475,7 +1479,7 @@ SELECT
 	AND base_product_number NOT IN ('BIRDS', 'CTSS', 'CISS', 'EST_MPS_REVENUE_JV')  -- will add back later
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1492,7 +1496,7 @@ fin_dropped_out = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1512,7 +1516,7 @@ SELECT
 	AND base_product_number IN ('BIRDS', 'CTSS', 'CISS', 'EST_MPS_REVENUE_JV')  -- will add back later
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1529,7 +1533,7 @@ fin_with_printer_mix_calc = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1548,7 +1552,7 @@ SELECT
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1565,7 +1569,7 @@ base_financials_arus_yields = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1585,7 +1589,7 @@ SELECT
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1602,7 +1606,7 @@ prepped_adj_rev_data = spark.sql("""
 SELECT 
     cal_date,
     country_alpha2,
-    market10,
+    market8,
     region_5,
     base_product_number,
     pl,
@@ -1617,7 +1621,7 @@ SELECT
     IFNULL(sum(inventory_usd) / nullif(sum(inventory_qty), 0), 0) as implied_ci_ndp
 FROM adjusted_revenue_base_product_data
 WHERE 1=1
-GROUP BY cal_date, country_alpha2, pl, customer_engagement, base_product_number, market10, region_5
+GROUP BY cal_date, country_alpha2, pl, customer_engagement, base_product_number, market8, region_5
 """)
 
 prepped_adj_rev_data.createOrReplaceTempView("prepped_adjrev_data")
@@ -1628,7 +1632,7 @@ baseprod_fin_with_adj_rev_variables = spark.sql("""
 SELECT 
       mix.cal_date
       ,mix.country_alpha2
-      ,mix.market10
+      ,mix.market8
 	  ,mix.region_5
       ,platform_subset
       ,mix.base_product_number
@@ -1655,7 +1659,7 @@ SELECT
   LEFT JOIN prepped_adjrev_data cc_rev ON
 	mix.cal_date = cc_rev.cal_date AND
 	mix.country_alpha2 = cc_rev.country_alpha2 AND
-	mix.market10 = cc_rev.market10 AND
+	mix.market8 = cc_rev.market8 AND
 	mix.region_5 = cc_rev.region_5 AND
 	mix.base_product_number = cc_rev.base_product_number AND
 	mix.pl = cc_rev.pl AND
@@ -1664,7 +1668,7 @@ SELECT
 	AND net_revenue > 0
   GROUP BY   mix.cal_date
       ,mix.country_alpha2
-      ,mix.market10
+      ,mix.market8
 	  ,mix.region_5
       ,platform_subset
       ,mix.base_product_number
@@ -1687,7 +1691,7 @@ with rejoin_special_cases_with_scrubbed_data AS
 	SELECT 
      cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1714,7 +1718,7 @@ with rejoin_special_cases_with_scrubbed_data AS
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1731,7 +1735,7 @@ with rejoin_special_cases_with_scrubbed_data AS
 	SELECT 
       cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,'NA' as platform_subset
       ,sales_product_number as base_product_number
@@ -1759,7 +1763,7 @@ with rejoin_special_cases_with_scrubbed_data AS
 	AND sales_product_number IN ('CISS', 'EST_MPS_REVENUE_JV')
   GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,sales_product_number
       ,pl
@@ -1769,7 +1773,7 @@ with rejoin_special_cases_with_scrubbed_data AS
 SELECT 
      cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1796,7 +1800,7 @@ SELECT
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -1820,9 +1824,9 @@ fully_baked_sku_level_data.createOrReplaceTempView("fully_baked_sku_level_data")
 
 # COMMAND ----------
 
-reported_mkt10_data = spark.sql("""
+reported_mkt8_data = spark.sql("""
 SELECT cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		sum(net_revenue) as net_revenue,
@@ -1831,16 +1835,16 @@ SELECT cal_date,
 	    sum(cc_inventory_impact) as cc_inventory_impact,
 	    sum(adjusted_revenue) as adjusted_revenue
 	FROM fully_baked_sku_level_data
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
-reported_mkt10_data.createOrReplaceTempView("reported_mkt10_data")
+reported_mkt8_data.createOrReplaceTempView("reported_mkt8_data")
 
 # COMMAND ----------
 
-target_mkt10_data = spark.sql("""
+target_mkt8_data = spark.sql("""
 SELECT cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		sum(net_revenue) as net_revenue,
@@ -1850,19 +1854,19 @@ SELECT cal_date,
 	    sum(adjusted_revenue) as adjusted_revenue
 	FROM finance_adj_rev_targets_without_all_edw
 	WHERE 1=1
-	AND pl IN (select distinct pl from reported_mkt10_data)
+	AND pl IN (select distinct pl from reported_mkt8_data)
 	AND net_revenue <> 0
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
-target_mkt10_data.createOrReplaceTempView("target_mkt10_data")
+target_mkt8_data.createOrReplaceTempView("target_mkt8_data")
 
 # COMMAND ----------
 
 calc_difference_to_targets = spark.sql("""
 SELECT
 		r.cal_date,
-		r.market10,
+		r.market8,
 		r.pl,
 		r.customer_engagement,
 		sum(r.net_revenue) as rept_net_rev,
@@ -1875,15 +1879,15 @@ SELECT
 		sum(far.cc_inventory_impact) as cc_inv_impact,
 		sum(r.adjusted_revenue) as rept_adj_rev,
 		sum(far.adjusted_revenue) as adj_rev_target
-	FROM reported_mkt10_data r
-	LEFT JOIN target_mkt10_data far ON
+	FROM reported_mkt8_data r
+	LEFT JOIN target_mkt8_data far ON
 		r.cal_date = far.cal_date AND
-		r.market10 = far.market10 AND
+		r.market8 = far.market8 AND
 		r.pl = far.pl AND
 		r.customer_engagement = far.customer_engagement
 	WHERE 1=1
 		AND r.net_revenue <> 0
-	GROUP BY r.cal_date, r.market10, r.pl, r.customer_engagement
+	GROUP BY r.cal_date, r.market8, r.pl, r.customer_engagement
 
 """)
 
@@ -1894,7 +1898,7 @@ calc_difference_to_targets.createOrReplaceTempView("calc_difference_to_targets")
 target_plugs_to_fill_gap = spark.sql("""
 SELECT
 		cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		sum(net_rev_target) - sum(rept_net_rev) as net_rev_plug,
@@ -1904,7 +1908,7 @@ SELECT
 		sum(adj_rev_target) - sum(rept_adj_rev) as adjrev_plug
 	FROM calc_difference_to_targets
 	WHERE 1=1
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
 target_plugs_to_fill_gap.createOrReplaceTempView("target_plugs_to_fill_gap")
@@ -1915,7 +1919,7 @@ ar_revenue_plugs_mix_calc = spark.sql("""
 SELECT 
 		cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		platform_subset,
 		base_product_number,
@@ -1928,14 +1932,14 @@ SELECT
 		implied_ci_ndp,
 		sum(net_revenue) as net_revenue,
 		CASE
-			WHEN sum(net_revenue) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-			ELSE net_revenue / sum(net_revenue) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+			WHEN sum(net_revenue) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+			ELSE net_revenue / sum(net_revenue) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 		END AS rept_rev_mix,
 		sum(currency_impact) as currency_impact,
 		sum(cc_net_revenue) as cc_net_revenue,
 		CASE
-			WHEN sum(currency_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-			ELSE currency_impact / sum(currency_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+			WHEN sum(currency_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+			ELSE currency_impact / sum(currency_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 		END AS rept_cc_rev_mix
   FROM fully_baked_sku_level_data
   WHERE 1=1
@@ -1943,7 +1947,7 @@ SELECT
 	AND base_product_number NOT IN ('EST_MPS_REVENUE_JV', 'CISS')
   GROUP BY	cal_date,
 		country_alpha2,
-		market10,
+		market8,
 		region_5,
 		platform_subset,
 		base_product_number,
@@ -1967,7 +1971,7 @@ spread_revenue_related_plugs_to_skus = spark.sql("""
 SELECT 
 		mix.cal_date,
 		country_alpha2,
-		mix.market10,
+		mix.market8,
 		region_5,
 		platform_subset,
 		base_product_number,
@@ -1987,13 +1991,13 @@ SELECT
   FROM ar_revenue_plugs_mix_calc mix
   JOIN target_plugs_to_fill_gap plugs ON
 	mix.cal_date = plugs.cal_date AND
-	mix.market10 = plugs.market10 AND
+	mix.market8 = plugs.market8 AND
 	mix.pl = plugs.pl AND
 	mix.customer_engagement = plugs.customer_engagement
   WHERE 1=1
   GROUP BY	mix.cal_date,
 		country_alpha2,
-		mix.market10,
+		mix.market8,
 		region_5,
 		platform_subset,
 		base_product_number,
@@ -2016,7 +2020,7 @@ with union_fully_baked_sku_data_with_revenue_gap AS
 	SELECT 
      cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2043,7 +2047,7 @@ with union_fully_baked_sku_data_with_revenue_gap AS
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2060,7 +2064,7 @@ with union_fully_baked_sku_data_with_revenue_gap AS
 	  SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2087,7 +2091,7 @@ with union_fully_baked_sku_data_with_revenue_gap AS
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2104,7 +2108,7 @@ with union_fully_baked_sku_data_with_revenue_gap AS
 SELECT 
      cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2131,7 +2135,7 @@ SELECT
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2160,7 +2164,7 @@ original_fully_baked = spark.sql("""
 SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8 as market10
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2188,7 +2192,7 @@ SELECT
 		AND process_detail = 'SYSTEM_ORIGINATED_DATA' -- use original data (before rev and cc rev spread process)
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
