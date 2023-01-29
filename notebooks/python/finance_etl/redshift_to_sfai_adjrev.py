@@ -57,7 +57,7 @@ query_version.display()
 tables = [
     #['IE2_Financials.dbo.adjusted_revenue_salesprod', adjusted_revenue_salesprod, "append"],
     ['IE2_Financials.dbo.adjusted_revenue_flash', adjusted_revenue_flash, "overwrite"],
-    ['IE2_Financials.dbo.adjusted_revenue_epa', adjusted_revenue_epa, "overwrite"]
+    ['IE2_Financials.dbo.adjusted_revenue_epa', adjusted_revenue_epa, "append"]
 ]
 
 # COMMAND ----------
