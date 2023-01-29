@@ -41,7 +41,7 @@ actuals_supplies_baseprod = read_redshift_to_df(configs) \
     .load()
 
 adjusted_revenue_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.adjusted_revenue_salesprod") \
+    .option("query", "SELECT * FROM fin_prod.adjusted_revenue_salesprod WHERE version = (SELECT max(version) FROM fin_prod.adjusted_revenue_salesprod)") \
     .load()
 
 calendar = read_redshift_to_df(configs) \
@@ -202,7 +202,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance
+  FROM adjusted_revenue_cleaned
   WHERE 1=1
 	AND sales_product_number <> 'EDW_TIE_TO_PLANET'
 	AND pl <> 'GD'
@@ -223,7 +223,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance ar
+  FROM adjusted_revenue_cleaned ar
   LEFT JOIN mdm.calendar cal ON cal.Date = ar.cal_date
   WHERE 1=1
 	AND Day_of_month = 1
@@ -247,7 +247,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance ar
+  FROM adjusted_revenue_cleaned ar
   WHERE 1=1
 	AND pl = 'GD'
   GROUP BY  cal_date
@@ -293,7 +293,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance
+  FROM adjusted_revenue_cleaned
   WHERE 1=1
 	AND sales_product_number <> 'EDW_TIE_TO_PLANET'
 	AND pl <> 'GD'
@@ -315,7 +315,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance ar
+  FROM adjusted_revenue_cleaned ar
   LEFT JOIN mdm.calendar cal ON cal.Date = ar.cal_date
   WHERE 1=1
 	AND Day_of_month = 1
@@ -340,7 +340,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance ar
+  FROM adjusted_revenue_cleaned ar
   WHERE 1=1
 	AND pl = 'GD'
     AND country_alpha2 = 'US'
@@ -387,7 +387,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance
+  FROM adjusted_revenue_cleaned
   WHERE 1=1
 	AND sales_product_number <> 'EDW_TIE_TO_PLANET'
 	AND pl <> 'GD'
@@ -409,7 +409,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance ar
+  FROM adjusted_revenue_cleaned ar
   LEFT JOIN mdm.calendar cal ON cal.Date = ar.cal_date
   WHERE 1=1
 	AND Day_of_month = 1
@@ -434,7 +434,7 @@ official_salesprod_targets AS
 	  ,SUM(inventory_change_impact) AS inventory_change_impact
 	  ,SUM(cc_inventory_impact) AS cc_inventory_impact
 	  ,SUM(adjusted_revenue) AS adjusted_revenue
-  FROM adjusted_revenue_finance ar
+  FROM adjusted_revenue_cleaned ar
   WHERE 1=1
 	AND pl = 'GD'
     AND country_alpha2 <> 'US'
@@ -2303,7 +2303,7 @@ SELECT cal_date,
 	    sum(adjusted_revenue) as adjusted_revenue
 	FROM fin_adj_rev_targets_without_all_edw_usa
 	WHERE 1=1
-	AND pl IN (select distinct pl from reported_mkt8_data)
+	AND pl IN (select distinct pl from reported_mkt8_data_usa)
 	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
@@ -2323,7 +2323,7 @@ SELECT cal_date,
 	    sum(adjusted_revenue) as adjusted_revenue
 	FROM fin_adj_rev_targets_without_all_edw_non_usa
 	WHERE 1=1
-	AND pl IN (select distinct pl from reported_mkt8_data)
+	AND pl IN (select distinct pl from reported_mkt8_data_non_usa)
 	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
@@ -2552,10 +2552,10 @@ SELECT
 		mix.pl,
 		mix.customer_engagement,
 		sum(net_rev_plug * ifnull(rept_rev_mix, 1)) as net_revenue,
-		ifnull(sum((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)), 0) as revenue_units,
-		ifnull(sum((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)), 0) as equivalent_units,
-		ifnull(sum(((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)) * implied_ink_yield), 0) as yield_x_units,
-		ifnull(sum(((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)) * implied_toner_yield), 0) as yield_x_units_black_only,
+		0 as revenue_units,
+		0 as equivalent_units,
+		0 as yield_x_units,
+		0 as yield_x_units_black_only,
 		aru,
 		equivalent_aru,
 		implied_ink_yield,
@@ -2599,10 +2599,10 @@ SELECT
 		mix.pl,
 		mix.customer_engagement,
 		sum(net_rev_plug * ifnull(rept_rev_mix, 1)) as net_revenue,
-		ifnull(sum((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)), 0) as revenue_units,
-		ifnull(sum((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)), 0) as equivalent_units,
-		ifnull(sum(((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)) * implied_ink_yield), 0) as yield_x_units,
-		ifnull(sum(((net_rev_plug * ifnull(rept_rev_mix, 1))/nullif(aru, 0)) * implied_toner_yield), 0) as yield_x_units_black_only,
+		0 as revenue_units,
+		0 as equivalent_units,
+		0 as yield_x_units,
+		0 as yield_x_units_black_only,
 		aru,
 		equivalent_aru,
 		implied_ink_yield,
