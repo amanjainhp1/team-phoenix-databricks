@@ -1887,6 +1887,26 @@ reported_mkt8_data_non_usa.createOrReplaceTempView("reported_mkt8_data_non_usa")
 
 # COMMAND ----------
 
+target_mkt8_data = spark.sql("""
+SELECT cal_date,
+        market8,
+        pl,
+        customer_engagement,
+        sum(net_revenue) as net_revenue,
+        sum(cc_net_revenue) as cc_net_revenue,
+        sum(inventory_change_impact) as inventory_change_impact,
+        sum(cc_inventory_impact) as cc_inventory_impact,
+        sum(adjusted_revenue) as adjusted_revenue
+    FROM fin_adj_rev_targets_official
+    WHERE 1=1
+    AND pl IN (select distinct pl from reported_mkt8_data_usa)
+    GROUP BY cal_date, market8, pl, customer_engagement
+""")
+ 
+target_mkt8_data.createOrReplaceTempView("target_mkt8_data")
+
+# COMMAND ----------
+
 target_mkt8_data_usa = spark.sql("""
 SELECT cal_date,
 		market8,
@@ -2327,43 +2347,6 @@ fully_baked_with_revenue_and_cc_rev_gaps_spread.createOrReplaceTempView("fully_b
 
 # COMMAND ----------
 
-query = spark.sql("""
-SELECT cal_date
-      , Fiscal_year_qtr
-	  , Fiscal_yr
-      , region_5
-      , pl      
-	  ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-      ,sum(cc_net_revenue) as cc_net_revenue
-      ,sum(cc_inventory_impact) as cc_inventory_impact
-      ,sum(adjusted_revenue) as adjusted_revenue
-  FROM fully_baked_with_revenue_and_cc_rev_gaps_spread are
-  LEFT JOIN mdm.calendar cal
-	ON cal.Date = cal_date
-where 1=1
-and day_of_month = 1
-and Fiscal_Yr > '2018'
-and pl in (select pl from mdm.product_line_xref where pl_category = 'SUP' and technology in ('LASER', 'PWA', 'INK'))
-group by cal_date
-      , Fiscal_year_qtr
-	  , Fiscal_yr
-      , region_5
-      , pl
-""")
-
-query.createOrReplaceTempView("query")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select * from query
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Twelve
@@ -2375,7 +2358,7 @@ original_fully_baked = spark.sql("""
 SELECT 
        cal_date
       ,country_alpha2
-      ,market8 as market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2387,17 +2370,12 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
 	FROM fully_baked_with_revenue_and_cc_rev_gaps_spread
     WHERE 1=1
 		AND process_detail = 'SYSTEM_ORIGINATED_DATA' -- use original data (before rev and cc rev spread process)
@@ -2409,11 +2387,6 @@ SELECT
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
 	  ,process_detail
 """)
 
@@ -2424,7 +2397,7 @@ original_fully_baked.createOrReplaceTempView("original_fully_baked")
 ci_original_data_positive = spark.sql("""
 SELECT
 		cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		SUM(inventory_change_impact) as inventory_change_impact,
@@ -2432,7 +2405,7 @@ SELECT
 	FROM original_fully_baked
 	WHERE 1=1
 	AND cc_inventory_impact > 0
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
 ci_original_data_positive.createOrReplaceTempView("ci_original_data_positive")
@@ -2442,7 +2415,7 @@ ci_original_data_positive.createOrReplaceTempView("ci_original_data_positive")
 ci_original_data_negative = spark.sql("""
 SELECT
 		cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		SUM(inventory_change_impact) as inventory_change_impact,
@@ -2450,7 +2423,7 @@ SELECT
 	FROM original_fully_baked
 	WHERE 1=1
 	AND cc_inventory_impact < 0
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
 ci_original_data_negative.createOrReplaceTempView("ci_original_data_negative")
@@ -2461,27 +2434,26 @@ positive_ci_change = spark.sql("""
 SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,implied_ci_ndp
 	  ,CASE
-		WHEN sum(inventory_change_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-		ELSE inventory_change_impact / sum(inventory_change_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+		WHEN sum(inventory_change_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+		ELSE inventory_change_impact / sum(inventory_change_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 	  END AS ci_chg_mix
 	  ,CASE
-		WHEN sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-		ELSE cc_inventory_impact / sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+		WHEN sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+		ELSE cc_inventory_impact / sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 	  END AS cc_ci_chg_mix
 	FROM original_fully_baked
     WHERE 1=1
 		AND cc_inventory_impact > 0
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2489,7 +2461,6 @@ SELECT
       ,customer_engagement
 	  ,inventory_change_impact
 	  ,cc_inventory_impact
-	  ,implied_ci_ndp
 """)
 
 positive_ci_change.createOrReplaceTempView("positive_ci_change")
@@ -2500,35 +2471,33 @@ negative_ci_change = spark.sql("""
 SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,implied_ci_ndp
 	  ,CASE
-		WHEN sum(inventory_change_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-		ELSE inventory_change_impact / sum(inventory_change_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+		WHEN sum(inventory_change_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+		ELSE inventory_change_impact / sum(inventory_change_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 	  END AS ci_chg_mix
 	  ,CASE
-		WHEN sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement) = 0 THEN NULL
-		ELSE cc_inventory_impact / sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market10, pl, customer_engagement)
+		WHEN sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement) = 0 THEN NULL
+		ELSE cc_inventory_impact / sum(cc_inventory_impact) OVER (PARTITION BY cal_date, market8, pl, customer_engagement)
 	  END AS cc_ci_chg_mix
 	FROM original_fully_baked
     WHERE 1=1
 		AND cc_inventory_impact < 0
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
 	  ,inventory_change_impact
-	  ,cc_inventory_impact	  
-	  ,implied_ci_ndp
+	  ,cc_inventory_impact	
 """)
 
 negative_ci_change.createOrReplaceTempView("negative_ci_change")
@@ -2538,15 +2507,15 @@ negative_ci_change.createOrReplaceTempView("negative_ci_change")
 ci_positive_totals = spark.sql("""
 SELECT
 		cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		SUM(inventory_change_impact) as inventory_change_impact,
 		sum(cc_inventory_impact) as cc_inventory_impact
-	FROM target_mkt10_data
+	FROM target_mkt8_data
 	WHERE 1=1
 	AND cc_inventory_impact > 0
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
 ci_positive_totals.createOrReplaceTempView("ci_positive_totals")
@@ -2556,15 +2525,15 @@ ci_positive_totals.createOrReplaceTempView("ci_positive_totals")
 ci_negative_totals = spark.sql("""
 SELECT
 		cal_date,
-		market10,
+		market8,
 		pl,
 		customer_engagement,
 		SUM(inventory_change_impact) as inventory_change_impact,
 		sum(cc_inventory_impact) as cc_inventory_impact
-	FROM target_mkt10_data
+	FROM target_mkt8_data
 	WHERE 1=1
 	AND cc_inventory_impact < 0
-	GROUP BY cal_date, market10, pl, customer_engagement
+	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
 ci_negative_totals.createOrReplaceTempView("ci_negative_totals")
@@ -2574,7 +2543,7 @@ ci_negative_totals.createOrReplaceTempView("ci_negative_totals")
 ci_positive_gap = spark.sql("""
 SELECT
 		gold.cal_date,
-		gold.market10,
+		gold.market8,
 		gold.pl,
 		gold.customer_engagement,
 		ifnull(sum(total.inventory_change_impact), 0) as inventory_change_target,
@@ -2586,12 +2555,12 @@ SELECT
 	FROM ci_original_data_positive gold
 	LEFT JOIN  ci_positive_totals total ON
 		total.cal_date = gold.cal_date AND
-		total.market10 = gold.market10 AND
+		total.market8 = gold.market8 AND
 		total.pl = gold.pl AND
 		total.customer_engagement = gold.customer_engagement
 	WHERE 1=1
 	GROUP BY gold.cal_date,
-		gold.market10,
+		gold.market8,
 		gold.pl,
 		gold.customer_engagement
 """)
@@ -2603,7 +2572,7 @@ ci_positive_gap.createOrReplaceTempView("ci_positive_gap")
 ci_negative_gap = spark.sql("""
 SELECT
 		gold.cal_date,
-		gold.market10,
+		gold.market8,
 		gold.pl,
 		gold.customer_engagement,
 		ifnull(sum(total.inventory_change_impact), 0) as inventory_change_target,
@@ -2615,12 +2584,12 @@ SELECT
 	FROM ci_original_data_negative gold
 	LEFT JOIN ci_negative_totals total ON
 		total.cal_date = gold.cal_date AND
-		total.market10 = gold.market10 AND
+		total.market8 = gold.market8 AND
 		total.pl = gold.pl AND
 		total.customer_engagement = gold.customer_engagement
 	WHERE 1=1
 	GROUP BY gold.cal_date,
-		gold.market10,
+		gold.market8,
 		gold.pl,
 		gold.customer_engagement
 """)
@@ -2633,7 +2602,7 @@ ci_positive_plug = spark.sql("""
 SELECT 
 		mix.cal_date,
 		country_alpha2,
-		mix.market10,
+		mix.market8,
 		region_5,
 		platform_subset,
 		base_product_number,
@@ -2645,33 +2614,27 @@ SELECT
 		0 as equivalent_units,
 		0 as yield_x_units,
 		0 as yield_x_units_black_only,
-		0 as aru,
-		0 as equivalent_aru,
-		0 as implied_ink_yield,
-		0 as implied_toner_yield,
 		0 as cc_net_revenue,
 		0 as ci_usd,
 		0 as ci_qty,
 		sum(inventory_change_plug * ifnull(ci_chg_mix, 0)) as inventory_change_impact,
 		sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as cc_inventory_impact,
-		0 as adjusted_revenue,
-		implied_ci_ndp
+		0 as adjusted_revenue
   FROM ci_positive_gap mix 
   JOIN positive_ci_change plugs ON
 	mix.cal_date = plugs.cal_date AND
-	mix.market10 = plugs.market10 AND
+	mix.market8 = plugs.market8 AND
 	mix.pl = plugs.pl AND
 	mix.customer_engagement = plugs.customer_engagement
   WHERE 1=1
   GROUP BY	mix.cal_date,
 		country_alpha2,
-		mix.market10,
+		mix.market8,
 		region_5,
 		platform_subset,
 		base_product_number,
 		mix.pl,
-		mix.customer_engagement,
-		implied_ci_ndp
+		mix.customer_engagement
 """)
 
 ci_positive_plug.createOrReplaceTempView("ci_positive_plug")
@@ -2682,7 +2645,7 @@ ci_negative_plug = spark.sql("""
 SELECT 
 		mix.cal_date,
 		country_alpha2,
-		mix.market10,
+		mix.market8,
 		region_5,
 		platform_subset,
 		base_product_number,
@@ -2694,33 +2657,27 @@ SELECT
 		0 as equivalent_units,
 		0 as yield_x_units,
 		0 as yield_x_units_black_only,
-		0 as aru,
-		0 as equivalent_aru,
-		0 as implied_ink_yield,
-		0 as implied_toner_yield,
 		0 as cc_net_revenue,
 		0 as ci_usd,
 		0 as ci_qty,
 		sum(inventory_change_plug * ifnull(ci_chg_mix, 0)) as inventory_change_impact,
 		sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as cc_inventory_impact,
-		0 as adjusted_revenue,
-		implied_ci_ndp
+		0 as adjusted_revenue
   FROM ci_negative_gap mix 
   JOIN negative_ci_change plugs ON
 	mix.cal_date = plugs.cal_date AND
-	mix.market10 = plugs.market10 AND
+	mix.market8 = plugs.market8 AND
 	mix.pl = plugs.pl AND
 	mix.customer_engagement = plugs.customer_engagement
   WHERE 1=1
   GROUP BY	mix.cal_date,
 		country_alpha2,
-		mix.market10,
+		mix.market8,
 		region_5,
 		platform_subset,
 		base_product_number,
 		mix.pl,
-		mix.customer_engagement,
-		implied_ci_ndp
+		mix.customer_engagement
 """)
 
 ci_negative_plug.createOrReplaceTempView("ci_negative_plug")
@@ -2733,7 +2690,7 @@ adjusted_revenue_mash1 = spark.sql("""
 	SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2745,32 +2702,22 @@ adjusted_revenue_mash1 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
 	FROM fully_baked_with_revenue_and_cc_rev_gaps_spread
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
 	  ,process_detail
 
 	  UNION ALL
@@ -2778,7 +2725,7 @@ adjusted_revenue_mash1 = spark.sql("""
 	SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2790,32 +2737,22 @@ adjusted_revenue_mash1 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
 	FROM ci_positive_plug
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
 	  ,process_detail
 
 	UNION ALL
@@ -2823,7 +2760,7 @@ adjusted_revenue_mash1 = spark.sql("""
 	SELECT 
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2835,41 +2772,29 @@ adjusted_revenue_mash1 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
 	FROM ci_negative_plug
     WHERE 1=1	
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
 	  ,process_detail
  )
 
-
- 
 SELECT 
      cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2881,32 +2806,22 @@ SELECT
       ,ifnull(sum(equivalent_units), 0) as equivalent_units
       ,ifnull(sum(yield_x_units), 0) as yield_x_units
       ,ifnull(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
 	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
 	  ,ifnull(sum(ci_usd), 0) as ci_usd
 	  ,ifnull(sum(ci_qty), 0) as ci_qty
 	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
 	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
 	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
-	  ,ifnull(implied_ci_ndp, 0) as implied_ci_ndp
     FROM adjusted_rept_and_cc_rev_join_adjusted_ci_data
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp 
 	  ,process_detail
 """)
 
@@ -2914,18 +2829,11 @@ adjusted_revenue_mash1.createOrReplaceTempView("adjusted_revenue_mash1")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Step Thirteen
-# MAGIC Spread MPS JV across OPS (Michael Doss requirement; Audrey doesn't want anymore)
-
-# COMMAND ----------
-
 adjusted_revenue_mash2 = spark.sql("""
 SELECT 
-       cal_date
+     cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2933,39 +2841,29 @@ SELECT
       ,customer_engagement
 	  ,process_detail
       ,sum(net_revenue) as net_revenue
-      ,ifnull(sum(net_revenue) / nullif(aru, 0), 0) as revenue_units
-      ,ifnull(sum(net_revenue) / nullif(equivalent_aru, 0), 0) as equivalent_units
-      ,ifnull(sum(net_revenue) / nullif(aru, 0), 0) * ifnull(sum(implied_ink_yield), 0) as yield_x_units
-      ,ifnull(sum(net_revenue) / nullif(aru, 0), 0) * ifnull(sum(implied_toner_yield), 0) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
+      ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,ifnull(sum(inventory_change_impact) / nullif(implied_ci_ndp, 0), 0) as ci_unit_change
-	  ,ifnull(sum(inventory_change_impact) / nullif(implied_ci_ndp, 0), 0) * ifnull(sum(implied_ink_yield), 0) as ci_yield_x_units
-      ,ifnull(sum(inventory_change_impact) / nullif(implied_ci_ndp, 0), 0) * ifnull(sum(implied_toner_yield), 0) as ci_yield_x_units_black_only
+	  ,sum(adjusted_revenue) as adjusted_revenue
+      ,COALESCE(sum(ci_usd)/NULLIF(sum(ci_qty), 0), 0) as implied_ndp
+      ,COALESCE(sum(yield_x_units)/NULLIF(sum(revenue_units), 0), 0) as implied_yield
+      ,COALESCE(sum(yield_x_units_black_only)/NULLIF(sum(revenue_units), 0), 0) as implied_yield_black_only
     FROM adjusted_revenue_mash1
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp 
 	  ,process_detail
 """)
 
@@ -2973,11 +2871,11 @@ adjusted_revenue_mash2.createOrReplaceTempView("adjusted_revenue_mash2")
 
 # COMMAND ----------
 
-toner_ops_data = spark.sql("""
+adjusted_revenue_mash3 = spark.sql("""
 SELECT 
-      cal_date
+     cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -2989,98 +2887,31 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,sum(ci_unit_change) as ci_unit_change
-	  ,sum(ci_yield_x_units) as ci_yield_x_units
-      ,sum(ci_yield_x_units_black_only) as ci_yield_x_units_black_only
-	FROM adjusted_revenue_mash2
+      ,sum(implied_ndp) as implied_ndp
+      ,sum(implied_yield) as implied_yield
+      ,sum(implied_yield_black_only) as implied_yield_black_only
+      ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0) * sum(implied_yield), 0) as ci_yield_x_units
+      ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0) * sum(implied_yield_black_only), 0) as ci_yield_x_units_black_only
+    FROM adjusted_revenue_mash2
     WHERE 1=1
-		AND pl IN (select pl from mdm.product_line_xref 
-					where pl_category = 'SUP' 
-					and technology = 'LASER' 
-					and business_division = 'OPS'
-					and pl NOT IN ('GY', 'LZ')
-					)
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
 	  ,process_detail
 """)
 
-toner_ops_data.createOrReplaceTempView("toner_ops_data")
-
-# COMMAND ----------
-
-not_toner_ops_data = spark.sql("""
-SELECT 
-      cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd
-	  ,sum(ci_qty) as ci_qty
-	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,sum(ci_unit_change) as ci_unit_change
-	  ,sum(ci_yield_x_units) as ci_yield_x_units
-      ,sum(ci_yield_x_units_black_only) as ci_yield_x_units_black_only
-	FROM adjusted_revenue_mash2
-    WHERE 1=1
-		AND pl NOT IN (select distinct pl from toner_ops_data)
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
-	  ,process_detail
-""")
-
-not_toner_ops_data.createOrReplaceTempView("not_toner_ops_data")
+adjusted_revenue_mash3.createOrReplaceTempView("adjusted_revenue_mash3")
 
 # COMMAND ----------
 
@@ -3091,7 +2922,7 @@ SELECT
       ,sum(net_revenue) as net_revenue
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	FROM toner_ops_data
+	FROM adjusted_revenue_mash3
     WHERE 1=1
 		AND base_product_number = 'EST_MPS_REVENUE_JV'
     GROUP BY  cal_date
@@ -3102,350 +2933,50 @@ mps_jv.createOrReplaceTempView("mps_jv")
 
 # COMMAND ----------
 
-toner_ops_without_mps = spark.sql("""
-SELECT 
-      cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd
-	  ,sum(ci_qty) as ci_qty
-	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,sum(ci_unit_change) as ci_unit_change
-	  ,sum(ci_yield_x_units) as ci_yield_x_units
-      ,sum(ci_yield_x_units_black_only) as ci_yield_x_units_black_only
-	FROM toner_ops_data
-    WHERE 1=1
-		AND base_product_number <> 'EST_MPS_REVENUE_JV'
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
-	  ,process_detail
-""")
-
-toner_ops_without_mps.createOrReplaceTempView("toner_ops_without_mps")
-
-# COMMAND ----------
-
-toner_ops_mix = spark.sql("""
-SELECT 
-      cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,case
-		when sum(net_revenue) over (partition by cal_date, country_alpha2) = 0 then null
-		else net_revenue / sum(net_revenue) over (partition by cal_date, country_alpha2)
-	  end as net_rev_mix
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
-	FROM toner_ops_without_mps
-    WHERE 1=1
-		AND process_detail NOT LIKE '%ALLOCATION%'
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
-	  ,net_revenue
-""")
-
-toner_ops_mix.createOrReplaceTempView("toner_ops_mix")
-
-# COMMAND ----------
-
-spread_mps = spark.sql("""
-SELECT 
-      mix.cal_date
-      ,mix.country_alpha2
-      ,mix.market10
-	  ,mix.region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,'MPS_ALLOCATION' as process_detail
-      ,sum(net_revenue * ifnull(net_rev_mix, 1)) as net_revenue
-      ,0 as revenue_units
-      ,0 as equivalent_units
-      ,0 as yield_x_units
-      ,0 as yield_x_units_black_only
-	  ,mix.aru 
-	  ,mix.equivalent_aru
-	  ,mix.implied_ink_yield
-	  ,mix.implied_toner_yield
-	  ,sum(cc_net_revenue * ifnull(net_rev_mix, 1)) as cc_net_revenue
-	  ,0 as ci_usd
-	  ,0 as ci_qty
-	  ,0 as inventory_change_impact
-	  ,0 as cc_inventory_impact
-	  ,sum(adjusted_revenue * ifnull(net_rev_mix, 1)) as adjusted_revenue
-	  ,mix.implied_ci_ndp
-	  ,0 as ci_unit_change
-	  ,0 as ci_yield_x_units
-      ,0 as ci_yield_x_units_black_only
-	FROM mps_jv jv
-	JOIN toner_ops_mix mix 
-        ON mix.cal_date = jv.cal_date 
-        AND mix.country_alpha2 = jv.country_alpha2
-    WHERE 1=1
-    GROUP BY mix.cal_date
-      ,mix.country_alpha2
-      ,mix.market10
-	  ,mix.region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,mix.aru 
-	  ,mix.equivalent_aru
-	  ,mix.implied_ink_yield
-	  ,mix.implied_toner_yield
-	  ,mix.implied_ci_ndp
-""")
-
-spread_mps.createOrReplaceTempView("spread_mps")
-
-# COMMAND ----------
-
-adjusted_revenue_mash3 = spark.sql("""
-WITH rejoin_mps_spread_with_ops_and_non_ops AS
-(
-	SELECT 
-      cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd
-	  ,sum(ci_qty) as ci_qty
-	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,sum(ci_unit_change) as ci_unit_change
-	  ,sum(ci_yield_x_units) as ci_yield_x_units
-      ,sum(ci_yield_x_units_black_only) as ci_yield_x_units_black_only
-	FROM  not_toner_ops_data
-    WHERE 1=1
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
-	  ,process_detail
-
-	UNION ALL
-
-	SELECT 
-      cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd
-	  ,sum(ci_qty) as ci_qty
-	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,sum(ci_unit_change) as ci_unit_change
-	  ,sum(ci_yield_x_units) as ci_yield_x_units
-      ,sum(ci_yield_x_units_black_only) as ci_yield_x_units_black_only
-	FROM toner_ops_without_mps
-    WHERE 1=1
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp
-	  ,process_detail
-
-	UNION ALL
-
-	SELECT 
-       cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
-      ,sum(net_revenue) as net_revenue
-      ,ifnull(sum(net_revenue) / nullif(aru, 0), 0) as revenue_units
-      ,ifnull(sum(net_revenue) / nullif(equivalent_aru, 0), 0) as equivalent_units
-      ,ifnull(sum(net_revenue) / nullif(aru, 0), 0) * ifnull(sum(implied_ink_yield), 0) as yield_x_units
-      ,ifnull(sum(net_revenue) / nullif(aru, 0), 0) * ifnull(sum(implied_toner_yield), 0) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd
-	  ,sum(ci_qty) as ci_qty
-	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
-	  ,implied_ci_ndp
-	  ,ifnull(sum(inventory_change_impact) / nullif(implied_ci_ndp, 0), 0) as ci_unit_change
-	  ,ifnull(sum(inventory_change_impact) / nullif(implied_ci_ndp, 0), 0) * ifnull(sum(implied_ink_yield), 0) as ci_yield_x_units
-      ,ifnull(sum(inventory_change_impact) / nullif(implied_ci_ndp, 0), 0) * ifnull(sum(implied_toner_yield), 0) as ci_yield_x_units_black_only
-    FROM spread_mps
-    WHERE 1=1
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market10
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp 
-	  ,process_detail
-)
-
- 
+adjusted_revenue_mash4 = spark.sql("""
 SELECT 
      cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
 	  ,process_detail
-      ,ifnull(sum(net_revenue), 0) as net_revenue
-      ,ifnull(sum(revenue_units), 0) as revenue_units
-      ,ifnull(sum(equivalent_units), 0) as equivalent_units
-      ,ifnull(sum(yield_x_units), 0) as yield_x_units
-      ,ifnull(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
-	  ,ifnull(sum(ci_usd), 0) as ci_usd
-	  ,ifnull(sum(ci_qty), 0) as ci_qty
-	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
-	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
-	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
-	  ,implied_ci_ndp as implied_ci_ndp
-	  ,ifnull(sum(ci_unit_change), 0) as ci_unit_change
-	  ,ifnull(sum(ci_yield_x_units) ,0) as ci_yield_x_units
-	  ,ifnull(sum(ci_yield_x_units_black_only), 0) as ci_yield_x_units_black_only
-	FROM rejoin_mps_spread_with_ops_and_non_ops
+      ,sum(net_revenue) as net_revenue
+      ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,COALESCE(sum(net_revenue)/NULLIF(sum(revenue_units), 0), 0) as aru
+      ,COALESCE(sum(net_revenue)/NULLIF(sum(equivalent_units), 0), 0) as equivalent_aru
+      ,sum(implied_yield) as implied_ink_yield
+      ,sum(implied_yield_black_only) as implied_toner_yield
+	  ,sum(cc_net_revenue) as cc_net_revenue
+	  ,sum(ci_usd) as ci_usd
+	  ,sum(ci_qty) as ci_qty
+	  ,sum(inventory_change_impact) as inventory_change_impact
+	  ,sum(cc_inventory_impact) as cc_inventory_impact
+	  ,sum(adjusted_revenue) as adjusted_revenue
+      ,sum(implied_ndp) as implied_ci_ndp
+      ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0), 0) as ci_unit_change
+      ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0) * sum(implied_yield), 0) as ci_yield_x_units
+      ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0) * sum(implied_yield_black_only), 0) as ci_yield_x_units_black_only
+    FROM adjusted_revenue_mash3
     WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,aru 
-	  ,equivalent_aru
-	  ,implied_ink_yield
-	  ,implied_toner_yield
-	  ,implied_ci_ndp 
 	  ,process_detail
 """)
 
-adjusted_revenue_mash3.createOrReplaceTempView("adjusted_revenue_mash3")
+adjusted_revenue_mash4.createOrReplaceTempView("adjusted_revenue_mash4")
 
 # COMMAND ----------
 
@@ -3459,7 +2990,7 @@ adj_rev_staging = spark.sql("""
 SELECT 'ACTUALS - ADJUSTED_REVENUE_EPA' as record
       ,cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -3495,11 +3026,11 @@ SELECT 'ACTUALS - ADJUSTED_REVENUE_EPA' as record
 		load_date = (select max(load_date) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE_EPA')) as load_date
       ,(select version from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE_EPA' and
 		version = (select max(version) from prod.version where record = 'ACTUALS - ADJUSTED_REVENUE_EPA')) as version
-	FROM adjusted_revenue_mash3
+	FROM adjusted_revenue_mash4
     WHERE 1=1	
     GROUP BY  cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
@@ -3527,7 +3058,7 @@ adj_rev_epa = spark.sql("""
 SELECT record
       ,cal_date
       ,country_alpha2
-      ,market10 as GEOGRAPHY
+      ,market8 as GEOGRAPHY
 	  ,'MARKET8' as geography_grain
 	  ,region_5
       ,platform_subset
@@ -3565,7 +3096,7 @@ SELECT record
     GROUP BY  record
 	  ,cal_date
       ,country_alpha2
-      ,market10
+      ,market8
 	  ,region_5
       ,platform_subset
       ,base_product_number
