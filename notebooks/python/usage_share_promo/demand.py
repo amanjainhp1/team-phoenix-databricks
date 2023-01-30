@@ -122,7 +122,7 @@ GROUP BY us.cal_date
       ,u.customer_engagement
       ,MAX(u.source_s) as source_s
       ,MAX(u.source_u) as source_u
-      ,SUM(u.usage_k+lit(3)*usage_c) AS usage
+      ,SUM(u.usage_k+3*usage_c) AS usage
       ,SUM(u.page_share) AS page_share
       ,SUM(u.usage_c) AS usage_c
       ,SUM(u.usage_k) AS usage_k
