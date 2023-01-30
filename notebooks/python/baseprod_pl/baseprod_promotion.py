@@ -92,6 +92,9 @@ version = read_redshift_to_df(configs) \
 trade_forecast = read_redshift_to_df(configs) \
     .option("dbtable", "prod.trade_forecast") \
     .load()
+product_line_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.product_line_xref") \
+    .load()
 
 # COMMAND ----------
 
@@ -102,6 +105,7 @@ tables = [
   ['mdm.supplies_xref',supplies_xref],
   ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
   ['mdm.calendar' ,calendar],
+  ['mdm.product_line_xref' ,product_line_xref],
   ['stage.supplies_stf_landing' ,supplies_stf_landing],
   ['fin_prod.forecast_fixed_cost_input' ,forecast_fixed_cost_input],
   ['fin_prod.actuals_supplies_baseprod' ,actuals_supplies_baseprod],
@@ -216,7 +220,7 @@ forecast_supplies_baseprod.createOrReplaceTempView("forecast_supplies_baseprod")
 
 # COMMAND ----------
 
-forecast_supplies_baseprod_mkt10 = f"""
+forecast_supplies_baseprod_mkt10 = """
 
 
 with __dbt__CTE__bpo_01_filter_vars as (
@@ -305,7 +309,7 @@ select
 	,sum(revenue_currency_hedge) as revenue_currency_hedge
 from currency_hedge currency_hedge
 left join product_line_xref plx 
-	on currency_hedge.profit_center_code = plx.profit_center
+	on currency_hedge.profit_center = plx.profit_center_code
 left join
 (
 select distinct country_ref.market10
@@ -316,7 +320,7 @@ where currency_iso_code is not null
 ) as currency_map ON currency = currency_iso_code
 where currency_hedge.version = '{}'
 group by
-	currency_hedge.product_category
+	plx.pl
 	,currency_hedge.month
 	,market10
 ),  __dbt__CTE__bpo_14_currency_hedge_per_trade as (
@@ -332,7 +336,7 @@ select
 		__dbt__CTE__bpo_12_revenue_sum_trade as revenue
 		inner join
 		__dbt__CTE__bpo_13_currency_sum_trade as currency
-			on currency.pl_level_1 = revenue.pl_level_1
+			on currency.base_product_line_code = revenue.base_product_line_code
 			and currency.market10 = revenue.market10
 			and currency.cal_date = revenue.cal_date
         where 1=1

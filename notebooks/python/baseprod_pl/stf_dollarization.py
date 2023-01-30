@@ -122,10 +122,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-    df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .save(save_path)
+#     df.write \
+#       .format(write_format) \
+#       .mode("overwrite") \
+#       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -242,7 +242,7 @@ select
 
 forecast_supplies_baseprod_region = spark.sql(forecast_supplies_baseprod_region)
 forecast_supplies_baseprod_region = forecast_supplies_baseprod_region_schema.union(forecast_supplies_baseprod_region)
-write_df_to_redshift(configs, forecast_supplies_baseprod_region, "fin_prod.forecast_supplies_baseprod_region", "append")
+#write_df_to_redshift(configs, forecast_supplies_baseprod_region, "fin_prod.forecast_supplies_baseprod_region", "append")
 forecast_supplies_baseprod_region.createOrReplaceTempView("forecast_supplies_baseprod_region")
 
 # COMMAND ----------
@@ -263,8 +263,8 @@ select
 	,currency_hedge.month as cal_date
 	,SUM(revenue_currency_hedge) AS revenue_currency_hedge
 from currency_hedge currency_hedge
-left join ie2_prod.dbo.product_line_xref plx 
-	on currency_hedge.profit_center_code = plx.profit_center
+left join product_line_xref plx 
+	on currency_hedge.profit_center = plx.profit_center_code
 left join
 (
 select distinct iso.region_5
@@ -294,7 +294,7 @@ select
 				on stf.geography = region_fin_w.region_5
 				and stf.cal_date = region_fin_w.cal_date
 				and stf.base_product_number = region_fin_w.base_product_number
-            where 1=1
+        where 1=1
 		group by
 			region_fin_w.base_product_line_code
 			, region_fin_w.region_5
@@ -306,13 +306,12 @@ select
 			currency.base_product_line_code
 		    , currency.region_5
 			, currency.cal_date
-			, product_line_scenarios_xref.pl as base_product_line_code
 			, COALESCE(currency.revenue_currency_hedge/NULLIF(revenue.revenue_sum, 0), 0) as currency_per
 		from
 		__dbt__CTE__bpo_06_currency_sum_stf as currency
 		INNER JOIN
 		__dbt__CTE__bpo_05_revenue_sum_stf as revenue
-			on currency.pl_level_1 = revenue.pl_level_1
+			on currency.base_product_line_code = revenue.base_product_line_code
 			and currency.region_5 = revenue.region_5
 			and currency.cal_date = revenue.cal_date
         where 1=1
@@ -425,7 +424,7 @@ select distinct
 
 forecast_supplies_baseprod_region_stf = spark.sql(forecast_supplies_baseprod_region_stf)
 forecast_supplies_baseprod_region_stf = forecast_supplies_baseprod_region_stf_schema.union(forecast_supplies_baseprod_region_stf)
-write_df_to_redshift(configs, forecast_supplies_baseprod_region_stf, "fin_prod.forecast_supplies_baseprod_region_stf", "append")
+#write_df_to_redshift(configs, forecast_supplies_baseprod_region_stf, "fin_prod.forecast_supplies_baseprod_region_stf", "append")
 forecast_supplies_baseprod_region_stf.createOrReplaceTempView("forecast_supplies_baseprod_region_stf")
 
 # COMMAND ----------
