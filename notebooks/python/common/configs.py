@@ -4,11 +4,37 @@ import json
 
 # COMMAND ----------
 
+# Create an STS client object that represents a live connection to the STS service
+def assume_sts_role(role_arn: str) -> dict:
+    sts_client = boto3.client('sts')
+
+    # Call the assume_role method of the STSConnection object and pass the role
+    # ARN and a role session name.
+    assumed_role_object=sts_client.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName="AssumeRoleSession1"
+    )
+
+    # From the response that contains the assumed role, get the temporary 
+    # credentials that can be used to make subsequent API calls
+    credentials=assumed_role_object['Credentials']
+
+    return credentials
+
+# COMMAND ----------
+
 # Retrieve username and password from AWS secrets manager
 
-def secrets_get(secret_name, region_name):
+def secrets_get(secret_name: str, region_name: str, role_arn: str):
+    
+    credentials = assume_sts_role(role_arn)
+    
     endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = boto3.client(service_name='secretsmanager', region_name=region_name)
+    client = boto3.client(service_name='secretsmanager',
+                          region_name=region_name,
+                          aws_access_key_id=credentials['AccessKeyId'],
+                          aws_secret_access_key=credentials['SecretAccessKey'],
+                          aws_session_token=credentials['SessionToken'])
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     return eval(get_secret_value_response['SecretString'])
 
@@ -96,6 +122,11 @@ constants = {
             "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
             "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
             "reporting": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
+        },
+        "STS_IAM_ROLE": {
+            "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
+            "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
+            "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
         }
     },
     "analyst": {
@@ -134,6 +165,11 @@ constants = {
             "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
             "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
             "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
+        },
+        "STS_IAM_ROLE": {
+            "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
+            "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
+            "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
         }
     }
 }
@@ -143,7 +179,7 @@ constants = {
 configs = {}
 
 # redshift
-redshift_secret = secrets_get(constants[role]["REDSHIFT_SECRET_NAME"][stack], "us-west-2")
+redshift_secret = secrets_get(constants[role]["REDSHIFT_SECRET_NAME"][stack], "us-west-2", constants[role]["STS_IAM_ROLE"][stack])
 
 configs["redshift_username"] = redshift_secret["username"]
 configs["redshift_password"] = redshift_secret["password"]
@@ -156,7 +192,7 @@ configs["aws_iam_role"] = constants[role]["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
 if sql_server_access:
-    sqlserver_secret = secrets_get(constants[role]["SFAI_SECRET_NAME"][stack], "us-west-2")
+    sqlserver_secret = secrets_get(constants[role]["SFAI_SECRET_NAME"][stack], "us-west-2",  constants[role]["STS_IAM_ROLE"][stack])
     
     configs["sfai_username"] = sqlserver_secret["username"]
     configs["sfai_password"] = sqlserver_secret["password"]
