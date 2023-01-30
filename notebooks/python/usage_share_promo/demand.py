@@ -169,7 +169,7 @@ GROUP BY
       ,SUM(3*u.usage_c*coalesce(ib,0)) AS color_pages
       ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
       ,SUM(u.page_share*usage_k*coalesce(ib,0)) AS hp_k_pages
-      ,SUM(u.page_share3*usage_c*coalesce(ib,0)) AS hp_c_pages
+      ,SUM(u.page_share*3*usage_c*coalesce(ib,0)) AS hp_c_pages
       ,SUM(coalesce(ib,0)) as ib
     FROM step2 u
     GROUP BY 
