@@ -54,8 +54,8 @@ WITH
                            , iso_country_code_xref.region_5
                            , actuals_supplies_baseprod.country_alpha2
                            , CASE 
-                                 WHEN list_price_EU_CountryList.currency = 'Euro' THEN 'EUR'
-                                 WHEN list_price_EU_CountryList.currency = 'Dollar' THEN 'USD'
+                                 WHEN list_price_EU_Country_List.currency = 'EURO' THEN 'EUR'
+                                 WHEN list_price_EU_Country_List.currency = 'DOLLAR' THEN 'USD'
                                  WHEN actuals_supplies_baseprod.country_alpha2 = 'CL' THEN 'USD'
                                  WHEN actuals_supplies_baseprod.country_alpha2 = 'PR' THEN 'USD'
                                  ELSE country_currency_map_landing.currency_iso_code 
@@ -72,8 +72,8 @@ WITH
                            mdm.iso_country_code_xref iso_country_code_xref
                                  ON actuals_supplies_baseprod.country_alpha2 = iso_country_code_xref.country_alpha2
                            LEFT JOIN
-                           mdm.list_price_EU_CountryList list_price_EU_CountryList
-                                 ON list_price_EU_CountryList.country_alpha2 = actuals_supplies_baseprod.country_alpha2
+                           mdm.list_price_EU_Country_List list_price_EU_Country_List
+                                 ON list_price_EU_Country_List.country_alpha2 = actuals_supplies_baseprod.country_alpha2
                            LEFT JOIN 
                            mdm.country_currency_map country_currency_map_landing
                                  ON country_currency_map_landing.country_alpha2 = actuals_supplies_baseprod.country_alpha2
@@ -98,7 +98,7 @@ WITH
        , actuals_acct AS 
              (
                     SELECT DISTINCT
-                           'actuals' record_type
+                           'ACTUALS' record_type
                            , cal_date
                            , supplies_xref.technology
                            , actuals.base_product_number
@@ -139,8 +139,8 @@ WITH
                            , (BaseProd_GRU*Insights_Base_Units) as gross_revenue
                            , cal_date
                            , CASE 
-                                 WHEN list_price_EU_CountryList.currency = 'Euro' THEN 'EUR'
-                                 WHEN list_price_EU_CountryList.currency = 'Dollar' THEN 'USD'
+                                 WHEN list_price_EU_Country_List.currency = 'EURO' THEN 'EUR'
+                                 WHEN list_price_EU_Country_List.currency = 'DOLLAR' THEN 'USD'
                                  WHEN forecast_supplies_baseprod.country_alpha2 = 'CL' THEN 'USD'
                                  WHEN forecast_supplies_baseprod.country_alpha2 = 'PR' THEN 'USD'
                                  ELSE country_currency_map_landing.currency_iso_code 
@@ -148,8 +148,8 @@ WITH
                     FROM 
                            fin_prod.forecast_supplies_baseprod forecast_supplies_baseprod
                            LEFT JOIN 
-                           mdm.list_price_eu_countrylist list_price_EU_CountryList
-                                 ON list_price_EU_CountryList.country_alpha2 = forecast_supplies_baseprod.country_alpha2
+                           mdm.list_price_eu_country_list list_price_EU_Country_List
+                                 ON list_price_EU_Country_List.country_alpha2 = forecast_supplies_baseprod.country_alpha2
                            LEFT JOIN 
                            mdm.country_currency_map country_currency_map_landing
                                  ON country_currency_map_landing.country_alpha2 = forecast_supplies_baseprod.country_alpha2
@@ -157,13 +157,13 @@ WITH
                            version = (SELECT MAX(version) from fin_prod.forecast_supplies_baseprod)
                            and
                            Insights_Base_Units >= 1
-                           and
-                           /*cal_date <= (SELECT DATEADD(MONTH, 18, MIN(cal_date)) FROM fin_prod.forecast_supplies_baseprod 
+                           /*and
+                           cal_date <= (SELECT DATEADD(MONTH, 18, MIN(cal_date)) FROM fin_prod.forecast_supplies_baseprod 
                                  WHERE
-                                        version = (SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod))*/
+                                        version = (SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod))
                            cal_date = (select min(cal_date) from fin_prod.forecast_supplies_baseprod
                                                WHERE
-                                        version = (SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod))
+                                        version = (SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod))*/
                            
                     /*GROUP BY 
                            base_product_number
@@ -176,7 +176,7 @@ WITH
        , forecast_acct AS
              (
                     SELECT DISTINCT
-                           'forecast' record_type
+                           'FORECAST' record_type
                            , cal_date
                            , supplies_xref.technology
                            , forecast.base_product_number
@@ -526,7 +526,7 @@ FROM fin_prod.stf_dollarization
 UNION ALL
 
 SELECT 
-    'supplies_stf' as record
+    'SUPPLIES_STF' as record
     ,geography
        ,base_product_number
        ,pl
@@ -627,7 +627,7 @@ FROM fin_prod.stf_dollarization
 UNION ALL
 
 SELECT 
-    'supplies_stf' as record
+    'SUPPLIES_STF' as record
     ,geography
       ,base_product_number
       ,pl
@@ -649,12 +649,13 @@ submit_remote_query(configs, query)
 
 #check view
 query = """
+
 CREATE OR REPLACE VIEW financials.v_finance_forecast_PL AS
 
        WITH Base_PL as
        (
              SELECT 
-                    'base_product' record_type
+                    'BASE_PRODUCT' record_type
                     , forecast_supplies_baseprod.base_product_number product_number
                     , base_product_line_code product_line_code
                     , supplies_xref.technology
@@ -715,7 +716,7 @@ CREATE OR REPLACE VIEW financials.v_finance_forecast_PL AS
              WHERE version = (select max(version) from prod.working_forecast)
              AND sup.cal_date >= (SELECT MIN(cal_date) FROM fin_prod.forecast_supplies_baseprod) 
              AND adjusted_cartridges <> 0
-             AND geography_grain = 'market10'
+             AND geography_grain = 'MARKET10'
              GROUP BY sup.cal_date, geography, sup.platform_subset, base_product_number, adjusted_cartridges
        )
        
