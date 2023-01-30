@@ -28,6 +28,7 @@ dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
 dbutils.widgets.text("cartridge_demand_pages_ccs_mix_version",'')
 dbutils.widgets.text("working_forecast_country_version",'')
+dbutils.widgets.text("working_forecast_version",'')
 dbutils.widgets.text("discounting_factor",'')
 
 # COMMAND ----------
@@ -72,6 +73,13 @@ working_forecast_country_version = dbutils.widgets.get("working_forecast_country
 if working_forecast_country_version == "":
     working_forecast_country_version = read_redshift_to_df(configs) \
         .option("query", "SELECT MAX(version) FROM prod.working_forecast_country") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+    
+working_forecast_version = dbutils.widgets.get("working_forecast_version")
+if working_forecast_version == "":
+    working_forecast_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.working_forecast") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
@@ -125,29 +133,37 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 working_forecast_country = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
     .load()
+working_forecast1 = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.working_forecast WHERE version = '{working_forecast_version}'") \
+    .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.supplies_hw_mapping") \
     .load()
 toner_host_yield = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM ifs2.toner_host_yield") \
     .load()
+calendar = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM mdm.calendar") \
+    .load()
 
 # COMMAND ----------
 
 ## Populating delta tables
 tables = [
- ['prod.usage_share1' , usage_share1],
- ['mdm.hardware_xref' , hardware_xref],
- ['mdm.supplies_xref' , supplies_xref],
- ['prod.decay_m13' , decay_m13],
- ['mdm.yield' , yield_],
- ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
- ['mdm.iso_country_code_xref' , iso_country_code_xref],
- ['prod.working_forecast_country' , working_forecast_country],
+# ['prod.usage_share1' , usage_share1],
+# ['mdm.hardware_xref' , hardware_xref],
+# ['mdm.supplies_xref' , supplies_xref],
+# ['prod.decay_m13' , decay_m13],
+# ['mdm.yield' , yield_],
+# ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+# ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+# ['mdm.iso_country_code_xref' , iso_country_code_xref],
+# ['prod.working_forecast_country' , working_forecast_country],
+ ['prod.working_forecast1' , working_forecast1],
  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
  ['prod.norm_shipments' , norm_shipments],
- ['ifs2.toner_host_yield' , toner_host_yield]
+ ['ifs2.toner_host_yield' , toner_host_yield],
+ ['mdm.calendar' , calendar]
 ]
 
 for table in tables:
@@ -849,21 +865,40 @@ fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
+# # vtc
+# query = '''
+# select cal_date
+# 	, geography_grain
+# 	, geography
+#     , country
+# 	, platform_subset
+# 	, base_product_number
+# 	, customer_engagement
+# 	, (imp_corrected_cartridges/cartridges) as vtc
+# 	, version
+# from working_forecast_country 
+# where version = '{}'
+# and cal_date between '{}' and '{}'
+# '''.format(working_forecast_country_version , start_ifs2_date , end_ifs2_date)
+# vtc = spark.sql(query)
+# vtc.createOrReplaceTempView("vtc")
+
+# COMMAND ----------
+
 # vtc
 query = '''
 select cal_date
 	, geography_grain
 	, geography
-    , country
 	, platform_subset
 	, base_product_number
 	, customer_engagement
-	, (imp_corrected_cartridges/cartridges) as vtc
+    , vtc
 	, version
-from working_forecast_country 
+from working_forecast1
 where version = '{}'
 and cal_date between '{}' and '{}'
-'''.format(working_forecast_country_version , start_ifs2_date , end_ifs2_date)
+'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
 vtc = spark.sql(query)
 vtc.createOrReplaceTempView("vtc")
 
@@ -883,6 +918,7 @@ select distinct
     us.market10,
     us.country_alpha2,
     us.cal_date,
+    c.fiscal_year_qtr,
     us.year,
     us.year_num,
     us.month_num,
@@ -953,8 +989,9 @@ on us.platform_subset = v.platform_subset
 and us.base_product_number = v.base_product_number
 and us.cal_date = v.cal_date
 and us.market10 = v.geography
-and us.country_alpha2 = v.country
 and us.customer_engagement = v.customer_engagement
+left join calendar c
+on us.cal_date = c.date
 
 '''.format(discounting_factor)
 pen_per_printer1 = spark.sql(query)
@@ -979,6 +1016,7 @@ query = '''
         market10,
         country_alpha2,
         cal_date,
+        fiscal_year_qtr,
         year,
         year_num,
         month_num,
@@ -1021,6 +1059,7 @@ query = '''select
         market10,
         country_alpha2,
         cal_date,
+        fiscal_year_qtr,
         year,
         year_num,
         month_num,
@@ -1064,6 +1103,7 @@ query = '''select
         ppp.market10,
         ppp.country_alpha2,
         ppp.cal_date,
+        ppp.fiscal_year_qtr,
         year,
         year_num,
         month_num,
