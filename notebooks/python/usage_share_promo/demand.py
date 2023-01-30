@@ -166,10 +166,10 @@ GROUP BY
       ,MAX(u.source_u) as source_u
       ,SUM(u.usage*coalesce(ib,0)) AS pages
       ,SUM(u.page_share*usage*coalesce(ib,0)) AS hp_pages
-      ,SUM(lit(3)*u.usage_c*coalesce(ib,0)) AS color_pages
+      ,SUM(3*u.usage_c*coalesce(ib,0)) AS color_pages
       ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
       ,SUM(u.page_share*usage_k*coalesce(ib,0)) AS hp_k_pages
-      ,SUM(u.page_share*lit(3)*usage_c*coalesce(ib,0)) AS hp_c_pages
+      ,SUM(u.page_share3*usage_c*coalesce(ib,0)) AS hp_c_pages
       ,SUM(coalesce(ib,0)) as ib
     FROM step2 u
     GROUP BY 
