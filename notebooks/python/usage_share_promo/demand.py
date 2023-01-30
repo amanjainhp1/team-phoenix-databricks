@@ -207,7 +207,7 @@ GROUP BY
 	, h4.customer_engagement
 	, h4.pages/nullif(ib,0) AS usage
 	, h4.hp_pages/nullif(pages,0) AS page_share
-	, (h4.color_pages/nullif(ib,0))/lit(3) AS usage_c
+	, (h4.color_pages/nullif(ib,0))/3 AS usage_c
 	, h4.black_pages/nullif(ib,0) AS usage_k
     , h4.pages as total_pages
 	, h4.hp_pages
