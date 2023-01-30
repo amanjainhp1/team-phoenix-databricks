@@ -37,7 +37,7 @@ us_table.createOrReplaceTempView("us_table")
 #read in override data
 override_in = read_redshift_to_df(configs) \
   .option("query","""
-    SELECT upper(user_name) as user_name,m upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
+    SELECT upper(user_name) as user_name, upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
     FROM scen.working_forecast_usage_share
     WHERE 1=1 
