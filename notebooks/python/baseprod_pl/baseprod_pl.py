@@ -127,7 +127,7 @@ tables = [
           ['fin_prod.forecast_contra_input' ,forecast_contra_input],
           ['mdm.country_currency_map' ,country_currency_map],
           ['prod.working_forecast_country' ,working_forecast_country],
-		  ['mdm.product_line_xref' ,product_line_xref]
+          ['mdm.product_line_xref' ,product_line_xref]
          ]
 
 
