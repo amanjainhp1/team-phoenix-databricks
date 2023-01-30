@@ -109,7 +109,6 @@ tables = [
 ]
 
 
-##'prod.working_forecast_country' ,
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
@@ -122,10 +121,10 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-#     df.write \
-#       .format(write_format) \
-#       .mode("overwrite") \
-#       .save(save_path)
+    df.write \
+      .format(write_format) \
+      .mode("overwrite") \
+      .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -242,7 +241,7 @@ select
 
 forecast_supplies_baseprod_region = spark.sql(forecast_supplies_baseprod_region)
 forecast_supplies_baseprod_region = forecast_supplies_baseprod_region_schema.union(forecast_supplies_baseprod_region)
-#write_df_to_redshift(configs, forecast_supplies_baseprod_region, "fin_prod.forecast_supplies_baseprod_region", "append")
+write_df_to_redshift(configs, forecast_supplies_baseprod_region, "fin_prod.forecast_supplies_baseprod_region", "append")
 forecast_supplies_baseprod_region.createOrReplaceTempView("forecast_supplies_baseprod_region")
 
 # COMMAND ----------
@@ -424,7 +423,7 @@ select distinct
 
 forecast_supplies_baseprod_region_stf = spark.sql(forecast_supplies_baseprod_region_stf)
 forecast_supplies_baseprod_region_stf = forecast_supplies_baseprod_region_stf_schema.union(forecast_supplies_baseprod_region_stf)
-#write_df_to_redshift(configs, forecast_supplies_baseprod_region_stf, "fin_prod.forecast_supplies_baseprod_region_stf", "append")
+write_df_to_redshift(configs, forecast_supplies_baseprod_region_stf, "fin_prod.forecast_supplies_baseprod_region_stf", "append")
 forecast_supplies_baseprod_region_stf.createOrReplaceTempView("forecast_supplies_baseprod_region_stf")
 
 # COMMAND ----------
