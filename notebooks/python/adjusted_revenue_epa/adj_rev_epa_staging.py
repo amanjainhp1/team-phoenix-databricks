@@ -3136,7 +3136,7 @@ adj_rev_salesprod_dropped = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8 as market10
 	  ,region_5
       ,sales_product_number
       ,pl
@@ -3173,7 +3173,7 @@ epa_sales_to_base_conversion = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8 as market10
 	  ,region_5
       ,sales_product_number
       ,sales_product_line_code as pl
@@ -3210,7 +3210,7 @@ epa_actuals_baseprod_negative_net_revenue = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8 as market10
 	  ,region_5
       ,base_product_number
 	  ,pl
@@ -3248,7 +3248,7 @@ epa_actuals_baseprod_dropped_data = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market10
+      ,market8 as market10
 	  ,region_5
       ,base_product_number
 	  ,pl

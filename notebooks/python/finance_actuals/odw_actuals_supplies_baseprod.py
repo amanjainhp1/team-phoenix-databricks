@@ -7,13 +7,6 @@
 
 # COMMAND ----------
 
-# supplies hw country mapping from stage
-supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
-    .load()
-
-# COMMAND ----------
-
 # load S3 tables to df
 odw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only") \
@@ -27,9 +20,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 iso_cc_rollup_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_cc_rollup_xref") \
     .load()
-#supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
-#    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
-#    .load()
+supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
+    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
+    .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
@@ -51,6 +44,7 @@ hardware_xref = read_redshift_to_df(configs) \
 tables = [
     ['fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only],
     ['fin_stage.odw_sacp_actuals', sacp_actuals],
+   # ['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.iso_cc_rollup_xref', iso_cc_rollup_xref],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
@@ -84,11 +78,6 @@ for table in tables:
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
-
-# COMMAND ----------
-
-#excluding from delta table load process for now because of its size (change later)
-supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
@@ -139,8 +128,8 @@ SELECT
     customer_engagement,
     page_mix as platform_mix,
     version
-FROM supplies_hw_country_actuals_mapping
-WHERE version = (select max(version) from supplies_hw_country_actuals_mapping)
+FROM stage.supplies_hw_country_actuals_mapping
+WHERE version = (select max(version) from stage.supplies_hw_country_actuals_mapping)
     AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
                     AND (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
     AND page_mix <> 0
