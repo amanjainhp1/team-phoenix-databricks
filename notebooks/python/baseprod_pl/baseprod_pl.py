@@ -641,7 +641,7 @@ SELECT
 		__dbt__CTE__bpp_18_revenue_sum revenue_sum
 		INNER JOIN
 		currency_hedge currency_hedge                
-			on currency_hedge.profit_center_code = plx.profit_center
+			on currency_hedge.profit_center = plx.profit_center_code
 			and currency_hedge.currency = revenue_sum.currency_iso_code
 			and revenue_sum.cal_date = currency_hedge.month
 		INNER JOIN
