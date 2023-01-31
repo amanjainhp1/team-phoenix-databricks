@@ -570,8 +570,62 @@ usage_share_baseprod_02.createOrReplaceTempView("usage_share_baseprod_02")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, usage_share_baseprod_02, "stage.supplies_hw_country_actuals_mapping", "append", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
+supplies_hw_country_actuals_mapping = f"""
+SELECT record 
+    , cal_date
+    , country_alpha2
+    , platform_subset
+    , base_product_number
+    , customer_engagement
+    , page_mix
+    , load_date
+    , version
+FROM usage_share_baseprod_02
+"""
+
+supplies_hw_country_actuals_mapping = spark.sql(supplies_hw_country_actuals_mapping)
+supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
+write_df_to_redshift(configs, supplies_hw_country_actuals_mapping, "stage.supplies_hw_country_actuals_mapping", "append", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
 
+# COMMAND ----------
+
+import re
+
+tables = [
+    ['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping]
+]
+
+for table in tables:
+    # Define the input and output formats and paths and the table name.
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
+    write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    # Load the data from its source.
+    df = table[1]    
+    print(f'loading {table[0]}...')
+    
+    for column in df.dtypes:
+        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+        df = df.withColumnRenamed(column[0], renamed_column)
+        print(renamed_column)
+    
+    # Write the data to its target.
+    df.write \
+      .format(write_format) \
+      .mode("overwrite") \
+      .option("overwriteSchema", "true")\
+      .save(save_path)
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    
+    spark.table(table[0]).createOrReplaceTempView(table_name)
+    
+    print(f'{table[0]} loaded')
