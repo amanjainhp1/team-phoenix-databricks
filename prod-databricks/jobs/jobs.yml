@@ -31,17 +31,7 @@ Jobs:
   - odw-wd8-load
   - ozzy-mps
   - rdma-full-load
+  - redshift-data-sync
   - redshift-resource-creator
   - toner-usage-share
   - wd3-load
-
-DeleteJobs:
-  - ink-share
-  - ink-usage-color
-  - ink-usage-total
-  - odw-document-currency
-  - odw-revenue-unit
-  - table-creator
-  - toner-share
-  - toner-usage-color
-  - toner-usage-total
