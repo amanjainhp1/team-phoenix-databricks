@@ -6,11 +6,11 @@ from datetime import datetime
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/configs
+# MAGIC %run ./common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../../python/common/database_utils
+# MAGIC %run ./common/database_utils
 
 # COMMAND ----------
 
