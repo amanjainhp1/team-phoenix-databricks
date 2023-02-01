@@ -135,7 +135,7 @@ for table in tables:
                                 host=configs["redshift_url"],
                                 schema=schema,
                                 table=table)
-    drop_table_query = f"DROP TABLE IF EXISTS {schema}.{table};\n" + ddl
+    drop_table_query = f"DROP TABLE IF EXISTS {schema}.{table} CASCADE;\n" + ddl
     
     # copy data to itg/dev
     for destination_env in destination_envs:
