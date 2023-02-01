@@ -2,6 +2,7 @@
 import boto3
 import json
 import psycopg2
+import time
 from datetime import datetime
 
 # COMMAND ----------
@@ -39,6 +40,8 @@ def get_redshift_table_names(configs:dict, schema: str):
 
 # Define function to unload data to S3 from Redshift
 def redshift_unload(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str, s3_url: str, iam_role: str):
+    print(f'Started unloading {schema}.{table}')
+    start_time = time.time()
     conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
         .format(dbname, port, user, password, host)
     con = psycopg2.connect(conn_string)
@@ -51,6 +54,8 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
 
     unload_query = f"UNLOAD ('{select_statement}') to '{s3_url}' iam_role '{iam_role}' delimiter '|' MAXFILESIZE 300 MB PARALLEL ADDQUOTES HEADER GZIP ALLOWOVERWRITE;"
     submit_remote_query(dbname, port, user, password, host, unload_query)
+    function_duration = time.time() - start_time
+    print(f'Finished unloading {schema}.{table} in {function_duration} s')
 
 # Retrieve ddl
 def redshift_retrieve_ddl(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str):
@@ -67,10 +72,14 @@ def redshift_retrieve_ddl(dbname: str, port: str, user: str, password: str, host
 
 # Rebuild table and copy data from S3 to Redshift
 def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, schema: str, table: str, s3_url: str, iam_role: str):
+    print(f'Started copying {schema}.{table}')
+    start_time = time.time()
     copy_query = f"COPY {schema}.{table} from '{s3_url}' iam_role '{iam_role}' delimiter '|' IGNOREHEADER 1 REMOVEQUOTES GZIP;"
     # update permissions
     permissions_query = f"GRANT ALL ON {schema}.{table} TO GROUP dev_arch_eng;"
     submit_remote_query(dbname, port, user, password, host, copy_query + permissions_query)
+    function_duration = time.time() - start_time
+    print(f'Finished copying {schema}.{table} in {function_duration} s')
 
 # COMMAND ----------
 
@@ -85,7 +94,9 @@ except:
 try:
     tables = list(dbutils.widgets.get("tables"))
 except:
-    tables = get_redshift_table_names(configs, 'mdm')
+    tables = []
+    for schema in ['fin_prod', 'mdm', 'prod']:
+        tables += get_redshift_table_names(configs, schema)
 
 # COMMAND ----------
 
@@ -128,6 +139,8 @@ for table in tables:
     
     # copy data to itg/dev
     for destination_env in destination_envs:
+        print(f"copying to {destination_env} cluster")
+        
         submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
                             constants['REDSHIFT_PORT'][destination_env],
                             credentials[destination_env]['username'],
