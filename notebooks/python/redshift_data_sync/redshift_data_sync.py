@@ -53,7 +53,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
     select_statement = "SELECT " + ", ".join(col_list) + f" FROM {schema}.{table}"
     cur.close()
 
-    unload_query = f"UNLOAD ('{select_statement}') to '{s3_url}' iam_role '{iam_role}' delimiter '|' MAXFILESIZE 300 MB PARALLEL ADDQUOTES HEADER GZIP ALLOWOVERWRITE;"
+    unload_query = f"UNLOAD ('{select_statement}') TO '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET ALLOWOVERWRITE;"
     submit_remote_query(dbname, port, user, password, host, unload_query)
     function_duration = round(time.time()-start_time, 2)
     print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
@@ -75,7 +75,7 @@ def redshift_retrieve_ddl(dbname: str, port: str, user: str, password: str, host
 def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, schema: str, table: str, s3_url: str, iam_role: str, destination_env:str):
     print(f'{destination_env}|Started copying {schema}.{table}')
     start_time = time.time()
-    copy_query = f"COPY {schema}.{table} from '{s3_url}' iam_role '{iam_role}' delimiter '|' IGNOREHEADER 1 REMOVEQUOTES GZIP;"
+    copy_query = f"COPY {schema}.{table} FROM '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET;"
     # update permissions
     permissions_query = f"GRANT ALL ON {schema}.{table} TO GROUP dev_arch_eng;"
     submit_remote_query(dbname, port, user, password, host, copy_query + permissions_query)
