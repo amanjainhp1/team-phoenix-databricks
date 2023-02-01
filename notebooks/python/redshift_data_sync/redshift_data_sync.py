@@ -1,5 +1,6 @@
 # Databricks notebook source
 import boto3
+import concurrent.futures
 import json
 import psycopg2
 import time
@@ -32,7 +33,7 @@ def get_redshift_table_names(configs:dict, schema: str):
         .format(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'])
     con = psycopg2.connect(conn_string)
     cur = con.cursor()
-    cur.execute(f" SELECT table_schema || '.' || table_name from information_schema.tables where table_schema='{schema}'")
+    cur.execute(f" SELECT table_schema || '.' || table_name FROM information_schema.tables WHERE table_schema='{schema}' AND table_type <> 'VIEW'")
     data = cur.fetchall()
     table_list = [row[0] for row in data]
     cur.close()
@@ -40,7 +41,7 @@ def get_redshift_table_names(configs:dict, schema: str):
 
 # Define function to unload data to S3 from Redshift
 def redshift_unload(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str, s3_url: str, iam_role: str):
-    print(f'Started unloading {schema}.{table}')
+    print(f'prod|Started unloading {schema}.{table}')
     start_time = time.time()
     conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
         .format(dbname, port, user, password, host)
@@ -54,8 +55,8 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
 
     unload_query = f"UNLOAD ('{select_statement}') to '{s3_url}' iam_role '{iam_role}' delimiter '|' MAXFILESIZE 300 MB PARALLEL ADDQUOTES HEADER GZIP ALLOWOVERWRITE;"
     submit_remote_query(dbname, port, user, password, host, unload_query)
-    function_duration = time.time() - start_time
-    print(f'Finished unloading {schema}.{table} in {function_duration} s')
+    function_duration = round(time.time()-start_time, 2)
+    print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
 
 # Retrieve ddl
 def redshift_retrieve_ddl(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str):
@@ -71,15 +72,15 @@ def redshift_retrieve_ddl(dbname: str, port: str, user: str, password: str, host
     return ddl
 
 # Rebuild table and copy data from S3 to Redshift
-def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, schema: str, table: str, s3_url: str, iam_role: str):
-    print(f'Started copying {schema}.{table}')
+def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, schema: str, table: str, s3_url: str, iam_role: str, destination_env:str):
+    print(f'{destination_env}|Started copying {schema}.{table}')
     start_time = time.time()
     copy_query = f"COPY {schema}.{table} from '{s3_url}' iam_role '{iam_role}' delimiter '|' IGNOREHEADER 1 REMOVEQUOTES GZIP;"
     # update permissions
     permissions_query = f"GRANT ALL ON {schema}.{table} TO GROUP dev_arch_eng;"
     submit_remote_query(dbname, port, user, password, host, copy_query + permissions_query)
-    function_duration = time.time() - start_time
-    print(f'Finished copying {schema}.{table} in {function_duration} s')
+    function_duration = round(time.time()-start_time, 2)
+    print(f'{destination_env}|Finished copying {schema}.{table} in {function_duration}s')
 
 # COMMAND ----------
 
@@ -113,7 +114,7 @@ datestamp = datestamp_get()
 # COMMAND ----------
 
 # unload data from prod
-for table in tables:
+def redshift_data_sync(table: str):
     schema = table.split(".")[0]
     table = table.split(".")[1]
     
@@ -139,8 +140,6 @@ for table in tables:
     
     # copy data to itg/dev
     for destination_env in destination_envs:
-        print(f"copying to {destination_env} cluster")
-        
         submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
                             constants['REDSHIFT_PORT'][destination_env],
                             credentials[destination_env]['username'],
@@ -157,4 +156,11 @@ for table in tables:
                         schema=schema,
                         table=table,
                         s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{schema}/{table}/",
-                        iam_role=constants['REDSHIFT_IAM_ROLE'][destination_env])
+                        iam_role=constants['REDSHIFT_IAM_ROLE'][destination_env],
+                        destination_env=destination_env)
+
+# COMMAND ----------
+
+# start worker threads with maximum of 2 concurrent threads
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    results = [executor.submit(redshift_data_sync, table) for table in tables]
