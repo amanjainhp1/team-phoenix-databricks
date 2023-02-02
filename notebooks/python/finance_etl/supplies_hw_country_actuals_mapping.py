@@ -550,6 +550,7 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
     , platform_subset
     , base_product_number
     , customer_engagement
+    , sum(hp_pages) as hp_pages
     , CASE
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
@@ -577,6 +578,7 @@ SELECT record
     , platform_subset
     , base_product_number
     , customer_engagement
+    , hp_pages
     , page_mix
     , CAST(load_date AS date) as load_date
     , CAST(load_date AS date) as version
