@@ -8584,13 +8584,12 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
 planet_adjusts = spark.sql(planet_adjusts)
 planet_adjusts.createOrReplaceTempView("planet_adjusts")
 
-#supplies_hw_country_actuals_mapping_mix
 
-planet_adjusts_supplies_without_xcodes = f"""
+planet_adjusts_supplies = f"""
 SELECT cal_date,
+    country_alpha2,
     pl,
     sales_product_number,
-    region_5,
     CASE
         WHEN pl = 'GD' THEN 'I-INK'
         ELSE 'TRAD'
@@ -8602,9 +8601,7 @@ SELECT cal_date,
     SUM(warranty) AS warranty,
     SUM(total_cos) AS total_cos,
     0 AS revenue_units
-FROM planet_adjusts pa
-LEFT JOIN iso_country_code_xref iso
-    ON iso.country_alpha2 = pa.country_alpha2
+FROM planet_adjusts
 WHERE pl IN 
     (
     SELECT DISTINCT (pl) 
@@ -8612,35 +8609,12 @@ WHERE pl IN
     WHERE Technology IN ('INK', 'LASER', 'PWA')
         AND PL_category IN ('SUP')
     )
-GROUP BY cal_date, pl, sales_product_number, ce_split, region_5
-"""
-
-planet_adjusts_supplies_without_xcodes = spark.sql(planet_adjusts_supplies_without_xcodes)
-planet_adjusts_supplies_without_xcodes.createOrReplaceTempView("planet_adjusts_supplies_without_xcodes")
-
-
-planet_adjusts_supplies = f"""
-SELECT cal_date,
-    p.region_5,
-    country_alpha2,
-    pl,
-    sales_product_number,
-    ce_split,
-    SUM(gross_revenue * country_mix) AS gross_revenue,
-    SUM(net_currency * country_mix) AS net_currency,
-    SUM(contractual_discounts * country_mix) AS contractual_discounts,
-    SUM(discretionary_discounts * country_mix) AS discretionary_discounts,
-    SUM(warranty * country_mix) AS warranty,
-    SUM(total_cos * country_mix) AS total_cos,
-    0 AS revenue_units
-FROM planet_adjusts_supplies_without_xcodes p
-LEFT JOIN supplies_hw_country_actuals_mapping_mix shc
-    ON 
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, p.region_5
+GROUP BY cal_date, pl, sales_product_number, ce_split, country_alpha2
 """
 
 planet_adjusts_supplies = spark.sql(planet_adjusts_supplies)
 planet_adjusts_supplies.createOrReplaceTempView("planet_adjusts_supplies")
+
 
 planet_adjusts_large_format = f"""
 SELECT cal_date,
