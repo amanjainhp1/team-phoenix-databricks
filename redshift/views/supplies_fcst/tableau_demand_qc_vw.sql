@@ -1,6 +1,6 @@
 -- supplies_fcst.tableau_demand_qc_vw source
 
-CREATE view supplies_fcst.tableau_demand_qc_vw as
+CREATE OR REPLACE VIEW supplies_fcst.tableau_demand_qc_vw AS
 
 WITH __dbt__CTE__tableau_01_ib_cust as (
 
