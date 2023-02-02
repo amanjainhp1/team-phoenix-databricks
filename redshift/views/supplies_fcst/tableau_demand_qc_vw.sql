@@ -1,6 +1,6 @@
 -- supplies_fcst.tableau_demand_qc_vw source
 
-CREATE view supplies_fcst.tableau_demand_qc_vw as
+CREATE OR REPLACE VIEW supplies_fcst.tableau_demand_qc_vw as
 
 WITH __dbt__CTE__tableau_01_ib_cust as (
 
@@ -12,7 +12,7 @@ SELECT
     max(ib.version) as ib_vrsn
 FROM prod.ib as ib
 JOIN mdm.iso_country_code_xref AS ccx
-    ON ib.country = ccx.country_alpha2
+    ON ib.country_alpha2 = ccx.country_alpha2
 WHERE ib.measure = 'IB'
 GROUP BY
     ib.platform_subset,
