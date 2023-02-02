@@ -5505,7 +5505,7 @@ SELECT
       WHEN sales_product_line_code = 'GM' THEN 'K6'
       ELSE sales_product_line_code
     END AS sales_product_line_code
-FROM rdma_base_to_sales_product_map
+FROM mdm.rdma_base_to_sales_product_map
 WHERE 1=1
 """
 
@@ -8005,6 +8005,77 @@ salesprod_preplanet_with_currency_map1.createOrReplaceTempView("salesprod_prepla
 
 # COMMAND ----------
 
+rdma_correction_2023_restatements_baseprod = f"""
+SELECT 
+    base_product_number,
+    CASE
+      WHEN base_product_line_code = '65' THEN 'UD'
+      WHEN base_product_line_code = 'EO' THEN 'GL'
+      WHEN base_product_line_code = 'GM' THEN 'K6'
+      ELSE base_product_line_code
+    END AS base_product_line_code
+FROM mdm.rdma_base_to_sales_product_map
+WHERE 1=1
+"""
+
+rdma_correction_2023_restatements_baseprod = spark.sql(rdma_correction_2023_restatements_baseprod)
+rdma_correction_2023_restatements_baseprod.createOrReplaceTempView("rdma_correction_2023_restatements_baseprod")
+
+
+supplies_hw_country_actuals_mapping_countries_x_region5 = f"""
+SELECT cal_date,
+    region_5,
+    shcam.country_alpha2,
+    base_product_line_code as pl,
+    sum(hp_pages) as hp_pages
+FROM stage.supplies_hw_country_actuals_mapping shcam
+JOIN mdm.iso_country_code_xref iso
+    ON iso.country_alpha2 = shcam.country_alpha2
+JOIN rdma_correction_2023_restatements_baseprod rdma
+    ON rdma.base_product_number = shcam.base_product_number
+GROUP BY cal_date, shcam.country_alpha2, base_product_line_code, region_5
+"""
+
+supplies_hw_country_actuals_mapping_countries_x_region5 = spark.sql(supplies_hw_country_actuals_mapping_countries_x_region5)
+supplies_hw_country_actuals_mapping_countries_x_region5.createOrReplaceTempView("supplies_hw_country_actuals_mapping_countries_x_region5")
+
+
+supplies_hw_country_actuals_mapping_mix = f"""
+SELECT cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    CASE
+       WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
+       ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, pl)
+    END AS country_mix
+FROM supplies_hw_country_actuals_mapping_countries_x_region5
+GROUP BY cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    hp_pages
+"""
+
+supplies_hw_country_actuals_mapping_mix = spark.sql(supplies_hw_country_actuals_mapping_mix)
+supplies_hw_country_actuals_mapping_mix.createOrReplaceTempView("supplies_hw_country_actuals_mapping_mix")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select *
+# MAGIC from supplies_hw_country_actuals_mapping_mix
+# MAGIC where pl = 'UK'
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select distinct cal_date
+# MAGIC from supplies_hw_country_actuals_mapping_mix
+# MAGIC where pl = 'UD'
+
+# COMMAND ----------
+
 planet_extract = f"""
 SELECT 
     cal_date,
@@ -8513,12 +8584,13 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
 planet_adjusts = spark.sql(planet_adjusts)
 planet_adjusts.createOrReplaceTempView("planet_adjusts")
 
+#supplies_hw_country_actuals_mapping_mix
 
-planet_adjusts_supplies = f"""
+planet_adjusts_supplies_without_xcodes = f"""
 SELECT cal_date,
-    country_alpha2,
     pl,
     sales_product_number,
+    region_5,
     CASE
         WHEN pl = 'GD' THEN 'I-INK'
         ELSE 'TRAD'
@@ -8530,7 +8602,9 @@ SELECT cal_date,
     SUM(warranty) AS warranty,
     SUM(total_cos) AS total_cos,
     0 AS revenue_units
-FROM planet_adjusts
+FROM planet_adjusts pa
+LEFT JOIN iso_country_code_xref iso
+    ON iso.country_alpha2 = pa.country_alpha2
 WHERE pl IN 
     (
     SELECT DISTINCT (pl) 
@@ -8538,12 +8612,35 @@ WHERE pl IN
     WHERE Technology IN ('INK', 'LASER', 'PWA')
         AND PL_category IN ('SUP')
     )
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
+GROUP BY cal_date, pl, sales_product_number, ce_split, region_5
+"""
+
+planet_adjusts_supplies_without_xcodes = spark.sql(planet_adjusts_supplies_without_xcodes)
+planet_adjusts_supplies_without_xcodes.createOrReplaceTempView("planet_adjusts_supplies_without_xcodes")
+
+
+planet_adjusts_supplies = f"""
+SELECT cal_date,
+    p.region_5,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue * country_mix) AS gross_revenue,
+    SUM(net_currency * country_mix) AS net_currency,
+    SUM(contractual_discounts * country_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * country_mix) AS discretionary_discounts,
+    SUM(warranty * country_mix) AS warranty,
+    SUM(total_cos * country_mix) AS total_cos,
+    0 AS revenue_units
+FROM planet_adjusts_supplies_without_xcodes p
+LEFT JOIN supplies_hw_country_actuals_mapping_mix shc
+    ON 
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, p.region_5
 """
 
 planet_adjusts_supplies = spark.sql(planet_adjusts_supplies)
 planet_adjusts_supplies.createOrReplaceTempView("planet_adjusts_supplies")
-
 
 planet_adjusts_large_format = f"""
 SELECT cal_date,
