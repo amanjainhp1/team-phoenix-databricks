@@ -18,7 +18,7 @@ FROM (
             hw.pl,
             hw.technology,
             1 AS miss_hw,
-            CAST(NULL AS INTEGER) AS miss_decay,
+            CAST(NULL AS INTEGER) miss_decay,
             CAST(NULL AS INTEGER) miss_supphw,
             CAST(NULL AS INTEGER) miss_rdma,
             hw.product_lifecycle_status
