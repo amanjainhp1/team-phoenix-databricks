@@ -12,7 +12,7 @@ SELECT
     max(ib.version) as ib_vrsn
 FROM prod.ib as ib
 JOIN mdm.iso_country_code_xref AS ccx
-    ON ib.country = ccx.country_alpha2
+    ON ib.country_alpha2 = ccx.country_alpha2
 WHERE ib.measure = 'IB'
 GROUP BY
     ib.platform_subset,
