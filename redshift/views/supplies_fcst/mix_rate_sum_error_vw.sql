@@ -1,6 +1,6 @@
 -- supplies_fcst.mix_rate_sum_error_vw source
 
-CREATE VIEW supplies_fcst.mix_rate_sum_error_vw AS
+CREATE OR REPLACE VIEW supplies_fcst.mix_rate_sum_error_vw AS
 
 WITH __dbt__CTE__c2c_02_geography_mapping AS
 (
@@ -360,7 +360,7 @@ WITH __dbt__CTE__c2c_02_geography_mapping AS
         , hw.pl
         , coalesce(f.forecaster, p.forecaster) AS forecaster
     FROM combined AS c
-    JOIN mdm.dbo.hardware_xref AS hw
+    JOIN mdm.hardware_xref AS hw
         on hw.platform_subset = c.platform_subset
     LEFT JOIN mdm.hw_product_family_ink_forecaster_mapping AS f
         on f.hw_product_family = hw.hw_product_family
