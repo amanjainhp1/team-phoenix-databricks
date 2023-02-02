@@ -96,7 +96,7 @@ try:
     tables = list(dbutils.widgets.get("tables"))
 except:
     tables = []
-    for schema in ['fin_prod', 'mdm', 'prod']:
+    for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
         tables += get_redshift_table_names(configs, schema)
 
 # COMMAND ----------
