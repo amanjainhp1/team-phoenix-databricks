@@ -92,6 +92,9 @@ version = read_redshift_to_df(configs) \
 trade_forecast = read_redshift_to_df(configs) \
     .option("dbtable", "prod.trade_forecast") \
     .load()
+product_line_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.product_line_xref") \
+    .load()
 
 # COMMAND ----------
 
@@ -102,6 +105,7 @@ tables = [
   ['mdm.supplies_xref',supplies_xref],
   ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
   ['mdm.calendar' ,calendar],
+  ['mdm.product_line_xref' ,product_line_xref],
   ['stage.supplies_stf_landing' ,supplies_stf_landing],
   ['fin_prod.forecast_fixed_cost_input' ,forecast_fixed_cost_input],
   ['fin_prod.actuals_supplies_baseprod' ,actuals_supplies_baseprod],
@@ -216,7 +220,7 @@ forecast_supplies_baseprod.createOrReplaceTempView("forecast_supplies_baseprod")
 
 # COMMAND ----------
 
-forecast_supplies_baseprod_mkt10 = f"""
+forecast_supplies_baseprod_mkt10 = """
 
 
 with __dbt__CTE__bpo_01_filter_vars as (
@@ -279,10 +283,10 @@ select
 
 
 select 
-			product_line_scenarios_xref.pl_level_1
+			mkt_fin_w.base_product_line_code
 			, mkt_fin_w.market10
 			, mkt_fin_w.cal_date
-			, sum(coalesce(mkt_fin_w.baseprod_gru, 0) * coalesce(trade.cartridges, 0)) Revenue_sum
+			, sum(coalesce(mkt_fin_w.baseprod_gru, 0) * coalesce(trade.cartridges, 0)) revenue_sum
 		from
 			__dbt__CTE__bpo_11_mkt10_financials_working mkt_fin_w
 			inner join
@@ -290,25 +294,22 @@ select
 				on trade.market10 = mkt_fin_w.market10
 				and trade.cal_date = mkt_fin_w.cal_date
 				and trade.base_product_number = mkt_fin_w.base_product_number
-			inner join
-			product_line_scenarios_xref product_line_scenarios_xref
-				on product_line_scenarios_xref.pl = mkt_fin_w.base_product_line_code
-		where
-			product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-			and product_line_scenarios_xref.version = (select version from base_product_filter_vars where record = 'PRODUCT_LINE_SCENARIOS')
+		where 1=1
 		group by
-			product_line_scenarios_xref.pl_level_1
+			mkt_fin_w.base_product_line_code
 			, mkt_fin_w.market10
 			, mkt_fin_w.cal_date
 ),  __dbt__CTE__bpo_13_currency_sum_trade as (
 
 
 select
-	currency_hedge.product_category as pl_level_1
+	plx.pl as base_product_line_code
 	,market10
 	,currency_hedge.month as cal_date
 	,sum(revenue_currency_hedge) as revenue_currency_hedge
 from currency_hedge currency_hedge
+left join product_line_xref plx 
+	on currency_hedge.profit_center = plx.profit_center_code
 left join
 (
 select distinct country_ref.market10
@@ -317,9 +318,9 @@ from iso_country_code_xref  country_ref
 left join country_currency_map map ON map.country_alpha2 = country_ref.country_alpha2
 where currency_iso_code is not null
 ) as currency_map ON currency = currency_iso_code
-where currency_hedge.version = '2022.10.06.1'
+where currency_hedge.version = '{}'
 group by
-	currency_hedge.product_category
+	plx.pl
 	,currency_hedge.month
 	,market10
 ),  __dbt__CTE__bpo_14_currency_hedge_per_trade as (
@@ -327,24 +328,18 @@ group by
 
 
 select 
-			currency.pl_level_1
+			currency.base_product_line_code
 		    , currency.market10
 			, currency.cal_date
-			, product_line_scenarios_xref.pl as base_product_line_code
-			, currency.revenue_currency_hedge/revenue.Revenue_sum as currency_per
+			, currency.revenue_currency_hedge/revenue.revenue_sum as currency_per
 		from
 		__dbt__CTE__bpo_12_revenue_sum_trade as revenue
 		inner join
 		__dbt__CTE__bpo_13_currency_sum_trade as currency
-			on currency.pl_level_1 = revenue.pl_level_1
+			on currency.base_product_line_code = revenue.base_product_line_code
 			and currency.market10 = revenue.market10
 			and currency.cal_date = revenue.cal_date
-		inner join
-		product_line_scenarios_xref product_line_scenarios_xref
-				on product_line_scenarios_xref.pl_level_1 = revenue.pl_level_1
-		where
-			product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-			and product_line_scenarios_xref.version = (select version from base_product_filter_vars where record = 'PRODUCT_LINE_SCENARIOS')
+        where 1=1
 ),  __dbt__CTE__bpo_15_Fixed_Revenue_Sum_trade as (
 
 
@@ -352,7 +347,7 @@ select
 select 
 			mkt_fin_w.base_product_line_code
 			, country_xref.region_3
-			, calendar.Fiscal_Year_Qtr as fiscal_yr_qtr
+			, calendar.fiscal_year_qtr as fiscal_yr_qtr
 			, sum(coalesce(mkt_fin_w.baseprod_gru, 0) * coalesce(trade.cartridges, 0)) Revenue_sum
 		from
 			__dbt__CTE__bpo_11_mkt10_financials_working mkt_fin_w
@@ -449,7 +444,7 @@ select
 		, fin.base_product_line_code
 		, fin.market10
 		, fin.cal_date
-		, fin.version"""
+		, fin.version""".format(currency_hedge_version)
 
 forecast_supplies_baseprod_mkt10 = spark.sql(forecast_supplies_baseprod_mkt10)
 forecast_supplies_baseprod_mkt10 = forecast_supplies_baseprod_mkt10_schema.union(forecast_supplies_baseprod_mkt10)
