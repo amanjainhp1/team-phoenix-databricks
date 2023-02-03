@@ -13,6 +13,11 @@
 
 # COMMAND ----------
 
+# Global Variables
+query_list = []
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Add Version
@@ -130,6 +135,18 @@ adj_rev_fin.createOrReplaceTempView("adjusted_revenue_finance")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+adj_rev_fin.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adjusted_revenue_finance_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adjusted_revenue_finance_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adjusted_revenue_finance_temp'")
+
+# COMMAND ----------
+
 adj_rev_cleaned = spark.sql("""
 SELECT
 		cal_date,
@@ -166,6 +183,18 @@ SELECT
 """)
 
 adj_rev_cleaned.createOrReplaceTempView("adjusted_revenue_cleaned")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+adj_rev_cleaned.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adjusted_revenue_cleaned_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adjusted_revenue_cleaned_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adjusted_revenue_cleaned_temp'")
 
 # COMMAND ----------
 
@@ -208,6 +237,18 @@ SELECT
 """)
 
 fin_adj_rev_targets_official.createOrReplaceTempView("fin_adj_rev_targets_official")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+fin_adj_rev_targets_official.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/fin_adj_rev_targets_official_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fin_adj_rev_targets_official_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fin_adj_rev_targets_official_temp'")
 
 # COMMAND ----------
 
@@ -309,6 +350,18 @@ adj_rev_positive.createOrReplaceTempView("adjusted_revenue_positive")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+adj_rev_positive.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adj_rev_positive_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_positive_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_positive_temp'")
+
+# COMMAND ----------
+
 adj_rev_negative = spark.sql("""
 SELECT
 		cal_date,
@@ -348,6 +401,18 @@ SELECT
 """)
 
 adj_rev_negative.createOrReplaceTempView("adjusted_revenue_negative")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+adj_rev_negative.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adj_rev_negative_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_negative_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_negative_temp'")
 
 # COMMAND ----------
 
@@ -431,6 +496,18 @@ SELECT
 """)
 
 adj_rev_gd.createOrReplaceTempView("adjusted_revenue_GD")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+adj_rev_gd.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adj_rev_plGD_pre_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_plGD_pre_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_plGD_pre_temp'")
 
 # COMMAND ----------
 
@@ -527,6 +604,18 @@ SELECT
 """)
 
 adj_rev_gd_add_skus.createOrReplaceTempView("adjusted_revenue_GD_add_skus")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+adj_rev_gd_add_skus.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adj_rev_gd_add_skus_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_gd_add_skus_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_gd_add_skus_temp'")
 
 # COMMAND ----------
 
@@ -633,6 +722,18 @@ WITH
 """)
 
 adj_rev_with_iink_sku_pnl.createOrReplaceTempView("adjusted_revenue_with_iink_sku_pnl")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+adj_rev_with_iink_sku_pnl.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adj_rev_with_iink_sku_pnl_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_with_iink_sku_pnl_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_with_iink_sku_pnl_temp'")
 
 # COMMAND ----------
 
@@ -779,6 +880,18 @@ adj_rev_baseprod_conversion.createOrReplaceTempView("adjusted_revenue_baseprod_c
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+adj_rev_baseprod_conversion.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/adj_rev_baseprod_conversion")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_baseprod_conversion USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_baseprod_conversion'")
+
+# COMMAND ----------
+
 salesprod_minus_baseprod = spark.sql("""
 SELECT 
 				cal_date,
@@ -821,6 +934,18 @@ SELECT
 """)
 
 salesprod_minus_baseprod.createOrReplaceTempView("salesprod_missing_baseprod")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+salesprod_minus_baseprod.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/salesprod_minus_baseprod_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.salesprod_minus_baseprod_temp USING DELTA LOCATION '/tmp/delta/fin_stage/salesprod_minus_baseprod_temp'")
 
 # COMMAND ----------
 
@@ -1059,6 +1184,18 @@ baseprod_detailed_targets.createOrReplaceTempView("baseprod_targets_detailed")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+baseprod_detailed_targets.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/baseprod_targets_detailed_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.baseprod_targets_detailed_temp USING DELTA LOCATION '/tmp/delta/fin_stage/baseprod_targets_detailed_temp'")
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Nine
@@ -1155,6 +1292,18 @@ SELECT
 """)
 
 baseprod_fin_official_w_gd.createOrReplaceTempView("baseprod_fin_official_w_GD")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+baseprod_fin_official_w_gd.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/baseprod_fin_official_w_gd_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.baseprod_fin_official_w_gd_temp USING DELTA LOCATION '/tmp/delta/fin_stage/baseprod_fin_official_w_gd_temp'")
 
 # COMMAND ----------
 
@@ -1307,6 +1456,18 @@ baseprod_data_gd_unit_adjusted.createOrReplaceTempView("baseprod_data_GD_unit_ad
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+baseprod_data_gd_unit_adjusted.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/baseprod_data_gd_unit_adjusted_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.baseprod_data_gd_unit_adjusted_temp USING DELTA LOCATION '/tmp/delta/fin_stage/baseprod_data_gd_unit_adjusted_temp'")
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Ten
@@ -1351,6 +1512,18 @@ fin_gold_dataset.createOrReplaceTempView("financials_gold_dataset")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+fin_gold_dataset.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/fin_gold_dataset_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fin_gold_dataset_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fin_gold_dataset_temp'")
+
+# COMMAND ----------
+
 fin_dropped_out = spark.sql("""
 SELECT 
       cal_date
@@ -1385,6 +1558,18 @@ SELECT
 """)
 
 fin_dropped_out.createOrReplaceTempView("financials_dropped_out")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+fin_dropped_out.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/fin_dropped_out_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fin_dropped_out_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fin_dropped_out_temp'")
 
 # COMMAND ----------
 
@@ -1454,6 +1639,18 @@ SELECT
 """)
 
 base_financials_arus_yields.createOrReplaceTempView("base_financials_arus_yields")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+base_financials_arus_yields.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/base_financials_arus_yields_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.base_financials_arus_yields_temp USING DELTA LOCATION '/tmp/delta/fin_stage/base_financials_arus_yields_temp'")
 
 # COMMAND ----------
 
@@ -1842,6 +2039,18 @@ fully_baked_sku_level_data.createOrReplaceTempView("fully_baked_sku_level_data")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+fully_baked_sku_level_data.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/fully_baked_sku_level_data_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fully_baked_sku_level_data_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fully_baked_sku_level_data_temp'")
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Eleven
@@ -1887,6 +2096,7 @@ reported_mkt8_data_non_usa.createOrReplaceTempView("reported_mkt8_data_non_usa")
 
 # COMMAND ----------
 
+# double check here?
 target_mkt8_data = spark.sql("""
 SELECT cal_date,
         market8,
@@ -1899,7 +2109,7 @@ SELECT cal_date,
         sum(adjusted_revenue) as adjusted_revenue
     FROM fin_adj_rev_targets_official
     WHERE 1=1
-    AND pl IN (select distinct pl from reported_mkt8_data_usa)
+    AND pl IN (select distinct pl from fully_baked_sku_level_data) -- do I need to test this?
     GROUP BY cal_date, market8, pl, customer_engagement
 """)
  
@@ -1919,7 +2129,7 @@ SELECT cal_date,
 	    sum(adjusted_revenue) as adjusted_revenue
 	FROM fin_adj_rev_targets_usa
 	WHERE 1=1
-	AND pl IN (select distinct pl from reported_mkt8_data_usa)
+	AND pl IN (select distinct pl from fully_baked_sku_level_data)
 	GROUP BY cal_date, market8, pl, customer_engagement
 """)
 
@@ -2344,6 +2554,18 @@ SELECT cal_date
 """)
 
 fully_baked_with_revenue_and_cc_rev_gaps_spread.createOrReplaceTempView("fully_baked_with_revenue_and_cc_rev_gaps_spread")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+fully_baked_with_revenue_and_cc_rev_gaps_spread.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/fully_baked_with_revenue_and_cc_rev_gaps_spread_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fully_baked_with_revenue_and_cc_rev_gaps_spread_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fully_baked_with_revenue_and_cc_rev_gaps_spread_temp'")
 
 # COMMAND ----------
 
