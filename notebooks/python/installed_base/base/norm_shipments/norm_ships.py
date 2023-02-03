@@ -432,7 +432,7 @@ WHERE 1=1
     , ns.country_alpha2
     , ns.platform_subset
     , ns.month_begin
-    , COALESCE(ce.split_name, 'TRAD') AS split_name
+    , CASE WHEN ns.platform_subset LIKE '%PAAS%' THEN COALESCE(ce.split_name, 'I-INK') ELSE COALESCE(ce.split_name, 'TRAD') END AS split_name
     , COALESCE(ce.value, 1.0) AS split_value
     , ns.units * COALESCE(ce.value, 1.0) AS units
 FROM ib_03_norm_shipments_agg AS ns

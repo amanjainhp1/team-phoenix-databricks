@@ -35,12 +35,11 @@ us_table.createOrReplaceTempView("us_table")
 # COMMAND ----------
 
 #read in override data
-#need to update this to Redshift Table, wrong table in RS
-override_in = read_sql_server_to_df(configs) \
+override_in = read_redshift_to_df(configs) \
   .option("query","""
-    SELECT upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
+    SELECT upper(user_name) as user_name, upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
-    FROM ie2_landing.dbo.scenario_usage_share_landing
+    FROM scen.working_forecast_usage_share
     WHERE 1=1 
         AND user_name != 'BRENTT' AND user_name != 'GRETCHENE'
         AND upper(upload_type) = 'WORKING-FORECAST'
@@ -62,7 +61,8 @@ override_in2.createOrReplaceTempView("override_in2")
 # COMMAND ----------
 
 override_in=spark.sql("""select
-        geography_grain
+	user_name
+        , geography_grain
         , geography
         , platform_subset
         , customer_engagement
@@ -77,9 +77,9 @@ override_in.createOrReplaceTempView("override_in")
 # COMMAND ----------
 
 override_in_gp = """
-    select platform_subset, customer_engagement, geography, measure, max(load_date) as max_load_date
+    select user_name, max(load_date) as max_load_date
     from override_in
-    group by platform_subset, customer_engagement, geography, measure
+    group by user_name
 """
 
 override_in_gp=spark.sql(override_in_gp)
@@ -88,11 +88,11 @@ override_in_gp.createOrReplaceTempView("override_in_gp")
 # COMMAND ----------
 
 override_table = """
-    with step1 as (SELECT concat(platform_subset, customer_engagement, geography, measure, max_load_date) as grp 
+    with step1 as (SELECT concat(user_name, max_load_date) as grp 
     from override_in_gp
     ),
     step2 as (
-    select *, concat(platform_subset, customer_engagement, geography, measure,load_date) as grp
+    select *, concat(user_name, load_date) as grp
     from override_in
     )
     select  geography_grain
@@ -706,10 +706,10 @@ with step1 as (
 	, us.geography
 	, us.platform_subset
 	, us.customer_engagement
-	, CASE WHEN us.measure = 'HP_SHARE' THEN us.data_source
+	, CASE WHEN us.measure = 'HP_SHARE' THEN us.source
            ELSE NULL
            END AS source_s
-    , CASE WHEN us.measure like '%USAGE%' THEN us.data_source
+    , CASE WHEN us.measure like '%USAGE%' THEN us.source
             ELSE NULL
             END AS source_u
     , us.ib_version
@@ -725,7 +725,7 @@ GROUP BY us.cal_date
 	, us.customer_engagement
     	, us.ib_version
     	, us.measure
-    	, us.data_source
+    	, us.source
 	) , step2 as (
     SELECT 
        u.cal_date

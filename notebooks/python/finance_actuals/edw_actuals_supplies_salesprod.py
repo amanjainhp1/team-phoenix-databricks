@@ -5464,17 +5464,33 @@ salesprod_edw_spread.createOrReplaceTempView("salesprod_edw_spread")
 
 # COMMAND ----------
 
+rdma_correction_2023_restatements = f"""
+SELECT 
+    sales_product_number,
+    CASE
+      WHEN sales_product_line_code = '65' THEN 'UD'
+      WHEN sales_product_line_code = 'EO' THEN 'GL'
+      WHEN sales_product_line_code = 'GM' THEN 'K6'
+      ELSE sales_product_line_code
+    END AS sales_product_line_code
+FROM rdma_base_to_sales_product_map
+WHERE 1=1
+"""
+
+rdma_correction_2023_restatements = spark.sql(rdma_correction_2023_restatements)
+rdma_correction_2023_restatements.createOrReplaceTempView("rdma_correction_2023_restatements")
+
+
 rdma_updated_sku_PLs = f"""
 SELECT 
     DISTINCT sales_product_number,
     sales_product_line_code
-FROM rdma_base_to_sales_product_map
+FROM rdma_correction_2023_restatements
 WHERE 1=1
 """
 
 rdma_updated_sku_PLs = spark.sql(rdma_updated_sku_PLs)
 rdma_updated_sku_PLs.createOrReplaceTempView("rdma_updated_sku_PLs")
-
 
 salesprod_edw_spread2 = f"""
 SELECT cal_date,
@@ -5534,8 +5550,9 @@ SELECT cal_date,
     region_5,
     edw_recorded_pl,
     CASE
-        WHEN edw_recorded_pl = 'GM' THEN 'GM'
-        WHEN edw_recorded_pl = 'EO' THEN 'EO'
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'GM' THEN 'K6'
+        WHEN pl = 'EO' THEN 'GL'
         ELSE pl
     END AS pl,
     sales_product_number,
@@ -5549,7 +5566,7 @@ SELECT cal_date,
     SUM(revenue_units) AS revenue_units
 FROM edw_product_line_restated edw
 WHERE 1=1 
-    AND    sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
+    AND sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
     AND pl NOT IN ('IE', 'IX') -- inactive PLs for LF; at this point, any sales products in IE/TX would be unmapped or UNKN and can be dropped
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, edw_recorded_pl
 """
@@ -6815,7 +6832,7 @@ emea_salesprod_xcode_adjusted2.createOrReplaceTempView("emea_salesprod_xcode_adj
 
 # COMMAND ----------
 
-edw_document_currency_raw = f"""
+edw_document_currency_landing = f"""
 SELECT
     cal.Date as cal_date,
     Fiscal_Year_Qtr,
@@ -6837,6 +6854,61 @@ WHERE 1=1
     AND document_currency_code <> '?'
     AND cal.Date < '2021-11-01'
 GROUP BY cal.Date, iso.country_alpha2, document_currency_code, pl, iso.region_5, Fiscal_Year_Qtr, Fiscal_Yr
+"""
+
+edw_document_currency_landing = spark.sql(edw_document_currency_landing)
+edw_document_currency_landing.createOrReplaceTempView("edw_document_currency_landing")
+
+
+edw_document_currency_2023_restatements = f"""
+SELECT
+    cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue 
+FROM edw_document_currency_landing
+WHERE 1=1
+GROUP BY cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
+"""
+
+edw_document_currency_2023_restatements = spark.sql(edw_document_currency_2023_restatements)
+edw_document_currency_2023_restatements.createOrReplaceTempView("edw_document_currency_2023_restatements")
+
+
+edw_document_currency_raw = f"""
+SELECT
+    cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue
+FROM edw_document_currency_2023_restatements
+WHERE 1=1
+GROUP BY cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
 """
 
 edw_document_currency_raw = spark.sql(edw_document_currency_raw)
@@ -8021,15 +8093,13 @@ calendar_table2.createOrReplaceTempView("calendar_table2")
 # add incremental dollars to PL5T because of hierarchy restatements in FY2022.  PL G9 and K8 (mps related services) were forced into PL5T by external factors; it wasn't local finance's decision
 incremental_data_raw = f"""
 SELECT 
-    CASE
-        WHEN l6_description = 'A3 LASER SUPPLIES' THEN 'A3 LASER S-PRINT SUPPLIES'
-        ELSE l6_description
-    END AS l6_description,
+    pl,
+    l6_description,
     CASE    
-        WHEN market = 'AMERICAS_HQ' THEN 'NORTH_AMERICA'
-        WHEN market = 'APJ_HQ_L2' THEN 'GREATER_ASIA'
-        WHEN market = 'EMEA' THEN 'CENTRAL_EUROPE'
-        WHEN market = 'INDIA_B_SL' THEN 'INDIA_SL_&_BL'
+        WHEN market = 'AMERICAS HQ' THEN 'NORTH AMERICA'
+        WHEN market = 'APJ HQ L2' THEN 'GREATER ASIA'
+        WHEN market = 'EMEA' THEN 'CENTRAL EUROPE'
+        WHEN market = 'INDIA B SL' THEN 'INDIA SL & BL'
         WHEN market LIKE 'WW%' THEN 'WORLD WIDE'
         ELSE market
     END AS market10,
@@ -8045,7 +8115,7 @@ SELECT
     SUM(COALESCE(warranty,0)  * -1) as warranty,
     SUM((COALESCE(total_cost_of_sales,0) - COALESCE(warranty, 0))  * -1) as total_cos
 FROM supplies_finance_hier_restatements_2020_2021
-GROUP BY market, l6_description, sacp_date_period
+GROUP BY market, l6_description, sacp_date_period, pl
 """
 
 incremental_data_raw = spark.sql(incremental_data_raw)
@@ -8057,10 +8127,10 @@ SELECT
     cal_date,
     fiscal_yr,
     CASE    
-        WHEN market10 = 'CENTRAL_EUROPE' THEN 'EU'
-        WHEN market10 = 'LATIN_AMERICA' THEN 'LA'
-        WHEN market10 = 'NORTH_AMERICA' THEN 'NA'
-        WHEN market10 IN ('INDIA_SL_&_BL', 'GREATER_ASIA', 'GREATER_CHINA') THEN 'AP'
+        WHEN market10 = 'CENTRAL EUROPE' THEN 'EU'
+        WHEN market10 = 'LATIN AMERICA' THEN 'LA'
+        WHEN market10 = 'NORTH AMERICA' THEN 'NA'
+        WHEN market10 IN ('INDIA SL & BL', 'GREATER ASIA', 'GREATER CHINA') THEN 'AP'
         ELSE 'XW'
     END AS region_5,
     pl,
@@ -8072,7 +8142,6 @@ SELECT
     SUM(total_cos) AS total_cos
 FROM incremental_data_raw r 
 left join calendar_table2 cal ON r.sacp_fiscal_period = cal.sacp_fiscal_period
-left join product_line_xref plx ON r.l6_description = plx.L6_Description
 WHERE 1=1
 GROUP BY cal_date, market10, fiscal_yr, pl
 """
@@ -8134,6 +8203,50 @@ planet_targets_2020_2021_restated = spark.sql(planet_targets_2020_2021_restated)
 planet_targets_2020_2021_restated.createOrReplaceTempView("planet_targets_2020_2021_restated")
 
 
+planet_targets_2023_restatements = f"""
+-- 2023 finance hierarchy restatements -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    CASE
+      WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+      WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
+      WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
+      ELSE pl
+    END AS pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_2020_2021_restated            
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_targets_2023_restatements = spark.sql(planet_targets_2023_restatements)
+planet_targets_2023_restatements.createOrReplaceTempView("planet_targets_2023_restatements")
+
+
+planet_targets_post_all_restatements = f"""
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_2023_restatements            
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_targets_post_all_restatements = spark.sql(planet_targets_post_all_restatements)
+planet_targets_post_all_restatements.createOrReplaceTempView("planet_targets_post_all_restatements")
+
+
 salesprod_prep_for_planet_targets = f"""
 SELECT
     sp.cal_date,
@@ -8176,7 +8289,7 @@ SELECT
     COALESCE(SUM(p_warranty), 0) AS p_warranty,
     COALESCE(SUM(p_total_cos), 0) AS p_total_cos
 FROM salesprod_prep_for_planet_targets AS sp 
-LEFT JOIN planet_targets_2020_2021_restated AS p ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr)
+LEFT JOIN planet_targets_post_all_restatements AS p ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr)
 GROUP BY sp.cal_date, sp.region_5, sp.pl, sp.Fiscal_Yr
 """
 
@@ -8202,7 +8315,7 @@ SELECT
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
-FROM planet_targets_2020_2021_restated AS p
+FROM planet_targets_2023_restatements AS p
 LEFT JOIN salesprod_prep_for_planet_targets AS sp ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr)
 WHERE gross_revenue IS NULL OR net_currency IS NULL OR contractual_discounts IS NULL OR discretionary_discounts IS NULL OR total_cos IS NULL
 GROUP BY p.cal_date, p.Fiscal_Yr, p.region_5, p.pl

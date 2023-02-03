@@ -121,7 +121,7 @@ SELECT
     SUM(revenue_units) AS revenue_units,
     official,
     version
-FROM odw_actuals_supplies_salesprod
+FROM fin_prod.odw_actuals_supplies_salesprod
 WHERE 1=1 
 --AND pl != 'GY'
 AND cal_date > '2021-10-01'
@@ -142,11 +142,36 @@ SELECT
     base_product_line_code,
     base_prod_per_sales_prod_qty,
     base_product_amount_percent
-FROM rdma_base_to_sales_product_map
+FROM mdm.rdma_base_to_sales_product_map
 """
 
 rdma_salesprod_to_baseprod_map_abridged = spark.sql(rdma_salesprod_to_baseprod_map_abridged)
 rdma_salesprod_to_baseprod_map_abridged.createOrReplaceTempView("rdma_salesprod_to_baseprod_map_abridged")
+
+
+rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections = f"""
+SELECT 
+    sales_product_number,
+    CASE
+        WHEN sales_product_line_code = '65' THEN 'UD'
+        WHEN sales_product_line_code = 'EO' THEN 'GL'
+        WHEN sales_product_line_code = 'GM' THEN 'K6'
+        ELSE sales_product_line_code
+    END AS sales_product_line_code,
+    base_product_number,
+    CASE
+        WHEN base_product_line_code = '65' THEN 'UD'
+        WHEN base_product_line_code = 'EO' THEN 'GL'
+        WHEN base_product_line_code = 'GM' THEN 'K6'
+        ELSE base_product_line_code
+    END AS base_product_line_code,
+    base_prod_per_sales_prod_qty,
+    base_product_amount_percent
+FROM rdma_salesprod_to_baseprod_map_abridged
+"""
+
+rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections = spark.sql(rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections)
+rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections.createOrReplaceTempView("rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections")
 
 
 rdma_salesprod_to_baseprod_map_correction1 = f"""
@@ -192,7 +217,7 @@ SELECT
         WHEN base_product_number = 'CB434AF' AND sales_product_number = 'CB435AF' THEN '100'
         ELSE base_product_amount_percent
     END AS base_product_amount_percent
-FROM rdma_salesprod_to_baseprod_map_abridged
+FROM rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections
 """
 
 rdma_salesprod_to_baseprod_map_correction1 = spark.sql(rdma_salesprod_to_baseprod_map_correction1)
@@ -237,9 +262,9 @@ odw_media_units = f"""
       ,unit_reporting_code
       ,unit_reporting_description
       ,SUM(unit_quantity) as extended_quantity
-  FROM odw_revenue_units_sales_landing_media land
-  LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
-  LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  FROM fin_stage.odw_revenue_units_sales_landing_media land
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
   --AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_revenue_units_sales_landing_media)
   AND cal.Date > '2021-10-01'
@@ -272,8 +297,8 @@ odw_unit_data_selected = f"""
     unit_reporting_description,
     SUM(extended_quantity) as extended_quantity
 FROM odw_media_units odw
-LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
-LEFT JOIN iso_country_code_xref iso ON (iso.country_alpha2 = s.country_alpha2)
+LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
+LEFT JOIN mdm.iso_country_code_xref iso ON (iso.country_alpha2 = s.country_alpha2)
 GROUP BY cal_date, s.country_alpha2, pl, sales_product_option, unit_reporting_code, unit_reporting_description, market10
 """
 
@@ -319,7 +344,7 @@ FROM media_formatted
 WHERE country_alpha2 NOT IN 
         (
             SELECT country_alpha2
-            FROM iso_country_code_xref
+            FROM mdm.iso_country_code_xref
             WHERE country_alpha2 LIKE 'X%'
             AND country_alpha2 <> 'XK'
         )
@@ -342,7 +367,7 @@ FROM media_formatted
 WHERE country_alpha2 IN 
         (
             SELECT country_alpha2
-            FROM iso_country_code_xref
+            FROM mdm.iso_country_code_xref
             WHERE country_alpha2 LIKE 'X%'
             AND country_alpha2 != 'XK'
         )
@@ -381,7 +406,7 @@ SELECT
     customer_engagement,
     SUM(revenue_units * COALESCE(country_unit_mix, 1)) AS revenue_units
 FROM media_with_xcodes m
-JOIN calendar cal ON cal_date = cal.Date
+JOIN mdm.calendar cal ON cal_date = cal.Date
 JOIN country_mix_media mix ON m.market10 = mix.market10 AND m.pl = mix.pl AND m.cal_date = mix.cal_date
 WHERE day_of_month = 1
 GROUP BY m.cal_date, country_alpha2, m.market10, sales_product_number, m.pl, customer_engagement
@@ -666,11 +691,7 @@ SELECT
     country_alpha2,
     market10,
     base_product_number,
-    CASE
-        WHEN sales_product_line_code = 'GM' THEN 'GM'
-        WHEN sales_product_line_code = 'EO' THEN 'EO'
-        ELSE base_product_line_code 
-    END AS pl,
+    base_product_line_code AS pl,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -851,7 +872,7 @@ FROM supplies_baseprod_data
 WHERE pl IN 
     (
         SELECT distinct pl
-        FROM product_line_xref
+        FROM mdm.product_line_xref
         WHERE PL_category IN ( 'SUP', 'LLC', 'ALLOC')
         AND Technology IN ('PWA', 'LASER', 'INK', 'LLCS', 'LF')
         AND pl <> 'IX'
@@ -870,7 +891,7 @@ add_equivalents_units = f"""
 SELECT 
     base_product_number,
     COALESCE(equivalents_multiplier, 1) AS equivalents_multiplier
-FROM supplies_xref
+FROM mdm.supplies_xref
 """
 
 add_equivalents_units = spark.sql(add_equivalents_units)
@@ -913,7 +934,7 @@ supplies_equivalents.createOrReplaceTempView("supplies_equivalents")
 
 sub_months = f"""
 SELECT Date AS cal_date                    
-FROM calendar
+FROM mdm.calendar
 WHERE day_of_month = 1
 """
 
@@ -930,7 +951,7 @@ SELECT
     COALESCE(LEAD(effective_date) OVER (PARTITION BY base_product_number, geography ORDER BY effective_date), 
         CAST('2119-08-30' AS DATE)) AS next_effective_date,
     value AS yield
-FROM yields
+FROM mdm.yields
 WHERE official = 1    
 AND geography_grain = 'REGION_5'
 """
@@ -986,9 +1007,9 @@ SELECT
     1 AS official,
     bp.version
 FROM supplies_equivalents bp
-LEFT JOIN iso_country_code_xref geo ON bp.country_alpha2 = geo.country_alpha2 
+LEFT JOIN mdm.iso_country_code_xref geo ON bp.country_alpha2 = geo.country_alpha2 
 LEFT JOIN sub_yields yield ON bp.base_product_number = yield.base_product_number AND bp.cal_date = yield.cal_date AND geo.region_5 = yield.region_5
-LEFT JOIN supplies_xref supply ON bp.base_product_number = supply.base_product_number
+LEFT JOIN mdm.supplies_xref supply ON bp.base_product_number = supply.base_product_number
 GROUP BY bp.record, bp.cal_date, bp.country_alpha2, geo.region_5, bp.base_product_number, bp.pl, customer_engagement, k_color, bp.version, bp.market10
 """
 
@@ -1019,7 +1040,7 @@ SELECT
     SUM(warranty) AS warranty,
     SUM(other_cos) AS other_cos
 FROM baseprod_actuals_with_yields AS bp
-JOIN product_line_xref AS plx ON bp.pl = plx.pl
+JOIN mdm.product_line_xref AS plx ON bp.pl = plx.pl
 GROUP BY cal_date, country_alpha2,base_product_number, bp.pl, customer_engagement, market10, l5_description
 """
                 

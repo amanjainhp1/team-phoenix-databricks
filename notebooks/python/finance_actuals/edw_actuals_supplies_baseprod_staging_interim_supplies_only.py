@@ -154,6 +154,31 @@ rdma_salesprod_to_baseprod_map_abridged = spark.sql(rdma_salesprod_to_baseprod_m
 rdma_salesprod_to_baseprod_map_abridged.createOrReplaceTempView("rdma_salesprod_to_baseprod_map_abridged")
 
 
+rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections = f"""
+SELECT 
+    sales_product_number,
+    CASE
+        WHEN sales_product_line_code = '65' THEN 'UD'
+        WHEN sales_product_line_code = 'EO' THEN 'GL'
+        WHEN sales_product_line_code = 'GM' THEN 'K6'
+        ELSE sales_product_line_code
+    END AS sales_product_line_code,
+    base_product_number,
+    CASE
+        WHEN base_product_line_code = '65' THEN 'UD'
+        WHEN base_product_line_code = 'EO' THEN 'GL'
+        WHEN base_product_line_code = 'GM' THEN 'K6'
+        ELSE base_product_line_code
+    END AS base_product_line_code,
+    base_prod_per_sales_prod_qty,
+    base_product_amount_percent
+FROM rdma_salesprod_to_baseprod_map_abridged
+"""
+
+rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections = spark.sql(rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections)
+rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections.createOrReplaceTempView("rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections")
+
+
 rdma_salesprod_to_baseprod_map_correction1 = f"""
 SELECT 
     sales_product_number,
@@ -197,7 +222,7 @@ SELECT
         WHEN base_product_number = 'CB434AF' AND sales_product_number = 'CB435AF' THEN '100'
         ELSE base_product_amount_percent
     END AS base_product_amount_percent
-FROM rdma_salesprod_to_baseprod_map_abridged
+FROM rdma_salesprod_to_baseprod_map_2023_hierarchy_corrections
 """
 
 rdma_salesprod_to_baseprod_map_correction1 = spark.sql(rdma_salesprod_to_baseprod_map_correction1)
@@ -657,11 +682,7 @@ SELECT
     country_alpha2,
     market10,
     base_product_number,
-    CASE
-        WHEN sales_product_line_code = 'GM' THEN 'GM'
-        WHEN sales_product_line_code = 'EO' THEN 'EO'
-        ELSE base_product_line_code 
-    END AS pl,
+    base_product_line_code AS pl,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,

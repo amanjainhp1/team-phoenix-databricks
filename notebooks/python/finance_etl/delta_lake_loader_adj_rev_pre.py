@@ -93,7 +93,7 @@ iso_country_code_xref = read_redshift_to_df(configs) \
     .load()
 
 list_price_eu_countrylist = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.list_price_eu_countrylist") \
+    .option("dbtable", "mdm.list_price_eu_country_list") \
     .load()
 
 product_line_xref = read_redshift_to_df(configs) \

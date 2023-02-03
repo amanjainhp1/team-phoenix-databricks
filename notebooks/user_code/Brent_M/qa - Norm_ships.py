@@ -16,20 +16,20 @@ import pandas as pd
 
 # COMMAND ----------
 
-# MAGIC %run "../common/configs"
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/secrets_manager_utils
+# MAGIC %run ../../python/common/secrets_manager_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 # ns/ib versions
-prev_version = '2022.11.14.1'
+prev_version = '2022.11.29.1'
 
 # COMMAND ----------
 

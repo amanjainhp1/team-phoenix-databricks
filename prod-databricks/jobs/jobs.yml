@@ -11,6 +11,9 @@ Jobs:
   - edw-all-history-actuals-update
   - finance-etl-wd8-load
   - flash-load
+  - forecast-baseprod
+  - forecast-list-price
+  - forecast-stf-dollarization
   - gpsy-list-price
   - hardware-ltf
   - hardware-stf
@@ -28,20 +31,7 @@ Jobs:
   - odw-wd8-load
   - ozzy-mps
   - rdma-full-load
+  - redshift-data-sync
   - redshift-resource-creator
   - toner-usage-share
   - wd3-load
-  - forecast-list-price
-  - forecast-baseprod
-  - forecast-stf-dollarization
-
-DeleteJobs:
-  - ink-share
-  - ink-usage-color
-  - ink-usage-total
-  - odw-document-currency
-  - odw-revenue-unit
-  - table-creator
-  - toner-share
-  - toner-usage-color
-  - toner-usage-total

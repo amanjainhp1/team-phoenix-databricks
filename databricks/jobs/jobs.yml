@@ -12,6 +12,9 @@ Jobs:
   - example-multitask-job
   - finance-etl-wd8-load
   - flash-load
+  - forecast-baseprod
+  - forecast-list-price
+  - forecast-stf-dollarization
   - gpsy-list-price
   - hardware-ltf
   - hardware-stf
@@ -32,9 +35,6 @@ Jobs:
   - redshift-resource-creator
   - toner-usage-share
   - wd3-load
-  - forecast-list-price
-  - forecast-baseprod
-  - forecast-stf-dollarization
 
 DeleteJobs:
   - table-creator

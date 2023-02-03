@@ -1,13 +1,13 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 

@@ -192,19 +192,9 @@ ibintrodt$intro_yyyymm <- paste0(substr(ibintrodt$intro_date,1,4),substr(ibintro
 
 #Get Market10 Information
 country_info <- SparkR::collect(SparkR::sql("
-                      WITH mkt10 AS (
-                           SELECT country_alpha2, country_level_2 as market10, country_level_4 as emdm
-                           FROM iso_cc_rollup_xref
-                           WHERE country_scenario='MARKET10'
-                      ),
-                      rgn5 AS (
-                            SELECT country_alpha2, region_5, developed_emerging, country 
+
+                      SELECT country_alpha2, region_5, market10, developed_emerging, country
                             FROM iso_country_code_xref
-                      )
-                      SELECT a.country_alpha2, a.region_5, b.market10, a.developed_emerging, country
-                            FROM rgn5 a
-                            LEFT JOIN mkt10 b
-                            ON a.country_alpha2=b.country_alpha2
                            "))
 
 # COMMAND ----------
@@ -3101,7 +3091,7 @@ new2 <- sqldf('select aa1.*, aa2.product_usage_por_pages, aa2.platform_type
 
 wtaverage2 <- sqldf("select product_brand, platform_division_code, rtm, avg(EUa) as EUa, avg([Central_Europena]) as [Central_Europena], avg([Central_Europe_Dna]) as [Central_Europe_Dna] 
                     ,avg([Central_Europe_Ena]) as [Central_Europe_Ena], avg([Northern_Europena]) as [Northern_Europena], avg([Southern_Europena]) as [Southern_Europena]
-                    ,avg([ISEna]) as [ISEna], avg([UKIna]) as [UKIna], avg([Greater_Asiana]) as [Greater_Asiana], avg([Greater_Asia_Dna]) as [Greater_Asia_Dna]
+                    ,avg([ISEna]) as [ISEna], avg([UKIna]) as [UKIna], avg([Greater_Asiana]) as [Greater_Asiana], avg([Greater_Asia_Dna]) as [Greater_Asia_Dna], avg([Greater_Asia_Ena]) as [Greater_Asia_Ena]
                     ,avg([Greater_China_Ena]) as [Greater_China_Ena], avg([Indiana]) as [Indiana], avg([Latin_Americana]) as [Latin_Americana]
                     from wtaverage
                     group by product_brand, platform_division_code, rtm")
@@ -3221,7 +3211,9 @@ route6 <- sqldf('select platform_division_code, product_brand, printer_platform_
 
 route6B <- reshape2::melt(route6 , id.vars = c("platform_division_code", "product_brand","printer_platform_name", "rtm"),variable.name = "printer_region_code", value.name = "Route")
 
-route1 <- usagesummaryNAEUAP[c(2,4,3,1, 510, 513, 515, 517, 519, 521, 522, 525, 527, 528, 530, 531, 534)]
+route1 <- usagesummaryNAEUAP[c("product_brand","rtm","platform_division_code","printer_platform_name", 'Central_Europe_DRoute', 'Central_Europe_ERoute', 'Greater_Asia_DRoute'
+                               , 'Greater_Asia_ERoute', 'Greater_China_ERoute', 'India_ERoute', 'ISE_ERoute', 'Latin_America_ERoute', 'North_America_DRoute'
+                               , 'Northern_Europe_DRoute', 'Northern_Europe_DRoute', 'Southern_Europe_DRoute', 'UKI_DRoute')]
 route1B <- reshape2::melt(route1 , id.vars = c("platform_division_code", "product_brand","printer_platform_name","rtm"),variable.name = "printer_region_code", value.name = "Route")
 route1B <- sqldf("SELECT distinct platform_division_code, product_brand, printer_platform_name, rtm
                 ,CASE WHEN printer_region_code='Central_Europe_DRoute' THEN 'CEDs'
