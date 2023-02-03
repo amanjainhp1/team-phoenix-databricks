@@ -157,8 +157,8 @@ for table in tables:
 
 # delete Delta tables and underlying Delta files
 tables = [
-    ['stage.planet_actuals', planet_actuals],
-    ['stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
+   # ['stage.planet_actuals', planet_actuals],
+   # ['stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
 ]
 
 for table in tables:
@@ -9270,7 +9270,26 @@ SELECT
     SUM(warranty) AS warranty,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM planet_adjusts_final            
+FROM planet_adjusts_final_with_country            
+GROUP BY cal_date, country_alpha2, currency, pl, sales_product_number, ce_split
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM planet_adjusts_final_without_country            
 GROUP BY cal_date, country_alpha2, currency, pl, sales_product_number, ce_split
 
 UNION ALL
