@@ -8,8 +8,8 @@
             "encode": "lzo"
         },
         {
-            "description": "base_product_number",
-            "name": "base_product_number",
+            "description": "product_family",
+            "name": "product_family",
             "type": "VARCHAR(255)",
             "nullable": true,
             "encode": "lzo"
