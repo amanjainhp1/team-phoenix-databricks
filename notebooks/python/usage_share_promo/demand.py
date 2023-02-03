@@ -324,7 +324,7 @@ SELECT cal_date
 	, platform_subset
 	, customer_engagement
 	, 'NON_HP_K_PAGES' as measure
-	, total_pages-hp_k_pages as units
+	, total_k_pages-hp_k_pages as units
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
@@ -335,7 +335,7 @@ SELECT cal_date
 	, platform_subset
 	, customer_engagement
 	, 'NON_HP_COLOR_PAGES' as measure
-	, total_pages-hp_color_pages as units
+	, total_color_pages-hp_color_pages as units
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
