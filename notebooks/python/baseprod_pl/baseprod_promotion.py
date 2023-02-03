@@ -28,7 +28,7 @@ actuals_plus_forecast_financials_load_date = (max_info[1])
 currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
 if currency_hedge_version == "":
     currency_hedge_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .option("query", "SELECT MAX(version) FROM fin_prod.currency_hedge") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
 
@@ -81,7 +81,7 @@ forecast_base_pl = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.forecast_base_pl") \
     .load()
 currency_hedge = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.currency_hedge") \
+    .option("dbtable", "fin_prod.currency_hedge") \
     .load()
 working_forecast_country = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM prod.working_forecast_country WHERE version = (SELECT max(version) from prod.working_forecast_country)") \
@@ -111,7 +111,7 @@ tables = [
   ['fin_prod.actuals_supplies_baseprod' ,actuals_supplies_baseprod],
   ['fin_prod.adjusted_revenue_epa' ,adjusted_revenue_epa],
   ['fin_stage.forecast_base_pl' ,forecast_base_pl],
-  ['prod.currency_hedge' ,currency_hedge],
+  ['fin_prod.currency_hedge' ,currency_hedge],
   ['prod.working_forecast_country' ,working_forecast_country],
   ['prod.version' ,version],
   ['prod.trade_forecast' ,trade_forecast]  
