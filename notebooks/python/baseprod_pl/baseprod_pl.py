@@ -639,14 +639,15 @@ SELECT
 		, currency_hedge.version
 	FROM
 		__dbt__CTE__bpp_18_revenue_sum revenue_sum
+        INNER JOIN
+		product_line_xref plx
+			on revenue_sum.base_product_line_code = plx.pl
 		INNER JOIN
 		currency_hedge currency_hedge                
 			on currency_hedge.profit_center = plx.profit_center_code
 			and currency_hedge.currency = revenue_sum.currency_iso_code
 			and revenue_sum.cal_date = currency_hedge.month
-		INNER JOIN
-		product_line_xref plx
-			on	revenue_sum.base_product_line_code = plx.pl
+		
 	WHERE currency_hedge.version = '{}'
 )SELECT distinct
 		base_gru.base_product_number
@@ -663,7 +664,7 @@ SELECT
 		__dbt__CTE__bpp_19_revenue_currency_per revenue_currency_per
 			ON revenue_currency_per.cal_date = base_gru.cal_date
 			AND revenue_currency_per.currency_iso_code = country_currency_map.currency_iso_code
-			AND revenue_currency_per.base_product_line_code = product_line_scenarios_xref.base_product_line_code
+			AND revenue_currency_per.base_product_line_code = base_gru.base_product_line_code
 """.format(currency_hedge_version)
 
 bpp_03_base_currency_hedge_insights = spark.sql(bpp_03_base_currency_hedge_insights)
