@@ -24,7 +24,7 @@ query_list = []
 currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
 if currency_hedge_version == "":
     currency_hedge_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .option("query", "SELECT MAX(version) FROM fin_prod.currency_hedge") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
@@ -77,7 +77,7 @@ forecast_fixed_cost_input = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.forecast_fixed_cost_input") \
     .load()
 currency_hedge = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.currency_hedge") \
+    .option("dbtable", "fin_prod.currency_hedge") \
     .load()
 product_line_scenarios_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_scenarios_xref") \
@@ -115,7 +115,7 @@ tables = [
           ['mdm.rdma',rdma],
           ['mdm.supplies_xref',supplies_xref],
           ['fin_prod.forecast_fixed_cost_input',forecast_fixed_cost_input],
-          ['prod.currency_hedge' ,currency_hedge],
+          ['fin_prod.currency_hedge' ,currency_hedge],
           ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
           ['fin_prod.forecast_variable_cost_ink' ,forecast_variable_cost_ink],
           ['fin_prod.forecast_variable_cost_toner' ,forecast_variable_cost_toner],
