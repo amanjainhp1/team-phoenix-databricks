@@ -8062,20 +8062,6 @@ supplies_hw_country_actuals_mapping_mix.createOrReplaceTempView("supplies_hw_cou
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from supplies_hw_country_actuals_mapping_mix
-# MAGIC where pl = 'UK'
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select distinct cal_date
-# MAGIC from supplies_hw_country_actuals_mapping_mix
-# MAGIC where pl = 'UD'
-
-# COMMAND ----------
-
 planet_extract = f"""
 SELECT 
     cal_date,
@@ -9410,6 +9396,255 @@ data_with_plgd_currency_adjusted.createOrReplaceTempView("data_with_plgd_currenc
 
 # COMMAND ----------
 
+salesprod_financials_product_data = f"""
+SELECT cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) as warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units
+FROM data_with_plgd_currency_adjusted
+WHERE 1=1
+AND sales_product_number NOT LIKE '%EDW%'
+GROUP BY cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+"""
+
+salesprod_financials_product_data = spark.sql(salesprod_financials_product_data)
+salesprod_financials_product_data.createOrReplaceTempView("salesprod_financials_product_data")
+
+
+salesprod_financials_xcodes_ok = f"""
+SELECT cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) as warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units
+FROM data_with_plgd_currency_adjusted
+WHERE 1=1
+AND sales_product_number LIKE '%EDW%'
+AND pl NOT IN (select distinct pl from supplies_hw_country_actuals_mapping_mix)
+GROUP BY cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+"""
+
+salesprod_financials_xcodes_ok = spark.sql(salesprod_financials_xcodes_ok)
+salesprod_financials_xcodes_ok.createOrReplaceTempView("salesprod_financials_xcodes_ok")
+
+
+salesprod_financials_xcodes_not_ok = f"""
+SELECT cal_date,
+    region_5,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) as warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units
+FROM data_with_plgd_currency_adjusted da
+LEFT JOIN mdm.iso_country_code_xref iso
+    ON iso.country_alpha2 = da.country_alpha2
+WHERE 1=1
+AND sales_product_number LIKE '%EDW%'
+AND pl IN (select distinct pl from supplies_hw_country_actuals_mapping_mix)
+GROUP BY cal_date,
+    region_5,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+"""
+
+salesprod_financials_xcodes_not_ok = spark.sql(salesprod_financials_xcodes_not_ok)
+salesprod_financials_xcodes_not_ok.createOrReplaceTempView("salesprod_financials_xcodes_not_ok")
+
+
+salesprod_financials_xcodes_restated = f"""
+SELECT sfx.cal_date,
+    country_alpha2,
+    sfx.region_5,
+    currency,
+    sfx.pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue * country_mix) AS gross_revenue,
+    SUM(net_currency * country_mix) AS net_currency,
+    SUM(contractual_discounts * country_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * country_mix) AS discretionary_discounts,
+    SUM(net_revenue * country_mix) AS net_revenue,
+    SUM(warranty * country_mix) as warranty,
+    SUM(other_cos * country_mix) AS other_cos,
+    SUM(total_cos * country_mix) AS total_cos,
+    SUM(gross_profit * country_mix) AS gross_profit,
+    SUM(revenue_units * country_mix) AS revenue_units
+FROM salesprod_financials_xcodes_not_ok sfx
+LEFT JOIN supplies_hw_country_actuals_mapping_mix
+    ON iso.country_alpha2 = da.country_alpha2
+WHERE 1=1
+GROUP BY sfx.cal_date,
+    country_alpha2,
+    sfx.region_5,
+    currency,
+    sfx.pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+"""
+
+salesprod_financials_xcodes_restated = spark.sql(salesprod_financials_xcodes_restated)
+salesprod_financials_xcodes_restated.createOrReplaceTempView("salesprod_financials_xcodes_restated")
+
+
+salesprod_financials_with_xcodes_at_country = f"""
+SELECT cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) as warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_financials_product_data
+GROUP BY cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+    
+UNION ALL
+
+SELECT cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) as warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_financials_xcodes_ok
+GROUP BY cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+    
+UNION ALL
+
+SELECT cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) as warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_financials_xcodes_restated
+GROUP BY cal_date,
+    country_alpha2,
+    currency,
+    pl,
+    l5_description,
+    sales_product_number,
+    customer_engagement
+"""
+
+salesprod_financials_with_xcodes_at_country = spark.sql(salesprod_financials_with_xcodes_at_country)
+salesprod_financials_with_xcodes_at_country.createOrReplaceTempView("salesprod_financials_with_xcodes_at_country")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select 
+# MAGIC     SUM(gross_revenue) AS gross_revenue,
+# MAGIC     SUM(net_currency) AS net_currency,
+# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
+# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
+# MAGIC     SUM(net_revenue) AS net_revenue,
+# MAGIC     SUM(warranty) as warranty,
+# MAGIC     SUM(other_cos) AS other_cos,
+# MAGIC     SUM(total_cos) AS total_cos,
+# MAGIC     SUM(gross_profit) AS gross_profit,
+# MAGIC     SUM(revenue_units) AS revenue_units
+# MAGIC from salesprod_financials_with_xcodes_at_country
+# MAGIC where sales_product_number like '%EDW%'
+
+# COMMAND ----------
+
 salesprod_financials = f"""
 SELECT distinct 
     'actuals - supplies' AS record,
@@ -9434,7 +9669,7 @@ SELECT distinct
     CAST(1 AS BOOLEAN) AS official, 
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
-FROM data_with_plgd_currency_adjusted final
+FROM salesprod_financials_with_xcodes_at_country final
 LEFT JOIN iso_country_code_xref iso ON final.country_alpha2 = iso.country_alpha2
 GROUP BY cal_date, final.country_alpha2, pl, sales_product_number, customer_engagement, l5_description, currency, market10
 """
