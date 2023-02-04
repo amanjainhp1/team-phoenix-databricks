@@ -220,7 +220,8 @@ two_yrs.createOrReplaceTempView("two_years")
 fin_adj_rev_targets_official = spark.sql("""
 SELECT 
       cal_date
-      ,market8
+      ,market8      
+      ,region_5
       ,pl
       ,customer_engagement
 	  ,SUM(net_revenue) AS net_revenue
@@ -234,6 +235,7 @@ SELECT
 	AND pl <> 'GD'
   GROUP BY  cal_date
       ,market8
+      ,region_5
       ,pl
       ,customer_engagement
 
@@ -242,6 +244,7 @@ SELECT
 	SELECT 
       cal_date
       ,market8
+      ,region_5
       ,pl
       ,customer_engagement
 	  ,SUM(net_revenue) AS net_revenue
@@ -258,6 +261,7 @@ SELECT
 	AND pl <> 'GD'
   GROUP BY  cal_date
       ,market8
+      ,region_5
       ,pl
       ,customer_engagement
 
@@ -266,6 +270,7 @@ SELECT
 	SELECT 
       cal_date
       ,market8
+      ,region_5
       ,pl
       ,customer_engagement
 	  ,SUM(net_revenue) AS net_revenue
@@ -278,6 +283,7 @@ SELECT
 	AND pl = 'GD'
   GROUP BY  cal_date
       ,market8
+      ,region_5
       ,pl
       ,customer_engagement
 """)
@@ -320,6 +326,31 @@ fin_adj_rev_targets_official.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fin_adj_rev_targets_official_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fin_adj_rev_targets_official_temp'")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT fiscal_year_qtr
+# MAGIC     , fiscal_yr
+# MAGIC     , market8
+# MAGIC     , region_5
+# MAGIC     , pl
+# MAGIC     , sum(net_revenue) as reported_revenue
+# MAGIC     , sum(cc_net_revenue) as cc_net_revenue
+# MAGIC     , sum(inventory_change_impact) as inventory_change_impact
+# MAGIC     , sum(cc_inventory_impact) as cc_inventory_impact
+# MAGIC     , sum(adjusted_revenue) as adjusted_revenue
+# MAGIC FROM fin_stage.fin_adj_rev_targets_official_temp fa
+# MAGIC LEFT JOIN mdm.calendar cal
+# MAGIC     ON cal.Date = fa.cal_date
+# MAGIC WHERE 1=1
+# MAGIC AND Day_of_Month = 1
+# MAGIC AND Fiscal_Yr > '2017'
+# MAGIC GROUP BY fiscal_year_qtr
+# MAGIC     , fiscal_yr
+# MAGIC     , market8
+# MAGIC     , region_5
+# MAGIC     , pl   
 
 # COMMAND ----------
 
@@ -2937,7 +2968,7 @@ GROUP BY fiscal_year_qtr
     , pl    
 """
 
-query_list.append(["scen.epa_07_spread_rev_cc_rev", epa_06_fully_joined, "epa_07_spread_rev_cc_rev"])
+query_list.append(["scen.epa_07_spread_rev_cc_rev", epa_07_spread_rev_cc_rev, "epa_07_spread_rev_cc_rev"])
 
 # COMMAND ----------
 
@@ -3641,7 +3672,7 @@ GROUP BY fiscal_year_qtr
     , pl    
 """
 
-query_list.append(["scen.epa_xx_adj_rev_mash4", epa_06_fully_joined, "epa_xx_adj_rev_mash4"])
+query_list.append(["scen.epa_xx_adj_rev_mash4", epa_xx_adj_rev_mash4, "epa_xx_adj_rev_mash4"])
 
 # COMMAND ----------
 
