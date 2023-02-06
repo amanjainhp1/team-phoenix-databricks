@@ -205,7 +205,7 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adjusted_revenue_cleaned_temp US
 
 # COMMAND ----------
 
-#DELETE ME LATER (POST DECISION ABOUT TIME PERIODS FOR TIE OUT TO OFFICIAL FINANCIALS)
+#DELETE ME LATER? (POST DECISION ABOUT TIME PERIODS FOR TIE OUT TO OFFICIAL FINANCIALS)
 two_yrs = spark.sql("""
 SELECT 
 	cast(Fiscal_Yr-2 as int) as Start_Fiscal_Yr
@@ -217,6 +217,7 @@ two_yrs.createOrReplaceTempView("two_years")
 
 # COMMAND ----------
 
+#exclude tie outs past 2 years of financial restatements, using the code block above
 fin_adj_rev_targets_official = spark.sql("""
 SELECT 
       cal_date
@@ -292,31 +293,6 @@ fin_adj_rev_targets_official.createOrReplaceTempView("fin_adj_rev_targets_offici
 
 # COMMAND ----------
 
-#not used
-fin_adj_rev_targets_official_finance_dashboard = spark.sql("""
-SELECT cal_date
-      ,market8
-      ,region_5
-      ,pl
-      ,customer_engagement
-	  ,IFNULL(SUM(net_revenue), 0) AS net_revenue
-	  ,IFNULL(SUM(cc_net_revenue), 0) AS cc_net_revenue
-	  ,IFNULL(SUM(inventory_change_impact), 0) AS inventory_change_impact
-	  ,IFNULL(SUM(cc_inventory_impact), 0) AS cc_inventory_impact
-	  ,IFNULL(SUM(adjusted_revenue), 0) AS adjusted_revenue
-  FROM adjusted_revenue_cleaned 
-  WHERE 1=1
-  GROUP BY cal_date
-      ,region_5
-      ,market8
-      ,pl
-      ,customer_engagement
-""")
-
-fin_adj_rev_targets_official.createOrReplaceTempView("fin_adj_rev_targets_official_finance_dashboard")
-
-# COMMAND ----------
-
 # Write out to its delta table target.
 fin_adj_rev_targets_official.write \
   .format("delta") \
@@ -326,31 +302,6 @@ fin_adj_rev_targets_official.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fin_adj_rev_targets_official_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fin_adj_rev_targets_official_temp'")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT fiscal_year_qtr
-# MAGIC     , fiscal_yr
-# MAGIC     , market8
-# MAGIC     , region_5
-# MAGIC     , pl
-# MAGIC     , sum(net_revenue) as reported_revenue
-# MAGIC     , sum(cc_net_revenue) as cc_net_revenue
-# MAGIC     , sum(inventory_change_impact) as inventory_change_impact
-# MAGIC     , sum(cc_inventory_impact) as cc_inventory_impact
-# MAGIC     , sum(adjusted_revenue) as adjusted_revenue
-# MAGIC FROM fin_stage.fin_adj_rev_targets_official_temp fa
-# MAGIC LEFT JOIN mdm.calendar cal
-# MAGIC     ON cal.Date = fa.cal_date
-# MAGIC WHERE 1=1
-# MAGIC AND Day_of_Month = 1
-# MAGIC AND Fiscal_Yr > '2017'
-# MAGIC GROUP BY fiscal_year_qtr
-# MAGIC     , fiscal_yr
-# MAGIC     , market8
-# MAGIC     , region_5
-# MAGIC     , pl   
 
 # COMMAND ----------
 
@@ -545,10 +496,10 @@ SELECT
 	FROM adjusted_revenue_cleaned
 	WHERE 1=1
 		AND net_revenue <= 0
-		OR sales_product_number = 'EDW_tie_to_planet'
+		OR sales_product_number = 'EDW_TIE_TO_PLANET'
 	    OR sales_product_number LIKE 'UNK%'
-		OR sales_product_number LIKE '%proxy%'
-		OR sales_product_number IN ('Birds', 'CTSS', 'CISS', 'est_mps_revenue_jv')
+		OR sales_product_number LIKE '%PROXY%'
+		OR sales_product_number IN ('Birds', 'CTSS', 'CISS', 'EST_MPS_REVENUE_JV') 
 	GROUP BY cal_date,
 		country_alpha2,
 		market8,
@@ -571,6 +522,34 @@ adj_rev_negative.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_negative_temp USING DELTA LOCATION '/tmp/delta/fin_stage/adj_rev_negative_temp'")
+
+# COMMAND ----------
+
+epa_02a_adj_rev_filtered_out = """
+SELECT fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl
+    , sum(net_revenue) as reported_revenue
+    , sum(cc_net_revenue) as cc_net_revenue
+    , sum(inventory_change_impact) as inventory_change_impact
+    , sum(cc_inventory_impact) as cc_inventory_impact
+    , sum(adjusted_revenue) as adjusted_revenue
+FROM fin_stage.adj_rev_negative_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl     
+"""
+
+query_list.append(["scen.epa_02a_adj_rev_filtered_out", epa_02a_adj_rev_filtered_out, "overwrite"])
 
 # COMMAND ----------
 
@@ -641,7 +620,7 @@ SELECT
 		SUM(currency_impact_ch_inventory) AS currency_impact_ch_inventory,
 		SUM(cc_inventory_impact) AS cc_inventory_impact,
 		SUM(adjusted_revenue) AS adjusted_revenue 
-	FROM adjusted_revenue_finance
+	FROM adjusted_revenue_cleaned
 	WHERE 1=1
 		AND pl = 'GD'
 	GROUP BY cal_date,
@@ -670,8 +649,7 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_plGD_pre_temp USING DELT
 # COMMAND ----------
 
 iink_unit_mix = spark.sql("""
-SELECT 
-		cal_date,
+SELECT distinct cal_date,
 		market8,
 		sales_product_number,
 		pl,
@@ -685,6 +663,7 @@ SELECT
 	WHERE 1=1
 	AND pl = 'GD'
 	AND revenue_units > 0
+    AND market8 is not null
 	GROUP BY cal_date,
 		market8,
 		sales_product_number,
@@ -1135,6 +1114,34 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.salesprod_missing_baseprod_temp 
 
 # COMMAND ----------
 
+epa_03a_adj_rev_baseprod_conversion_dropout = """
+SELECT fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , base_product_line_code as pl
+    , sum(net_revenue) as reported_revenue
+    , sum(cc_net_revenue) as cc_net_revenue
+    , sum(inventory_change_impact) as inventory_change_impact
+    , sum(cc_inventory_impact) as cc_inventory_impact
+    , sum(adjusted_revenue) as adjusted_revenue
+FROM fin_stage.salesprod_missing_baseprod_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , base_product_line_code     
+"""
+
+query_list.append(["scen.epa_03a_adj_rev_baseprod_conversion_dropout", epa_03a_adj_rev_baseprod_conversion_dropout, "overwrite"])
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Step Six
@@ -1214,7 +1221,7 @@ adj_rev_base_product_data.createOrReplaceTempView("adjusted_revenue_base_product
 
 # COMMAND ----------
 
-orig_official_fin_prep = spark.sql("""
+orig_official_fin_prep1 = spark.sql("""
 SELECT 
       cal_date
       ,baseprod.country_alpha2
@@ -1246,7 +1253,7 @@ SELECT
 
 """)
 
-orig_official_fin_prep.createOrReplaceTempView("original_official_financials_prep")
+orig_official_fin_prep1.createOrReplaceTempView("orig_official_fin_prep1")
 
 # COMMAND ----------
 
@@ -1281,7 +1288,7 @@ orig_official_fin_prep2 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM original_official_financials_prep
+  FROM orig_official_fin_prep1
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
@@ -1292,11 +1299,11 @@ orig_official_fin_prep2 = spark.sql("""
       ,customer_engagement
 """)
 
-orig_official_fin_prep2.createOrReplaceTempView("original_official_financials_prep2")
+orig_official_fin_prep2.createOrReplaceTempView("orig_official_fin_prep2")
 
 # COMMAND ----------
 
-orig_official_fin = spark.sql("""
+orig_official_fin_prep3 = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
@@ -1317,7 +1324,7 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM original_official_financials_prep2
+  FROM orig_official_fin_prep2
   WHERE 1=1
   GROUP BY  cal_date
       ,country_alpha2
@@ -1328,25 +1335,17 @@ SELECT
       ,customer_engagement
 """)
 
-orig_official_fin.createOrReplaceTempView("original_official_financials")
+orig_official_fin_prep3.createOrReplaceTempView("orig_official_fin_prep3")
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Step Eight
-# MAGIC Drop edw tieouts that we're excluding (for now, pending REQs) and compute implied yields
-
-# COMMAND ----------
-
-# not used
-baseprod_detailed_targets_finance_dashboard = spark.sql("""
+orig_official_fin4 = spark.sql("""
 SELECT 
       cal_date
       ,country_alpha2
       ,market8
 	  ,region_5
-      ,platform_subset
+	  ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
@@ -1355,19 +1354,88 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM original_official_financials
+  FROM orig_official_fin_prep3
   WHERE 1=1
+  AND base_product_number <> 'EDW_TIE_TO_PLANET'
+  AND pl <> 'GD' 
   GROUP BY  cal_date
       ,country_alpha2
       ,market8
+      ,region_5
+      ,platform_subset
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+      
+ UNION ALL
+ 
+ SELECT 
+      cal_date
+      ,country_alpha2
+      ,market8
 	  ,region_5
+	  ,platform_subset
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+      ,sum(net_revenue) as net_revenue
+      ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+  FROM orig_official_fin_prep3 f
+  LEFT JOIN mdm.calendar cal ON cal.Date = f.cal_date
+  WHERE 1=1
+	AND Day_of_month = 1
+	AND base_product_number IN ('EDW_TIE_TO_PLANET')
+	AND Fiscal_Yr >= (SELECT Start_Fiscal_Yr FROM two_years)
+	AND pl <> 'GD'
+  GROUP BY  cal_date
+      ,country_alpha2
+      ,market8
+      ,region_5
+      ,platform_subset
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+      
+ UNION ALL
+ 
+ SELECT 
+      cal_date
+      ,country_alpha2
+      ,market8
+	  ,region_5
+	  ,platform_subset
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+      ,sum(net_revenue) as net_revenue
+      ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+  FROM orig_official_fin_prep3
+  WHERE 1=1
+  AND pl = 'GD' 
+  GROUP BY  cal_date
+      ,country_alpha2
+      ,market8
+      ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
 """)
 
-baseprod_detailed_targets_finance_dashboard.createOrReplaceTempView("baseprod_detailed_targets_finance_dashboard")
+orig_official_fin4.createOrReplaceTempView("original_official_financials")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Step Eight
+# MAGIC Drop edw tieouts that we're excluding (for now, pending REQs) and compute implied yields
 
 # COMMAND ----------
 
@@ -1388,66 +1456,6 @@ SELECT
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
   FROM original_official_financials
   WHERE 1=1
-  AND base_product_number <> 'EDW_TIE_TO_PLANET'
-  AND pl <> GD
-  GROUP BY  cal_date
-      ,country_alpha2
-      ,market8
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-      
-UNION ALL
-
-   SELECT 
-      cal_date
-      ,country_alpha2
-      ,market8
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM original_official_financials
-  WHERE 1=1
-  AND base_product_number = 'EDW_TIE_TO_PLANET'
-  AND Fiscal_Yr >= (SELECT Start_Fiscal_Yr FROM two_years)
-  AND pl <> GD
-  GROUP BY  cal_date
-      ,country_alpha2
-      ,market8
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-      
-UNION ALL
-
- SELECT 
-      cal_date
-      ,country_alpha2
-      ,market8
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM original_official_financials
-  WHERE 1=1
-  AND pl = GD
   GROUP BY  cal_date
       ,country_alpha2
       ,market8
@@ -1458,7 +1466,7 @@ UNION ALL
       ,customer_engagement
 """)
 
-baseprod_detailed_targets.createOrReplaceTempView("baseprod_targets_detailed")
+baseprod_detailed_targets.createOrReplaceTempView("baseprod_detailed_targets")
 
 # COMMAND ----------
 
@@ -1524,7 +1532,7 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM baseprod_targets_detailed
+  FROM baseprod_detailed_targets
   WHERE 1=1
 	AND revenue_units >= 0
   GROUP BY  cal_date
@@ -1586,7 +1594,7 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM baseprod_targets_detailed
+  FROM baseprod_detailed_targets
   WHERE 1=1
 	AND pl = 'GD'
   GROUP BY  cal_date
@@ -1632,6 +1640,7 @@ SELECT
 	AND pl = 'GD'
 	AND revenue_units > 0
 	AND platform_subset <> 'NA'
+    AND market8 is not null
 	GROUP BY cal_date, pl, customer_engagement, base_product_number, market8, yield_x_units, platform_subset
 """)
 
@@ -1873,8 +1882,9 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-  FROM baseprod_data_GD_unit_adjusted
+  FROM baseprod_detailed_targets
   WHERE 1=1
+	AND revenue_units < 0
 	AND net_revenue <= 0
 	AND platform_subset = 'NA'
 	AND base_product_number LIKE 'UNK%'
@@ -1904,6 +1914,34 @@ fin_dropped_out.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fin_dropped_out_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fin_dropped_out_temp'")
+
+# COMMAND ----------
+
+epa_05a_baseprod_dropout = """
+SELECT fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl
+    ,sum(net_revenue) as net_revenue
+    ,sum(revenue_units) as revenue_units
+    ,sum(equivalent_units) as equivalent_units
+    ,sum(yield_x_units) as yield_x_units
+    ,sum(yield_x_units_black_only) as yield_x_units_black_only
+FROM fin_stage.fin_dropped_out_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl    
+"""
+
+query_list.append(["scen.epa_05a_baseprod_dropout", epa_05_baseprod_positive, "epa_05a_baseprod_dropout"])
 
 # COMMAND ----------
 
@@ -2385,13 +2423,6 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fully_baked_sku_level_data_temp 
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Step Eleven
-# MAGIC Spread gap in revenue and cc_revenue caused by dropped data to where we have data 
-
-# COMMAND ----------
-
 epa_06_fully_joined = """
 SELECT fiscal_year_qtr
     , fiscal_yr
@@ -2424,6 +2455,13 @@ GROUP BY fiscal_year_qtr
 """
 
 query_list.append(["scen.epa_06_fully_joined", epa_06_fully_joined, "epa_06_fully_joined"])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Step Eleven
+# MAGIC Spread gap in revenue and cc_revenue caused by dropped data to where we have data 
 
 # COMMAND ----------
 
@@ -3641,7 +3679,7 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adjusted_revenue_mash4_temp USIN
 
 # COMMAND ----------
 
-epa_xx_adj_rev_mash4 = """
+epa_08_adj_rev_mash4 = """
 SELECT fiscal_year_qtr
     , fiscal_yr
     , market8
@@ -3672,7 +3710,7 @@ GROUP BY fiscal_year_qtr
     , pl    
 """
 
-query_list.append(["scen.epa_xx_adj_rev_mash4", epa_xx_adj_rev_mash4, "epa_xx_adj_rev_mash4"])
+query_list.append(["scen.epa_08_adj_rev_mash4", epa_xx_adj_rev_mash4, "epa_08_adj_rev_mash4"])
 
 # COMMAND ----------
 
@@ -3683,10 +3721,20 @@ query_list.append(["scen.epa_xx_adj_rev_mash4", epa_xx_adj_rev_mash4, "epa_xx_ad
 # MAGIC     , region_5
 # MAGIC     , pl
 # MAGIC     ,sum(net_revenue) as net_revenue
-# MAGIC  ,sum(cc_net_revenue) as cc_net_revenue
-# MAGIC 	  ,sum(inventory_change_impact) as inventory_change_impact
-# MAGIC 	  ,sum(cc_inventory_impact) as cc_inventory_impact
-# MAGIC 	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
+# MAGIC     ,sum(revenue_units) as revenue_units
+# MAGIC     ,sum(equivalent_units) as equivalent_units
+# MAGIC     ,sum(yield_x_units) as yield_x_units
+# MAGIC     ,sum(yield_x_units_black_only) as yield_x_units_black_only
+# MAGIC 	,sum(cc_net_revenue) as cc_net_revenue
+# MAGIC 	,sum(ci_usd) as ci_usd
+# MAGIC 	,sum(ci_qty) as ci_qty
+# MAGIC 	,sum(inventory_change_impact) as inventory_change_impact
+# MAGIC 	,sum(cc_inventory_impact) as cc_inventory_impact
+# MAGIC 	,sum(adjusted_revenue) as adjusted_revenue
+# MAGIC     ,sum(cc_net_revenue) as cc_net_revenue
+# MAGIC 	,sum(inventory_change_impact) as inventory_change_impact
+# MAGIC 	,sum(cc_inventory_impact) as cc_inventory_impact
+# MAGIC 	,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
 # MAGIC FROM fin_stage.adjusted_revenue_mash4_temp fa
 # MAGIC LEFT JOIN mdm.calendar cal
 # MAGIC     ON cal.Date = fa.cal_date
