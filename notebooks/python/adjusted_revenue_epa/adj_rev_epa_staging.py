@@ -2958,7 +2958,7 @@ SELECT
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
+	  ,sum(adjusted_revenue) as adjusted_revenue
       ,sum(implied_ndp) as implied_ci_ndp
       ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0), 0) as ci_unit_change
       ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0) * sum(implied_yield), 0) as ci_yield_x_units
@@ -3136,7 +3136,7 @@ adj_rev_salesprod_dropped = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market8 as market10
+      ,market10
 	  ,region_5
       ,sales_product_number
       ,pl
@@ -3173,7 +3173,7 @@ epa_sales_to_base_conversion = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market8 as market10
+      ,market10
 	  ,region_5
       ,sales_product_number
       ,sales_product_line_code as pl
@@ -3210,7 +3210,7 @@ epa_actuals_baseprod_negative_net_revenue = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market8 as market10
+      ,market10
 	  ,region_5
       ,base_product_number
 	  ,pl
@@ -3248,7 +3248,7 @@ epa_actuals_baseprod_dropped_data = spark.sql("""
 	SELECT		
        cal_date
       ,country_alpha2
-      ,market8 as market10
+      ,market10
 	  ,region_5
       ,base_product_number
 	  ,pl

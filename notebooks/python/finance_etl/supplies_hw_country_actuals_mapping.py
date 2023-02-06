@@ -578,8 +578,8 @@ SELECT record
     , base_product_number
     , customer_engagement
     , page_mix
-    , CAST(load_date AS date) as load_date
-    , CAST(load_date AS date) as version
+    , load_date
+    , version
 FROM usage_share_baseprod_02
 """
 
