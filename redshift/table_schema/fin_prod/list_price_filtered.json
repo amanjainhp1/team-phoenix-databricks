@@ -12,7 +12,7 @@
             "description": "country_alpha2",
             "name": "country_alpha2",
             "type": "VARCHAR(50)",
-            "nullable": false,
+            "nullable": true,
             "encode": "lzo"
         },
         {
@@ -40,35 +40,35 @@
             "description": "qb_sequence_number",
             "name": "qb_sequence_number",
             "type": "VARCHAR(50)",
-            "nullable": false,
+            "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "list_price",
             "name": "list_price",
             "type": "VARCHAR(50)",
-            "nullable": false,
+            "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "product_line",
             "name": "product_line",
             "type": "VARCHAR(50)",
-            "nullable": false,
+            "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "accounting_rate",
             "name": "accounting_rate",
             "type": "VARCHAR(50)",
-            "nullable": false,
+            "nullable": true,
             "encode": "lzo"
         },
         {
             "description": "list_price_usd",
             "name": "list_price_usd",
             "type": "VARCHAR(50)",
-            "nullable": false,
+            "nullable": true,
             "encode": "lzo"
         },  
         {
