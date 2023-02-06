@@ -1,0 +1,96 @@
+
+{
+    "fields": [
+        {
+            "description": "sales_product_number",
+            "name": "sales_product_number",
+            "type": "VARCHAR(20)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "currency_code",
+            "name": "currency_code",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "price_term_code",
+            "name": "price_term_code",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "price_start_effective_date",
+            "name": "price_start_effective_date",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "qb_sequence_number",
+            "name": "qb_sequence_number",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "list_price",
+            "name": "list_price",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "product_line",
+            "name": "product_line",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "accounting_rate",
+            "name": "accounting_rate",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "list_price_usd",
+            "name": "list_price_usd",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },  
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
