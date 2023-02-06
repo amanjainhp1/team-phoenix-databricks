@@ -257,7 +257,7 @@ SELECT
   LEFT JOIN mdm.calendar cal ON cal.Date = ar.cal_date
   WHERE 1=1
 	AND Day_of_month = 1
-	AND sales_product_number IN ('EDW_TIE_TO_PLANET')
+	AND sales_product_number IN = 'EDW_TIE_TO_PLANET'
 	AND Fiscal_Yr >= (SELECT Start_Fiscal_Yr FROM two_years)
 	AND pl <> 'GD'
   GROUP BY  cal_date
@@ -2880,7 +2880,7 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
 	  ,0 as ci_qty
 	  ,0 as inventory_change_impact
 	  ,0 as cc_inventory_impact
-	  ,0 as adjusted_revenue
+	  ,sum(net_revenue) as adjusted_revenue
     FROM spread_revenue_related_plugs_to_skus_usa
     WHERE 1=1
     GROUP BY  cal_date
@@ -2913,7 +2913,7 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
 	  ,0 as ci_qty
 	  ,0 as inventory_change_impact
 	  ,0 as cc_inventory_impact
-	  ,0 as adjusted_revenue
+	  ,sum(cc_net_revenue) as cc_net_revenue
     FROM spread_revenue_related_plugs_to_skus_non_usa
     WHERE 1=1
     GROUP BY  cal_date
@@ -3294,7 +3294,7 @@ SELECT
 		0 as ci_qty,
 		sum(inventory_change_plug * ifnull(ci_chg_mix, 0)) as inventory_change_impact,
 		sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as cc_inventory_impact,
-		0 as adjusted_revenue
+		-1 * sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as adjusted_revenue
   FROM ci_positive_gap mix 
   JOIN positive_ci_change plugs ON
 	mix.cal_date = plugs.cal_date AND
@@ -3337,7 +3337,7 @@ SELECT
 		0 as ci_qty,
 		sum(inventory_change_plug * ifnull(ci_chg_mix, 0)) as inventory_change_impact,
 		sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as cc_inventory_impact,
-		0 as adjusted_revenue
+		-1 * sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as adjusted_revenue
   FROM ci_negative_gap mix 
   JOIN negative_ci_change plugs ON
 	mix.cal_date = plugs.cal_date AND
@@ -3532,10 +3532,12 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(cc_net_revenue) - sum(net_revenue) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
+      ,sum(cc_inventory_impact) - sum(inventory_change_impact) as constant_currency_inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
       ,COALESCE(sum(ci_usd)/NULLIF(sum(ci_qty), 0), 0) as implied_ndp
@@ -3574,10 +3576,12 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
+      ,sum(constant_currency_inventory_change_impact) as constant_currency_inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
       ,sum(implied_ndp) as implied_ndp
@@ -3640,11 +3644,13 @@ SELECT
       ,COALESCE(sum(net_revenue)/NULLIF(sum(equivalent_units), 0), 0) as equivalent_aru
       ,sum(implied_yield) as implied_ink_yield
       ,sum(implied_yield_black_only) as implied_toner_yield
-	  ,sum(cc_net_revenue) as cc_net_revenue
+      ,sum(currency_impact) as currency_impact
+	  ,sum(net_revenue) + sum(currency_impact) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
+      ,sum(constant_currency_inventory_change_impact) as currency_impact_ch_inventory
+	  ,sum(inventory_change_impact) + sum(constant_currency_inventory_change_impact) as cc_inventory_impact
 	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
       ,sum(implied_ndp) as implied_ci_ndp
       ,COALESCE(sum(inventory_change_impact)/NULLIF(sum(implied_ndp), 0), 0) as ci_unit_change
@@ -3679,6 +3685,13 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adjusted_revenue_mash4_temp USIN
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC select * from adjusted_revenue_mash4
+# MAGIC where adjusted_revenue = 0
+# MAGIC and cc_inventory_impact <> 0
+
+# COMMAND ----------
+
 epa_08_adj_rev_mash4 = """
 SELECT fiscal_year_qtr
     , fiscal_yr
@@ -3710,7 +3723,7 @@ GROUP BY fiscal_year_qtr
     , pl    
 """
 
-query_list.append(["scen.epa_08_adj_rev_mash4", epa_xx_adj_rev_mash4, "epa_08_adj_rev_mash4"])
+query_list.append(["scen.epa_08_adj_rev_mash4", epa_08_adj_rev_mash4, "epa_08_adj_rev_mash4"])
 
 # COMMAND ----------
 
@@ -3775,12 +3788,12 @@ SELECT 'ACTUALS - ADJUSTED_REVENUE_EPA' as record
 	  ,equivalent_aru --new
 	  ,implied_ink_yield -- new
 	  ,implied_toner_yield --new
-	  ,sum(cc_net_revenue) - sum(net_revenue) as currency_impact
+	  ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd --new
 	  ,sum(ci_qty) as ci_qty --new
 	  ,sum(inventory_change_impact) as inventory_change_impact
-	  ,sum(cc_inventory_impact) - sum(inventory_change_impact) as currency_impact_ch_inventory
+	  ,sum(currency_impact_ch_inventory) as currency_impact_ch_inventory
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
 	  ,implied_ci_ndp --new
