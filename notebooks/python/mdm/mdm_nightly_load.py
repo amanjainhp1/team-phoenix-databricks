@@ -147,6 +147,16 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "hardware_xref"
             },
+            "hw_product_family_ink_business_segments": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "hw_product_family_ink_business_segments", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "hw_product_family_ink_business_segments"
+            },
             "hw_product_family_ink_forecaster_mapping": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",

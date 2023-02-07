@@ -1,6 +1,6 @@
 -- supplies_fcst.cartridge_mix_override_errors_vw source
 
-CREATE VIEW supplies_fcst.cartridge_mix_override_errors_vw AS
+CREATE OR REPLACE VIEW supplies_fcst.cartridge_mix_override_errors_vw AS
 
 WITH geo_map AS
 (
