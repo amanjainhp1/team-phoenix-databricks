@@ -126,7 +126,7 @@
             "type": "DOUBLE PRECISION",
             "nullable": true,
             "encode": "raw"
-        }
+        },
         {
             "description": "accounting_rate_version",
             "name": "accounting_rate_version",
