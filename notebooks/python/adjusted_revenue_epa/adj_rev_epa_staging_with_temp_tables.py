@@ -257,7 +257,7 @@ SELECT
   LEFT JOIN mdm.calendar cal ON cal.Date = ar.cal_date
   WHERE 1=1
 	AND Day_of_month = 1
-	AND sales_product_number IN = 'EDW_TIE_TO_PLANET'
+	AND sales_product_number = 'EDW_TIE_TO_PLANET'
 	AND Fiscal_Yr >= (SELECT Start_Fiscal_Yr FROM two_years)
 	AND pl <> 'GD'
   GROUP BY  cal_date
@@ -2975,6 +2975,41 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fully_baked_with_revenue_and_cc_
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC select cal_date
+# MAGIC       ,fiscal_year_qtr
+# MAGIC       ,market8
+# MAGIC       ,region_5
+# MAGIC       ,pl
+# MAGIC       ,customer_engagement
+# MAGIC       ,base_product_number
+# MAGIC 	 ,sum(net_revenue) as net_revenue
+# MAGIC     ,sum(revenue_units) as revenue_units
+# MAGIC     ,sum(equivalent_units) as equivalent_units
+# MAGIC     ,sum(yield_x_units) as yield_x_units
+# MAGIC 	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
+# MAGIC 	  ,ifnull(sum(ci_usd), 0) as ci_usd
+# MAGIC 	  ,ifnull(sum(ci_qty), 0) as ci_qty
+# MAGIC 	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
+# MAGIC 	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
+# MAGIC 	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
+# MAGIC from fin_stage.fully_baked_with_revenue_and_cc_rev_gaps_spread_temp t
+# MAGIC left join mdm.calendar cal
+# MAGIC   on cal.Date = cal_date
+# MAGIC where 1=1
+# MAGIC and pl = 'LU'
+# MAGIC and region_5 = 'NA'
+# MAGIC and day_of_month = 1
+# MAGIC group by cal_date
+# MAGIC       ,fiscal_year_qtr
+# MAGIC       ,market8
+# MAGIC       ,region_5
+# MAGIC       ,pl
+# MAGIC       ,customer_engagement
+# MAGIC       ,base_product_number
+
+# COMMAND ----------
+
 epa_07_spread_rev_cc_rev = """
 SELECT fiscal_year_qtr
     , fiscal_yr
@@ -3142,6 +3177,44 @@ positive_ci_change.createOrReplaceTempView("positive_ci_change")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+positive_ci_change.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/positive_ci_change_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.positive_ci_change_temp USING DELTA LOCATION '/tmp/delta/fin_stage/positive_ci_change_temp'")
+
+# COMMAND ----------
+
+epa_08_ci_data_positive = """
+SELECT
+    fiscal_year_qtr,
+    fiscal_yr,
+	market8,
+    region_5,
+    pl,
+	SUM(inventory_change_impact) as inventory_change_impact,
+	sum(cc_inventory_impact) as cc_inventory_impact
+FROM fin_stage.positive_ci_change_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl    
+"""
+
+query_list.append(["scen.epa_08_ci_data_positive", epa_08_ci_data_positive, "epa_08_ci_data_positive"])
+
+# COMMAND ----------
+
 negative_ci_change = spark.sql("""
 SELECT 
        cal_date
@@ -3176,6 +3249,44 @@ SELECT
 """)
 
 negative_ci_change.createOrReplaceTempView("negative_ci_change")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+negative_ci_change.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/negative_ci_change_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.negative_ci_change_temp USING DELTA LOCATION '/tmp/delta/fin_stage/negative_ci_change_temp'")
+
+# COMMAND ----------
+
+epa_09_ci_data_negative = """
+SELECT
+    fiscal_year_qtr,
+    fiscal_yr,
+	market8,
+    region_5,
+    pl,
+	SUM(inventory_change_impact) as inventory_change_impact,
+	sum(cc_inventory_impact) as cc_inventory_impact
+FROM fin_stage.negative_ci_change_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl    
+"""
+
+query_list.append(["scen.epa_09_ci_data_negative", epa_09_ci_data_negative, "epa_09_ci_data_negative"])
 
 # COMMAND ----------
 
@@ -3316,6 +3427,44 @@ ci_positive_plug.createOrReplaceTempView("ci_positive_plug")
 
 # COMMAND ----------
 
+# Write out to its delta table target.
+ci_positive_plug.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/ci_positive_plug_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.ci_positive_plug_temp USING DELTA LOCATION '/tmp/delta/fin_stage/ci_positive_plug_temp'")
+
+# COMMAND ----------
+
+epa_10_ci_data_positive_plug = """
+SELECT
+    fiscal_year_qtr,
+    fiscal_yr,
+	market8,
+    region_5,
+    pl,
+	SUM(inventory_change_impact) as inventory_change_impact,
+	sum(cc_inventory_impact) as cc_inventory_impact
+FROM fin_stage.ci_positive_plug_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl    
+"""
+
+query_list.append(["scen.epa_10_ci_data_positive_plug", epa_10_ci_data_positive_plug, "epa_10_ci_data_positive_plug"])
+
+# COMMAND ----------
+
 ci_negative_plug = spark.sql("""
 SELECT 
 		mix.cal_date,
@@ -3356,6 +3505,44 @@ SELECT
 """)
 
 ci_negative_plug.createOrReplaceTempView("ci_negative_plug")
+
+# COMMAND ----------
+
+# Write out to its delta table target.
+ci_negative_plug.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/ci_negative_plug_temp")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.ci_negative_plug_temp USING DELTA LOCATION '/tmp/delta/fin_stage/ci_negative_plug_temp'")
+
+# COMMAND ----------
+
+epa_11_ci_data_negative_plug = """
+SELECT
+    fiscal_year_qtr,
+    fiscal_yr,
+	market8,
+    region_5,
+    pl,
+	SUM(inventory_change_impact) as inventory_change_impact,
+	sum(cc_inventory_impact) as cc_inventory_impact
+FROM fin_stage.ci_negative_plug_temp fa
+LEFT JOIN mdm.calendar cal
+    ON cal.Date = fa.cal_date
+WHERE 1=1
+AND Day_of_Month = 1
+AND Fiscal_Yr > '2017'
+GROUP BY fiscal_year_qtr
+    , fiscal_yr
+    , market8
+    , region_5
+    , pl    
+"""
+
+query_list.append(["scen.epa_11_ci_data_negative_plug", epa_11_ci_data_negative_plug, "epa_11_ci_data_negative_plug"])
 
 # COMMAND ----------
 
@@ -3685,14 +3872,7 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adjusted_revenue_mash4_temp USIN
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select * from adjusted_revenue_mash4
-# MAGIC where adjusted_revenue = 0
-# MAGIC and cc_inventory_impact <> 0
-
-# COMMAND ----------
-
-epa_08_adj_rev_mash4 = """
+epa_12_adj_rev_mash4 = """
 SELECT fiscal_year_qtr
     , fiscal_yr
     , market8
@@ -3723,7 +3903,7 @@ GROUP BY fiscal_year_qtr
     , pl    
 """
 
-query_list.append(["scen.epa_08_adj_rev_mash4", epa_08_adj_rev_mash4, "epa_08_adj_rev_mash4"])
+query_list.append(["scen.epa_12_adj_rev_mash4", epa_12_adj_rev_mash4, "epa_12_adj_rev_mash4"])
 
 # COMMAND ----------
 
