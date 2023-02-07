@@ -133,7 +133,7 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 working_forecast_country = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
     .load()
-working_forecast1 = read_redshift_to_df(configs) \
+working_forecast = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.working_forecast WHERE version = '{working_forecast_version}'") \
     .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
@@ -150,16 +150,16 @@ calendar = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
- ['prod.usage_share1' , usage_share1],
- ['mdm.hardware_xref' , hardware_xref],
- ['mdm.supplies_xref' , supplies_xref],
- ['prod.decay_m13' , decay_m13],
- ['mdm.yield' , yield_],
- ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
- ['mdm.iso_country_code_xref' , iso_country_code_xref],
- ['prod.working_forecast_country' , working_forecast_country],
- ['prod.working_forecast1' , working_forecast1],
+# ['prod.usage_share1' , usage_share1],
+# ['mdm.hardware_xref' , hardware_xref],
+# ['mdm.supplies_xref' , supplies_xref],
+# ['prod.decay_m13' , decay_m13],
+# ['mdm.yield' , yield_],
+# ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+# ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+# ['mdm.iso_country_code_xref' , iso_country_code_xref],
+# ['prod.working_forecast_country' , working_forecast_country],
+ ['prod.working_forecast' , working_forecast],
  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
  ['prod.norm_shipments' , norm_shipments],
  ['ifs2.toner_host_yield' , toner_host_yield],
@@ -180,6 +180,7 @@ for table in tables:
     df.write \
         .format(write_format) \
         .mode("overwrite") \
+        .option("mergeSchema", "true") \
         .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
@@ -255,7 +256,7 @@ query = '''select cal_date
                 , customer_engagement
                 , hw_product_family
                 , measure
-                , case when measure = 'COLOR_USAGE' then sum(units)/3
+                , case when measure = 'COLOR_USAGE' then sum(units)
                         when measure = 'HP_SHARE' then avg(units)
                         else sum(units)
                     end as units
@@ -465,14 +466,16 @@ select usiut.record
                 , shm.base_product_number
                 , crg_chrome
                 , case when (usiut.record = 'TONER' and crg_chrome = 'BLK') then 'BLACK'
-         when (usiut.record = 'TONER' and crg_chrome in ('CYN','MAG','YEL','MUL')) then 'COLOR'  -- work on MUL
+         when (usiut.record = 'TONER' and crg_chrome in ('CYN','MAG','YEL')) then 'COLOR'  -- work on MUL
         else 'NONE' end as crg_chrome_type
                 , usiut.customer_engagement
                 , hw_product_family
                 ,case when crg_chrome = 'BLK' then k_usage
-                else color_usage
+                     when (usiut.record = 'INK' and crg_chrome in ('CYN','MAG','YEL')) then color_usage/3
+                 else color_usage
                 end as usage
                 ,case when crg_chrome = 'BLK' then sum_of_k_usage_till_date
+                    when (usiut.record = 'INK' and crg_chrome in ('CYN','MAG','YEL')) then sum_of_color_usage_till_date/3
                 else sum_of_color_usage_till_date
                 end as sum_of_usage_till_date
             --    , COLOR_USAGE
@@ -895,7 +898,7 @@ select cal_date
 	, customer_engagement
     , vtc
 	, version
-from working_forecast1
+from working_forecast
 where version = '{}'
 and cal_date between '{}' and '{}'
 '''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
@@ -940,7 +943,7 @@ select distinct
     d.remaining_amount,
     y.value as yield,
     hy.host_yield as host_yield,
-    case when (us.record = 'INK' and us.crg_chrome in ('CYN','MAG','YEL','MUL')) then t.trade_split*3
+    case when (us.record = 'INK' and us.crg_chrome in ('CYN','MAG','YEL')) then t.trade_split*3
         else t.trade_split
         end as trade_split, 
     v.vtc,
@@ -1152,7 +1155,7 @@ ifs2.createOrReplaceTempView("ifs2")
 
 # COMMAND ----------
 
-ifs2.filter((col('platform_subset') == 'BETELGEUSE') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == 'W2110A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+ifs2.filter((col('platform_subset') == 'CONGO 2N') & (col('market10') == 'CENTRAL EUROPE') & (col('base_product_number') == 'CH564E') & (col('country_alpha2') == 'AT')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
