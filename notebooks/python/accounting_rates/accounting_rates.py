@@ -1,4 +1,13 @@
 # Databricks notebook source
+import boto3 
+import zipfile 
+from datetime import * 
+from io import BytesIO 
+import json 
+import re 
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -20,12 +29,6 @@ dbutils.fs.mv("file:/tmp/T0000047_o.zip", "s3://dataos-core-prod-team-phoenix/la
 # COMMAND ----------
 
 # unzip all the .zip files in the folder
-import boto3 
-import zipfile 
-from datetime import * 
-from io import BytesIO 
-import json 
-import re 
 
 dev_client = boto3.client('s3') 
 dev_resource=boto3.resource('s3')        

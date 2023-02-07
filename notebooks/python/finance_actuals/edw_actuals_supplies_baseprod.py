@@ -7,6 +7,13 @@
 
 # COMMAND ----------
 
+# pull in working forecast from SFAI (DELETE ME LATER; MIGRATE TO RS)
+working_forecast = read_sql_server_to_df(configs) \
+    .option("dbtable", "IE2_Prod.dbo.working_forecast") \
+    .load()
+
+# COMMAND ----------
+
 # load S3 tables to df
 edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
@@ -23,9 +30,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 iso_cc_rollup_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_cc_rollup_xref") \
     .load()
-supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
-    .load()
+#working_forecast = read_redshift_to_df(configs) \
+#    .option("query", "SELECT * FROM prod.working_forecast WHERE version = (SELECT max(version) from prod.working_forecast)") \
+#    .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
@@ -34,6 +41,9 @@ calendar = read_redshift_to_df(configs) \
     .load()
 product_line_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_xref") \
+    .load()
+ib = read_redshift_to_df(configs) \
+    .option("query", "SELECT * FROM prod.ib WHERE version = (SELECT MAX(version) FROM prod.ib WHERE record = 'IB' AND official = 1)") \
     .load()
 edw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.edw_actuals_supplies_salesprod") \
@@ -47,13 +57,14 @@ hardware_xref = read_redshift_to_df(configs) \
 tables = [
     ['fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only', edw_actuals_supplies_baseprod_staging_interim_supplies_only],
     ['fin_prod.planet_actuals', planet_actuals],
-    #['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping],
     ['fin_prod.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.iso_cc_rollup_xref', iso_cc_rollup_xref],
+    ['prod.working_forecast', working_forecast],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['mdm.calendar', calendar],
     ['mdm.product_line_xref', product_line_xref],
+    #['prod.ib', ib],
     ['fin_prod.edw_actuals_supplies_salesprod', edw_actuals_supplies_salesprod],
     ['mdm.hardware_xref', hardware_xref]
 ]
@@ -86,6 +97,10 @@ for table in tables:
 
 # COMMAND ----------
 
+ib.createOrReplaceTempView("ib")
+
+# COMMAND ----------
+
 # call version sproc
 addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIES BASE PRODUCT FINANCIALS", "ACTUALS - EDW SUPPLIES BASE PRODUCT FINANCIALS")
 
@@ -113,7 +128,7 @@ SELECT
     SUM(equivalent_units) AS equivalent_units,
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
-FROM fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only
+FROM edw_actuals_supplies_baseprod_staging_interim_supplies_only
 WHERE 1=1
 GROUP BY cal_date, country_alpha2, base_product_number, pl, customer_engagement, market10
 """
@@ -123,37 +138,336 @@ actuals_supplies_baseprod.createOrReplaceTempView("actuals_supplies_baseprod")
 
 # COMMAND ----------
 
-#platform subset by cartridge mix
-usage_share_country_hp_pages_mix = f"""
+#platform subset by cartridge demand mix
+cartridge_demand = f"""
 SELECT 
     cal_date,
-    country_alpha2,
+    geography AS market10,
     platform_subset,
     base_product_number,
-    customer_engagement,
-    page_mix as platform_mix,
-    version
-FROM stage.supplies_hw_country_actuals_mapping
-WHERE version = (select max(version) from stage.supplies_hw_country_actuals_mapping)
-    AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.edw_actuals_supplies_salesprod) 
-                    AND (SELECT MAX(cal_date) FROM fin_prod.edw_actuals_supplies_salesprod)
-    AND page_mix <> 0
+    SUM(adjusted_cartridges) AS units
+FROM working_forecast
+WHERE version = (select max(version) from working_forecast)
+    AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod) 
+    AND adjusted_cartridges <> 0
+    AND geography_grain = 'MARKET10'
 GROUP BY 
     cal_date,
-    country_alpha2,
+    geography,
     platform_subset,
-    base_product_number,
-    customer_engagement,
-    page_mix,
-    version
+    base_product_number
 """
 
-usage_share_country_hp_pages_mix = spark.sql(usage_share_country_hp_pages_mix)
-usage_share_country_hp_pages_mix.createOrReplaceTempView("usage_share_country_hp_pages_mix")
+cartridge_demand = spark.sql(cartridge_demand)
+cartridge_demand.createOrReplaceTempView("cartridge_demand")
+
+cartridge_demand_ptr_mix = f"""
+SELECT distinct    cal_date,
+    market10,
+    platform_subset,
+    base_product_number,
+    CASE
+        WHEN SUM(units) OVER (PARTITION BY cal_date, market10, base_product_number) = 0 THEN NULL
+        ELSE units / SUM(units) OVER (PARTITION BY cal_date, market10, base_product_number)
+    END AS platform_mix
+FROM cartridge_demand
+GROUP BY cal_date, 
+    market10, 
+    platform_subset, 
+    base_product_number,
+    units
+"""
+
+cartridge_demand_ptr_mix = spark.sql(cartridge_demand_ptr_mix)
+cartridge_demand_ptr_mix.createOrReplaceTempView("cartridge_demand_ptr_mix")
 
 # COMMAND ----------
 
-#accounting items // addback 1
+# platform subset by ib mix, get ib -- if no data comes back, comment out official = 1
+installed_base_history = f"""
+SELECT cal_date,
+    platform_subset,
+    ib.country_alpha2,
+    market10,
+    sum(units) as units,
+    ib.version
+FROM ib ib
+LEFT JOIN iso_country_code_xref iso
+    ON ib.country_alpha2 = iso.country_alpha2
+WHERE 1=1
+--AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
+AND units <> 0
+AND units IS NOT NULL
+AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
+GROUP BY
+    cal_date,
+    platform_subset,
+    market10,
+    ib.country_alpha2,
+    ib.version
+"""
+
+installed_base_history = spark.sql(installed_base_history)
+installed_base_history.createOrReplaceTempView("installed_base_history")
+
+# COMMAND ----------
+
+#assign cartridge to printer ib using supplies_hw_mapping // build out the supplies hw mapping table using code leveraged from working forecast
+shm_01_iso = f"""
+SELECT DISTINCT market10
+    , region_5
+FROM iso_country_code_xref
+where 1=1
+    AND NOT market10 IS NULL
+    AND region_5 NOT IN ('XU','XW')
+"""
+
+shm_01_iso = spark.sql(shm_01_iso)
+shm_01_iso.createOrReplaceTempView("shm_01_iso")
+
+
+shm_02_geo_1 = f"""
+SELECT DISTINCT shm.platform_subset
+    , shm.base_product_number
+    , shm.geography
+    , CASE WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%STND%' THEN 'STD'
+           WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%YET2%' THEN 'HP+'
+           WHEN hw.technology = 'LASER' THEN 'TRAD'
+           ELSE shm.customer_engagement END AS customer_engagement
+FROM supplies_hw_mapping AS shm
+JOIN hardware_xref AS hw
+    ON hw.platform_subset = shm.platform_subset
+WHERE 1=1
+    AND hw.official = 1
+    AND shm.official = 1
+    and geography_grain = 'MARKET10'
+"""
+
+shm_02_geo_1 = spark.sql(shm_02_geo_1)
+shm_02_geo_1.createOrReplaceTempView("shm_02_geo_1")
+
+
+shm_03_geo_2 = f"""
+SELECT DISTINCT shm.platform_subset
+    , shm.base_product_number
+    , iso.market10 AS geography
+    , CASE WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%STND%' THEN 'STD'
+           WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%YET2%' THEN 'HP+'
+           WHEN hw.technology = 'LASER' THEN 'TRAD'
+           ELSE shm.customer_engagement END AS customer_engagement
+FROM supplies_hw_mapping AS shm
+JOIN hardware_xref AS hw
+    ON hw.platform_subset = shm.platform_subset
+JOIN shm_01_iso AS iso
+    ON iso.region_5 = shm.geography
+WHERE 1=1
+    AND shm.official = 1
+    AND hw.official = 1
+    AND shm.geography_grain = 'REGION_5'
+"""
+
+shm_03_geo_2 = spark.sql(shm_03_geo_2)
+shm_03_geo_2.createOrReplaceTempView("shm_03_geo_2")
+
+shm_03b_geo_3 = f"""
+SELECT DISTINCT shm.platform_subset
+    , shm.base_product_number
+    , iso.market10 AS geography
+    , CASE WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%STND%' THEN 'STD'
+           WHEN hw.technology = 'LASER' AND shm.platform_subset LIKE '%YET2%' THEN 'HP+'
+           WHEN hw.technology = 'LASER' THEN 'TRAD'
+           ELSE shm.customer_engagement END AS customer_engagement
+FROM supplies_hw_mapping AS shm
+JOIN hardware_xref AS hw
+    ON hw.platform_subset = shm.platform_subset
+JOIN iso_cc_rollup_xref  AS cc
+    ON cc.country_level_1 = shm.geography  -- gives us cc.country_alpha2
+JOIN iso_country_code_xref AS iso
+    ON iso.country_alpha2 = cc.country_alpha2     -- changed geography_grain to geography
+WHERE 1=1
+    AND shm.official = 1
+    AND hw.official = 1
+    AND shm.geography_grain = 'REGION_8'
+    AND cc.country_scenario = 'HOST_REGION_8'
+"""
+
+shm_03b_geo_3 = spark.sql(shm_03b_geo_3)
+shm_03b_geo_3.createOrReplaceTempView("shm_03b_geo_3")
+
+shm_04_combined = f"""
+SELECT platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+FROM shm_02_geo_1
+
+UNION ALL
+
+SELECT platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+FROM shm_03_geo_2
+
+UNION ALL
+
+SELECT platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+FROM shm_03b_geo_3
+"""
+
+shm_04_combined = spark.sql(shm_04_combined)
+shm_04_combined.createOrReplaceTempView("shm_04_combined")
+
+
+shm_05_remove_dupes = f"""
+SELECT DISTINCT platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+FROM shm_04_combined
+"""
+
+shm_05_remove_dupes = spark.sql(shm_05_remove_dupes)
+shm_05_remove_dupes.createOrReplaceTempView("shm_05_remove_dupes")
+
+shm_06_map_geo = f"""
+SELECT platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+    , platform_subset + ' ' + base_product_number + ' ' +
+        geography + ' ' + customer_engagement AS composite_key
+FROM shm_05_remove_dupes
+"""
+
+shm_06_map_geo = spark.sql(shm_06_map_geo)
+shm_06_map_geo.createOrReplaceTempView("shm_06_map_geo")
+
+
+#modify shm_06_map_geo for different customer engagements in actuals supplies then forecast supplies:
+shm_07_collapse_ce_type = f"""
+            SELECT distinct platform_subset
+                , base_product_number
+                , geography
+                , CASE
+                    WHEN customer_engagement = 'I-INK' THEN 'I-INK'
+                    ELSE 'TRAD'
+                END AS customer_engagement
+            FROM shm_06_map_geo
+"""
+shm_07_collapse_ce_type = spark.sql(shm_07_collapse_ce_type)
+shm_07_collapse_ce_type.createOrReplaceTempView("shm_07_collapse_ce_type")
+
+
+supplies_ce_supplies_hw_map = f"""
+SELECT distinct platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+FROM shm_07_collapse_ce_type
+WHERE customer_engagement = 'I-INK'
+
+UNION ALL
+
+SELECT distinct platform_subset
+    , base_product_number
+    , geography
+    , 'EST_DIRECT_FULFILLMENT' AS customer_engagement
+FROM shm_07_collapse_ce_type
+WHERE customer_engagement = 'TRAD'
+
+UNION ALL
+
+SELECT distinct platform_subset
+    , base_product_number
+    , geography
+    , 'EST_INDIRECT_FULFILLMENT' AS customer_engagement
+FROM shm_07_collapse_ce_type
+WHERE customer_engagement = 'TRAD'
+
+UNION ALL
+
+SELECT distinct platform_subset
+    , base_product_number
+    , geography
+    , customer_engagement
+FROM shm_07_collapse_ce_type
+WHERE customer_engagement = 'TRAD'
+"""
+supplies_ce_supplies_hw_map = spark.sql(supplies_ce_supplies_hw_map)
+supplies_ce_supplies_hw_map.createOrReplaceTempView("supplies_ce_supplies_hw_map")
+
+
+#end supplies_hw_mapping build out
+map_crtg_to_printers = f"""
+SELECT
+    distinct platform_subset,
+    base_product_number,
+    geography as market10
+FROM supplies_ce_supplies_hw_map
+WHERE 1=1
+    AND platform_subset IN (select distinct platform_subset from installed_base_history)
+    AND base_product_number IN (select distinct base_product_number from actuals_supplies_baseprod)
+"""
+
+map_crtg_to_printers = spark.sql(map_crtg_to_printers)
+map_crtg_to_printers.createOrReplaceTempView("map_crtg_to_printers")  
+
+
+# COMMAND ----------
+
+#platform subset by ib mix
+installed_base_with_crtg = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    ib.market10,
+    ib.platform_subset,
+    base_product_number,
+    sum(units) as units
+FROM installed_base_history ib
+INNER JOIN map_crtg_to_printers map ON
+    ib.market10 = map.market10 AND
+    ib.platform_subset = map.platform_subset
+GROUP BY cal_date,
+    country_alpha2,
+    ib.market10,
+    ib.platform_subset,
+    base_product_number
+"""
+
+installed_base_with_crtg = spark.sql(installed_base_with_crtg)
+installed_base_with_crtg.createOrReplaceTempView("installed_base_with_crtg") 
+
+
+ib_printer_mix = f"""
+SELECT distinct    cal_date,
+    country_alpha2,
+    market10,
+    platform_subset,
+    base_product_number,
+    CASE
+        WHEN SUM(units) OVER (PARTITION BY cal_date, country_alpha2, market10, base_product_number) = 0 THEN NULL
+        ELSE units / SUM(units) OVER (PARTITION BY cal_date, country_alpha2, market10, base_product_number)
+    END AS ib_mix
+FROM installed_base_with_crtg
+GROUP BY cal_date,
+    country_alpha2,
+    market10,
+    platform_subset,
+    base_product_number,
+    units
+"""
+
+ib_printer_mix = spark.sql(ib_printer_mix)
+ib_printer_mix.createOrReplaceTempView("ib_printer_mix") 
+
+# COMMAND ----------
+
+#accounting items
 accounting_items_addback = f"""
 SELECT
     cal_date,
@@ -187,7 +501,7 @@ accounting_items_addback.createOrReplaceTempView("accounting_items_addback")
 
 # COMMAND ----------
 
-#non-accounting items // data to map printers to 
+#non-accounting items // data to map printers to // addback 1
 baseprod_without_acct_items = f"""
 SELECT
     cal_date,
@@ -220,16 +534,16 @@ baseprod_without_acct_items.createOrReplaceTempView("baseprod_without_acct_items
 
 # COMMAND ----------
 
-#base product with assigned printers based upon country usage share // addback 2
-baseprod_printer_from_usc = f"""
+#base product with assigned printers based upon cartridge demand // addback 2
+baseprod_printer_from_crtg_demand = f"""
 SELECT 
     act.cal_date,            
-    act.country_alpha2,
-    market10,
+    country_alpha2,
+    act.market10,
     platform_subset,
     act.base_product_number,
     pl,
-    act.customer_engagement,
+    customer_engagement,
     SUM(gross_revenue * platform_mix) AS gross_revenue,
     SUM(net_currency * platform_mix) AS net_currency,
     SUM(contractual_discounts * platform_mix) AS contractual_discounts,
@@ -244,55 +558,287 @@ SELECT
     SUM(yield_x_units * platform_mix) AS yield_x_units,
     SUM(yield_x_units_black_only * platform_mix) AS yield_x_units_black_only
 FROM baseprod_without_acct_items act
-JOIN usage_share_country_hp_pages_mix mix 
-    ON mix.cal_date = act.cal_date 
-    AND mix.country_alpha2 = act.country_alpha2 
-    AND mix.base_product_number = act.base_product_number
-    AND mix.customer_engagement = act.customer_engagement
-GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, pl, act.customer_engagement, platform_subset, market10
+JOIN cartridge_demand_ptr_mix mix ON mix.cal_date = act.cal_date AND mix.market10 = act.market10 AND mix.base_product_number = act.base_product_number
+GROUP BY act.cal_date, country_alpha2, act.base_product_number, pl, customer_engagement, platform_subset, act.market10
 """
 
-baseprod_printer_from_usc = spark.sql(baseprod_printer_from_usc)
-baseprod_printer_from_usc.createOrReplaceTempView("baseprod_printer_from_usc") 
+baseprod_printer_from_crtg_demand = spark.sql(baseprod_printer_from_crtg_demand)
+baseprod_printer_from_crtg_demand.createOrReplaceTempView("baseprod_printer_from_crtg_demand") 
 
 
 # COMMAND ----------
 
-# set to NA failed match via usc  // addback 3
-baseprod_printer_from_usc2 = f"""
-SELECT 
-    act.cal_date,            
+# failed match via cartridge demand
+baseprod_without_crtg_demand_connect = f"""
+SELECT
+    bp.cal_date,
+    bp.country_alpha2,
+    bp.market10,
+    platform_subset,
+    bp.base_product_number,
+    bp.pl,
+    bp.customer_engagement,
+    SUM(bp.gross_revenue) AS gross_revenue,
+    SUM(bp.net_currency) AS net_currency,
+    SUM(bp.contractual_discounts) AS contractual_discounts,
+    SUM(bp.discretionary_discounts) AS discretionary_discounts,
+    SUM(bp.net_revenue) AS net_revenue,
+    SUM(bp.warranty) AS warranty,
+    SUM(bp.other_cos) AS other_cos,
+    SUM(bp.total_cos) AS total_cos,
+    SUM(bp.gross_profit) AS gross_profit,
+    SUM(bp.revenue_units) AS revenue_units,
+    SUM(bp.equivalent_units) AS equivalent_units,
+    SUM(bp.yield_x_units) AS yield_x_units,
+    SUM(bp.yield_x_units_black_only) AS yield_x_units_black_only
+FROM baseprod_without_acct_items bp
+LEFT JOIN baseprod_printer_from_crtg_demand sub 
+    ON bp.cal_date = sub.cal_date 
+    AND bp.country_alpha2 = sub.country_alpha2 
+    AND bp.base_product_number = sub.base_product_number 
+    AND bp.pl = sub.pl 
+    AND bp.customer_engagement = sub.customer_engagement 
+    AND bp.market10 = sub.market10 
+WHERE platform_subset IS NULL
+GROUP BY bp.cal_date, bp.country_alpha2, bp.base_product_number, bp.pl, bp.customer_engagement, bp.market10, platform_subset
+"""
+
+baseprod_without_crtg_demand_connect = spark.sql(baseprod_without_crtg_demand_connect)
+baseprod_without_crtg_demand_connect.createOrReplaceTempView("baseprod_without_crtg_demand_connect") 
+
+# COMMAND ----------
+
+#base product with assigned printers based upon ib // addback 3
+baseprod_printer_by_ib_mix = f"""
+SELECT
+    act.cal_date,
     act.country_alpha2,
-    market10,
-    'NA' AS platform_subset,
+    act.market10,
+    mix.platform_subset,
     act.base_product_number,
     pl,
+    customer_engagement,
+    SUM(gross_revenue * ib_mix) AS gross_revenue,
+    SUM(net_currency * ib_mix) AS net_currency,
+    SUM(contractual_discounts * ib_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * ib_mix) AS discretionary_discounts,
+    SUM(net_revenue * ib_mix) AS net_revenue,
+    SUM(warranty * ib_mix) AS warranty,
+    SUM(other_cos * ib_mix) AS other_cos,
+    SUM(total_cos * ib_mix) AS total_cos,
+    SUM(gross_profit * ib_mix) AS gross_profit,
+    SUM(revenue_units * ib_mix) AS revenue_units,
+    SUM(equivalent_units * ib_mix) AS equivalent_units,
+    SUM(yield_x_units * ib_mix) AS yield_x_units,
+    SUM(yield_x_units_black_only * ib_mix) AS yield_x_units_black_only
+FROM baseprod_without_crtg_demand_connect act
+JOIN ib_printer_mix AS mix ON mix.cal_date = act.cal_date AND mix.base_product_number = act.base_product_number AND act.country_alpha2 = mix.country_alpha2 AND act.market10 = mix.market10
+GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, pl, customer_engagement, mix.platform_subset, act.market10
+"""            
+
+baseprod_printer_by_ib_mix = spark.sql(baseprod_printer_by_ib_mix)
+baseprod_printer_by_ib_mix.createOrReplaceTempView("baseprod_printer_by_ib_mix") 
+
+# COMMAND ----------
+
+# failed match via ib
+baseprod_without_printer_map_from_crtg_demand_or_ib = f"""
+SELECT
+    act.cal_date,
+    act.country_alpha2,
+    act.market10,
+    mix.platform_subset,
+    act.base_product_number,
+    act.pl,
     act.customer_engagement,
+    SUM(act.gross_revenue) AS gross_revenue,
+    SUM(act.net_currency) AS net_currency,
+    SUM(act.contractual_discounts) AS contractual_discounts,
+    SUM(act.discretionary_discounts) AS discretionary_discounts,
+    SUM(act.net_revenue) AS net_revenue,
+    SUM(act.warranty) AS warranty,
+    SUM(act.other_cos) AS other_cos,
+    SUM(act.total_cos) AS total_cos,
+    SUM(act.gross_profit) AS gross_profit,
+    SUM(act.revenue_units) AS revenue_units,
+    SUM(act.equivalent_units) AS equivalent_units,
+    SUM(act.yield_x_units) AS yield_x_units,
+    SUM(act.yield_x_units_black_only) AS yield_x_units_black_only
+FROM baseprod_without_crtg_demand_connect act
+LEFT JOIN baseprod_printer_by_ib_mix AS mix 
+    ON mix.cal_date = act.cal_date
+    AND mix.country_alpha2 = act.country_alpha2
+    AND act.pl = mix.pl
+    AND act.customer_engagement = mix.customer_engagement
+    AND mix.base_product_number = act.base_product_number 
+    AND act.market10 = mix.market10
+WHERE mix.platform_subset IS NULL
+GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, act.pl, act.customer_engagement, mix.platform_subset, act.market10
+"""
+
+baseprod_without_printer_map_from_crtg_demand_or_ib = spark.sql(baseprod_without_printer_map_from_crtg_demand_or_ib)
+baseprod_without_printer_map_from_crtg_demand_or_ib.createOrReplaceTempView("baseprod_without_printer_map_from_crtg_demand_or_ib") 
+
+# COMMAND ----------
+
+#map printer to crtg based upon supplies hw mapping
+map_ptr_to_crtg = f"""
+SELECT distinct    platform_subset,
+    base_product_number,
+    market10,
+    CASE
+        WHEN COUNT(platform_subset) OVER (PARTITION BY base_product_number, market10) = 0 THEN NULL
+        ELSE COUNT(platform_subset) OVER (PARTITION BY base_product_number, market10)
+    END AS printers_per_baseprod
+FROM map_crtg_to_printers 
+GROUP BY platform_subset, base_product_number, market10
+"""                
+
+map_ptr_to_crtg = spark.sql(map_ptr_to_crtg)
+map_ptr_to_crtg.createOrReplaceTempView("map_ptr_to_crtg") 
+
+
+map_ptr_to_crtg_no_nulls = f"""
+SELECT distinct    platform_subset,
+    base_product_number,
+    market10,
+    coalesce(sum(printers_per_baseprod), 0) AS printers_per_baseprod
+FROM map_ptr_to_crtg 
+GROUP BY platform_subset, base_product_number, market10
+"""
+
+map_ptr_to_crtg_no_nulls = spark.sql(map_ptr_to_crtg_no_nulls)
+map_ptr_to_crtg_no_nulls.createOrReplaceTempView("map_ptr_to_crtg_no_nulls")     
+
+
+map_ptr_to_crtg2 = f"""
+SELECT
+    platform_subset,
+    base_product_number,
+    m.market10,
+    CAST(printers_per_baseprod AS decimal(10,8)) AS printers_per_baseprod
+FROM map_ptr_to_crtg_no_nulls m
+"""
+
+map_ptr_to_crtg2 = spark.sql(map_ptr_to_crtg2)
+map_ptr_to_crtg2.createOrReplaceTempView("map_ptr_to_crtg2")
+
+# COMMAND ----------
+
+#supplies hardware map mix
+date_helper = f"""
+SELECT
+    date_key
+    , Date AS cal_date
+FROM calendar
+WHERE day_of_month = 1
+"""
+
+date_helper = spark.sql(date_helper)
+date_helper.createOrReplaceTempView("date_helper")
+
+
+hw_supplies_map3 = f"""
+SELECT 
+    cal_date,
+    platform_subset,
+    base_product_number,
+    printers_per_baseprod,
+    market10
+FROM date_helper
+CROSS JOIN map_ptr_to_crtg2
+WHERE cal_date BETWEEN 
+    (SELECT MIN(cal_date) FROM edw_actuals_supplies_salesprod) 
+    AND 
+    (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
+"""
+
+hw_supplies_map3 = spark.sql(hw_supplies_map3)
+hw_supplies_map3.createOrReplaceTempView("hw_supplies_map3")
+
+
+supplies_hw_map_mix = f"""
+SELECT distinct cal_date,
+    platform_subset,
+    base_product_number,
+    m.market10,
+    SUM(printers_per_baseprod) AS printers_per_baseprod,
+    1 / SUM(printers_per_baseprod) AS hw_mix
+FROM hw_supplies_map3 m
+LEFT JOIN iso_country_code_xref iso ON m.market10 = iso.market10
+GROUP BY platform_subset, base_product_number, m.market10, cal_date
+"""
+
+supplies_hw_map_mix = spark.sql(supplies_hw_map_mix)
+supplies_hw_map_mix.createOrReplaceTempView("supplies_hw_map_mix")
+
+# COMMAND ----------
+
+##base product with assigned printers based upon supplies hw map // addback 4
+actuals_join_hw_mix = f"""
+SELECT
+    sup.cal_date,
+    country_alpha2,
+    sup.market10,
+    map.platform_subset,
+    sup.base_product_number,
+    pl,
+    sup.customer_engagement,
+    SUM(gross_revenue * COALESCE(hw_mix, 1)) AS gross_revenue,
+    SUM(net_currency * COALESCE(hw_mix, 1)) AS net_currency,
+    SUM(contractual_discounts * COALESCE(hw_mix, 1)) AS contractual_discounts,
+    SUM(discretionary_discounts * COALESCE(hw_mix, 1)) AS discretionary_discounts,
+    SUM(net_revenue * COALESCE(hw_mix, 1)) AS net_revenue,
+    SUM(warranty * COALESCE(hw_mix, 1)) AS warranty,
+    SUM(other_cos * COALESCE(hw_mix, 1)) AS other_cos,
+    SUM(total_cos * COALESCE(hw_mix, 1)) AS total_cos,
+    SUM(gross_profit * COALESCE(hw_mix, 1)) AS gross_profit,
+    SUM(revenue_units * COALESCE(hw_mix, 1)) AS revenue_units,
+    SUM(equivalent_units * COALESCE(hw_mix, 1)) AS equivalent_units,
+    SUM(yield_x_units * COALESCE(hw_mix, 1)) AS yield_x_units,
+    SUM(yield_x_units_black_only * COALESCE(hw_mix, 1)) AS yield_x_units_black_only
+FROM baseprod_without_printer_map_from_crtg_demand_or_ib  sup
+LEFT JOIN supplies_hw_map_mix AS map ON map.base_product_number = sup.base_product_number AND map.cal_date = sup.cal_date AND 
+    map.market10 = sup.market10
+GROUP BY sup.cal_date, country_alpha2, sup.market10, sup.base_product_number, pl, sup.customer_engagement, map.platform_subset
+"""
+
+actuals_join_hw_mix = spark.sql(actuals_join_hw_mix)
+actuals_join_hw_mix.createOrReplaceTempView("actuals_join_hw_mix")
+
+
+#platform subset has to be a primary key, so it cannot be null
+baseprod_map_printer_using_shm = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    market10,
+    CASE
+        WHEN platform_subset IS NULL THEN 'NA'
+        ELSE platform_subset
+    END AS platform_subset,
+    base_product_number,
+    pl,
+    customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(net_revenue ) AS net_revenue,    
-    SUM(warranty) AS warranty,    
-    SUM(other_cos) AS other_cos,    
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(gross_profit) AS gross_profit,
     SUM(revenue_units) AS revenue_units,
     SUM(equivalent_units) AS equivalent_units,
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
-FROM baseprod_without_acct_items act
-LEFT JOIN usage_share_country_hp_pages_mix mix 
-    ON mix.cal_date = act.cal_date 
-    AND mix.country_alpha2 = act.country_alpha2 
-    AND mix.base_product_number = act.base_product_number
-    AND mix.customer_engagement = act.customer_engagement
-WHERE platform_subset is null
-GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, pl, act.customer_engagement, platform_subset, market10
+FROM actuals_join_hw_mix
+GROUP BY cal_date, country_alpha2, market10, base_product_number, pl, customer_engagement, platform_subset
 """
 
-baseprod_printer_from_usc2 = spark.sql(baseprod_printer_from_usc2)
-baseprod_printer_from_usc2.createOrReplaceTempView("baseprod_printer_from_usc2")  
+baseprod_map_printer_using_shm = spark.sql(baseprod_map_printer_using_shm)
+baseprod_map_printer_using_shm.createOrReplaceTempView("baseprod_map_printer_using_shm")
 
 # COMMAND ----------
 
@@ -302,14 +848,18 @@ SELECT *
 FROM accounting_items_addback
 UNION ALL
 SELECT * 
-FROM baseprod_printer_from_usc
+FROM baseprod_printer_from_crtg_demand
 UNION ALL
 SELECT *
-FROM baseprod_printer_from_usc2
+FROM baseprod_printer_by_ib_mix
+UNION ALL
+SELECT *
+FROM baseprod_map_printer_using_shm
 """
 
 all_baseprod_with_platform_subsets = spark.sql(all_baseprod_with_platform_subsets)
 all_baseprod_with_platform_subsets.createOrReplaceTempView("all_baseprod_with_platform_subsets")
+
 
 
 baseprod_financials_preplanet_table = f"""
@@ -336,7 +886,7 @@ SELECT
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM all_baseprod_with_platform_subsets AS bp
-JOIN mdm.product_line_xref AS plx ON bp.pl = plx.pl
+JOIN product_line_xref AS plx ON bp.pl = plx.pl
 GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, l5_description
 """
 
@@ -361,13 +911,13 @@ SELECT
     SUM(l2fa_warranty * 1000) AS p_warranty,
     SUM(l2fa_total_cos * 1000) AS p_total_cos,
     SUM(l2fa_gross_profit * 1000) AS p_gross_profit
-FROM fin_prod.planet_actuals AS p
-JOIN mdm.iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
-JOIN mdm.calendar AS cal ON cal.Date = p.cal_date
+FROM planet_actuals AS p
+JOIN iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
+JOIN calendar AS cal ON cal.Date = p.cal_date
 WHERE pl IN 
     (
         SELECT DISTINCT (pl) 
-        FROM mdm.product_line_xref 
+        FROM product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
             AND PL_category IN ('SUP', 'LLC')
             OR pl = 'IX'
@@ -428,7 +978,7 @@ WHERE 1=1
 AND pl NOT IN 
 	(
 	SELECT DISTINCT (pl) 
-	FROM mdm.product_line_xref 
+	FROM product_line_xref 
 	WHERE Technology = 'LASER'
 		AND PL_category = 'SUP'
 		AND pl NOT IN ('LZ', 'GY', 'N4', 'N5')
@@ -443,7 +993,7 @@ planet_targets_excluding_toner_sacp_restatements.createOrReplaceTempView("planet
 
 calendar_table = f"""
 select date_key, Date as cal_date, fiscal_yr, month_abbrv 
-from mdm.calendar
+from calendar
 where day_of_month = 1
 """
 
@@ -487,7 +1037,7 @@ SELECT
 	SUM((COALESCE(total_cost_of_sales,0) - COALESCE(warranty,0))) as other_cos,
 	SUM(COALESCE(total_cost_of_sales,0)) as total_cos,
 	SUM(COALESCE(net_revenues, 0) - COALESCE(total_cost_of_sales, 0)) as gross_profit
-FROM fin_prod.supplies_finance_hier_restatements_2020_2021
+FROM supplies_finance_hier_restatements_2020_2021
 GROUP BY market, l6_description, sacp_date_period, pl
 """
 
@@ -657,8 +1207,8 @@ SELECT
 	SUM(total_cos) AS total_cos,
 	SUM(gross_profit) AS gross_profit
 FROM baseprod_financials_preplanet_table AS bp
-LEFT JOIN mdm.iso_country_code_xref AS iso ON bp.country_alpha2 = iso.country_alpha2 AND bp.market10 = iso.market10
-JOIN mdm.calendar AS cal ON bp.cal_date = cal.Date
+LEFT JOIN iso_country_code_xref AS iso ON bp.country_alpha2 = iso.country_alpha2 AND bp.market10 = iso.market10
+JOIN calendar AS cal ON bp.cal_date = cal.Date
 WHERE Fiscal_Yr > '2016'
 AND Day_of_Month = 1
 GROUP BY bp.cal_date, bp.pl, region_5, Fiscal_Yr
@@ -784,8 +1334,8 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM baseprod_planet_tieout AS p
-JOIN mdm.iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
-JOIN mdm.product_line_xref AS plx ON p.pl = plx.pl
+JOIN iso_country_code_xref AS iso ON p.country_alpha2 = iso.country_alpha2
+JOIN product_line_xref AS plx ON p.pl = plx.pl
 GROUP BY cal_date, p.country_alpha2, market10, platform_subset, base_product_number, p.pl, l5_description, customer_engagement
 """
 
@@ -823,7 +1373,7 @@ FROM planet_adjusts
 WHERE pl IN 
     (
 		SELECT DISTINCT (pl) 
-		FROM mdm.product_line_xref 
+		FROM product_line_xref 
 		WHERE Technology IN ('INK', 'LASER', 'PWA') 
 			AND PL_category IN ('SUP')
 	)
@@ -857,11 +1407,11 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM planet_adjusts p
-left join mdm.calendar cal ON cal.date = cal_date
+left join calendar cal ON cal.date = cal_date
 WHERE pl IN 
 	(
 		SELECT pl
-		FROM mdm.product_line_xref 
+		FROM product_line_xref 
 		WHERE Technology = 'LF' 
 			AND PL_category = 'SUP'
     )
@@ -898,12 +1448,12 @@ SELECT
 	SUM(yield_x_units) AS yield_x_units,
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM planet_adjusts p
-JOIN mdm.calendar cal ON cal.Date = p.cal_date
+JOIN calendar cal ON cal.Date = p.cal_date
 WHERE Day_of_Month = 1 
 and pl IN 
 	(
 	SELECT DISTINCT (pl) 
-	FROM mdm.product_line_xref 
+	FROM product_line_xref 
 	WHERE Technology IN ('LLCS')
 		AND PL_category IN ('LLC')
 	)
