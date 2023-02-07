@@ -1,0 +1,166 @@
+
+{
+    "fields": [
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(19)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "sales_product_number",
+            "name": "sales_product_number",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "product_line",
+            "name": "product_line",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_line_code",
+            "name": "base_product_line_code",
+            "type": "VARCHAR(10)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "country",
+            "name": "country",
+            "type": "VARCHAR(250)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_3",
+            "name": "region_3",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "market10",
+            "name": "market10",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "currency_code_gpsy",
+            "name": "currency_code_gpsy",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "price_term_code",
+            "name": "price_term_code",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "price_start_effective_date",
+            "name": "price_start_effective_date",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "qb_sequence_number",
+            "name": "qb_sequence_number",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "list_price",
+            "name": "list_price",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "accounting_rate",
+            "name": "accounting_rate",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "list_price_usd",
+            "name": "list_price_usd",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "sales_product_gru",
+            "name": "sales_product_gru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        }
+        {
+            "description": "accounting_rate_version",
+            "name": "accounting_rate_version",
+            "type": "VARCHAR(12)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "gpsy_version",
+            "name": "gpsy_version",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "sales_gru_version",
+            "name": "sales_gru_version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
