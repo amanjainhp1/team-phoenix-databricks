@@ -1,0 +1,257 @@
+
+{
+    "fields": [
+        {
+            "description": "record_type",
+            "name": "record_type",
+            "type": "VARCHAR(8)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "platform_subset",
+            "name": "platform_subset",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "customer_engagement",
+            "name": "customer_engagement",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_line_code",
+            "name": "base_product_line_code",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "technology",
+            "name": "technology",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "fiscal_year_qtr",
+            "name": "fiscal_year_qtr",
+            "type": "VARCHAR(6)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "fiscal_year_half",
+            "name": "fiscal_year_half",
+            "type": "VARCHAR(6)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "fiscal_yr",
+            "name": "fiscal_yr",
+            "type": "VARCHAR(4)",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "units",
+            "name": "units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "shipment_units",
+            "name": "shipment_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "equivalent_units",
+            "name": "equivalent_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "demand_units",
+            "name": "demand_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "yield_x_units",
+            "name": "yield_x_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "yield_x_units_black_only",
+            "name": "yield_x_units_black_only",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "vtc",
+            "name": "vtc",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "gross_revenue",
+            "name": "gross_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "shipment_gross_revenue",
+            "name": "shipment_gross_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "demand_gross_revenue",
+            "name": "demand_gross_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "net_revenue",
+            "name": "net_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "shipment_net_revenue",
+            "name": "shipment_net_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "demand_net_revenue",
+            "name": "demand_net_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "contra",
+            "name": "contra",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "total_cos",
+            "name": "total_cos",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "gross_profit",
+            "name": "gross_profit",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "cc_net_revenue",
+            "name": "cc_net_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "cc_inventory_impact",
+            "name": "cc_inventory_impact",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "adjusted_revenue",
+            "name": "adjusted_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "financials_version",
+            "name": "financials_version",
+            "type": "VARCHAR(256)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": true,
+            "encode": "az64"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
