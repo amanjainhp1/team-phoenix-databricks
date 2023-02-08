@@ -149,7 +149,7 @@ SELECT
 FROM working_forecast
 WHERE version = (select max(version) from working_forecast)
     AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod) 
-    AND adjusted_cartridges <> 0
+    AND adjusted_cartridges > 0
     AND geography_grain = 'MARKET10'
 GROUP BY 
     cal_date,

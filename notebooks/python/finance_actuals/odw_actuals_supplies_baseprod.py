@@ -146,7 +146,7 @@ FROM prod.working_forecast
 WHERE version = (select max(version) from prod.working_forecast)
     AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
                     AND (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
-    AND adjusted_cartridges <> 0
+    AND adjusted_cartridges > 0
     AND geography_grain = 'MARKET10'
 GROUP BY 
     cal_date,
