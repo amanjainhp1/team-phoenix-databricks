@@ -34,8 +34,8 @@ SELECT
       ,fixed_cost
       ,gross_margin
       ,insights_units
-	  ,'WORKING VERSION' AS version
 	  ,current_timestamp as load_date
+	  ,'WORKING VERSION' AS version
 	  ,username
 FROM financials.v_stf_dollarization;
 
