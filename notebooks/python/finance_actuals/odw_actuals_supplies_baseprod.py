@@ -194,7 +194,7 @@ LEFT JOIN mdm.iso_country_code_xref iso
     ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 --AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
-AND units <> 0
+AND units > 0
 AND units IS NOT NULL
 AND cal_date <= (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
 GROUP BY
