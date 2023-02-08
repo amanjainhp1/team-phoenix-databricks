@@ -27,7 +27,7 @@ if forecast_fin_version == "":
 currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
 if currency_hedge_version == "":
     currency_hedge_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .option("query", "SELECT MAX(version) FROM fin_prod.currency_hedge") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
 
@@ -80,7 +80,7 @@ actuals_supplies_baseprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.actuals_supplies_baseprod") \
     .load()
 currency_hedge = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.currency_hedge") \
+    .option("dbtable", "fin_prod.currency_hedge") \
     .load()
 working_forecast_country = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM prod.working_forecast_country WHERE version = (SELECT max(version) from prod.working_forecast_country)") \
@@ -103,13 +103,12 @@ tables = [
     ['stage.supplies_stf_landing' ,supplies_stf_landing],
     ['fin_prod.forecast_fixed_cost_input'  ,forecast_fixed_cost_input],
     ['fin_prod.actuals_supplies_baseprod' ,actuals_supplies_baseprod],
-    ['prod.currency_hedge' ,currency_hedge],
+    ['fin_prod.currency_hedge' ,currency_hedge],
     ['prod.working_forecast_country' ,working_forecast_country],
     ['prod.version',version]
 ]
 
 
-##'prod.working_forecast_country' ,
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
@@ -258,29 +257,32 @@ with  __dbt__CTE__bpo_06_currency_sum_stf as (
 
 
 select
-	currency_hedge.product_category AS pl_level_1
+	plx.pl as base_product_line_code
 	,region_5
 	,currency_hedge.month as cal_date
 	,SUM(revenue_currency_hedge) AS revenue_currency_hedge
 from currency_hedge currency_hedge
-LEFT JOIN
+left join product_line_xref plx 
+	on currency_hedge.profit_center = plx.profit_center_code
+left join
 (
 select distinct iso.region_5
 	,currency_iso_code
 from iso_country_code_xref  iso
-LEFT JOIN country_currency_map map ON map.country_alpha2 = iso.country_alpha2
+left join country_currency_map map ON map.country_alpha2 = iso.country_alpha2
 where currency_iso_code is not null
 ) as currency_map ON currency = currency_iso_code
-where currency_hedge.version = '{}'
+where 1=1
+and currency_hedge.version = '{}'
 group by
-	currency_hedge.product_category
+	plx.pl
 	,currency_hedge.month
 	,region_5
 ),  __dbt__CTE__bpo_05_revenue_sum_stf as (
 
 
 select 
-			product_line_scenarios_xref.pl_level_1
+			region_fin_w.base_product_line_code
 			, region_fin_w.region_5
 			, region_fin_w.cal_date
 			, SUM(COALESCE(region_fin_w.baseprod_gru, 0) * COALESCE(stf.units, 0)) revenue_sum
@@ -291,38 +293,27 @@ select
 				on stf.geography = region_fin_w.region_5
 				and stf.cal_date = region_fin_w.cal_date
 				and stf.base_product_number = region_fin_w.base_product_number
-			INNER JOIN
-			product_line_scenarios_xref product_line_scenarios_xref
-				on product_line_scenarios_xref.pl = region_fin_w.base_product_line_code
-		where
-			product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-			and product_line_scenarios_xref.version = (select version from base_product_filter_vars where record = 'PRODUCT_LINE_SCENARIOS')
+        where 1=1
 		group by
-			product_line_scenarios_xref.pl_level_1
+			region_fin_w.base_product_line_code
 			, region_fin_w.region_5
 			, region_fin_w.cal_date
 ),  __dbt__CTE__bpo_07_currency_hedge_per as (
 
 
 select 
-			currency.pl_level_1
+			currency.base_product_line_code
 		    , currency.region_5
 			, currency.cal_date
-			, product_line_scenarios_xref.pl as base_product_line_code
 			, COALESCE(currency.revenue_currency_hedge/NULLIF(revenue.revenue_sum, 0), 0) as currency_per
 		from
 		__dbt__CTE__bpo_06_currency_sum_stf as currency
 		INNER JOIN
 		__dbt__CTE__bpo_05_revenue_sum_stf as revenue
-			on currency.pl_level_1 = revenue.pl_level_1
+			on currency.base_product_line_code = revenue.base_product_line_code
 			and currency.region_5 = revenue.region_5
 			and currency.cal_date = revenue.cal_date
-		INNER JOIN
-		product_line_scenarios_xref product_line_scenarios_xref
-				on product_line_scenarios_xref.pl_level_1 = revenue.pl_level_1
-		where
-			product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-			and product_line_scenarios_xref.version = (select version from base_product_filter_vars where record = 'PRODUCT_LINE_SCENARIOS')
+        where 1=1
 ),  __dbt__CTE__bpo_08_Fixed_Revenue_Sum as (
 
 

@@ -5549,7 +5549,12 @@ SELECT cal_date,
     country_alpha2,
     region_5,
     edw_recorded_pl,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'GM' THEN 'K6'
+        WHEN pl = 'EO' THEN 'GL'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -5561,7 +5566,7 @@ SELECT cal_date,
     SUM(revenue_units) AS revenue_units
 FROM edw_product_line_restated edw
 WHERE 1=1 
-    AND    sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
+    AND sales_product_number <> 'PL-CHARGE' -- why does these exist; values are all zero
     AND pl NOT IN ('IE', 'IX') -- inactive PLs for LF; at this point, any sales products in IE/TX would be unmapped or UNKN and can be dropped
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, edw_recorded_pl
 """
@@ -6827,7 +6832,7 @@ emea_salesprod_xcode_adjusted2.createOrReplaceTempView("emea_salesprod_xcode_adj
 
 # COMMAND ----------
 
-edw_document_currency_raw = f"""
+edw_document_currency_landing = f"""
 SELECT
     cal.Date as cal_date,
     Fiscal_Year_Qtr,
@@ -6849,6 +6854,61 @@ WHERE 1=1
     AND document_currency_code <> '?'
     AND cal.Date < '2021-11-01'
 GROUP BY cal.Date, iso.country_alpha2, document_currency_code, pl, iso.region_5, Fiscal_Year_Qtr, Fiscal_Yr
+"""
+
+edw_document_currency_landing = spark.sql(edw_document_currency_landing)
+edw_document_currency_landing.createOrReplaceTempView("edw_document_currency_landing")
+
+
+edw_document_currency_2023_restatements = f"""
+SELECT
+    cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue 
+FROM edw_document_currency_landing
+WHERE 1=1
+GROUP BY cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
+"""
+
+edw_document_currency_2023_restatements = spark.sql(edw_document_currency_2023_restatements)
+edw_document_currency_2023_restatements.createOrReplaceTempView("edw_document_currency_2023_restatements")
+
+
+edw_document_currency_raw = f"""
+SELECT
+    cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue
+FROM edw_document_currency_2023_restatements
+WHERE 1=1
+GROUP BY cal_date,
+    Fiscal_Year_Qtr,
+    Fiscal_Yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
 """
 
 edw_document_currency_raw = spark.sql(edw_document_currency_raw)

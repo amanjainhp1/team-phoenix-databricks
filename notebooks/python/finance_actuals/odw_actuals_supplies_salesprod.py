@@ -163,9 +163,9 @@ SELECT cal.Date AS cal_date
       ,unit_reporting_code
       ,unit_reporting_description
       ,SUM(unit_quantity_sign_flip) as extended_quantity
-  FROM odw_revenue_units_sales_actuals land
-  LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
-  LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  FROM fin_stage.odw_revenue_units_sales_actuals land
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
   AND Day_of_Month = 1
   AND cal.Date > '2021-10-01'
@@ -188,7 +188,7 @@ SELECT
     unit_reporting_description,
     SUM(extended_quantity) as extended_quantity
 FROM odw_extended_quantity odw
-LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
+LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 GROUP BY cal_date, country_alpha2, pl, sales_product_option, unit_reporting_code, unit_reporting_description
 """
 
@@ -213,7 +213,7 @@ SELECT
 FROM odw_extended_quantity_country
 WHERE pl IN (
     SELECT distinct pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE 1=1
     AND pl_category IN ('SUP') 
     AND technology IN ('PWA', 'LASER', 'INK', 'LF')
@@ -245,7 +245,7 @@ SELECT
 FROM odw_extended_quantity_country
 WHERE pl IN (
     SELECT distinct pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE 1=1
     AND pl_category IN ('LLC') 
     AND technology IN ('LLCS')
@@ -342,9 +342,9 @@ odw_dollars_raw = f"""
         ,SUM(gross_trade_revenues_usd) + SUM(net_currency_usd) + SUM(contractual_discounts_usd) +
         SUM(discretionary_discounts_usd) + SUM(net_revenues_usd) + SUM(warr) + SUM(total_cost_of_sales_usd) +
         SUM(gross_margin_usd) as totals
-  FROM odw_report_rac_product_financials_actuals land
-  LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
-  LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  FROM fin_stage.odw_report_rac_product_financials_actuals land
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
   AND day_of_month = 1
   AND cal.Date > '2021-10-01'
@@ -359,7 +359,7 @@ odw_dollars_raw.createOrReplaceTempView("odw_dollars_raw")
 odw_history_periods = f"""
 SELECT distinct Edw_fiscal_yr_mo 
 FROM odw_dollars_raw d
-LEFT JOIN calendar cal ON d.cal_date = cal.Date
+LEFT JOIN mdm.calendar cal ON d.cal_date = cal.Date
 WHERE day_of_month = 1
 """
 
@@ -384,7 +384,7 @@ SELECT
     SUM(total_cos) as total_cos,
     SUM(total_cos) - SUM(warranty) as total_cos_without_warranty
 FROM odw_dollars_raw odw
-LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
+LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 WHERE totals <> 0
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
@@ -410,7 +410,7 @@ SELECT
 FROM odw_dollars
 WHERE pl IN (
     SELECT distinct pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE 1=1
     AND pl_category IN ('SUP', 'LLC') 
     AND technology IN ('LLCS', 'PWA', 'LASER', 'INK', 'LF')
@@ -531,7 +531,7 @@ FROM findata_clean_zeros
 WHERE total_sum != 0
     AND pl IN (
         SELECT DISTINCT (pl) 
-        FROM product_line_xref 
+        FROM mdm.product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
         OR pl = 'IE'
@@ -825,7 +825,7 @@ supplies_final_findata2.createOrReplaceTempView("supplies_final_findata2")
 #mps only
 exclusion_list1 = f""" 
 SELECT item_number
-FROM exclusion
+FROM mdm.exclusion
 WHERE 1=1
 -- We will come back to the MPS / clicks later -- these next four are associated with PPU/MPS
 AND exclusion_reason = 'MPS TONER FEE' 
@@ -1051,7 +1051,7 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM odw_supplies_combined_findata AS sup
-JOIN iso_country_code_xref AS geo ON sup.country_alpha2 = geo.country_alpha2
+JOIN mdm.iso_country_code_xref AS geo ON sup.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA' 
 GROUP BY cal_date, sup.country_alpha2, pl, sales_product_number
 """
@@ -1133,7 +1133,7 @@ WHERE (cal_date BETWEEN (SELECT MIN(cal_date) FROM odw_supplies_combined_findata
     AND pl IN 
     (
         SELECT DISTINCT (pl) 
-        FROM product_line_xref 
+        FROM mdm.product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
             AND PL_category IN ('SUP', 'LLC')
             OR pl IN ('IE')
@@ -1197,14 +1197,14 @@ SELECT
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM channel_inventory_pl_restated AS st
-JOIN iso_country_code_xref AS geo ON st.country_alpha2 = geo.country_alpha2
+JOIN mdm.iso_country_code_xref AS geo ON st.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA'
   AND sell_thru_usd > 0
   AND sell_thru_qty > 0
   AND st.country_alpha2 IN 
     (
-        SELECT distinct    country_alpha2
-        FROM odw_document_currency doc
+        SELECT distinct country_alpha2
+        FROM fin_stage.odw_document_currency doc
         WHERE 1=1
             AND revenue <> 0
             AND country_alpha2 <> 'XW'
@@ -1232,10 +1232,10 @@ SELECT
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM tier1_emea_raw edw
-INNER JOIN rdma_base_to_sales_product_map rdma ON edw.sales_product_number = rdma.sales_product_number
+INNER JOIN mdm.rdma_base_to_sales_product_map rdma ON edw.sales_product_number = rdma.sales_product_number
 WHERE pl IN (
         SELECT DISTINCT pl 
-        FROM product_line_xref 
+        FROM mdm.product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
             AND PL_category IN ('SUP', 'LLC')
             OR pl IN ('IE')
@@ -1844,7 +1844,7 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM supplies_salesprod2 AS sup
-JOIN iso_country_code_xref AS geo ON sup.country_alpha2 = geo.country_alpha2
+JOIN mdm.iso_country_code_xref AS geo ON sup.country_alpha2 = geo.country_alpha2
 WHERE region_3 != 'EMEA'
 GROUP BY cal_date, sup.country_alpha2, pl, sales_product_number        
 """
@@ -1905,7 +1905,7 @@ SELECT
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units),0) AS revenue_units
 FROM supplies_findata_emea_adjusted AS sp 
-JOIN iso_country_code_xref AS geo ON (sp.country_alpha2 = geo.country_alpha2)
+JOIN mdm.iso_country_code_xref AS geo ON (sp.country_alpha2 = geo.country_alpha2)
 WHERE region_5 IN ('AP', 'EU', 'JP', 'LA', 'NA', 'XW')
 GROUP BY cal_date, sp.country_alpha2, pl, sales_product_number, region_5
 """
@@ -1968,12 +1968,12 @@ SELECT
     Prod_Line AS pl,
     category,
     SUM(Shipped_Qty) AS shipped_qty
-FROM mps_ww_shipped_supply_staging AS mps
-JOIN calendar AS cal ON mps.Month = cal.Date
+FROM fin_stage.mps_ww_shipped_supply_staging AS mps
+JOIN mdm.calendar AS cal ON mps.Month = cal.Date
 WHERE Prod_Line IN 
     (
     SELECT DISTINCT pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC') 
     -- excludes GD in case there are any; GD has a different business model; would not expect GD volumes from mps
@@ -2015,7 +2015,7 @@ SELECT
     ce_split,
     COALESCE(SUM(shipped_qty), 0) AS shipped_qty
 FROM mps_shipped_qty2 AS mps     
-JOIN iso_country_code_xref AS geo ON mps.country = geo.country
+JOIN mdm.iso_country_code_xref AS geo ON mps.country = geo.country
 GROUP BY cal_date, country_alpha2, ce_split, sales_product_number, pl
 """
 
@@ -2068,7 +2068,7 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-                SUM(other_cos) AS other_cos,
+    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM odw_salesprod_all_cleaned
@@ -2155,7 +2155,7 @@ supplies_join_mps_direct.createOrReplaceTempView("supplies_join_mps_direct")
 date_helper = f"""
 SELECT date_key, 
  Date as cal_date
-FROM calendar
+FROM mdm.calendar
 WHERE day_of_month = 1
 """
 
@@ -2785,9 +2785,9 @@ SELECT cal_date,
     0 AS other_cos,
     0 AS total_cos,
     SUM(sales_quantity) AS revenue_units
-FROM supplies_iink_units_landing AS iink
-LEFT JOIN iso_country_code_xref AS c ON iink.country = c.country
-LEFT JOIN calendar AS cal ON cal_Date = cal.Date
+FROM fin_stage.supplies_iink_units_landing AS iink
+LEFT JOIN mdm.iso_country_code_xref AS c ON iink.country = c.country
+LEFT JOIN mdm.calendar AS cal ON cal_Date = cal.Date
 WHERE Fiscal_Yr > 2015 AND sales_quantity != 0 AND Day_of_Month = 1
 AND cal_date > '2021-10-01'
 GROUP BY cal_date, iink.country, pl, sales_product_number
@@ -2815,7 +2815,7 @@ SELECT
     sum(total_cos) as total_cos,
     sum(revenue_units) as revenue_units
 FROM iink_units iink
-LEFT JOIN iso_country_code_xref iso ON iink.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.iso_country_code_xref iso ON iink.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 GROUP BY cal_date, iink.country_alpha2, pl, sales_product_number, ce_split, region_5
 """        
@@ -2882,10 +2882,10 @@ SELECT
     region_5,
     platform_subset,
     sum(units) as ib
-FROM ib ib
-LEFT JOIN iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha2
+FROM stage.ib ib
+LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha2
 WHERE 1=1
-    AND ib.version = (select max(version) from ib)
+    AND ib.version = (select max(version) from stage.ib)
     AND measure = 'IB'
     AND customer_engagement = 'I-INK'
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5
@@ -2902,7 +2902,7 @@ SELECT cal_date,
     iink.sales_product_number,
     rdma.base_product_number
 FROM iink_row iink
-LEFT JOIN rdma_base_to_sales_product_map rdma ON iink.sales_product_number = rdma.sales_product_number
+LEFT JOIN mdm.rdma_base_to_sales_product_map rdma ON iink.sales_product_number = rdma.sales_product_number
 """
 
 salesprod_to_baseprod = spark.sql(salesprod_to_baseprod)
@@ -2917,7 +2917,7 @@ SELECT
         sales_product_number,
         platform_subset
 FROM salesprod_to_baseprod iink
-LEFT JOIN supplies_hw_mapping map ON iink.base_product_number = map.base_product_number
+LEFT JOIN mdm.supplies_hw_mapping map ON iink.base_product_number = map.base_product_number
 """
 
 baseprod_to_printer = spark.sql(baseprod_to_printer)
@@ -3079,7 +3079,7 @@ SELECT
     END AS market10,
     sales_product as sales_product_number,
     sum(units) as revenue_units
-FROM itp_laser_landing
+FROM fin_stage.itp_laser_landing
 WHERE 1=1
 AND units <> 0
 AND cal_date > '2021-10-01'
@@ -3093,7 +3093,7 @@ itp_units_ibp.createOrReplaceTempView("itp_units_ibp")
 itp_mkt10_reg5 = f"""
 SELECT
 	distinct region_5, market10	
-FROM iso_country_code_xref
+FROM mdm.iso_country_code_xref
 WHERE 1=1 
 AND market10 IN (SELECT distinct market10 FROM itp_units_ibp)
 AND region_5 <> 'JP'
@@ -3130,7 +3130,7 @@ SELECT cal_date,
     itp.sales_product_number,
     rdma.base_product_number
 FROM itp_units_ibp2 itp
-LEFT JOIN rdma_base_to_sales_product_map rdma ON itp.sales_product_number = rdma.sales_product_number
+LEFT JOIN mdm.rdma_base_to_sales_product_map rdma ON itp.sales_product_number = rdma.sales_product_number
 """
 
 itp_salesprod_to_baseprod = spark.sql(itp_salesprod_to_baseprod)
@@ -3147,7 +3147,7 @@ SELECT
     sales_product_number,
     platform_subset
 FROM itp_salesprod_to_baseprod itp
-LEFT JOIN supplies_hw_mapping map 
+LEFT JOIN mdm.supplies_hw_mapping map 
     ON itp.base_product_number = map.base_product_number
     AND itp.region_5 = map.geography
     AND map.geography_grain = 'REGION_5'
@@ -3167,10 +3167,10 @@ SELECT
     iso.country,
     platform_subset,
     sum(units) as ib
-FROM ib ib
-LEFT JOIN iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha2
+FROM stage.ib ib
+LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha2
 WHERE 1=1
-    AND ib.version = (select max(version) from ib)
+    AND ib.version = (select max(version) from stage.ib)
     AND measure = 'IB'
     AND platform_subset IN (select distinct platform_subset from itp_baseprod_to_printer)
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5, market10, iso.country
@@ -3375,10 +3375,10 @@ SELECT cal.Date AS cal_date,
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(total_COS) AS other_cos,
     SUM(total_COS) AS total_cos
-FROM supplies_manual_mcode_jv_detail_landing AS jv
-JOIN product_line_xref AS pl ON jv.pl = pl.plxx
-JOIN calendar AS cal ON jv.yearmon = cal.Calendar_Yr_Mo
-LEFT JOIN iso_country_code_xref AS iso ON jv.country = iso.country
+FROM fin_stage.supplies_manual_mcode_jv_detail_landing AS jv
+JOIN mdm.product_line_xref AS pl ON jv.pl = pl.plxx
+JOIN mdm.calendar AS cal ON jv.yearmon = cal.Calendar_Yr_Mo
+LEFT JOIN mdm.iso_country_code_xref AS iso ON jv.country = iso.country
 WHERE 1=1 
     AND Day_of_Month = 1
 GROUP BY cal.Date, pl.pl, jv.country, country_alpha2, sales_product_number
@@ -3621,9 +3621,9 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_final_before_charges_spread edw
-LEFT JOIN calendar cal 
+LEFT JOIN mdm.calendar cal 
     ON cal.Date = edw.cal_date
-LEFT JOIN iso_country_code_xref iso
+LEFT JOIN mdm.iso_country_code_xref iso
     ON edw.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 AND day_of_month = 1
@@ -4021,7 +4021,7 @@ SELECT
       WHEN sales_product_line_code = 'GM' THEN 'K6'
       ELSE sales_product_line_code
     END AS sales_product_line_code
-FROM rdma_base_to_sales_product_map
+FROM mdm.rdma_base_to_sales_product_map
 WHERE 1=1
 """
 
@@ -4100,7 +4100,12 @@ SELECT cal_date,
     country_alpha2,
     region_5,
     edw_recorded_pl,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'GM' THEN 'K6'
+        WHEN pl = 'EO' THEN 'GL'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -4270,7 +4275,7 @@ SELECT
         WHEN currency = 'EURO' THEN 'EUR'
         ELSE 'USD'                
     END AS currency
-FROM list_price_eu_country_list
+FROM mdm.list_price_eu_country_list
 WHERE country_alpha2 NOT IN ('ZM', 'ZW')
 """
 
@@ -4284,8 +4289,8 @@ SELECT
     cmap.country_alpha2,
     cmap.country,
     currency_iso_code AS currency 
-FROM country_currency_map_landing cmap
-LEFT JOIN iso_country_code_xref iso ON cmap.country_alpha2 = iso.country_alpha2 AND cmap.country = iso.country
+FROM fin_stage.country_currency_map_landing cmap
+LEFT JOIN mdm.iso_country_code_xref iso ON cmap.country_alpha2 = iso.country_alpha2 AND cmap.country = iso.country
 WHERE cmap.country_alpha2 NOT IN (
     SELECT DISTINCT country_alpha2
     FROM emea_currency_table)
@@ -4453,7 +4458,7 @@ FROM edw_restated_data2
 WHERE pl = 'GP'
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4481,7 +4486,7 @@ FROM edw_restated_data2
 WHERE pl IN ('LU', '1N') -- blending these PLs for fuller history
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4509,7 +4514,7 @@ FROM edw_restated_data2
 WHERE pl IN ('G0', 'E5', 'GL', 'EO') -- blending these PLs for fuller history
 AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4990,7 +4995,7 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_data_normalish_items  AS act
-LEFT JOIN calendar AS cal ON cal_date = cal.Date
+LEFT JOIN mdm.calendar AS cal ON cal_date = cal.Date
 LEFT JOIN currency cmap 
     ON act.country_alpha2 = cmap.country_alpha2
 WHERE 1=1
@@ -5053,7 +5058,7 @@ SELECT
 FROM salesprod_currency_emea2
 WHERE country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -5083,7 +5088,7 @@ SELECT
 FROM salesprod_currency_emea2
 WHERE country_alpha2 IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -5410,6 +5415,42 @@ emea_salesprod_xcode_adjusted2.createOrReplaceTempView("emea_salesprod_xcode_adj
 
 # COMMAND ----------
 
+edw_document_currency_2023_restatements = f"""
+SELECT
+    cal_date,
+    Fiscal_year_qtr,
+    Fiscal_yr,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
+FROM fin_stage.odw_document_currency doc
+LEFT JOIN mdm.calendar cal ON doc.cal_date = cal.Date
+WHERE 1=1
+    AND revenue <> 0
+    AND country_alpha2 <> 'XW'
+    AND cal_date > '2021-10-01'
+    AND day_of_month = 1
+    --AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.odw_document_currency)
+GROUP BY cal_date,
+    Fiscal_year_qtr,
+    Fiscal_yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
+"""
+
+edw_document_currency_2023_restatements = spark.sql(edw_document_currency_2023_restatements)
+edw_document_currency_2023_restatements.createOrReplaceTempView("edw_document_currency_2023_restatements")
+
+
 edw_document_currency_raw = f"""
 SELECT
     cal_date,
@@ -5419,15 +5460,8 @@ SELECT
     country_alpha2,
     region_5,
     document_currency_code,
-    SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-FROM fin_stage.odw_document_currency doc
-LEFT JOIN calendar cal ON doc.cal_date = cal.Date
-WHERE 1=1
-    AND revenue <> 0
-    AND country_alpha2 <> 'XW'
-    AND cal_date > '2021-10-01'
-    AND day_of_month = 1
-    --AND cal_date = (SELECT MAX(cal_date) FROM odw_document_currency)
+    SUM(revenue) AS revenue 
+FROM edw_document_currency_2023_restatements
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
@@ -5779,6 +5813,10 @@ odw_salesprod_with_country_detail3.write \
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_with_country_detail3 USING DELTA LOCATION '/tmp/delta/fin_stage/odw_salesprod_with_country_detail3'")
 
+#spark.table("fin_stage.odw_salesprod_with_country_detail3").createOrReplaceTempView("odw_salesprod_with_country_detail3")
+
+# COMMAND ----------
+
 spark.table("fin_stage.odw_salesprod_with_country_detail3").createOrReplaceTempView("odw_salesprod_with_country_detail3")
 
 # COMMAND ----------
@@ -5804,7 +5842,7 @@ FROM odw_salesprod_with_country_detail3  AS act
 WHERE 1=1
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -5834,7 +5872,7 @@ FROM odw_salesprod_with_country_detail3
 WHERE 1=1
     AND country_alpha2 IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -6399,6 +6437,10 @@ odw_xcode_adjusted_data.write \
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_xcode_adjusted_data USING DELTA LOCATION '/tmp/delta/fin_stage/odw_xcode_adjusted_data'")
 
+#spark.table("fin_stage.odw_xcode_adjusted_data").createOrReplaceTempView("odw_xcode_adjusted_data")
+
+# COMMAND ----------
+
 spark.table("fin_stage.odw_xcode_adjusted_data").createOrReplaceTempView("odw_xcode_adjusted_data")
 
 # COMMAND ----------
@@ -6485,12 +6527,12 @@ SELECT
     SUM(warranty) as p_warranty,
     SUM(other_cos) as p_other_cos,
     SUM(total_cos) AS p_total_cos
-FROM odw_sacp_actuals AS p
-JOIN calendar AS cal ON cal.Date = p.cal_date
+FROM fin_stage.odw_sacp_actuals AS p
+JOIN mdm.calendar AS cal ON cal.Date = p.cal_date
 WHERE pl IN 
     (
     SELECT DISTINCT (pl) 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
     )
@@ -6569,7 +6611,7 @@ SELECT
     SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos
 FROM salesprod_preplanet_with_currency_map1 AS sp
-JOIN calendar AS cal ON sp.cal_date = cal.Date
+JOIN mdm.calendar AS cal ON sp.cal_date = cal.Date
 WHERE Fiscal_Yr > '2016'
     AND Day_of_Month = 1
 GROUP BY sp.cal_date, sp.pl, region_5, Fiscal_Yr
@@ -6795,7 +6837,7 @@ FROM planet_adjusts
 WHERE pl IN 
     (
     SELECT DISTINCT (pl) 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LF')
         AND PL_category IN ('SUP')
     )
@@ -6821,12 +6863,12 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     0 AS revenue_units
 FROM planet_adjusts pa
-JOIN calendar cal ON pa.cal_date = cal.Date
+JOIN mdm.calendar cal ON pa.cal_date = cal.Date
 WHERE Day_of_month = 1
     AND pl IN 
                 (
                 SELECT DISTINCT (pl) 
-                FROM product_line_xref 
+                FROM mdm.product_line_xref 
                 WHERE Technology IN ('LLCS')
                     AND PL_category IN ('LLC')
                 )
@@ -6998,7 +7040,7 @@ SELECT
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
 FROM ALL_salesprod2 AS sp
-JOIN product_line_xref AS plx ON sp.pl = plx.pl 
+JOIN mdm.product_line_xref AS plx ON sp.pl = plx.pl 
 WHERE total_rows <> 0
 GROUP BY sp.cal_date, country_alpha2, sp.pl, sales_product_number, ce_split, l5_description, currency
 """
@@ -7031,7 +7073,7 @@ SELECT
 FROM ALL_salesprod3
 WHERE pl IN (
         SELECT DISTINCT (pl) 
-        FROM product_line_xref 
+        FROM mdm.product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
         )
@@ -7134,7 +7176,7 @@ SELECT
     pre.version,
     pre.load_date
 FROM salesprod_planet_precurrency pre
-LEFT JOIN iso_country_code_xref iso ON pre.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.iso_country_code_xref iso ON pre.country_alpha2 = iso.country_alpha2
 WHERE pl = 'GD' AND sales_product_number LIKE 'EDW%'
 GROUP BY cal_date,
     pre.country_alpha2,
@@ -7194,7 +7236,7 @@ SELECT
     sum(gross_revenue) + sum(net_currency) + sum(contractual_discounts) + sum(discretionary_discounts) as net_revenue,
     region_5
 FROM edw_supplies_combined_findata_including_iink iink
-LEFT JOIN iso_country_code_xref iso on iink.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.iso_country_code_xref iso on iink.country_alpha2 = iso.country_alpha2
 WHERE 1=1 
 AND pl = 'GD'
 GROUP BY cal_date,
@@ -7304,12 +7346,12 @@ SELECT
     region_5,
     document_currency_code,
     SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-FROM odw_document_currency doc
+FROM fin_stage.odw_document_currency doc
 WHERE 1=1
     AND document_currency_code <> '?'
     AND country_alpha2 NOT LIKE 'X%'
     AND cal_date > '2021-10-01'
-    --AND cal_date = (SELECT MAX(cal_date) FROM odw_document_currency)
+    --AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.odw_document_currency)
     AND pl = 'GD'
 GROUP BY cal_date,
     pl,
@@ -7511,7 +7553,7 @@ SELECT distinct
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
 FROM data_with_plgd_currency_adjusted final
-LEFT JOIN iso_country_code_xref iso ON final.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.iso_country_code_xref iso ON final.country_alpha2 = iso.country_alpha2
 GROUP BY cal_date, final.country_alpha2, pl, sales_product_number, customer_engagement, l5_description, currency, market10
 """
 
@@ -7601,3 +7643,7 @@ WHERE revenue_units >-.000001 and revenue_units < 0;
 """
 
 submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], query)
+
+# COMMAND ----------
+
+

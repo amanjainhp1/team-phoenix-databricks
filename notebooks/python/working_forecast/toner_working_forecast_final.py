@@ -191,7 +191,7 @@ WITH cfadj_01_c2c                AS
          ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '2022.11.29.1'
+       AND ns.version = '2022.12.16.1'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -430,7 +430,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '2022.11.29.1'
+        AND ns.version = '2022.12.16.1'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -751,7 +751,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(iso.region_5)
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = '2022.11.29.1'
+       AND ns.version = '2022.12.16.1'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -784,7 +784,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(cc.country_level_1) -- region_8
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = '2022.11.29.1'
+       AND ns.version = '2022.12.16.1'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -825,7 +825,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(iso.market10)
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = '2022.11.29.1'
+       AND ns.version = '2022.12.16.1'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -948,7 +948,7 @@ WITH wel_01_stf_enroll    AS
      LEFT JOIN mdm.iso_country_code_xref AS iso
          ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = '2022.11.29.1'
+       AND ib.version = '2022.12.16.1'
        AND ib.cal_date > CAST('2022-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -1048,7 +1048,7 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '2022.11.29.1'
+       AND ns.version = '2022.12.16.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1136,7 +1136,7 @@ WITH vtc_01_analytic_cartridges AS
                    AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = '2022.11.29.1')
+       AND hw.version = '2022.12.16.1')
 
    , c2c_vtc_06_vol_count       AS
     (SELECT DISTINCT geography
@@ -1400,7 +1400,7 @@ WITH geography_mapping   AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1 = 1
-       AND ns.version = '2022.11.29.1'
+       AND ns.version = '2022.12.16.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1482,7 +1482,7 @@ WITH geography_mapping   AS
     (SELECT 'IB'         AS record
           , 'SYSTEM'     AS user_name
           , NULL         AS load_date
-          , '2022.11.29.1' AS version
+          , '2022.12.16.1' AS version
      FROM prod.ib
 
      UNION ALL
@@ -1490,7 +1490,7 @@ WITH geography_mapping   AS
      SELECT 'USAGE_SHARE' AS record
           , 'SYSTEM'      AS user_name
           , NULL          AS load_date
-          , '2022.12.16.1'  AS version
+          , '2023.01.05.1'  AS version
      FROM prod.usage_share
 
      UNION ALL

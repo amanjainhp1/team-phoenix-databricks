@@ -27,26 +27,6 @@ try:
 except:
     tables = json.loads("""
         {
-            "adjusted_revenue_epa": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Financials",
-                "source_schema": "dbo",
-                "source_table": "adjusted_revenue_epa",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "fin_prod", 
-                "destination_table": "adjusted_revenue_epa"
-            },
-            "actuals_supplies": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "actuals_supplies",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "prod",
-                "destination_table": "actuals_supplies"
-            },
             "calendar": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod", 
@@ -86,16 +66,6 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm", 
                 "destination_table": "country_currency_map"
-            },
-            "current_stf_dollarization": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials",
-                "source_schema": "dbt", 
-                "source_table": "current_stf_dollarization", 
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "fin_prod",
-                "destination_table": "current_stf_dollarization"
             },
             "decay": {
                 "source_system": "sqlserver",
@@ -147,26 +117,6 @@ except:
                 "destination_schema": "fin_prod", 
                 "destination_table": "forecast_gru_override"
             },
-            "forecast_supplies_base_prod_region": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_supplies_baseprod_region",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_supplies_base_prod_region"
-            },
-            "forecast_supplies_base_prod_region_stf": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_supplies_baseprod_region_stf",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_supplies_base_prod_region_stf"
-            },
             "forecast_variable_cost_ink": {
                 "source_system": "sqlserver",
                 "source_database":"IE2_Financials", 
@@ -196,6 +146,16 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm", 
                 "destination_table": "hardware_xref"
+            },
+            "hw_product_family_ink_business_segments": {
+                "source_system": "sqlserver", 
+                "source_database":"IE2_Prod",
+                "source_schema": "dbo",
+                "source_table": "hw_product_family_ink_business_segments", 
+                "destination_system": "redshift", 
+                "destination_database": "", 
+                "destination_schema": "mdm", 
+                "destination_table": "hw_product_family_ink_business_segments"
             },
             "hw_product_family_ink_forecaster_mapping": {
                 "source_system": "sqlserver", 
@@ -287,7 +247,7 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "list_price_term_codes"
             },
-            "list_price_term_codes": {
+            "ms4_profit_center_hierarchy_staging": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Landing",
                 "source_schema": "ms4",
@@ -316,16 +276,6 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm", 
                 "destination_table": "pl_toner_forecaster_mapping"
-            },
-            "planet_actuals": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Financials",
-                "source_schema": "dbo", 
-                "source_table": "planet_actuals", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "fin_prod", 
-                "destination_table": "planet_actuals"
             },
             "printer_lag": {
                 "source_system": "sqlserver", 
@@ -366,26 +316,6 @@ except:
                 "destination_database": "", 
                 "destination_schema": "mdm",
                 "destination_table": "profit_center_code_xref"
-            },
-            "stf_dollarization": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials",
-                "source_schema": "dbo", 
-                "source_table": "stf_dollarization", 
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "fin_prod",
-                "destination_table": "stf_dollarization"
-            },
-            "supplies_finance_hier_restatements_2020_2021": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Landing",
-                "source_schema": "dbo", 
-                "source_table": "supplies_finance_hier_restatements_2020_2021", 
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "fin_prod",
-                "destination_table": "supplies_finance_hier_restatements_2020_2021"
             },
             "supplies_hw_mapping": {
                 "source_system": "sqlserver", 
