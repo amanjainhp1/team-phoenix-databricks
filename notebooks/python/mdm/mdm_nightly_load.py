@@ -247,7 +247,7 @@ except:
                 "destination_schema": "mdm", 
                 "destination_table": "list_price_term_codes"
             },
-            "list_price_term_codes": {
+            "ms4_profit_center_hierarchy_staging": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Landing",
                 "source_schema": "ms4",
