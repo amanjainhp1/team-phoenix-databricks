@@ -2,6 +2,7 @@
 import boto3
 import json
 import psycopg2
+import uuid
 
 from datetime import datetime
 from functools import singledispatch
@@ -153,3 +154,17 @@ def call_redshift_addversion_sproc(configs: dict, record: str, source_name: str)
     cur.close()
     
     return output
+
+# COMMAND ----------
+
+def read_redshift_to_spark_df(configs: dict, query: str) -> DataFrame:
+    # generate uuid and append to redshift_temp_bucket
+    redshift_temp_bucket = configs['redshift_temp_bucket'] + str(uuid.uuid4())  + "/"
+    # redshift cannot unload to s3a or s3n path, so we clean the path
+    clean_s3_path = redshift_temp_bucket.replace("s3a://", "s3://").replace("s3n://", "s3://")
+    # construct unload query from query provided
+    unload_query = "UNLOAD('{}') TO '{}' WITH CREDENTIALS 'aws_iam_role={}' FORMAT AS PARQUET;".format(query, clean_s3_path, configs["aws_iam_role"])
+    submit_remote_query(configs, unload_query)
+    # read data into Spark dataframe
+    df = spark.read.parquet(redshift_temp_bucket) 
+    return df
