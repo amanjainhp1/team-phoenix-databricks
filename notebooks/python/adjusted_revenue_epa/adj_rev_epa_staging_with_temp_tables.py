@@ -221,6 +221,7 @@ two_yrs.createOrReplaceTempView("two_years")
 fin_adj_rev_targets_official = spark.sql("""
 SELECT 
       cal_date
+      ,country_alpha2
       ,market8      
       ,region_5
       ,pl
@@ -235,6 +236,7 @@ SELECT
 	AND sales_product_number <> 'EDW_TIE_TO_PLANET'
 	AND pl <> 'GD'
   GROUP BY  cal_date
+      ,country_alpha2
       ,market8
       ,region_5
       ,pl
@@ -244,6 +246,7 @@ SELECT
 
 	SELECT 
       cal_date
+      ,country_alpha2
       ,market8
       ,region_5
       ,pl
@@ -261,6 +264,7 @@ SELECT
 	AND Fiscal_Yr >= (SELECT Start_Fiscal_Yr FROM two_years)
 	AND pl <> 'GD'
   GROUP BY  cal_date
+      ,country_alpha2
       ,market8
       ,region_5
       ,pl
@@ -270,6 +274,7 @@ SELECT
 
 	SELECT 
       cal_date
+      ,country_alpha2
       ,market8
       ,region_5
       ,pl
@@ -283,6 +288,7 @@ SELECT
   WHERE 1=1
 	AND pl = 'GD'
   GROUP BY  cal_date
+      ,country_alpha2
       ,market8
       ,region_5
       ,pl
@@ -339,12 +345,12 @@ SELECT
       ,market8
       ,pl
       ,customer_engagement
-	  ,IFNULL(SUM(net_revenue), 0) AS net_revenue
-	  ,IFNULL(SUM(cc_net_revenue), 0) AS cc_net_revenue
-	  ,IFNULL(SUM(inventory_change_impact), 0) AS inventory_change_impact
-	  ,IFNULL(SUM(cc_inventory_impact), 0) AS cc_inventory_impact
-	  ,IFNULL(SUM(adjusted_revenue), 0) AS adjusted_revenue
-  FROM adjusted_revenue_cleaned 
+	  ,COALESCE(SUM(net_revenue), 0) AS net_revenue
+	  ,COALESCE(SUM(cc_net_revenue), 0) AS cc_net_revenue
+	  ,COALESCE(SUM(inventory_change_impact), 0) AS inventory_change_impact
+	  ,COALESCE(SUM(cc_inventory_impact), 0) AS cc_inventory_impact
+	  ,COALESCE(SUM(adjusted_revenue), 0) AS adjusted_revenue
+  FROM fin_adj_rev_targets_official 
   WHERE 1=1
   AND country_alpha2 = 'US'
   GROUP BY  cal_date
@@ -363,12 +369,12 @@ SELECT
       ,market8
       ,pl
       ,customer_engagement
-	  ,IFNULL(SUM(net_revenue), 0) AS net_revenue
-	  ,IFNULL(SUM(cc_net_revenue), 0) AS cc_net_revenue
-	  ,IFNULL(SUM(inventory_change_impact), 0) AS inventory_change_impact
-	  ,IFNULL(SUM(cc_inventory_impact), 0) AS cc_inventory_impact
-	  ,IFNULL(SUM(adjusted_revenue), 0) AS adjusted_revenue
-  FROM adjusted_revenue_cleaned 
+	  ,COALESCE(SUM(net_revenue), 0) AS net_revenue
+	  ,COALESCE(SUM(cc_net_revenue), 0) AS cc_net_revenue
+	  ,COALESCE(SUM(inventory_change_impact), 0) AS inventory_change_impact
+	  ,COALESCE(SUM(cc_inventory_impact), 0) AS cc_inventory_impact
+	  ,COALESCE(SUM(adjusted_revenue), 0) AS adjusted_revenue
+  FROM fin_adj_rev_targets_official 
   WHERE 1=1
   AND country_alpha2 <> 'US'
   GROUP BY  cal_date
@@ -710,19 +716,19 @@ SELECT
 		iink.sales_product_number,
 		gd.pl,
 		gd.customer_engagement,
-		IFNULL(SUM(net_revenue * cc_mix), 0) AS net_revenue,
-		IFNULL(SUM(currency_impact * cc_mix), 0) AS currency_impact,
-		IFNULL(SUM(cc_net_revenue * cc_mix), 0) AS cc_net_revenue,
-		IFNULL(SUM(inventory_usd * cc_mix), 0) AS inventory_usd,
-		IFNULL(SUM(prev_inv_usd * cc_mix), 0) AS prev_inv_usd,
-		IFNULL(SUM(inventory_qty * cc_mix), 0) AS inventory_qty,
-		IFNULL(SUM(prev_inv_qty * cc_mix), 0) AS prev_inv_qty,
-		IFNULL(SUM(monthly_unit_change * cc_mix), 0) AS monthly_unit_change,
-		IFNULL(SUM(monthly_inv_usd_change * cc_mix), 0) AS monthly_inv_usd_change,
-		IFNULL(SUM(inventory_change_impact * cc_mix), 0) AS inventory_change_impact,
-		IFNULL(SUM(currency_impact_ch_inventory * cc_mix), 0) AS currency_impact_ch_inventory,
-		IFNULL(SUM(cc_inventory_impact * cc_mix), 0) AS cc_inventory_impact,
-		IFNULL(SUM(adjusted_revenue * cc_mix), 0) AS adjusted_revenue 
+		COALESCE(SUM(net_revenue * cc_mix), 0) AS net_revenue,
+		COALESCE(SUM(currency_impact * cc_mix), 0) AS currency_impact,
+		COALESCE(SUM(cc_net_revenue * cc_mix), 0) AS cc_net_revenue,
+		COALESCE(SUM(inventory_usd * cc_mix), 0) AS inventory_usd,
+		COALESCE(SUM(prev_inv_usd * cc_mix), 0) AS prev_inv_usd,
+		COALESCE(SUM(inventory_qty * cc_mix), 0) AS inventory_qty,
+		COALESCE(SUM(prev_inv_qty * cc_mix), 0) AS prev_inv_qty,
+		COALESCE(SUM(monthly_unit_change * cc_mix), 0) AS monthly_unit_change,
+		COALESCE(SUM(monthly_inv_usd_change * cc_mix), 0) AS monthly_inv_usd_change,
+		COALESCE(SUM(inventory_change_impact * cc_mix), 0) AS inventory_change_impact,
+		COALESCE(SUM(currency_impact_ch_inventory * cc_mix), 0) AS currency_impact_ch_inventory,
+		COALESCE(SUM(cc_inventory_impact * cc_mix), 0) AS cc_inventory_impact,
+		COALESCE(SUM(adjusted_revenue * cc_mix), 0) AS adjusted_revenue 
 	FROM adjusted_revenue_GD gd
 	INNER JOIN iink_unit_mix2 iink ON
 		gd.cal_date = iink.cal_date AND
@@ -985,19 +991,19 @@ SELECT
 				base_product_number,
 				base_product_line_code,
 				customer_engagement,
-				IFNULL(SUM(net_revenue * base_product_amount_percent/100), SUM(net_revenue)) AS net_revenue,
-				IFNULL(SUM(currency_impact * base_product_amount_percent/100), SUM(currency_impact)) AS currency_impact,
-				IFNULL(SUM(cc_net_revenue * base_product_amount_percent/100), SUM(cc_net_revenue)) AS cc_net_revenue,
-				IFNULL(SUM(inventory_usd * base_product_amount_percent/100), SUM(inventory_usd)) AS inventory_usd,
-				IFNULL(SUM(prev_inv_usd * base_product_amount_percent/100), SUM(prev_inv_usd)) AS prev_inv_usd,
-				IFNULL(SUM(inventory_qty * base_product_amount_percent/100), SUM(inventory_qty)) AS inventory_qty,
-				IFNULL(SUM(prev_inv_qty * base_product_amount_percent/100), SUM(prev_inv_qty)) AS prev_inv_qty,
-				IFNULL(SUM(monthly_unit_change * base_product_amount_percent/100), SUM(monthly_unit_change)) AS monthly_unit_change,
-				IFNULL(SUM(monthly_inv_usd_change * base_product_amount_percent/100), SUM(monthly_inv_usd_change)) AS monthly_inv_usd_change,
-				IFNULL(SUM(inventory_change_impact * base_product_amount_percent/100), SUM(inventory_change_impact)) AS inventory_change_impact,
-				IFNULL(SUM(currency_impact_ch_inventory * base_product_amount_percent/100), SUM(currency_impact_ch_inventory)) AS currency_impact_ch_inventory,
-				IFNULL(SUM(cc_inventory_impact * base_product_amount_percent/100), SUM(cc_inventory_impact)) AS cc_inventory_impact,
-				IFNULL(SUM(adjusted_revenue * base_product_amount_percent/100), SUM(adjusted_revenue)) AS adjusted_revenue 
+				COALESCE(SUM(net_revenue * base_product_amount_percent/100), SUM(net_revenue)) AS net_revenue,
+				COALESCE(SUM(currency_impact * base_product_amount_percent/100), SUM(currency_impact)) AS currency_impact,
+				COALESCE(SUM(cc_net_revenue * base_product_amount_percent/100), SUM(cc_net_revenue)) AS cc_net_revenue,
+				COALESCE(SUM(inventory_usd * base_product_amount_percent/100), SUM(inventory_usd)) AS inventory_usd,
+				COALESCE(SUM(prev_inv_usd * base_product_amount_percent/100), SUM(prev_inv_usd)) AS prev_inv_usd,
+				COALESCE(SUM(inventory_qty * base_product_amount_percent/100), SUM(inventory_qty)) AS inventory_qty,
+				COALESCE(SUM(prev_inv_qty * base_product_amount_percent/100), SUM(prev_inv_qty)) AS prev_inv_qty,
+				COALESCE(SUM(monthly_unit_change * base_product_amount_percent/100), SUM(monthly_unit_change)) AS monthly_unit_change,
+				COALESCE(SUM(monthly_inv_usd_change * base_product_amount_percent/100), SUM(monthly_inv_usd_change)) AS monthly_inv_usd_change,
+				COALESCE(SUM(inventory_change_impact * base_product_amount_percent/100), SUM(inventory_change_impact)) AS inventory_change_impact,
+				COALESCE(SUM(currency_impact_ch_inventory * base_product_amount_percent/100), SUM(currency_impact_ch_inventory)) AS currency_impact_ch_inventory,
+				COALESCE(SUM(cc_inventory_impact * base_product_amount_percent/100), SUM(cc_inventory_impact)) AS cc_inventory_impact,
+				COALESCE(SUM(adjusted_revenue * base_product_amount_percent/100), SUM(adjusted_revenue)) AS adjusted_revenue 
 			FROM adjusted_revenue_with_iink_sku_pnl AS sp
 			INNER JOIN rdma AS r ON 
 				sp.sales_product_number = r.sales_product_number
@@ -1068,19 +1074,19 @@ SELECT
 				base_product_number,
 				base_product_line_code,
 				customer_engagement,
-				IFNULL(SUM(net_revenue * base_product_amount_percent/100), SUM(net_revenue)) AS net_revenue,
-				IFNULL(SUM(currency_impact * base_product_amount_percent/100), SUM(currency_impact)) AS currency_impact,
-				IFNULL(SUM(cc_net_revenue * base_product_amount_percent/100), SUM(cc_net_revenue)) AS cc_net_revenue,
-				IFNULL(SUM(inventory_usd * base_product_amount_percent/100), SUM(inventory_usd)) AS inventory_usd,
-				IFNULL(SUM(prev_inv_usd * base_product_amount_percent/100), SUM(prev_inv_usd)) AS prev_inv_usd,
-				IFNULL(SUM(inventory_qty * base_product_amount_percent/100), SUM(inventory_qty)) AS inventory_qty,
-				IFNULL(SUM(prev_inv_qty * base_product_amount_percent/100), SUM(prev_inv_qty)) AS prev_inv_qty,
-				IFNULL(SUM(monthly_unit_change * base_product_amount_percent/100), SUM(monthly_unit_change)) AS monthly_unit_change,
-				IFNULL(SUM(monthly_inv_usd_change * base_product_amount_percent/100), SUM(monthly_inv_usd_change)) AS monthly_inv_usd_change,
-				IFNULL(SUM(inventory_change_impact * base_product_amount_percent/100), SUM(inventory_change_impact)) AS inventory_change_impact,
-				IFNULL(SUM(currency_impact_ch_inventory * base_product_amount_percent/100), SUM(currency_impact_ch_inventory)) AS currency_impact_ch_inventory,
-				IFNULL(SUM(cc_inventory_impact * base_product_amount_percent/100), SUM(cc_inventory_impact)) AS cc_inventory_impact,
-				IFNULL(SUM(adjusted_revenue * base_product_amount_percent/100), SUM(adjusted_revenue)) AS adjusted_revenue 
+				COALESCE(SUM(net_revenue * base_product_amount_percent/100), SUM(net_revenue)) AS net_revenue,
+				COALESCE(SUM(currency_impact * base_product_amount_percent/100), SUM(currency_impact)) AS currency_impact,
+				COALESCE(SUM(cc_net_revenue * base_product_amount_percent/100), SUM(cc_net_revenue)) AS cc_net_revenue,
+				COALESCE(SUM(inventory_usd * base_product_amount_percent/100), SUM(inventory_usd)) AS inventory_usd,
+				COALESCE(SUM(prev_inv_usd * base_product_amount_percent/100), SUM(prev_inv_usd)) AS prev_inv_usd,
+				COALESCE(SUM(inventory_qty * base_product_amount_percent/100), SUM(inventory_qty)) AS inventory_qty,
+				COALESCE(SUM(prev_inv_qty * base_product_amount_percent/100), SUM(prev_inv_qty)) AS prev_inv_qty,
+				COALESCE(SUM(monthly_unit_change * base_product_amount_percent/100), SUM(monthly_unit_change)) AS monthly_unit_change,
+				COALESCE(SUM(monthly_inv_usd_change * base_product_amount_percent/100), SUM(monthly_inv_usd_change)) AS monthly_inv_usd_change,
+				COALESCE(SUM(inventory_change_impact * base_product_amount_percent/100), SUM(inventory_change_impact)) AS inventory_change_impact,
+				COALESCE(SUM(currency_impact_ch_inventory * base_product_amount_percent/100), SUM(currency_impact_ch_inventory)) AS currency_impact_ch_inventory,
+				COALESCE(SUM(cc_inventory_impact * base_product_amount_percent/100), SUM(cc_inventory_impact)) AS cc_inventory_impact,
+				COALESCE(SUM(adjusted_revenue * base_product_amount_percent/100), SUM(adjusted_revenue)) AS adjusted_revenue 
 			FROM adjusted_revenue_with_iink_sku_pnl AS sp
 			LEFT JOIN rdma AS r ON 
 				sp.sales_product_number = r.sales_product_number
@@ -1658,11 +1664,11 @@ SELECT
 		iink.platform_subset,
 		gd.pl,
 		gd.customer_engagement,			
-		IFNULL(SUM(cc_mix * gd.net_revenue), 0) AS net_revenue,
-		IFNULL(SUM(cc_mix * gd.revenue_units), 0) AS revenue_units,
-		IFNULL(SUM(equivalent_units * cc_mix), 0) AS equivalent_units,
-		IFNULL(SUM(yield_x_units * cc_mix), 0) AS yield_x_units,
-		IFNULL(SUM(yield_x_units_black_only * cc_mix), 0) AS yield_x_units_black_only
+		COALESCE(SUM(cc_mix * gd.net_revenue), 0) AS net_revenue,
+		COALESCE(SUM(cc_mix * gd.revenue_units), 0) AS revenue_units,
+		COALESCE(SUM(equivalent_units * cc_mix), 0) AS equivalent_units,
+		COALESCE(SUM(yield_x_units * cc_mix), 0) AS yield_x_units,
+		COALESCE(SUM(yield_x_units_black_only * cc_mix), 0) AS yield_x_units_black_only
 	FROM baseprod_fin_official_w_GD gd
 	INNER JOIN iink_units_mix_base_w_printer iink ON
 		gd.cal_date = iink.cal_date AND
@@ -2121,7 +2127,7 @@ prepped_adj_rev_data.createOrReplaceTempView("prepped_adj_rev_data")
 # COMMAND ----------
 
 prepped_adj_rev_data_usa = spark.sql("""
-SELECT 
+SELECT distinct
     cal_date,
     country_alpha2,
     market8,
@@ -2148,7 +2154,7 @@ prepped_adj_rev_data_usa.createOrReplaceTempView("prepped_adj_rev_data_usa")
 # COMMAND ----------
 
 prepped_adj_rev_data_non_usa = spark.sql("""
-SELECT 
+SELECT distinct
     cal_date,
     country_alpha2,
     market8,
@@ -2192,11 +2198,10 @@ SELECT
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
 	  ,0 as currency_impact
       ,sum(mix.net_revenue) as cc_net_revenue
-	  ,sum(inventory_usd * ifnull(fin_rev_mix, 0)) as ci_usd
-	  ,sum(inventory_qty * ifnull(fin_rev_mix, 0)) as ci_qty
-	  ,sum(inventory_change_impact * ifnull(fin_rev_mix, 0)) as inventory_change_impact
-	  ,sum(cc_inventory_impact * ifnull(fin_rev_mix, 0)) as cc_inventory_impact
-	  ,sum(adjusted_revenue * ifnull(fin_rev_mix, 0)) as adjusted_revenue
+	  ,COALESCE(sum(inventory_usd * fin_rev_mix), 0) as ci_usd
+	  ,COALESCE(sum(inventory_qty * fin_rev_mix), 0) as ci_qty
+	  ,COALESCE(sum(inventory_change_impact * fin_rev_mix), 0) as inventory_change_impact
+	  ,COALESCE(sum(cc_inventory_impact * fin_rev_mix), 0) as cc_inventory_impact
   FROM base_financials_arus_yields_usa mix
   LEFT JOIN prepped_adj_rev_data_usa cc_rev ON
 	mix.cal_date = cc_rev.cal_date AND
@@ -2238,13 +2243,12 @@ SELECT
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	  ,sum(currency_impact * ifnull(fin_rev_mix, 0)) as currency_impact
-      ,sum(cc_net_revenue * ifnull(fin_rev_mix, 0)) as cc_net_revenue
-	  ,sum(inventory_usd * ifnull(fin_rev_mix, 0)) as ci_usd
-	  ,sum(inventory_qty * ifnull(fin_rev_mix, 0)) as ci_qty
-	  ,sum(inventory_change_impact * ifnull(fin_rev_mix, 0)) as inventory_change_impact
-	  ,sum(cc_inventory_impact * ifnull(fin_rev_mix, 0)) as cc_inventory_impact
-	  ,sum(adjusted_revenue * ifnull(fin_rev_mix, 0)) as adjusted_revenue
+	  ,COALESCE(sum(currency_impact * fin_rev_mix), 0) as currency_impact
+      ,sum(mix.net_revenue) + COALESCE(sum(currency_impact * fin_rev_mix), 0) as cc_net_revenue
+	  ,COALESCE(sum(inventory_usd * fin_rev_mix), 0) as ci_usd
+	  ,COALESCE(sum(inventory_qty * fin_rev_mix), 0) as ci_qty
+	  ,COALESCE(sum(inventory_change_impact * fin_rev_mix), 0) as inventory_change_impact
+	  ,COALESCE(sum(cc_inventory_impact * fin_rev_mix), 0) as cc_inventory_impact
   FROM base_financials_arus_yields_non_usa mix
   LEFT JOIN prepped_adj_rev_data_non_usa cc_rev ON
 	mix.cal_date = cc_rev.cal_date AND
@@ -2293,7 +2297,7 @@ with rejoin_special_cases_with_scrubbed_data AS
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
+	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
     FROM baseprod_fin_with_adj_rev_variables_usa
     WHERE 1=1
     GROUP BY  cal_date
@@ -2322,12 +2326,12 @@ with rejoin_special_cases_with_scrubbed_data AS
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
 	  ,sum(currency_impact) as currency_impact
-	  ,sum(net_revenue) + sum(currency_impact) as cc_net_revenue
+	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
+	  ,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
     FROM baseprod_fin_with_adj_rev_variables_non_usa
     WHERE 1=1
     GROUP BY  cal_date
@@ -2350,18 +2354,18 @@ with rejoin_special_cases_with_scrubbed_data AS
       ,sales_product_number as base_product_number
       ,pl
       ,customer_engagement
-      ,ifnull(sum(net_revenue), 0) as net_revenue
+      ,COALESCE(sum(net_revenue), 0) as net_revenue
       ,0 as revenue_units
       ,0 as equivalent_units
       ,0 as yield_x_units
       ,0 as yield_x_units_black_only
 	  ,0 as currency_impact
-	  ,ifnull(sum(net_revenue),0) as cc_net_revenue
+	  ,COALESCE(sum(net_revenue),0) as cc_net_revenue
 	  ,0 as ci_usd
 	  ,0 as ci_qty
 	  ,0 as inventory_change_impact
 	  ,0 as cc_inventory_impact
-	  ,ifnull(sum(net_revenue), 0) as adjusted_revenue
+	  ,COALESCE(sum(net_revenue), 0) as adjusted_revenue
   FROM adjusted_revenue_finance
   WHERE 1=1
 	AND sales_product_number IN ('CISS', 'EST_MPS_REVENUE_JV')
@@ -2383,18 +2387,18 @@ SELECT
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,ifnull(sum(net_revenue), 0) as net_revenue
-      ,ifnull(sum(revenue_units), 0) as revenue_units
-      ,ifnull(sum(equivalent_units), 0) as equivalent_units
-      ,ifnull(sum(yield_x_units), 0) as yield_x_units
-      ,ifnull(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
-	  ,ifnull(sum(currency_impact), 0) as currency_impact
-	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
-	  ,ifnull(sum(ci_usd), 0) as ci_usd
-	  ,ifnull(sum(ci_qty), 0) as ci_qty
-	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
-	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
-	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
+	  ,COALESCE(sum(net_revenue), 0) as net_revenue
+      ,COALESCE(sum(revenue_units), 0) as revenue_units
+      ,COALESCE(sum(equivalent_units), 0) as equivalent_units
+      ,COALESCE(sum(yield_x_units), 0) as yield_x_units
+      ,COALESCE(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
+	  ,COALESCE(sum(currency_impact), 0) as currency_impact
+	  ,COALESCE(sum(cc_net_revenue), 0) as cc_net_revenue
+	  ,COALESCE(sum(ci_usd), 0) as ci_usd
+	  ,COALESCE(sum(ci_qty), 0) as ci_qty
+	  ,COALESCE(sum(inventory_change_impact), 0) as inventory_change_impact
+	  ,COALESCE(sum(cc_inventory_impact), 0) as cc_inventory_impact
+	  ,COALESCE(sum(adjusted_revenue), 0) as adjusted_revenue
     FROM rejoin_special_cases_with_scrubbed_data
     WHERE 1=1
     GROUP BY  cal_date
@@ -2473,8 +2477,7 @@ SELECT cal_date,
 		sum(net_revenue) as net_revenue,
 		sum(cc_net_revenue) as cc_net_revenue,
 		sum(inventory_change_impact) as inventory_change_impact,
-	    sum(cc_inventory_impact) as cc_inventory_impact,
-	    sum(adjusted_revenue) as adjusted_revenue
+	    sum(cc_inventory_impact) as cc_inventory_impact
 	FROM fully_baked_sku_level_data
     WHERE country_alpha2 = 'US'
 	GROUP BY cal_date, market8, pl, customer_engagement
@@ -2492,8 +2495,7 @@ SELECT cal_date,
 		sum(net_revenue) as net_revenue,
 		sum(cc_net_revenue) as cc_net_revenue,
 		sum(inventory_change_impact) as inventory_change_impact,
-	    sum(cc_inventory_impact) as cc_inventory_impact,
-	    sum(adjusted_revenue) as adjusted_revenue
+	    sum(cc_inventory_impact) as cc_inventory_impact
 	FROM fully_baked_sku_level_data
     WHERE country_alpha2 <> 'US'
 	GROUP BY cal_date, market8, pl, customer_engagement
@@ -2511,8 +2513,7 @@ SELECT cal_date,
         sum(net_revenue) as net_revenue,
         sum(cc_net_revenue) as cc_net_revenue,
         sum(inventory_change_impact) as inventory_change_impact,
-        sum(cc_inventory_impact) as cc_inventory_impact,
-        sum(adjusted_revenue) as adjusted_revenue
+        sum(cc_inventory_impact) as cc_inventory_impact
     FROM fin_adj_rev_targets_official
     WHERE 1=1
     AND pl IN (select distinct pl from fully_baked_sku_level_data)
@@ -2531,8 +2532,7 @@ SELECT cal_date,
 		sum(net_revenue) as net_revenue,
 		sum(cc_net_revenue) as cc_net_revenue,
 		sum(inventory_change_impact) as inventory_change_impact,
-	    sum(cc_inventory_impact) as cc_inventory_impact,
-	    sum(adjusted_revenue) as adjusted_revenue
+	    sum(cc_inventory_impact) as cc_inventory_impact
 	FROM fin_adj_rev_targets_usa
 	WHERE 1=1
 	AND pl IN (select distinct pl from fully_baked_sku_level_data)
@@ -2551,8 +2551,7 @@ SELECT cal_date,
 		sum(net_revenue) as net_revenue,
 		sum(cc_net_revenue) as cc_net_revenue,
 		sum(inventory_change_impact) as inventory_change_impact,
-	    sum(cc_inventory_impact) as cc_inventory_impact,
-	    sum(adjusted_revenue) as adjusted_revenue
+	    sum(cc_inventory_impact) as cc_inventory_impact
 	FROM fin_adj_rev_targets_non_usa
 	WHERE 1=1
 	AND pl IN (select distinct pl from reported_mkt8_data_non_usa)
@@ -2560,6 +2559,10 @@ SELECT cal_date,
 """)
 
 target_mkt8_data_non_usa.createOrReplaceTempView("target_mkt8_data_non_usa")
+
+# COMMAND ----------
+
+# MAGIC %sql
 
 # COMMAND ----------
 
@@ -2576,9 +2579,7 @@ SELECT
 		sum(r.inventory_change_impact) as rept_inv_change,
 		sum(far.inventory_change_impact) as inv_chg_target,
 		sum(r.cc_inventory_impact) as rept_inv_impact,
-		sum(far.cc_inventory_impact) as cc_inv_impact,
-		sum(r.adjusted_revenue) as rept_adj_rev,
-		sum(far.adjusted_revenue) as adj_rev_target
+		sum(far.cc_inventory_impact) as cc_inv_impact
 	FROM reported_mkt8_data_usa r
 	LEFT JOIN target_mkt8_data_usa far ON
 		r.cal_date = far.cal_date AND
@@ -2608,9 +2609,7 @@ SELECT
 		sum(r.inventory_change_impact) as rept_inv_change,
 		sum(far.inventory_change_impact) as inv_chg_target,
 		sum(r.cc_inventory_impact) as rept_inv_impact,
-		sum(far.cc_inventory_impact) as cc_inv_impact,
-		sum(r.adjusted_revenue) as rept_adj_rev,
-		sum(far.adjusted_revenue) as adj_rev_target
+		sum(far.cc_inventory_impact) as cc_inv_impact
 	FROM reported_mkt8_data_non_usa r
 	LEFT JOIN target_mkt8_data_non_usa far ON
 		r.cal_date = far.cal_date AND
@@ -2636,8 +2635,7 @@ SELECT
 		sum(net_rev_target) - sum(rept_net_rev) as net_rev_plug,
 		sum(cc_net_rev_target) - sum(rept_cc_rev) as cc_rev_plug,
 		SUM(inv_chg_target) - sum(rept_inv_change) as inv_chg_plug,
-		sum(cc_inv_impact) - sum(rept_inv_impact) as cc_inv_plug,
-		sum(adj_rev_target) - sum(rept_adj_rev) as adjrev_plug
+		sum(cc_inv_impact) - sum(rept_inv_impact) as cc_inv_plug
 	FROM calc_difference_to_targets_usa
 	WHERE 1=1
 	GROUP BY cal_date, market8, pl, customer_engagement
@@ -2656,8 +2654,7 @@ SELECT
 		sum(net_rev_target) - sum(rept_net_rev) as net_rev_plug,
 		sum(cc_net_rev_target) - sum(rept_cc_rev) as cc_rev_plug,
 		SUM(inv_chg_target) - sum(rept_inv_change) as inv_chg_plug,
-		sum(cc_inv_impact) - sum(rept_inv_impact) as cc_inv_plug,
-		sum(adj_rev_target) - sum(rept_adj_rev) as adjrev_plug
+		sum(cc_inv_impact) - sum(rept_inv_impact) as cc_inv_plug
 	FROM calc_difference_to_targets_non_usa
 	WHERE 1=1
 	GROUP BY cal_date, market8, pl, customer_engagement
@@ -2761,12 +2758,12 @@ SELECT
 		base_product_number,
 		mix.pl,
 		mix.customer_engagement,
-		sum(net_rev_plug * ifnull(rept_rev_mix, 1)) as net_revenue,
+		COALESCE(sum(net_rev_plug * rept_rev_mix), 1) as net_revenue,
 		0 as revenue_units,
 		0 as equivalent_units,
 		0 as yield_x_units,
 		0 as yield_x_units_black_only,
-		sum(cc_rev_plug * ifnull(rept_cc_rev_mix, 1)) as cc_net_revenue
+		COALESCE(sum(cc_rev_plug * rept_cc_rev_mix), 1) as cc_net_revenue
   FROM ar_revenue_plugs_mix_calc_usa mix
   JOIN target_plugs_to_fill_gap_usa plugs ON
 	mix.cal_date = plugs.cal_date AND
@@ -2798,12 +2795,12 @@ SELECT
 		base_product_number,
 		mix.pl,
 		mix.customer_engagement,
-		sum(net_rev_plug * ifnull(rept_rev_mix, 1)) as net_revenue,
+		COALESCE(sum(net_rev_plug * rept_rev_mix), 1) as net_revenue,
 		0 as revenue_units,
 		0 as equivalent_units,
 		0 as yield_x_units,
 		0 as yield_x_units_black_only,
-		sum(cc_rev_plug * ifnull(rept_cc_rev_mix, 1)) as cc_net_revenue
+		COALESCE(sum(cc_rev_plug * rept_cc_rev_mix), 1) as cc_net_revenue
   FROM ar_revenue_plugs_mix_calc_non_usa mix
   JOIN target_plugs_to_fill_gap_non_usa plugs ON
 	mix.cal_date = plugs.cal_date AND
@@ -2842,6 +2839,7 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
@@ -2875,6 +2873,7 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(cc_net_revenue) - sum(net_revenue) as currency_impact
 	  ,sum(net_revenue) as cc_net_revenue
 	  ,0 as ci_usd
 	  ,0 as ci_qty
@@ -2908,6 +2907,7 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(cc_net_revenue) - sum(net_revenue) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,0 as ci_usd
 	  ,0 as ci_qty
@@ -2935,17 +2935,18 @@ SELECT cal_date
       ,pl
       ,customer_engagement
 	  ,process_detail
-      ,ifnull(sum(net_revenue), 0) as net_revenue
-      ,ifnull(sum(revenue_units), 0) as revenue_units
-      ,ifnull(sum(equivalent_units), 0) as equivalent_units
-      ,ifnull(sum(yield_x_units), 0) as yield_x_units
-      ,ifnull(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
-	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
-	  ,ifnull(sum(ci_usd), 0) as ci_usd
-	  ,ifnull(sum(ci_qty), 0) as ci_qty
-	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
-	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
-	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
+      ,COALESCE(sum(net_revenue), 0) as net_revenue
+      ,COALESCE(sum(revenue_units), 0) as revenue_units
+      ,COALESCE(sum(equivalent_units), 0) as equivalent_units
+      ,COALESCE(sum(yield_x_units), 0) as yield_x_units
+      ,COALESCE(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
+	  ,COALESCE(sum(currency_impact), 0) as currency_impact
+	  ,COALESCE(sum(cc_net_revenue), 0) as cc_net_revenue
+	  ,COALESCE(sum(ci_usd), 0) as ci_usd
+	  ,COALESCE(sum(ci_qty), 0) as ci_qty
+	  ,COALESCE(sum(inventory_change_impact), 0) as inventory_change_impact
+	  ,COALESCE(sum(cc_inventory_impact), 0) as cc_inventory_impact
+	  ,COALESCE(sum(adjusted_revenue), 0) as adjusted_revenue
     FROM union_fully_baked_sku_data_with_revenue_gap
     WHERE 1=1    
     GROUP BY  cal_date
@@ -2972,41 +2973,6 @@ fully_baked_with_revenue_and_cc_rev_gaps_spread.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.fully_baked_with_revenue_and_cc_rev_gaps_spread_temp USING DELTA LOCATION '/tmp/delta/fin_stage/fully_baked_with_revenue_and_cc_rev_gaps_spread_temp'")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select cal_date
-# MAGIC       ,fiscal_year_qtr
-# MAGIC       ,market8
-# MAGIC       ,region_5
-# MAGIC       ,pl
-# MAGIC       ,customer_engagement
-# MAGIC       ,base_product_number
-# MAGIC 	 ,sum(net_revenue) as net_revenue
-# MAGIC     ,sum(revenue_units) as revenue_units
-# MAGIC     ,sum(equivalent_units) as equivalent_units
-# MAGIC     ,sum(yield_x_units) as yield_x_units
-# MAGIC 	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
-# MAGIC 	  ,ifnull(sum(ci_usd), 0) as ci_usd
-# MAGIC 	  ,ifnull(sum(ci_qty), 0) as ci_qty
-# MAGIC 	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
-# MAGIC 	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
-# MAGIC 	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
-# MAGIC from fin_stage.fully_baked_with_revenue_and_cc_rev_gaps_spread_temp t
-# MAGIC left join mdm.calendar cal
-# MAGIC   on cal.Date = cal_date
-# MAGIC where 1=1
-# MAGIC and pl = 'LU'
-# MAGIC and region_5 = 'NA'
-# MAGIC and day_of_month = 1
-# MAGIC group by cal_date
-# MAGIC       ,fiscal_year_qtr
-# MAGIC       ,market8
-# MAGIC       ,region_5
-# MAGIC       ,pl
-# MAGIC       ,customer_engagement
-# MAGIC       ,base_product_number
 
 # COMMAND ----------
 
@@ -3332,12 +3298,12 @@ SELECT
 		gold.market8,
 		gold.pl,
 		gold.customer_engagement,
-		ifnull(sum(total.inventory_change_impact), 0) as inventory_change_target,
-		ifnull(sum(total.cc_inventory_impact), 0) as cc_inventory_target,
-		ifnull(sum(gold.inventory_change_impact), 0) as inventory_change_gold,
-		ifnull(sum(gold.cc_inventory_impact), 0) as cc_inventory_gold,
-		ifnull(sum(total.inventory_change_impact), 0) - ifnull(sum(gold.inventory_change_impact), 0) as inventory_change_plug,
-		ifnull(sum(total.cc_inventory_impact), 0) - ifnull(sum(gold.cc_inventory_impact), 0) as cc_inventory_plug
+		COALESCE(sum(total.inventory_change_impact), 0) as inventory_change_target,
+		COALESCE(sum(total.cc_inventory_impact), 0) as cc_inventory_target,
+		COALESCE(sum(gold.inventory_change_impact), 0) as inventory_change_gold,
+		COALESCE(sum(gold.cc_inventory_impact), 0) as cc_inventory_gold,
+		COALESCE(sum(total.inventory_change_impact), 0) - COALESCE(sum(gold.inventory_change_impact), 0) as inventory_change_plug,
+		COALESCE(sum(total.cc_inventory_impact), 0) - COALESCE(sum(gold.cc_inventory_impact), 0) as cc_inventory_plug
 	FROM ci_original_data_positive gold
 	LEFT JOIN  ci_positive_totals total ON
 		total.cal_date = gold.cal_date AND
@@ -3361,12 +3327,12 @@ SELECT
 		gold.market8,
 		gold.pl,
 		gold.customer_engagement,
-		ifnull(sum(total.inventory_change_impact), 0) as inventory_change_target,
-		ifnull(sum(total.cc_inventory_impact), 0) as cc_inventory_target,
-		ifnull(sum(gold.inventory_change_impact), 0) as inventory_change_gold,
-		ifnull(sum(gold.cc_inventory_impact), 0) as cc_inventory_gold,
-		ifnull(sum(total.inventory_change_impact), 0) - ifnull(sum(gold.inventory_change_impact), 0) as inventory_change_plug,
-		ifnull(sum(total.cc_inventory_impact), 0) - ifnull(sum(gold.cc_inventory_impact), 0) as cc_inventory_plug
+		COALESCE(sum(total.inventory_change_impact), 0) as inventory_change_target,
+		COALESCE(sum(total.cc_inventory_impact), 0) as cc_inventory_target,
+		COALESCE(sum(gold.inventory_change_impact), 0) as inventory_change_gold,
+		COALESCE(sum(gold.cc_inventory_impact), 0) as cc_inventory_gold,
+		COALESCE(sum(total.inventory_change_impact), 0) - COALESCE(sum(gold.inventory_change_impact), 0) as inventory_change_plug,
+		COALESCE(sum(total.cc_inventory_impact), 0) - COALESCE(sum(gold.cc_inventory_impact), 0) as cc_inventory_plug
 	FROM ci_original_data_negative gold
 	LEFT JOIN ci_negative_totals total ON
 		total.cal_date = gold.cal_date AND
@@ -3400,12 +3366,13 @@ SELECT
 		0 as equivalent_units,
 		0 as yield_x_units,
 		0 as yield_x_units_black_only,
+        0 as currency_impact,
 		0 as cc_net_revenue,
 		0 as ci_usd,
 		0 as ci_qty,
-		sum(inventory_change_plug * ifnull(ci_chg_mix, 0)) as inventory_change_impact,
-		sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as cc_inventory_impact,
-		-1 * sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as adjusted_revenue
+		COALESCE(sum(inventory_change_plug * ci_chg_mix), 0) as inventory_change_impact,
+		COALESCE(sum(cc_inventory_plug * cc_ci_chg_mix), 0) as cc_inventory_impact,
+		-1 * COALESCE(sum(cc_inventory_plug * cc_ci_chg_mix), 0) as adjusted_revenue
   FROM ci_positive_gap mix 
   JOIN positive_ci_change plugs ON
 	mix.cal_date = plugs.cal_date AND
@@ -3481,12 +3448,13 @@ SELECT
 		0 as equivalent_units,
 		0 as yield_x_units,
 		0 as yield_x_units_black_only,
+        0 as currency_impact,
 		0 as cc_net_revenue,
 		0 as ci_usd,
 		0 as ci_qty,
-		sum(inventory_change_plug * ifnull(ci_chg_mix, 0)) as inventory_change_impact,
-		sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as cc_inventory_impact,
-		-1 * sum(cc_inventory_plug * ifnull(cc_ci_chg_mix, 0)) as adjusted_revenue
+		COALESCE(sum(inventory_change_plug * ci_chg_mix), 0) as inventory_change_impact,
+		COALESCE(sum(cc_inventory_plug * cc_ci_chg_mix), 0) as cc_inventory_impact,
+		-1 * COALESCE(sum(cc_inventory_plug * cc_ci_chg_mix), 0) as adjusted_revenue
   FROM ci_negative_gap mix 
   JOIN negative_ci_change plugs ON
 	mix.cal_date = plugs.cal_date AND
@@ -3547,8 +3515,6 @@ query_list.append(["scen.epa_11_ci_data_negative_plug", epa_11_ci_data_negative_
 # COMMAND ----------
 
 adjusted_revenue_mash1 = spark.sql("""
- with adjusted_rept_and_cc_rev_join_adjusted_ci_data AS
- (
 	SELECT 
        cal_date
       ,country_alpha2
@@ -3564,6 +3530,7 @@ adjusted_revenue_mash1 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
@@ -3599,6 +3566,7 @@ adjusted_revenue_mash1 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
@@ -3634,6 +3602,7 @@ adjusted_revenue_mash1 = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
 	  ,sum(ci_usd) as ci_usd
 	  ,sum(ci_qty) as ci_qty
@@ -3642,40 +3611,6 @@ adjusted_revenue_mash1 = spark.sql("""
 	  ,sum(adjusted_revenue) as adjusted_revenue
 	FROM ci_negative_plug
     WHERE 1=1	
-    GROUP BY  cal_date
-      ,country_alpha2
-      ,market8
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
- )
-
-SELECT 
-     cal_date
-      ,country_alpha2
-      ,market8
-	  ,region_5
-      ,platform_subset
-      ,base_product_number
-      ,pl
-      ,customer_engagement
-	  ,process_detail
-      ,ifnull(sum(net_revenue), 0) as net_revenue
-      ,ifnull(sum(revenue_units), 0) as revenue_units
-      ,ifnull(sum(equivalent_units), 0) as equivalent_units
-      ,ifnull(sum(yield_x_units), 0) as yield_x_units
-      ,ifnull(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
-	  ,ifnull(sum(cc_net_revenue), 0) as cc_net_revenue
-	  ,ifnull(sum(ci_usd), 0) as ci_usd
-	  ,ifnull(sum(ci_qty), 0) as ci_qty
-	  ,ifnull(sum(inventory_change_impact), 0) as inventory_change_impact
-	  ,ifnull(sum(cc_inventory_impact), 0) as cc_inventory_impact
-	  ,ifnull(sum(adjusted_revenue), 0) as adjusted_revenue
-    FROM adjusted_rept_and_cc_rev_join_adjusted_ci_data
-    WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
       ,market8
@@ -3714,19 +3649,19 @@ SELECT
       ,pl
       ,customer_engagement
 	  ,process_detail
-      ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units
-      ,sum(equivalent_units) as equivalent_units
-      ,sum(yield_x_units) as yield_x_units
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only
-      ,sum(cc_net_revenue) - sum(net_revenue) as currency_impact
-	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd
-	  ,sum(ci_qty) as ci_qty
-	  ,sum(inventory_change_impact) as inventory_change_impact
-      ,sum(cc_inventory_impact) - sum(inventory_change_impact) as constant_currency_inventory_change_impact
-	  ,sum(cc_inventory_impact) as cc_inventory_impact
-	  ,sum(adjusted_revenue) as adjusted_revenue
+      ,COALESCE(sum(net_revenue), 0) as net_revenue
+      ,COALESCE(sum(revenue_units), 0) as revenue_units
+      ,COALESCE(sum(equivalent_units), 0) as equivalent_units
+      ,COALESCE(sum(yield_x_units),0) as yield_x_units
+      ,COALESCE(sum(yield_x_units_black_only),0) as yield_x_units_black_only
+      ,COALESCE(sum(cc_net_revenue) - sum(net_revenue), 0) as currency_impact
+	  ,COALESCE(sum(cc_net_revenue), 0) as cc_net_revenue
+	  ,COALESCE(sum(ci_usd), 0) as ci_usd
+	  ,COALESCE(sum(ci_qty), 0) as ci_qty
+	  ,COALESCE(sum(inventory_change_impact), 0) as inventory_change_impact
+      ,COALESCE(sum(cc_inventory_impact) - sum(inventory_change_impact), 0) as constant_currency_inventory_change_impact
+	  ,COALESCE(sum(cc_inventory_impact), 0) as cc_inventory_impact
+	  ,COALESCE(sum(adjusted_revenue), 0) as adjusted_revenue
       ,COALESCE(sum(ci_usd)/NULLIF(sum(ci_qty), 0), 0) as implied_ndp
       ,COALESCE(sum(yield_x_units)/NULLIF(sum(revenue_units), 0), 0) as implied_yield
       ,COALESCE(sum(yield_x_units_black_only)/NULLIF(sum(revenue_units), 0), 0) as implied_yield_black_only
@@ -3918,16 +3853,13 @@ query_list.append(["scen.epa_12_adj_rev_mash4", epa_12_adj_rev_mash4, "epa_12_ad
 # MAGIC     ,sum(equivalent_units) as equivalent_units
 # MAGIC     ,sum(yield_x_units) as yield_x_units
 # MAGIC     ,sum(yield_x_units_black_only) as yield_x_units_black_only
-# MAGIC 	,sum(cc_net_revenue) as cc_net_revenue
-# MAGIC 	,sum(ci_usd) as ci_usd
-# MAGIC 	,sum(ci_qty) as ci_qty
-# MAGIC 	,sum(inventory_change_impact) as inventory_change_impact
-# MAGIC 	,sum(cc_inventory_impact) as cc_inventory_impact
-# MAGIC 	,sum(adjusted_revenue) as adjusted_revenue
+# MAGIC     ,sum(currency_impact) as currency_impact
 # MAGIC     ,sum(cc_net_revenue) as cc_net_revenue
-# MAGIC 	,sum(inventory_change_impact) as inventory_change_impact
-# MAGIC 	,sum(cc_inventory_impact) as cc_inventory_impact
-# MAGIC 	,sum(cc_net_revenue) - sum(cc_inventory_impact) as adjusted_revenue
+# MAGIC     ,sum(ci_usd) as ci_usd
+# MAGIC     ,sum(ci_qty) as ci_qty
+# MAGIC     ,sum(inventory_change_impact) as inventory_change_impact
+# MAGIC     ,sum(cc_inventory_impact) as cc_inventory_impact
+# MAGIC     ,sum(adjusted_revenue) as adjusted_revenue
 # MAGIC FROM fin_stage.adjusted_revenue_mash4_temp fa
 # MAGIC LEFT JOIN mdm.calendar cal
 # MAGIC     ON cal.Date = fa.cal_date
@@ -3938,7 +3870,7 @@ query_list.append(["scen.epa_12_adj_rev_mash4", epa_12_adj_rev_mash4, "epa_12_ad
 # MAGIC     , fiscal_yr
 # MAGIC     , market8
 # MAGIC     , region_5
-# MAGIC     , pl   
+# MAGIC     , pl
 
 # COMMAND ----------
 
@@ -4182,7 +4114,7 @@ epa_actuals_baseprod_negative_net_revenue = spark.sql("""
       ,sum(equivalent_units) as equivalent_units
       ,sum(yield_x_units) as yield_x_units
       ,sum(yield_x_units_black_only) as yield_x_units_black_only
-	FROM baseprod_targets_detailed
+	FROM baseprod_detailed_targets
     WHERE 1=1
 		AND net_revenue < 0
     GROUP BY  cal_date
