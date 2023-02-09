@@ -15,7 +15,7 @@
 query_list = []
 
 ## Supplies History 3
-cur_period = '2022-10-01'  # accounting rate
+cur_period = '2023-01-01'  # accounting rate
 
 ## Channel Inventory Prep 1
 cbm_st_month = '2015-10-01'
@@ -224,8 +224,10 @@ supp_hist_3 = spark.sql("""
 				effectivedate as accounting_rate,
 				accountingrate
 			from accounting_rates_table
-			where effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
-            --(select distinct '{cur_period}' as current_period from prod.acct_rates)
+			where 1=1
+            --and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
+            --and effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
+            and effectivedate = '2023-01-01'
 """)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")
