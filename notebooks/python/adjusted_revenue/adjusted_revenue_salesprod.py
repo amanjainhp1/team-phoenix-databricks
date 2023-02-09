@@ -234,11 +234,6 @@ supp_hist_3.createOrReplaceTempView("current_accounting_rate")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select * from current_accounting_rate
-
-# COMMAND ----------
-
 supp_hist_4 = spark.sql("""
 -- select * from #current_accounting_rate
 	with
