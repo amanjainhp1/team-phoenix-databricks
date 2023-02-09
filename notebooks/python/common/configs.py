@@ -4,8 +4,8 @@ import json
 
 # COMMAND ----------
 
-# Create an STS client object that represents a live connection to the STS service
-def assume_sts_role(role_arn: str) -> None:
+def create_session(role_arn: str):
+    # Create an STS client object that represents a live connection to the STS service
     sts_client = boto3.client('sts')
 
     # Call the assume_role method of the STSConnection object and pass the role
@@ -18,24 +18,29 @@ def assume_sts_role(role_arn: str) -> None:
     # From the response that contains the assumed role, get the temporary 
     # credentials that can be used to make subsequent API calls
     credentials=assumed_role_object['Credentials']
-    
-    # set spark configs
-    spark.conf.set("spark.hadoop.fs.s3a.access.key", credentials['AccessKeyId'])
-    spark.conf.set("spark.hadoop.fs.s3a.secret.key", credentials['SecretAccessKey'])
-    spark.conf.set("spark.hadoop.fs.s3a.session.token", credentials['SessionToken'])
 
-    return None
+    # Establish a session to be used in subsequent calls to AWS services
+    session = boto3.Session(
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken'],
+        region_name='us-west-2'
+    )
+    
+    return session
 
 # COMMAND ----------
 
 # Retrieve username and password from AWS secrets manager
-def secrets_get(secret_name: str, region_name: str):    
+def secrets_get(secret_name: str, region_name: str, session: boto3.session.Session = None):
     endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = boto3.client(service_name='secretsmanager',
-                          region_name=region_name,
-                          aws_access_key_id=spark.conf.get("spark.hadoop.fs.s3a.access.key"),
-                          aws_secret_access_key=spark.conf.get("spark.hadoop.fs.s3a.secret.key"),
-                          aws_session_token=spark.conf.get("spark.hadoop.fs.s3a.session.token"))
+    client = None
+    if session == None:
+        client = boto3.client(service_name='secretsmanager',
+                              region_name=region_name)
+    else:
+        client = session.client(service_name='secretsmanager',
+                              region_name=region_name)
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     return eval(get_secret_value_response['SecretString'])
 
@@ -178,15 +183,16 @@ if 'analyst' in spark.conf.get('spark.databricks.clusterUsageTags.instanceProfil
 
 # COMMAND ----------
 
-# assume role and retrieve credentials
-assume_sts_role(constants["STS_IAM_ROLE"][stack])
+# assume role, retrieve credentials, create session
+session = create_session(constants["STS_IAM_ROLE"][stack])
 
 # COMMAND ----------
 
 configs = {}
+configs["session"] = session
 
 # redshift
-redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2")
+redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2", session)
 
 configs["redshift_username"] = redshift_secret["username"]
 configs["redshift_password"] = redshift_secret["password"]
@@ -199,7 +205,7 @@ configs["aws_iam_role"] = constants["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
 if sql_server_access:
-    sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2")
+    sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2", session)
     
     configs["sfai_username"] = sqlserver_secret["username"]
     configs["sfai_password"] = sqlserver_secret["password"]
