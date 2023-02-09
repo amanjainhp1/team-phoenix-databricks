@@ -11,15 +11,15 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../config_forecasting_engine
-
-# COMMAND ----------
-
 # MAGIC %run ../../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
 
@@ -69,7 +69,7 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
@@ -106,6 +106,7 @@ ctry_01 = spark.sql("""
         , platform_subset
         , base_product_number
         , customer_engagement
+        , vtc
         , SUM(cartridges) AS cartridges
         , SUM(adjusted_cartridges) AS mvtc_adjusted_crgs
     FROM scen.working_forecast_combined
@@ -116,6 +117,7 @@ ctry_01 = spark.sql("""
         , platform_subset
         , base_product_number
         , customer_engagement
+        , vtc
 """)
 
 ctry_01.createOrReplaceTempView("ctry_01_c2c_adj_agg")
@@ -167,6 +169,7 @@ SELECT geography
   , platform_subset
   , base_product_number
   , customer_engagement
+  , vtc
   , cartridges
   , mvtc_adjusted_crgs
   , SUM(cartridges)
@@ -199,6 +202,7 @@ SELECT DISTINCT c2c.geography
               , c2c.base_product_number
               , c2c.customer_engagement
               , c2c.cartridges
+              , c2c.vtc
               , c2c.mvtc_adjusted_crgs
               -- mixes
               , acts.ctry_bpn_qty_mix
@@ -234,6 +238,7 @@ ctry_04 = spark.sql("""
       , hist.platform_subset
       , hist.base_product_number
       , hist.customer_engagement
+      , hist.vtc
       , hist.cartridges
       , hist.mvtc_adjusted_crgs
       -- mixes
@@ -368,6 +373,7 @@ SELECT 1 AS mix_type
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -398,6 +404,7 @@ SELECT 2 AS mix_type
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -431,6 +438,7 @@ SELECT 3 AS model_number
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -461,6 +469,7 @@ SELECT c2c.geography
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -494,6 +503,7 @@ SELECT c2c.geography
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -527,6 +537,7 @@ ctry_12 = spark.sql("""
         , c2c.base_product_number
         , c2c.customer_engagement
         , c2c.cartridges
+        , c2c.vtc
         , c2c.mvtc_adjusted_crgs
         -- mixes
         , c2c.ctry_pfs_qty_mix
@@ -561,6 +572,7 @@ SELECT 1 AS combo_mapping
     , fcst.base_product_number
     , fcst.customer_engagement
     , fcst.cartridges
+    , fcst.vtc
     , fcst.mvtc_adjusted_crgs
     -- mixes
     , fcst.ctry_pfs_qty_mix
@@ -582,6 +594,7 @@ SELECT 2 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc
     , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
@@ -604,6 +617,7 @@ SELECT 3 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc\
     , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
@@ -630,6 +644,7 @@ SELECT acts.geography
     , acts.platform_subset
     , acts.base_product_number
     , acts.customer_engagement
+    , acts.vtc
     , acts.ctry_ce_crgs AS cartridges
     , acts.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
 FROM ctry_04_adj_hist_mix_2 AS acts
@@ -642,6 +657,7 @@ SELECT fcst.geography
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc
     , fcst.ctry_ce_crgs AS cartridges
     , fcst.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
 FROM ctry_13_adj_fcst_ctry_mix AS fcst
@@ -651,7 +667,7 @@ ctry_14.createOrReplaceTempView("c2c_adj_country_pf_split")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ctry_14, "scen.c2c_adj_country_pf_split", "overwrite")
+write_df_to_redshift(configs, ctry_14, "scen.working_forecast_country", "overwrite")
 
 # COMMAND ----------
 

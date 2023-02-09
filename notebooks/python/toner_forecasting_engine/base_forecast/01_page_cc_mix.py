@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC # page_cc_mix
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC
+# MAGIC 
 # MAGIC Stepwise process:
 # MAGIC   1. shm_base_helper
 # MAGIC   2. cartridge_units
@@ -18,7 +18,7 @@
 # MAGIC   6. page_mix_complete
 # MAGIC   7. cc_mix_complete
 # MAGIC   8. page_cc_mix
-# MAGIC
+# MAGIC 
 # MAGIC Detail:
 # MAGIC + shm_base_helper
 # MAGIC   + scrubbed data from supplies_hw_mapping

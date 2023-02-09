@@ -309,11 +309,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM phoenix_spectrum_itg.usage_share AS us
+     FROM prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = (SELECT MAX(version) FROM phoenix_spectrum_itg.usage_share)
+       AND us.version = (SELECT MAX(version) FROM prod.usage_share)
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -3811,4 +3811,4 @@ query_list.append(["scen.toner_working_fcst", toner_working_fcst, "overwrite"])
 
 # COMMAND ----------
 
-# MAGIC %run "../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../../common/output_to_redshift" $query_list=query_list

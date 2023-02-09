@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC # page_cc_cartridges
 
 # COMMAND ----------
@@ -8,10 +8,10 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC
+# MAGIC 
 # MAGIC Stepwise process:
 # MAGIC   1. page_cc_cartridges
-# MAGIC
+# MAGIC 
 # MAGIC Detail:
 # MAGIC + page_cc_cartridges
 # MAGIC   + pages / ccs are distributed to platform_subset / base_product_number combinations

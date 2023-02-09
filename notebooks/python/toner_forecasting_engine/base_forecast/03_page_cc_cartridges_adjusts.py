@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC # page_cc_cartridges_adjusts
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC
+# MAGIC 
 # MAGIC Stepwise process:
 # MAGIC   1. analytic
 # MAGIC   2. channel_fill
@@ -25,7 +25,7 @@ query_list = []
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC ## analytic
 
 # COMMAND ----------
@@ -570,7 +570,7 @@ query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC ## host_cartridges
 
 # COMMAND ----------
@@ -786,7 +786,7 @@ query_list.append(["stage.host_cartridges", host_cartridges, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC ## welcome_kits
 
 # COMMAND ----------
@@ -890,7 +890,7 @@ query_list.append(["stage.welcome_kits", welcome_kits, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC
+# MAGIC 
 # MAGIC ## vtc
 
 # COMMAND ----------
