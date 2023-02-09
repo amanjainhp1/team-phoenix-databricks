@@ -2562,10 +2562,6 @@ target_mkt8_data_non_usa.createOrReplaceTempView("target_mkt8_data_non_usa")
 
 # COMMAND ----------
 
-# MAGIC %sql
-
-# COMMAND ----------
-
 calc_difference_to_targets_usa = spark.sql("""
 SELECT
 		r.cal_date,
@@ -2822,9 +2818,7 @@ spread_revenue_related_plugs_to_skus_non_usa.createOrReplaceTempView("spread_rev
 
 # COMMAND ----------
 
-fully_baked_with_revenue_and_cc_rev_gaps_spread = spark.sql("""
-WITH union_fully_baked_sku_data_with_revenue_gap AS
-(
+union_fully_baked_sku_data_with_revenue_gap = spark.sql("""
 	SELECT cal_date
       ,country_alpha2
       ,market8
@@ -2913,7 +2907,7 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
 	  ,0 as ci_qty
 	  ,0 as inventory_change_impact
 	  ,0 as cc_inventory_impact
-	  ,sum(cc_net_revenue) as cc_net_revenue
+	  ,sum(cc_net_revenue) as adjusted_revenue
     FROM spread_revenue_related_plugs_to_skus_non_usa
     WHERE 1=1
     GROUP BY  cal_date
@@ -2924,46 +2918,52 @@ WITH union_fully_baked_sku_data_with_revenue_gap AS
       ,base_product_number
       ,pl
       ,customer_engagement
-)
+""")
+                                                        
+union_fully_baked_sku_data_with_revenue_gap.createOrReplaceTempView("union_fully_baked_sku_data_with_revenue_gap")
 
+# COMMAND ----------
+
+fully_baked_with_revenue_and_cc_rev_gaps_spread = spark.sql("""
 SELECT cal_date
       ,country_alpha2
       ,market8
-	  ,region_5
+      ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,process_detail
+      ,process_detail
       ,COALESCE(sum(net_revenue), 0) as net_revenue
       ,COALESCE(sum(revenue_units), 0) as revenue_units
       ,COALESCE(sum(equivalent_units), 0) as equivalent_units
       ,COALESCE(sum(yield_x_units), 0) as yield_x_units
       ,COALESCE(sum(yield_x_units_black_only), 0) as yield_x_units_black_only
-	  ,COALESCE(sum(currency_impact), 0) as currency_impact
-	  ,COALESCE(sum(cc_net_revenue), 0) as cc_net_revenue
-	  ,COALESCE(sum(ci_usd), 0) as ci_usd
-	  ,COALESCE(sum(ci_qty), 0) as ci_qty
-	  ,COALESCE(sum(inventory_change_impact), 0) as inventory_change_impact
-	  ,COALESCE(sum(cc_inventory_impact), 0) as cc_inventory_impact
-	  ,COALESCE(sum(adjusted_revenue), 0) as adjusted_revenue
+      ,COALESCE(sum(currency_impact), 0) as currency_impact
+      ,COALESCE(sum(cc_net_revenue), 0) as cc_net_revenue
+      ,COALESCE(sum(ci_usd), 0) as ci_usd
+      ,COALESCE(sum(ci_qty), 0) as ci_qty
+      ,COALESCE(sum(inventory_change_impact), 0) as inventory_change_impact
+      ,COALESCE(sum(cc_inventory_impact), 0) as cc_inventory_impact
+      ,COALESCE(sum(adjusted_revenue), 0) as adjusted_revenue
     FROM union_fully_baked_sku_data_with_revenue_gap
     WHERE 1=1    
     GROUP BY  cal_date
       ,country_alpha2
       ,market8
-	  ,region_5
+      ,region_5
       ,platform_subset
       ,base_product_number
       ,pl
       ,customer_engagement
       ,process_detail
 """)
-
+ 
 fully_baked_with_revenue_and_cc_rev_gaps_spread.createOrReplaceTempView("fully_baked_with_revenue_and_cc_rev_gaps_spread")
 
 # COMMAND ----------
 
+# JUMP FORWARD TO END, Cmd 126.
 # Write out to its delta table target.
 fully_baked_with_revenue_and_cc_rev_gaps_spread.write \
   .format("delta") \
@@ -3514,7 +3514,7 @@ query_list.append(["scen.epa_11_ci_data_negative_plug", epa_11_ci_data_negative_
 
 # COMMAND ----------
 
-adjusted_revenue_mash1 = spark.sql("""
+old_adjusted_revenue_mash1 = spark.sql("""
 	SELECT 
        cal_date
       ,country_alpha2
@@ -3611,6 +3611,47 @@ adjusted_revenue_mash1 = spark.sql("""
 	  ,sum(adjusted_revenue) as adjusted_revenue
 	FROM ci_negative_plug
     WHERE 1=1	
+    GROUP BY  cal_date
+      ,country_alpha2
+      ,market8
+	  ,region_5
+      ,platform_subset
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+	  ,process_detail
+""")
+
+old_adjusted_revenue_mash1.createOrReplaceTempView("old_adjusted_revenue_mash1")
+#adjusted_revenue_mash1.createOrReplaceTempView("adjusted_revenue_mash1")
+
+# COMMAND ----------
+
+adjusted_revenue_mash1 = spark.sql("""
+	SELECT 
+       cal_date
+      ,country_alpha2
+      ,market8
+	  ,region_5
+      ,platform_subset
+      ,base_product_number
+      ,pl
+      ,customer_engagement
+	  ,process_detail
+      ,sum(net_revenue) as net_revenue
+      ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+      ,sum(currency_impact) as currency_impact
+	  ,sum(cc_net_revenue) as cc_net_revenue
+	  ,sum(ci_usd) as ci_usd
+	  ,sum(ci_qty) as ci_qty
+	  ,sum(inventory_change_impact) as inventory_change_impact
+	  ,sum(cc_inventory_impact) as cc_inventory_impact
+	  ,sum(adjusted_revenue) as adjusted_revenue
+	FROM fully_baked_with_revenue_and_cc_rev_gaps_spread
+    WHERE 1=1
     GROUP BY  cal_date
       ,country_alpha2
       ,market8
@@ -3842,38 +3883,6 @@ query_list.append(["scen.epa_12_adj_rev_mash4", epa_12_adj_rev_mash4, "epa_12_ad
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT fiscal_year_qtr
-# MAGIC     , fiscal_yr
-# MAGIC     , market8
-# MAGIC     , region_5
-# MAGIC     , pl
-# MAGIC     ,sum(net_revenue) as net_revenue
-# MAGIC     ,sum(revenue_units) as revenue_units
-# MAGIC     ,sum(equivalent_units) as equivalent_units
-# MAGIC     ,sum(yield_x_units) as yield_x_units
-# MAGIC     ,sum(yield_x_units_black_only) as yield_x_units_black_only
-# MAGIC     ,sum(currency_impact) as currency_impact
-# MAGIC     ,sum(cc_net_revenue) as cc_net_revenue
-# MAGIC     ,sum(ci_usd) as ci_usd
-# MAGIC     ,sum(ci_qty) as ci_qty
-# MAGIC     ,sum(inventory_change_impact) as inventory_change_impact
-# MAGIC     ,sum(cc_inventory_impact) as cc_inventory_impact
-# MAGIC     ,sum(adjusted_revenue) as adjusted_revenue
-# MAGIC FROM fin_stage.adjusted_revenue_mash4_temp fa
-# MAGIC LEFT JOIN mdm.calendar cal
-# MAGIC     ON cal.Date = fa.cal_date
-# MAGIC WHERE 1=1
-# MAGIC AND Day_of_Month = 1
-# MAGIC AND Fiscal_Yr > '2017'
-# MAGIC GROUP BY fiscal_year_qtr
-# MAGIC     , fiscal_yr
-# MAGIC     , market8
-# MAGIC     , region_5
-# MAGIC     , pl
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Adjusted Revenue EPA Staging
@@ -3890,25 +3899,25 @@ SELECT 'ACTUALS - ADJUSTED_REVENUE_EPA' as record
       ,base_product_number
       ,pl
       ,customer_engagement
-	  ,process_detail--new
+	  ,process_detail
       ,sum(net_revenue) as net_revenue
-      ,sum(revenue_units) as revenue_units--new
-      ,sum(equivalent_units) as equivalent_units--new
-      ,sum(yield_x_units) as yield_x_units--new
-      ,sum(yield_x_units_black_only) as yield_x_units_black_only--new
-	  ,aru --new
-	  ,equivalent_aru --new
-	  ,implied_ink_yield -- new
-	  ,implied_toner_yield --new
+      ,sum(revenue_units) as revenue_units
+      ,sum(equivalent_units) as equivalent_units
+      ,sum(yield_x_units) as yield_x_units
+      ,sum(yield_x_units_black_only) as yield_x_units_black_only
+	  ,aru 
+	  ,equivalent_aru
+	  ,implied_ink_yield 
+	  ,implied_toner_yield
 	  ,sum(currency_impact) as currency_impact
 	  ,sum(cc_net_revenue) as cc_net_revenue
-	  ,sum(ci_usd) as ci_usd --new
-	  ,sum(ci_qty) as ci_qty --new
+	  ,sum(ci_usd) as ci_usd 
+	  ,sum(ci_qty) as ci_qty 
 	  ,sum(inventory_change_impact) as inventory_change_impact
 	  ,sum(currency_impact_ch_inventory) as currency_impact_ch_inventory
 	  ,sum(cc_inventory_impact) as cc_inventory_impact
 	  ,sum(adjusted_revenue) as adjusted_revenue
-	  ,implied_ci_ndp --new
+	  ,implied_ci_ndp 
 	  ,case
 		when base_product_number = 'CISS' THEN 1 ELSE 0
 	  end as is_host
