@@ -296,6 +296,7 @@ SELECT c2c.geography_grain
 FROM cfadj_08_channel_fill_setup AS c2c
 WHERE 1 = 1
   AND c2c.channel_fill > 0 -- filter out negative records
+  AND c2c.cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
 """
 
 query_list.append(["stage.channel_fill", channel_fill, "overwrite"])
@@ -551,6 +552,23 @@ WITH crg_months AS
     JOIN ssadj_05_hw_ratio AS hw
         ON hw.cal_date = c2c.cal_date
         AND UPPER(hw.geography) = UPPER(c2c.geography))
+
+SELECT cal_date
+    , geography
+    , platform_subset
+    , base_product_number
+    , customer_engagement
+    , pl
+    , hw_product_family
+    , Crg_Chrome
+    , cartridges
+    , yield
+    , 0 AS supplies_spares
+FROM case_statement
+WHERE cal_date < (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
+
+UNION
+
 SELECT cal_date
     , geography
     , platform_subset
@@ -562,7 +580,8 @@ SELECT cal_date
     , cartridges
     , yield
     , CAST(supplies_spares AS FLOAT) AS supplies_spares
-FROM case_statement
+FROM case_statement 
+WHERE cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
 """
 
 query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
@@ -637,8 +656,9 @@ WITH shm_07_geo_1_host AS
               JOIN hostadj_01_shm_host_mult AS shm
                    ON UPPER(shm.geography) = UPPER(iso.region_5)
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
+                       AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments_ce)
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -661,7 +681,7 @@ WITH shm_07_geo_1_host AS
             OVER (PARTITION BY ns.cal_date, cc.country_level_1, ns.platform_subset, shm.base_product_number, shm.customer_engagement) AS ns_units_r8
           , SUM(ns.units * shm.host_multiplier)
             OVER (PARTITION BY ns.cal_date, cc.country_level_1, ns.platform_subset, shm.base_product_number, shm.customer_engagement) AS host_units_r8
-     FROM prod.norm_shipments AS ns
+     FROM prod.norm_shipments_ce AS ns
               JOIN mdm.iso_cc_rollup_xref AS cc
                    ON UPPER(cc.country_alpha2) = UPPER(ns.country_alpha2)
               JOIN mdm.iso_country_code_xref AS iso
@@ -670,7 +690,7 @@ WITH shm_07_geo_1_host AS
                    ON UPPER(shm.geography) = UPPER(cc.country_level_1) -- region_8
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments_ce)
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -701,14 +721,15 @@ WITH shm_07_geo_1_host AS
           , SUM(ns.units)                       AS ns_units
           , shm.host_multiplier
           , SUM(ns.units * shm.host_multiplier) AS host_units
-     FROM prod.norm_shipments AS ns
+     FROM prod.norm_shipments_ce AS ns
               JOIN mdm.iso_country_code_xref AS iso
                    ON UPPER(iso.country_alpha2) = UPPER(ns.country_alpha2) -- to get market10
               JOIN hostadj_01_shm_host_mult AS shm
                    ON UPPER(shm.geography) = UPPER(iso.market10)
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
+                       AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments_ce)
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -826,7 +847,7 @@ WITH wel_01_stf_enroll AS
                         ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
        AND ib.version = (SELECT MAX(version) FROM prod.ib)
-       AND ib.cal_date > CAST('2022-10-01' AS DATE)
+       AND ib.cal_date > CAST('2023-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
    , wel_03_ltf_ib_step_2 AS
@@ -989,10 +1010,10 @@ WITH vtc_01_analytic_cartridges AS
           , ac.welcome_kits
           , ac.imp
           , COALESCE(SUM(ac.imp_corrected_cartridges)
-                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number),
+                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
                      0) /
             NULLIF(SUM(ac.expected_crgs)
-                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number),
+                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
                    0) AS vtc
      FROM c2c_vtc_04_expected_crgs AS ac)
    , c2c_vtc_02_forecast_months AS
@@ -1012,7 +1033,7 @@ WITH vtc_01_analytic_cartridges AS
                    , base_product_number
                    , customer_engagement
                    , COUNT(cal_date)
-                     OVER (PARTITION BY geography, base_product_number) AS vol_count -- count of months with volume
+                     OVER (PARTITION BY geography, base_product_number,platform_subset,customer_engagement) AS vol_count -- count of months with volume
      FROM c2c_vtc_05_vtc_calc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
@@ -1039,7 +1060,7 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.vtc
           , vol_counts.vol_count
           , MAX(vtcc.cal_date)
-            OVER (PARTITION BY vtcc.geography, vtcc.base_product_number) AS max_cal_date
+            OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
               LEFT JOIN c2c_vtc_06_vol_count AS vol_counts

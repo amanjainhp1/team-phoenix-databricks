@@ -199,6 +199,7 @@ FROM prod.actuals_supplies AS acts
               ON cref.country_alpha2 = acts.country_alpha2
                   AND cref.country_scenario = 'MARKET10'
 WHERE 1 = 1
+  AND xref.official = 1
   AND acts.customer_engagement IN ('EST_INDIRECT_FULFILLMENT', 'I-INK', 'TRAD')
   AND NOT xref.crg_chrome IN ('HEAD', 'UNK')
 GROUP BY acts.cal_date
@@ -256,9 +257,9 @@ WITH pcm_02_hp_demand AS
                     WHEN UPPER(d.measure) = 'HP_K_PAGES'
                         THEN units END)                                       AS black_demand
           , MAX(CASE
-                    WHEN UPPER(d.measure) = 'HP_C_PAGES'
+                    WHEN UPPER(d.measure) = 'HP_COLOR_PAGES'
                         THEN units END)                                       AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END *
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)                                                            AS cmy_demand
      FROM stage.demand AS d
               JOIN mdm.hardware_xref AS hw
@@ -788,8 +789,8 @@ WITH pcm_02_hp_demand AS
           , d.platform_subset
           , d.customer_engagement
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END)     AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END)     AS color_demand
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END * 3) AS cmy_demand
      FROM stage.demand AS d
      JOIN mdm.hardware_xref AS hw
         ON hw.platform_subset = d.platform_subset

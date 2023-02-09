@@ -74,8 +74,8 @@ WITH crg_months AS
           , d.platform_subset
           , d.customer_engagement
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END)     AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END)     AS color_demand
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END * 3) AS cmy_demand
      FROM stage.demand AS d
      JOIN mdm.hardware_xref AS hw
         ON UPPER(hw.platform_subset) = UPPER(d.platform_subset)
