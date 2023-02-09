@@ -76,7 +76,7 @@ sample1DF = sample1DF \
 
 # COMMAND ----------
 
-filtered_sample1DF = sample1DF.drop("Fiscal month", "Market", "Country", "Segment Code")
+filtered_sample1DF = sample1DF.drop("Fiscal month", "Market", "Country", "Segment Code","Total","Segment used in load")
 
 # COMMAND ----------
 
@@ -133,6 +133,7 @@ unpivotDF_records = unpivotDF_filtered_4 \
     .withColumn("load_date", lit(max_load_date).cast("timestamp")) \
     .withColumn("version", lit(max_version)) \
     .withColumn("month",col("month").cast("DATE")) \
+    .withColumn('revenue_currency_hedge', regexp_replace('revenue_currency_hedge', ',', '')) \
     .withColumn("revenue_currency_hedge",col("revenue_currency_hedge").cast("double"))
 
 # COMMAND ----------

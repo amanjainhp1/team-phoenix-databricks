@@ -145,7 +145,7 @@ SELECT
 FROM working_forecast
 WHERE version = (select max(version) from working_forecast)
     AND cal_date = (SELECT distinct cal_date FROM actuals_supplies_baseprod) 
-    AND adjusted_cartridges <> 0
+    AND adjusted_cartridges > 0
     AND geography_grain = 'MARKET10'
 GROUP BY 
     cal_date,
@@ -192,7 +192,7 @@ LEFT JOIN iso_country_code_xref iso
     ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 --AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
-AND units <> 0
+AND units > 0
 AND units IS NOT NULL
 AND cal_date = (SELECT distinct cal_date FROM actuals_supplies_baseprod) 
 GROUP BY

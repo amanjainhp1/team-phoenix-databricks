@@ -86,6 +86,13 @@
             "encode": "raw"
         },
         {
+            "description": "welcome_kits",
+            "name": "welcome_kits",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },      
+        {
             "description": "expected_cartridges",
             "name": "expected_cartridges",
             "type": "DOUBLE PRECISION",

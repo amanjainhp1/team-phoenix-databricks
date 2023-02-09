@@ -1,0 +1,102 @@
+{
+    "fields": [
+        {
+            "description": "measure",
+            "name": "measure",
+            "type": "VARCHAR(512)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "platform_subset",
+            "name": "platform_subset",
+            "type": "VARCHAR(512)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(128)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "market10",
+            "name": "market10",
+            "type": "VARCHAR(128)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "family",
+            "name": "family",
+            "type": "VARCHAR(512)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "tech",
+            "name": "tech",
+            "type": "VARCHAR(128)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_3",
+            "name": "region_3",
+            "type": "VARCHAR(64)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(64)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": true,
+            "encode": "az64"
+        },
+        {
+            "description": "fiscal_yr_qtr",
+            "name": "fiscal_yr_qtr",
+            "type": "VARCHAR(128)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "ce",
+            "name": "ce",
+            "type": "VARCHAR(128)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "units",
+            "name": "units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}
