@@ -15,7 +15,7 @@
 query_list = []
 
 ## Supplies History 3
-cur_period = '2023-01-01'  # accounting rate
+cur_period = '2023-02-01'  # accounting rate
 
 ## Channel Inventory Prep 1
 cbm_st_month = '2015-10-01'
@@ -225,9 +225,9 @@ supp_hist_3 = spark.sql("""
 				accountingrate
 			from accounting_rates_table
 			where 1=1
-            --and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
+            and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
             --and effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
-            and effectivedate = '2023-01-01'
+            --and effectivedate = '2023-01-01'
 """)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")
@@ -2806,7 +2806,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
