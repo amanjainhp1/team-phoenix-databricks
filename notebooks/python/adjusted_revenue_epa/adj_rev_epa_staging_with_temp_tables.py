@@ -531,6 +531,19 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.adj_rev_negative_temp USING DELT
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC select fiscal_year_qtr, sum(inventory_change_impact) as inventory_change, count(*) as row_count
+# MAGIC from fin_stage.adj_rev_negative_temp temp
+# MAGIC left join mdm.calendar cal
+# MAGIC   on cal.Date = temp.cal_date
+# MAGIC where 1=1
+# MAGIC and inventory_change_impact <> 0
+# MAGIC and day_of_month = 1
+# MAGIC group by fiscal_year_qtr
+# MAGIC order by 1;
+
+# COMMAND ----------
+
 epa_02a_adj_rev_filtered_out = """
 SELECT fiscal_year_qtr
     , fiscal_yr
