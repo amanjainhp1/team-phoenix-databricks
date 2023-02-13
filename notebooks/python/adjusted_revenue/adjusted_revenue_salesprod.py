@@ -2783,6 +2783,10 @@ for t_name, df, mode in query_list:
 
 # COMMAND ----------
 
+from pyspark.sql import functions as F
+
+# COMMAND ----------
+
 tables = [
     ['fin_stage.adjusted_revenue_staging', adj_rev_6, 'overwrite'],
     ['fin_prod.adjusted_revenue_salesprod', adj_rev_sales, 'overwrite'],
