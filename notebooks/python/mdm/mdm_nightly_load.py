@@ -137,16 +137,6 @@ except:
                 "destination_schema": "fin_prod", 
                 "destination_table": "forecast_variable_cost_toner"
             },
-            "hardware_xref": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "hardware_xref", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "hardware_xref"
-            },
             "hw_product_family_ink_business_segments": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -206,16 +196,6 @@ except:
                 "destination_database": "",
                 "destination_schema": "mdm", 
                 "destination_table": "iso_cc_rollup_xref"
-            },
-            "iso_country_code_xref": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo", 
-                "source_table": "iso_country_code_xref", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "iso_country_code_xref"
             },
             "list_price_eoq": {
                 "source_system": "sqlserver", 
