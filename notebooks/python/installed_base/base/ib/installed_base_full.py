@@ -1024,3 +1024,20 @@ query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+# MAGIC %run "../../../common/configs"
+
+# COMMAND ----------
+
+# MAGIC %run ../../../common/database_utils
+
+# COMMAND ----------
+
+# copy from stage to scen
+submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_ib; CREATE TABLE scen.prelim_ib AS SELECT * FROM stage.ib_staging;")
+
+# COMMAND ----------
+
+
