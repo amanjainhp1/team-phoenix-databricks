@@ -117,26 +117,6 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "ibp_supplies_forecast"
             },
-            "instant_ink_enrollees": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "instant_ink_enrollees", 
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "prod", 
-                "destination_table": "instant_ink_enrollees"
-            },
-            "instant_ink_enrollees_ltf": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "instant_ink_enrollees_ltf", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "instant_ink_enrollees_ltf"
-            },
             "iso_cc_rollup_xref": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
