@@ -559,7 +559,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
 WHERE 1=1 
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
@@ -3470,7 +3469,7 @@ estimated_mps_revenue = f"""
 SELECT 
     cal_date,
     CASE
-        WHEN country_alpha2 = 'XS' THEN 'RU'
+        WHEN country_alpha2 = 'XS' THEN 'CZ'
         WHEN country_alpha2 = 'XW' THEN 'US'
         ELSE country_alpha2
     END AS country_alpha2,
@@ -6501,7 +6500,6 @@ SELECT
 FROM xcode_adjusted_data2
 WHERE 1=1
 AND total_sums <> 0
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 

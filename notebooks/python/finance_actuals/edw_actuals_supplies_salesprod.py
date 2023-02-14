@@ -1361,7 +1361,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
 WHERE cal_date < '2021-11-01'  -- edw is system of record thru FY21; odw is system of record thereafter
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, base_product_number, sales_product_number, sales_product_option
 """
 
@@ -4723,7 +4722,7 @@ estimated_mps_revenue = f"""
 SELECT 
     cal_date,
     CASE
-        WHEN country_alpha2 = 'XS' THEN 'RU'
+        WHEN country_alpha2 = 'XS' THEN 'CZ'
         WHEN country_alpha2 = 'XW' THEN 'US'
         ELSE country_alpha2
     END AS country_alpha2,
@@ -7959,8 +7958,7 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM xcode_adjusted_data2
-WHERE 1=1 
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
+WHERE 1=1
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
