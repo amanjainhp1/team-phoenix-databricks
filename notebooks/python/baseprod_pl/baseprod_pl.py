@@ -1083,7 +1083,7 @@ from
 		on vcost.base_product_number = gru.base_product_number
 		and vcost.country_alpha2 = gru.country_alpha2
 		and vcost.cal_date = gru.cal_date
-""".format(currency_hedge_version)
+""".format(sales_gru_version)
 
 forecast_base_pl = spark.sql(forecast_base_pl)
 forecast_base_pl = forecast_base_pl.withColumn("load_date" , lit(None).cast(StringType())) \
