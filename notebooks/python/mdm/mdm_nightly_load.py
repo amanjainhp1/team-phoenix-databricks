@@ -87,66 +87,6 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "demand"
             },
-            "forecast_contra_input": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_contra_input",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_contra_input"
-            },
-            "forecast_fixed_cost_input": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_fixedcost_input",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_fixed_cost_input"
-            },
-            "forecast_gru_override": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_gru_override",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_gru_override"
-            },
-            "forecast_variable_cost_ink": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_variablecost_ink",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_variable_cost_ink"
-            },
-            "forecast_variable_cost_toner": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Financials", 
-                "source_schema": "dbo", 
-                "source_table": "forecast_variablecost_toner",
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "fin_prod", 
-                "destination_table": "forecast_variable_cost_toner"
-            },
-            "hardware_xref": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "hardware_xref", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "hardware_xref"
-            },
             "hw_product_family_ink_business_segments": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -177,26 +117,6 @@ except:
                 "destination_schema": "prod", 
                 "destination_table": "ibp_supplies_forecast"
             },
-            "instant_ink_enrollees": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "instant_ink_enrollees", 
-                "destination_system": "redshift",
-                "destination_database": "",
-                "destination_schema": "prod", 
-                "destination_table": "instant_ink_enrollees"
-            },
-            "instant_ink_enrollees_ltf": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "instant_ink_enrollees_ltf", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "instant_ink_enrollees_ltf"
-            },
             "iso_cc_rollup_xref": {
                 "source_system": "sqlserver", 
                 "source_database":"IE2_Prod",
@@ -206,16 +126,6 @@ except:
                 "destination_database": "",
                 "destination_schema": "mdm", 
                 "destination_table": "iso_cc_rollup_xref"
-            },
-            "iso_country_code_xref": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo", 
-                "source_table": "iso_country_code_xref", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "iso_country_code_xref"
             },
             "list_price_eoq": {
                 "source_system": "sqlserver", 
@@ -256,16 +166,6 @@ except:
                 "destination_database": "", 
                 "destination_schema": "prod", 
                 "destination_table": "ms4_profit_center_hierarchy"
-            },
-            "npi_base_gru": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Financials",
-                "source_schema": "dbo", 
-                "source_table": "npi_base_gru", 
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "fin_prod", 
-                "destination_table": "npi_base_gru"
             },
             "pl_toner_forecaster_mapping": {
                 "source_system": "sqlserver", 

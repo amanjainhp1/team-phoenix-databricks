@@ -7,7 +7,7 @@ BEGIN
 --Add version to version table
 CALL prod.addversion_sproc('FORECAST_VARIABLECOST_TONER','FINANCE');
 
-UPDATE fin_prod.forecast_variablecost_toner
+UPDATE fin_prod.forecast_variable_cost_toner
 SET official = 0
 WHERE EXISTS (
     SELECT 1
@@ -17,7 +17,7 @@ WHERE EXISTS (
         AND forecast_variablecost_toner.fiscal_yr_qtr = landing.fiscal_yr_qtr
 );
 
-INSERT INTO fin_prod.forecast_variablecost_toner
+INSERT INTO fin_prod.forecast_variable_cost_toner
     (record
     ,base_product_number
     ,region_5
