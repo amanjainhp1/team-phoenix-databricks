@@ -4,11 +4,43 @@ import json
 
 # COMMAND ----------
 
-# Retrieve username and password from AWS secrets manager
+def create_session(role_arn: str):
+    # Create an STS client object that represents a live connection to the STS service
+    sts_client = boto3.client('sts')
 
-def secrets_get(secret_name, region_name):
+    # Call the assume_role method of the STSConnection object and pass the role
+    # ARN and a role session name.
+    assumed_role_object=sts_client.assume_role(
+        RoleArn=role_arn,
+        RoleSessionName="AssumeRoleSession1"
+    )
+
+    # From the response that contains the assumed role, get the temporary 
+    # credentials that can be used to make subsequent API calls
+    credentials=assumed_role_object['Credentials']
+
+    # Establish a session to be used in subsequent calls to AWS services
+    session = boto3.Session(
+        aws_access_key_id=credentials['AccessKeyId'],
+        aws_secret_access_key=credentials['SecretAccessKey'],
+        aws_session_token=credentials['SessionToken'],
+        region_name='us-west-2'
+    )
+    
+    return session
+
+# COMMAND ----------
+
+# Retrieve username and password from AWS secrets manager
+def secrets_get(secret_name: str, region_name: str, session: boto3.session.Session = None):
     endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = boto3.client(service_name='secretsmanager', region_name=region_name)
+    client = None
+    if session == None:
+        client = boto3.client(service_name='secretsmanager',
+                              region_name=region_name)
+    else:
+        client = session.client(service_name='secretsmanager',
+                              region_name=region_name)
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     return eval(get_secret_value_response['SecretString'])
 
@@ -25,7 +57,7 @@ for tag in custom_tags:
 # COMMAND ----------
 
 # define constants
-constants = {
+developer_constants = {
     "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;",
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "SFAI_SECRET_NAME": {
@@ -86,15 +118,81 @@ constants = {
         "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
         "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
         "reporting": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
+    },
+    "STS_IAM_ROLE": {
+        "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
+        "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
+        "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
+    }
+}
+
+analyst_constants = {
+    "S3_BASE_BUCKET": {
+        "dev": "s3a://dataos-core-dev-team-phoenix/analyst/",
+        "itg": "s3a://dataos-core-itg-team-phoenix/analyst/",
+        "prod": "s3a://dataos-core-prod-team-phoenix/analyst/"
+    },
+    "REDSHIFT_URL": {
+        "dev": "dataos-core-dev-team-phoenix.dev.hpdataos.com",
+        "itg": "dataos-core-team-phoenix-itg.hpdataos.com",
+        "prod": "dataos-core-team-phoenix.hpdataos.com"
+    },
+    "REDSHIFT_PORT": {
+        "dev": "5439",
+        "itg": "5439",
+        "prod": "5439"
+    },
+    "REDSHIFT_DATABASE": {
+        "dev": "dev",
+        "itg": "itg",
+        "prod": "prod",
+        "reporting": "prod"
+    },
+    "REDSHIFT_DEV_GROUP": {
+        "dev": "dev_arch_eng",
+        "itg": "dev_arch_eng",
+        "prod": "phoenix_dev"
+    },
+    "REDSHIFT_SECRET_NAME": {
+        "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/team-phoenix/auto_team_phoenix_analyst-LU2mBY",
+        "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_team_phoenix_analyst-c3Hinm",
+        "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/redshift/team-phoenix/auto_team_phoenix_analyst-W0FFkg"
+    },
+    "REDSHIFT_IAM_ROLE": {
+        "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
+        "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
+        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
+    },
+    "STS_IAM_ROLE": {
+        "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
+        "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
+        "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-analyst-role"
     }
 }
 
 # COMMAND ----------
 
+# determine which constants to use (e.g. developer or analyst)
+role = 'developer'
+sql_server_access = True
+constants = developer_constants
+if 'analyst' in spark.conf.get('spark.databricks.clusterUsageTags.instanceProfileArn') and spark.conf.get('spark.databricks.clusterUsageTags.instanceProfileUsed'):
+    role = 'analyst'
+    sql_server_access = False
+    constants = analyst_constants
+
+# COMMAND ----------
+
+# assume role, retrieve credentials, create session
+session = create_session(constants["STS_IAM_ROLE"][stack])
+
+# COMMAND ----------
+
 configs = {}
+configs["session"] = session
 
 # redshift
-redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2")
+redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2", session)
 
 configs["redshift_username"] = redshift_secret["username"]
 configs["redshift_password"] = redshift_secret["password"]
@@ -106,9 +204,10 @@ configs["redshift_temp_bucket"] = constants["S3_BASE_BUCKET"][stack] + "redshift
 configs["aws_iam_role"] = constants["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
-sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2")
-
-configs["sfai_username"] = sqlserver_secret["username"]
-configs["sfai_password"] = sqlserver_secret["password"]
-configs["sfai_url"] = constants["SFAI_URL"]
-configs["sfai_driver"] = constants["SFAI_DRIVER"]
+if sql_server_access:
+    sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2", session)
+    
+    configs["sfai_username"] = sqlserver_secret["username"]
+    configs["sfai_password"] = sqlserver_secret["password"]
+    configs["sfai_url"] = constants["SFAI_URL"]
+    configs["sfai_driver"] = constants["SFAI_DRIVER"]
