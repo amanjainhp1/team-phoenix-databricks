@@ -821,19 +821,19 @@ where day_of_month  = 1
 norm_ships as 
 (
 select distinct n.platform_subset,d.cal_date,n.country_alpha2,0 units
-from prod.norm_shipments n
+from stage.norm_ships n
 cross join dates d 
-where n.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+where platform_subset LIKE '%PAAS%'
 and not exists 
-(select 1 from prod.norm_shipments ns where ns.platform_subset = n.platform_subset and ns.country_alpha2 = n.country_alpha2 
+(select 1 from stage.norm_ships ns where ns.platform_subset = n.platform_subset and ns.country_alpha2 = n.country_alpha2 
 and ns.version = n.version 
 and ns.cal_date = d.cal_date)
 
 union 
 
 select distinct n.platform_subset,n.cal_date,n.country_alpha2,n.units 
-from prod.norm_shipments n
-where n.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+from stage.norm_ships n
+where platform_subset LIKE '%PAAS%'
 ),
 
 ns_country_cum AS 
