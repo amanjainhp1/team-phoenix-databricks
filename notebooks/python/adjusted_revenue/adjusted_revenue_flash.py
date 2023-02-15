@@ -825,6 +825,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -844,7 +845,8 @@ select distinct d.cal_date,
     d.fiscal_year_qtr,
     geography,
     pl,
-    hq_flag
+    hq_flag,
+    embargoed_sanctioned_flag
 from date_helper d
     cross join yoy_analytic_setup ar
 where d.cal_date between ar.min_cal_date
@@ -856,6 +858,7 @@ select c.cal_date,
     coalesce (c.geography, s.geography) as geography,
     coalesce (c.pl, s.pl) as pl,
     coalesce (c.hq_flag, s.hq_flag) as hq_flag,
+    coalesce (c.embargoed_sanctioned_flag, s.embargoed_sanctioned_flag) as embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -873,6 +876,7 @@ on
     c.fiscal_year_qtr = s.fiscal_year_qtr and
     c.geography = s.geography and
     c.pl = s.pl and
+    c.embargoed_sanctioned_flag = s.embargoed_sanctioned_flag and
     c.hq_flag = s.hq_flag)
     , fill_gap2 as
     (
@@ -882,6 +886,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     coalesce (sum (reported_revenue), 0) as reported_revenue,
     coalesce (sum (hedge), 0) as hedge,
     coalesce (sum (currency), 0) as currency,
@@ -895,7 +900,7 @@ select cal_date,
 from fill_gap1
 where 1=1
 and fiscal_year_qtr in (select distinct fiscal_year_qtr from adjusted_revenue_data)
-group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag)
+group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag, embargoed_sanctioned_flag)
 , fill_gap3 as
     (
 select cal_date,
@@ -904,6 +909,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     coalesce (sum (reported_revenue), 0) as reported_revenue,
     coalesce (sum (hedge), 0) as hedge,
     coalesce (sum (currency), 0) as currency,
@@ -917,7 +923,7 @@ select cal_date,
 from fill_gap1
 where 1=1
 and fiscal_year_qtr in (select distinct fiscal_year_qtr from flash_data)
-group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag)
+group by cal_date, fiscal_year_qtr, geography, pl, record_description, embargoed_sanctioned_flag, hq_flag)
 , fill_gap4 as
     (
 select cal_date,
@@ -926,6 +932,7 @@ select cal_date,
     pl,
     'ACTUALS' as record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -946,6 +953,7 @@ select cal_date,
     pl,
     'FLASH' as record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -966,6 +974,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -987,6 +996,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     coalesce (sum (reported_revenue), 0) as reported_revenue,
     coalesce (sum (hedge), 0) as hedge,
     coalesce (sum (currency), 0) as currency,
@@ -997,7 +1007,7 @@ select cal_date,
     coalesce (sum (total_inventory_impact), 0) as total_inventory_impact,
     coalesce (sum (adjusted_revenue), 0) as adjusted_revenue
 from adjusted_rev_staging_time_series ar
-group by cal_date, geography, pl, fiscal_year_qtr, record_description, hq_flag)
+group by cal_date, geography, pl, fiscal_year_qtr, record_description, hq_flag, embargoed_sanctioned_flag)
         , adjusted_revenue_quarterly as
     (
 select fiscal_year_qtr,
@@ -1005,6 +1015,7 @@ select fiscal_year_qtr,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     sum (reported_revenue) as reported_revenue,
     sum (hedge) as hedge,
     sum (currency) as currency,
@@ -1015,7 +1026,7 @@ select fiscal_year_qtr,
     sum (total_inventory_impact) as total_inventory_impact,
     sum (adjusted_revenue) as adjusted_revenue
 from adjusted_revenue_full_calendar
-group by fiscal_year_qtr, geography, pl, record_description, hq_flag)
+group by fiscal_year_qtr, geography, pl, record_description, hq_flag, embargoed_sanctioned_flag)
         , adjusted_revenue_staging_lagged as
     (
 select fiscal_year_qtr,
@@ -1023,6 +1034,7 @@ select fiscal_year_qtr,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     sum (reported_revenue) as reported_revenue,
     sum (hedge) as hedge,
     sum (currency) as currency,
@@ -1064,6 +1076,7 @@ group by fiscal_year_qtr,
     geography,
     pl,
     record_description,
+    embargoed_sanctioned_flag,
     hq_flag)
 
 select fiscal_year_qtr,
@@ -1071,6 +1084,7 @@ select fiscal_year_qtr,
        ar.pl,
        ar.record_description,
        hq_flag,
+       embargoed_sanctioned_flag,
        coalesce
            (sum(reported_revenue), 0)
                                                            as reported_revenue,
@@ -1096,6 +1110,7 @@ group by fiscal_year_qtr,
          geography,
          ar.pl,
          record_description,
+         embargoed_sanctioned_flag,
          hq_flag
 """)
 
@@ -1154,6 +1169,7 @@ select record_description,
     mdb.pl,
     l5_description,
     technology,
+    embargoed_sanctioned_flag,
     sum (reported_revenue) as reported_revenue,
     sum (hedge) as hedge,
     sum (currency) as currency,
@@ -1191,6 +1207,7 @@ group by cal.date,
     fiscal_yr,
     l5_description,
     record_description,
+    embargoed_sanctioned_flag,
     technology)
 
 select 'ADJUSTED REVENUE PLUS FLASH'                                               as record,
@@ -1226,6 +1243,7 @@ select 'ADJUSTED REVENUE PLUS FLASH'                                            
        pl,
        l5_description,
        technology,
+       embargoed_sanctioned_flag,
        (select accounting_rate from accounting_rate_applied)                       as accounting_rate,
        sum(reported_revenue)                                                       as reported_revenue,
        sum(hedge)                                                                  as hedge,
@@ -1270,6 +1288,7 @@ group by record_description,
          pl,
          l5_description,
          technology,
+         embargoed_sanctioned_flag,
          fiscal_yr
 """)
 
@@ -1292,6 +1311,7 @@ select record,
        l5_description,
        technology,
        accounting_rate,
+       embargoed_sanctioned_flag,
        sum(reported_revenue)              as reported_revenue,
        sum(hedge)                         as hedge,
        sum(currency)                      as currency,
@@ -1328,12 +1348,14 @@ group by record,
          technology,
          fiscal_yr,
          accounting_rate,
+         embargoed_sanctioned_flag,
          official,
          load_date,
          version
 """)
 
-write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
+#write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
+adj_rev_flash.createOrReplaceTempView("adj_rev_flash")
 
 # COMMAND ----------
 
