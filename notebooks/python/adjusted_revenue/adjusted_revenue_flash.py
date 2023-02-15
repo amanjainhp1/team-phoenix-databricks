@@ -398,7 +398,11 @@ select fiscal_year_qtr,
     sum (channel_inventory_usd) as ci_usd,
     sum (channel_inventory_usd * 0.983) as finance_ink_ci
 from cbm_quarterly
-group by cal_date, geography, embargoed_sanctioned_flag, fiscal_year_qtr, pl),
+group by fiscal_year_qtr,
+    cal_date,
+    geography,
+    embargoed_sanctioned_flag,
+    pl),
     americas_ink_media2 as
     (
 select fiscal_year_qtr,
@@ -411,8 +415,11 @@ select fiscal_year_qtr,
     end as pl,
     sum (finance_ink_ci) as ci_dollars
 from americas_ink_media
-group by cal_date, geography, embargoed_sanctioned_flag, fiscal_year_qtr, pl
-        ),
+group by fiscal_year_qtr,
+    cal_date,
+    geography,
+    embargoed_sanctioned_flag,
+    pl),
     ci_inventory_adjusted as
     (select fiscal_year_qtr,
     geography,
@@ -429,7 +436,10 @@ select fiscal_year_qtr,
     embargoed_sanctioned_flag,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_unadjusted
-group by fiscal_year_qtr, embargoed_sanctioned_flag, geography, pl
+group by fiscal_year_qtr,
+    geography,
+    pl,
+    embargoed_sanctioned_flag
 
 union all
 
@@ -439,17 +449,23 @@ select fiscal_year_qtr,
     embargoed_sanctioned_flag,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_ams_post_adustment_period
-group by fiscal_year_qtr, embargoed_sanctioned_flag, geography, pl
+group by fiscal_year_qtr,
+    geography,
+    pl,
+    embargoed_sanctioned_flag
 
 union all
 
 select fiscal_year_qtr,
     geography,
-    embargoed_sanctioned_flag,
     pl,
+    embargoed_sanctioned_flag,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_adjusted
-group by fiscal_year_qtr, embargoed_sanctioned_flag, geography, pl),
+group by fiscal_year_qtr,
+    geography,
+    pl,
+    embargoed_sanctioned_flag),
 
     region_table as
     (
@@ -481,7 +497,12 @@ from ci_inventory_fully_adjusted ci
     left join mdm.product_line_xref plx
 on ci.pl = plx.pl
     left join region_table iso on iso.geography = ci.geography
-group by fiscal_year_qtr, ci.geography, ci.pl, technology, embargoed_sanctioned_flag, region_3),
+group by fiscal_year_qtr,
+    ci.geography,
+    region_3,
+    embargoed_sanctioned_flag,
+    ci.pl,
+    technology),
     ci_inventory_fully_adjusted3 as
     (
 select fiscal_year_qtr,
@@ -495,7 +516,12 @@ select fiscal_year_qtr,
     end as technology,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_fully_adjusted2
-group by fiscal_year_qtr, geography, embargoed_sanctioned_flag, pl, technology, region_3),
+group by fiscal_year_qtr,
+    geography,
+    region_3,
+    embargoed_sanctioned_flag,
+    pl,
+    technology),
     ci_inventory_fully_adjusted4 as
     (
 select fiscal_year_qtr,
@@ -509,7 +535,12 @@ from ci_inventory_fully_adjusted3
 where region_3 <> 'EMEA'
    or technology <> 'INK'
    or fiscal_year_qtr <> '2018Q2'
-group by fiscal_year_qtr, geography, embargoed_sanctioned_flag, pl, technology, region_3),
+group by fiscal_year_qtr,
+    geography,
+    region_3,
+    pl,
+    embargoed_sanctioned_flag,
+    technology),
     market_ci_mix as
     (
 select fiscal_year_qtr,
@@ -523,7 +554,13 @@ select fiscal_year_qtr,
     else ci_dollars / sum (ci_dollars) over (partition by fiscal_year_qtr, region_3, technology)
     end as market_mix
 from ci_inventory_fully_adjusted3 ci
-group by fiscal_year_qtr, geography, embargoed_sanctioned_flag, pl, technology, region_3, ci_dollars),
+group by fiscal_year_qtr,
+    geography,
+    region_3,
+    pl,
+    embargoed_sanctioned_flag,
+    technology,
+    ci_dollars),
     market_ci_mix2 as
     (
 select fiscal_year_qtr,
@@ -1354,8 +1391,8 @@ group by record,
          version
 """)
 
-#write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
-adj_rev_flash.createOrReplaceTempView("adj_rev_flash")
+#adj_rev_flash.createOrReplaceTempView("adj_rev_flash")
+write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
 
 # COMMAND ----------
 
