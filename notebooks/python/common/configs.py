@@ -19,6 +19,11 @@ def create_session(role_arn: str, session_duration: int = 3600):
     # From the response that contains the assumed role, get the temporary 
     # credentials that can be used to make subsequent API calls
     credentials=assumed_role_object['Credentials']
+    
+    # Set AWS environment variables to temporary credentials (AWS CLI will default to these)
+    os.environ['AWS_ACCESS_KEY_ID'] = credentials['AccessKeyId']
+    os.environ['AWS_SECRET_ACCESS_KEY'] = credentials['SecretAccessKey']
+    os.environ['AWS_SESSION_TOKEN'] = credentials['SessionToken']
 
     # Establish a session to be used in subsequent calls to AWS services
     session = boto3.Session(
@@ -121,8 +126,8 @@ constants = {
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
     },
     "SESSION_DURATION": {
-        "dev": 14400,
-        "itg": 14400,
+        "dev": 3600,
+        "itg": 3600,
         "prod": 14400
     }
 }
