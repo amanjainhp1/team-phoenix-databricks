@@ -15,7 +15,7 @@
 query_list = []
 
 ## Supplies History 3
-cur_period = '2023-02-01'  # accounting rate
+cur_period = '2023-01-01'  # accounting rate
 
 ## Channel Inventory Prep 1
 cbm_st_month = '2015-10-01'
@@ -225,9 +225,9 @@ supp_hist_3 = spark.sql("""
 				accountingrate
 			from accounting_rates_table
 			where 1=1
-            and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
+            --and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
             --and effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
-            --and effectivedate = '2023-01-01'
+            and effectivedate = '2023-01-01'
 """)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")
@@ -2494,33 +2494,10 @@ adj_rev_3.createOrReplaceTempView("adjusted_revenue2")
 adj_rev_4 = spark.sql("""
  select
 				cal_date,
-				CASE
-                    WHEN country_alpha2 = 'BY' THEN 'HU'
-                    WHEN country_alpha2 = 'RU' THEN 'HU'
-                    WHEN country_alpha2 = 'CU' THEN 'MX'
-                    WHEN country_alpha2 = 'IR' THEN 'LB'
-                    WHEN country_alpha2 = 'KP' THEN 'KR'
-                    WHEN country_alpha2 = 'SY' THEN 'LB'
-                    ELSE country_alpha2
-                END AS country_alpha2,
-				CASE
-                    WHEN country = 'BELARUS' THEN 'HUNGARY'
-                    WHEN country = 'RUSSIAN FEDERATION' THEN 'HUNGARY'
-                    WHEN country = 'CUBA' THEN 'MEXICO'
-                    WHEN country = 'NORTH KOREA' THEN 'SOUTH KOREA'
-                    WHEN country = 'IRAN' THEN 'LEBANON'
-                    WHEN country = 'SYRIA' THEN 'LEBANON'
-                    ELSE country                
-                END AS country,
+				country_alpha2,
+				country,
 				CASE
                     WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
-                    WHEN country_alpha2 = 'BY' THEN 'CENTRAL & EASTERN EUROPE'
-                    WHEN country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
-                    WHEN country_alpha2 = 'CU' THEN 'LATIN AMERICA'
-                    WHEN country_alpha2 = 'IR' THEN 'SOUTHERN EUROPE, ME & AFRICA'
-                    WHEN country_alpha2 = 'KP' THEN 'GREATER ASIA'
-                    WHEN country_alpha2 = 'SY' THEN 'SOUTHERN EUROPE, ME & AFRICA'
-
                     ELSE geography
                 END AS geography,
                 geography_grain,
