@@ -4,7 +4,7 @@ import json
 
 # COMMAND ----------
 
-def create_session(role_arn: str):
+def create_session(role_arn: str, session_duration: int = 3600):
     # Create an STS client object that represents a live connection to the STS service
     sts_client = boto3.client('sts')
 
@@ -13,7 +13,7 @@ def create_session(role_arn: str):
     assumed_role_object=sts_client.assume_role(
         RoleArn=role_arn,
         RoleSessionName="AssumeRoleSession1",
-        DurationSeconds=14400
+        DurationSeconds=session_duration
     )
 
     # From the response that contains the assumed role, get the temporary 
@@ -124,6 +124,11 @@ developer_constants = {
         "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
         "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
+    },
+    "SESSION_DURATION": {
+        "dev": 14400,
+        "itg": 14400,
+        "prod": 14400
     }
 }
 
@@ -162,12 +167,17 @@ analyst_constants = {
     "REDSHIFT_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
         "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
-        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
+        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
     },
     "STS_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
         "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-analyst-role"
+    },
+    "SESSION_DURATION": {
+        "dev": 3600,
+        "itg": 3600,
+        "prod": 3600
     }
 }
 
@@ -185,7 +195,7 @@ if 'analyst' in spark.conf.get('spark.databricks.clusterUsageTags.instanceProfil
 # COMMAND ----------
 
 # assume role, retrieve credentials, create session
-session = create_session(constants["STS_IAM_ROLE"][stack])
+session = create_session(constants["STS_IAM_ROLE"][stack], constants["SESSION_DURATION"][stack])
 
 # COMMAND ----------
 
