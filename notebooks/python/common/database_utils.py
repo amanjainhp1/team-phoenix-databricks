@@ -39,9 +39,9 @@ def read_redshift_to_df(configs: dict) -> DataFrame:
     df = spark.read \
     .format("com.databricks.spark.redshift") \
     .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(configs["redshift_url"], configs["redshift_port"], configs["redshift_dbname"])) \
-    .option("temporary_aws_access_key_id", os.getenv["AWS_ACCESS_KEY_ID"]) \
-    .option("temporary_aws_secret_access_key", os.getenv["AWS_SECRET_ACCESS_KEY"] \
-    .option("temporary_aws_session_token", os.getenv["AWS_SESSION_TOKEN"] \
+    .option("temporary_aws_access_key_id", os.getenv("AWS_ACCESS_KEY_ID")) \
+    .option("temporary_aws_secret_access_key", os.getenv("AWS_SECRET_ACCESS_KEY")) \
+    .option("temporary_aws_session_token", os.getenv("AWS_SESSION_TOKEN")) \
     .option("user", configs["redshift_username"]) \
     .option("password", configs["redshift_password"]) \
     .option("tempdir", configs["redshift_temp_bucket"])
