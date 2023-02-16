@@ -217,36 +217,6 @@ except:
                 "destination_schema": "mdm",
                 "destination_table": "profit_center_code_xref"
             },
-            "supplies_hw_mapping": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "supplies_hw_mapping",
-                "destination_system": "redshift", 
-                "destination_database": "",
-                "destination_schema": "mdm",
-                "destination_table": "supplies_hw_mapping"
-            },
-            "supplies_stf_landing": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Landing", 
-                "source_schema": "dbo",
-                "source_table": "supplies_stf_landing",
-                "destination_system": "redshift", 
-                "destination_database": "",
-                "destination_schema": "stage",
-                "destination_table": "supplies_stf_landing"
-            },
-            "supplies_xref": {
-                "source_system": "sqlserver",
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "supplies_xref",
-                "destination_system": "redshift", 
-                "destination_database": "",
-                "destination_schema": "mdm",
-                "destination_table": "supplies_xref"
-            },
             "trade_forecast": {
                 "source_system": "sqlserver",
                 "source_database":"IE2_Prod",
@@ -266,76 +236,6 @@ except:
                 "destination_database": "",
                 "destination_schema": "prod",
                 "destination_table": "tri_printer_ref_landing"
-            },
-            "working_forecast_channel_fill": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "working_forecast_channel_fill",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "scen",
-                "destination_table": "working_forecast_channel_fill"
-            },
-            "working_forecast_mix_rate": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "working_forecast_mix_rate",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "scen",
-                "destination_table": "working_forecast_mix_rate"
-            },
-            "working_forecast_supplies_spares": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "working_forecast_supplies_spares",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "scen",
-                "destination_table": "working_forecast_supplies_spares"
-            },
-            "working_forecast_usage_share": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "working_forecast_usage_share",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "scen",
-                "destination_table": "working_forecast_usage_share"
-            },
-            "working_forecast_vtc_override": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "working_forecast_vtc_override",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "scen",
-                "destination_table": "working_forecast_vtc_override"
-            },
-            "working_forecast_yield": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "working_forecast_yield",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "scen",
-                "destination_table": "working_forecast_yield"
-            },
-            "yield": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod", 
-                "source_schema": "dbo",
-                "source_table": "yield",
-                "destination_system": "redshift",
-                "destination_database": "", 
-                "destination_schema": "mdm",
-                "destination_table": "yield"
             }
         }
     """)

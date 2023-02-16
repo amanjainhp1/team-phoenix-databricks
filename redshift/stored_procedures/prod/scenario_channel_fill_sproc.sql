@@ -156,7 +156,7 @@ SELECT user_name
 
 ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
-INSERT INTO prod.working_forecast_channel_fill
+INSERT INTO scen.working_forecast_channel_fill
 (
        user_name
       ,load_date

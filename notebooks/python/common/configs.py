@@ -33,15 +33,10 @@ def create_session(role_arn: str, session_duration: int = 3600):
 # COMMAND ----------
 
 # Retrieve username and password from AWS secrets manager
-def secrets_get(secret_name: str, region_name: str, session: boto3.session.Session = None):
+
+def secrets_get(secret_name, region_name):
     endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = None
-    if session == None:
-        client = boto3.client(service_name='secretsmanager',
-                              region_name=region_name)
-    else:
-        client = session.client(service_name='secretsmanager',
-                              region_name=region_name)
+    client = boto3.client(service_name='secretsmanager', region_name=region_name)
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     return eval(get_secret_value_response['SecretString'])
 
@@ -58,7 +53,7 @@ for tag in custom_tags:
 # COMMAND ----------
 
 # define constants
-developer_constants = {
+constants = {
     "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;",
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "SFAI_SECRET_NAME": {
@@ -200,10 +195,9 @@ session = create_session(constants["STS_IAM_ROLE"][stack], constants["SESSION_DU
 # COMMAND ----------
 
 configs = {}
-configs["session"] = session
 
 # redshift
-redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2", session)
+redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2")
 
 configs["redshift_username"] = redshift_secret["username"]
 configs["redshift_password"] = redshift_secret["password"]
@@ -215,10 +209,9 @@ configs["redshift_temp_bucket"] = constants["S3_BASE_BUCKET"][stack] + "redshift
 configs["aws_iam_role"] = constants["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
-if sql_server_access:
-    sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2", session)
-    
-    configs["sfai_username"] = sqlserver_secret["username"]
-    configs["sfai_password"] = sqlserver_secret["password"]
-    configs["sfai_url"] = constants["SFAI_URL"]
-    configs["sfai_driver"] = constants["SFAI_DRIVER"]
+sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2")
+
+configs["sfai_username"] = sqlserver_secret["username"]
+configs["sfai_password"] = sqlserver_secret["password"]
+configs["sfai_url"] = constants["SFAI_URL"]
+configs["sfai_driver"] = constants["SFAI_DRIVER"]
