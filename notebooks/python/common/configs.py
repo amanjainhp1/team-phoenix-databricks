@@ -207,7 +207,6 @@ session = create_session(constants["STS_IAM_ROLE"][stack], constants["SESSION_DU
 # COMMAND ----------
 
 configs = {}
-configs["session"] = session
 
 # redshift
 redshift_secret = secrets_get(constants["REDSHIFT_SECRET_NAME"][stack], "us-west-2")
