@@ -35,6 +35,21 @@ def _(configs: dict, sql_query: str):
 
 # COMMAND ----------
 
+# function to read redshift to rows
+def read_redshift_to_rows(configs: dict, sql_query: str):
+    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+        .format(configs["redshift_dbname"], configs["redshift_port"], \
+                configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
+    conn = psycopg2.connect(conn_string)
+    cur = conn.cursor()
+    cur.execute(sql_query)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+# COMMAND ----------
+
 def read_redshift_to_df(configs: dict) -> DataFrame:
     df = spark.read \
     .format("com.databricks.spark.redshift") \

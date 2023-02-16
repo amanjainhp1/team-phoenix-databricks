@@ -6,11 +6,11 @@ import re
 
 # COMMAND ----------
 
-# MAGIC %run ./common/configs
+# MAGIC %run ../common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ./common/database_utils
+# MAGIC %run ../common/database_utils
 
 # COMMAND ----------
 
@@ -120,6 +120,7 @@ for input_json_file in input_json_files:
     print("creating table {}.{}...".format(input_schema, input_table_name))
     submit_remote_query(configs, drop_table_query + sql_query)
     print("table {}.{} created!".format(input_schema, input_table_name))
+
 # COMMAND ----------
 
 # stored_procedures
@@ -143,3 +144,33 @@ for input_file in input_files:
     print("creating stored procedure {}...".format(sproc))
     submit_remote_query(configs, sql_query + "\n" + permissions_query)
     print("stored procedure {} created!".format(sproc))
+
+# COMMAND ----------
+
+# views
+# our "main" method
+# for each json file, parse, construct table create statement, and submit to Redshift
+input_files = get_file_list("/redshift/views/", ".sql")
+
+# retrieve relevant schemas in env/stack
+rows = read_redshift_to_rows(configs, "SELECT nspname FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname <> 'information_schema'")
+schema_list = []
+for row in rows:
+    schema_list.append(row[0])
+
+for input_file in input_files:
+    schema = input_file.split('/')[-2]
+    if schema in schema_list:
+        view_name = input_file.split('/')[-1].replace('.sql', '')
+        view = f"{schema}.{view_name}"
+
+        sql_query = open(input_file).read()
+        permissions_query = f"""
+        -- Permissions
+        GRANT ALL ON TABLE {view} TO {configs["redshift_username"]};
+        GRANT ALL ON TABLE {view} TO group {constants['REDSHIFT_DEV_GROUP'][dbutils.widgets.get("stack")]};
+        """
+
+        print("creating view {}...".format(view))
+        submit_remote_query(configs, sql_query + "\n" + permissions_query)
+        print("view {} created!".format(view))

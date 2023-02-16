@@ -1,0 +1,320 @@
+{
+    "prod": [
+        {
+            "schema": "financials",
+            "resource": "v_stf_gru"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_stf_gru"
+        },
+        {
+            "schema": "financials",
+            "resource": "salesprod_actuals_bd_dashboard_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_act_financials"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_base_product_monthly"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_sales_product_monthly"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_stf_dollarization"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_stf_dollarization_actuals"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_base_product_monthly"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_adjusted_revenue_main_dashboard"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_adjusted_revenue_yoy_ci_cbm_dollars"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_adjusted_revenue_yoy_ci_details"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_adjusted_revenue_yoy_ci_summary"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_adjusted_revenue_yoy_growth_bridge"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_adjusted_revenue_salesprod"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_act_financials_rev_cvrge"
+        },
+        {
+            "schema": "financials",
+            "resource": "forecast_gru_sales_to_base_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "list_price_dashboard_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_stf_dollarization_cycle_over_cycle"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_stf_units_cycle_over_cycle"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_finance_forecast_pl"
+        },
+        {
+            "schema": "financials",
+            "resource": "v_base_gru_reconciliation"
+        },
+        {
+            "schema": "financials",
+            "resource": "forecast_contra_input_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "forecast_supplies_baseprod_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "forecast_variable_cost_toner_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "forecast_variable_cost_ink_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "forecast_fixed_cost_input_vw"
+        },
+        {
+            "schema": "financials",
+            "resource": "act_plus_fcst_financials_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "decay_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "norm_shipments_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "ib_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "norm_shipments_ce_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "hw_plan_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "ib_dash_vw"
+        },
+        {
+            "schema": "ib",
+            "resource": "ib_norm_ships_vw"
+        },
+        {
+            "schema": "ifs2",
+            "resource": "norm_shipments_vw"
+        },
+        {
+            "schema": "ifs2",
+            "resource": "ifs2_report_vw"
+        },
+        {
+            "schema": "mdm",
+            "resource": "calendar"
+        },
+        {
+            "schema": "mdm",
+            "resource": "printer_lag"
+        },
+        {
+            "schema": "mdm",
+            "resource": "product_line_xref"
+        },
+        {
+            "schema": "mdm",
+            "resource": "profit_center_code_xref"
+        },
+        {
+            "schema": "mdm",
+            "resource": "rdma"
+        },
+        {
+            "schema": "mdm",
+            "resource": "rdma_changelog"
+        },
+        {
+            "schema": "mdm",
+            "resource": "supplies_hw_mapping"
+        },
+        {
+            "schema": "mdm",
+            "resource": "supplies_xref"
+        },
+        {
+            "schema": "mdm",
+            "resource": "yield"
+        },
+        {
+            "schema": "mdm",
+            "resource": "product_line_scenarios_xref"
+        },
+        {
+            "schema": "mdm",
+            "resource": "iso_cc_rollup_xref"
+        },
+        {
+            "schema": "mdm",
+            "resource": "country_currency_map"
+        },
+        {
+            "schema": "mdm",
+            "resource": "list_price_eu_country_list"
+        },
+        {
+            "schema": "mdm",
+            "resource": "list_price_term_codes"
+        },
+        {
+            "schema": "mdm",
+            "resource": "hardware_xref"
+        },
+        {
+            "schema": "mdm",
+            "resource": "rdma_base_to_sales_product_map"
+        },
+        {
+            "schema": "mdm",
+            "resource": "iso_country_code_xref"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "hardware_xref_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "pen_to_printer_map_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "pen_to_printer_map_2_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "supplies_xref_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "rdma_base_to_sales_product_map_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "odw_canon_units_prelim_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "pages_cc_mix_override_errors_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "calendar_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "rdma_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "trade_forecast_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "yield_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "cartridge_demand_cartridges_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "fill_rates_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "iso_country_code_xref_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "cartridge_mix_override_errors_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "acct_rates_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "llc_actuals_plus_wd3_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "working_forecast_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "supplies_stf_landing_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "missing_mdm_data_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "missing_c2c_data_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "tableau_demand_qc_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "cartridge_mix_override_yield_errors_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "mix_rate_sum_error_vw"
+        },
+        {
+            "schema": "supplies_fcst",
+            "resource": "supplies_dash_vw"
+        }
+    ]
+}
