@@ -43,12 +43,12 @@ def create_session(role_arn: str, session_duration: int = 3600):
 def secrets_get(secret_name, region_name):
     endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
     client = None
-    if session == None:
-        client = boto3.client(service_name='secretsmanager',
-                              region_name=region_name)
-    else:
+    try:
         client = session.client(service_name='secretsmanager',
                                 region_name=region_name)
+    except:
+        client = boto3.client(service_name='secretsmanager',
+                              region_name=region_name)
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
     return eval(get_secret_value_response['SecretString'])
 
