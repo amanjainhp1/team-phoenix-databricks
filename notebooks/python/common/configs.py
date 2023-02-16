@@ -12,7 +12,8 @@ def create_session(role_arn: str):
     # ARN and a role session name.
     assumed_role_object=sts_client.assume_role(
         RoleArn=role_arn,
-        RoleSessionName="AssumeRoleSession1"
+        RoleSessionName="AssumeRoleSession1",
+        DurationSeconds=14400
     )
 
     # From the response that contains the assumed role, get the temporary 
