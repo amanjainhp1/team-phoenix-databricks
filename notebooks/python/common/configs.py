@@ -59,7 +59,7 @@ for tag in custom_tags:
 # COMMAND ----------
 
 # define constants
-constants = {
+developer_constants = {
     "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;",
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "SFAI_SECRET_NAME": {
@@ -215,9 +215,10 @@ configs["redshift_temp_bucket"] = constants["S3_BASE_BUCKET"][stack] + "redshift
 configs["aws_iam_role"] = constants["REDSHIFT_IAM_ROLE"][stack]
 
 # sqlserver
-sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2")
+if sql_server_access:
+    sqlserver_secret = secrets_get(constants["SFAI_SECRET_NAME"][stack], "us-west-2")
 
-configs["sfai_username"] = sqlserver_secret["username"]
-configs["sfai_password"] = sqlserver_secret["password"]
-configs["sfai_url"] = constants["SFAI_URL"]
-configs["sfai_driver"] = constants["SFAI_DRIVER"]
+    configs["sfai_username"] = sqlserver_secret["username"]
+    configs["sfai_password"] = sqlserver_secret["password"]
+    configs["sfai_url"] = constants["SFAI_URL"]
+    configs["sfai_driver"] = constants["SFAI_DRIVER"]
