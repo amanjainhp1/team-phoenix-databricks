@@ -180,7 +180,8 @@ for input_file in input_files:
         print("view {} created!".format(view))
 
         # add to relevant datashare if listed in datashares.json
-        if stack in datashares:
-            if schema in datashares[stack]:
-                if view_name in datashares[stack][schema]:
-                    submit_remote_query(configs, f"ALTER DATASHARE {schema} ADD {view};")
+#         disabled due to InsufficientPrivilege for auto_glue user
+#         if stack in datashares:
+#             if schema in datashares[stack]:
+#                 if view_name in datashares[stack][schema]:
+#                     submit_remote_query(configs, f"ALTER DATASHARE {schema} ADD {view};")
