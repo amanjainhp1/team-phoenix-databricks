@@ -158,6 +158,10 @@ schema_list = []
 for row in rows:
     schema_list.append(row[0])
 
+# retrieve datashare info
+datashare_file = dbutils.widgets.get("job_dbfs_path").replace("dbfs:", "/dbfs") + "/redshift/datashares.json"
+datashares = json.load(open(datashare_file))
+
 for input_file in input_files:
     schema = input_file.split('/')[-2]
     if schema in schema_list:
@@ -174,3 +178,10 @@ for input_file in input_files:
         print("creating view {}...".format(view))
         submit_remote_query(configs, sql_query + "\n" + permissions_query)
         print("view {} created!".format(view))
+
+        # add to relevant datashare if listed in datashares.json
+#         disabled due to InsufficientPrivilege for auto_glue user
+#         if stack in datashares:
+#             if schema in datashares[stack]:
+#                 if view_name in datashares[stack][schema]:
+#                     submit_remote_query(configs, f"ALTER DATASHARE {schema} ADD {view};")
