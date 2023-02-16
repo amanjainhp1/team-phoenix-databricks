@@ -19,8 +19,8 @@
 
 # COMMAND ----------
 
-ib_version = ''
-us_version = ''
+ib_version = '2023.01.26.1'
+us_version = '2023.01.30.2'
 
 # COMMAND ----------
 

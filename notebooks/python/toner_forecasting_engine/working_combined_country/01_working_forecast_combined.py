@@ -14,11 +14,11 @@
 # COMMAND ----------
 
 ink_working_fcst = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.ink_working_fcst") \
+    .option("query", "select * from prod.working_forecast where version = '2023.01.25.1'") \
     .load()
 
 toner_working_fcst = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.toner_working_fcst") \
+    .option("query", "select * from prod.working_forecast where version = '2023.02.09.1'") \
     .load()
 
 # COMMAND ----------
