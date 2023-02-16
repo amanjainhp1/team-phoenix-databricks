@@ -158,7 +158,7 @@ SELECT user_name
 
 ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
-INSERT INTO prod.working_forecast_vtc_override
+INSERT INTO scen.working_forecast_vtc_override
 (
        user_name
       ,load_date

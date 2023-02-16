@@ -157,7 +157,7 @@ SELECT user_name
 
   ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
-  INSERT INTO prod.working_forecast_yield
+  INSERT INTO scen.working_forecast_yield
 (
        user_name
       ,load_date
