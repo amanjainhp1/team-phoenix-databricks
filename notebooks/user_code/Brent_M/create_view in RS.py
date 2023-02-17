@@ -9,30 +9,29 @@
 
 ib_datamart_source_code = """
 
-create or replace view prod.prelim_ib_vw as  
+create or replace view prod.prelim_norm_ships_ce_vw as  
   
 SELECT  
     a.record,  
-    month_begin,  
-    geography_grain,  
-    geography,  
+    cal_date,  
+    a.region_5,  
     a.country_alpha2,  
-    hps_ops,  
-    split_name,  
     a.platform_subset,  
-    printer_installs,  
+    customer_engagement,  
+    split_value,  
     b.embargoed_sanctioned_flag,  
     c.technology,  
-    ib,  
-    'PRELIM' as version  
-FROM scen.prelim_ib a  
+    units,  
+    a.version,  
+    a.load_date  
+FROM scen.prelim_norm_shipments_ce a  
     LEFT JOIN mdm.iso_country_code_xref b on a.country_alpha2=b.country_alpha2  
     LEFT JOIN mdm.hardware_xref c on a.platform_subset = c.platform_subset  
 WITH NO SCHEMA BINDING;  
   
-GRANT ALL ON prod.prelim_ib_vw to GROUP phoenix_dev;  
-GRANT SELECT ON prod.prelim_ib_vw to GROUP int_analyst;  
-GRANT SELECT ON prod.prelim_ib_vw to GROUP auto_team_phoenix_analyst;
+GRANT ALL ON prod.prelim_norm_ships_ce_vw to GROUP phoenix_dev;  
+GRANT SELECT ON prod.prelim_norm_ships_ce_vw to GROUP int_analyst;  
+GRANT SELECT ON prod.prelim_norm_ships_ce_vw to GROUP auto_team_phoenix_analyst;
 """
 
 # COMMAND ----------
