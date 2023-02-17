@@ -28,8 +28,8 @@ import pandas as pd
 
 # COMMAND ----------
 
-# ns/ib versions
-prev_version = '2022.11.17.1'
+# LTF versions
+prev_version = '2023.02.13.1'
 
 # COMMAND ----------
 
