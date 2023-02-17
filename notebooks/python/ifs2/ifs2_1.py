@@ -130,8 +130,11 @@ cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
     .load()
+##working_forecast_country = read_redshift_to_df(configs) \
+##    .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
+##    .load()
 working_forecast_country = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
+    .option("query", f"SELECT * FROM scen.working_forecast_country") \
     .load()
 working_forecast = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.working_forecast WHERE version = '{working_forecast_version}'") \
@@ -150,15 +153,16 @@ calendar = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
-# ['prod.usage_share1' , usage_share1],
-# ['mdm.hardware_xref' , hardware_xref],
-# ['mdm.supplies_xref' , supplies_xref],
-# ['prod.decay_m13' , decay_m13],
-# ['mdm.yield' , yield_],
-# ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
-# ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
-# ['mdm.iso_country_code_xref' , iso_country_code_xref],
-# ['prod.working_forecast_country' , working_forecast_country],
+ ['prod.usage_share1' , usage_share1],
+ ['mdm.hardware_xref' , hardware_xref],
+ ['mdm.supplies_xref' , supplies_xref],
+ ['prod.decay_m13' , decay_m13],
+ ['mdm.yield' , yield_],
+ ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+ ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+ ['mdm.iso_country_code_xref' , iso_country_code_xref],
+ ['scen.working_forecast_country' , working_forecast_country],
+ #['prod.working_forecast_country' , working_forecast_country],
  ['prod.working_forecast' , working_forecast],
  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
  ['prod.norm_shipments' , norm_shipments],
@@ -868,42 +872,44 @@ fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
-# # vtc
-# query = '''
-# select cal_date
-# 	, geography_grain
-# 	, geography
-#     , country
-# 	, platform_subset
-# 	, base_product_number
-# 	, customer_engagement
-# 	, (imp_corrected_cartridges/cartridges) as vtc
-# 	, version
-# from working_forecast_country 
-# where version = '{}'
-# and cal_date between '{}' and '{}'
-# '''.format(working_forecast_country_version , start_ifs2_date , end_ifs2_date)
-# vtc = spark.sql(query)
-# vtc.createOrReplaceTempView("vtc")
+# vtc at country
+query = '''
+select cal_date
+-- 	, geography_grain
+ 	, geography
+    , country_alpha2
+ 	, platform_subset
+ 	, base_product_number
+ 	, customer_engagement
+ 	, vtc
+-- 	, version
+ from working_forecast_country 
+  where 
+--  version = '{}'
+-- and 
+ cal_date between '{}' and '{}'
+ '''.format(working_forecast_version, start_ifs2_date , end_ifs2_date)
+vtc = spark.sql(query)
+vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
-# vtc
-query = '''
-select cal_date
-	, geography_grain
-	, geography
-	, platform_subset
-	, base_product_number
-	, customer_engagement
-    , vtc
-	, version
-from working_forecast
-where version = '{}'
-and cal_date between '{}' and '{}'
-'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
-vtc = spark.sql(query)
-vtc.createOrReplaceTempView("vtc")
+# vtc at market10
+#query = '''
+#select cal_date
+#	, geography_grain
+#	, geography
+#	, platform_subset
+#	, base_product_number
+#	, customer_engagement
+#   , vtc
+#	, version
+#from working_forecast
+#where version = '{}'
+#and cal_date between '{}' and '{}'
+#'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
+#vtc = spark.sql(query)
+#vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
@@ -952,7 +958,8 @@ select distinct
     d.version as decay_version,
     y.yield_version,
     t.version as trade_split_version,
-    v.version as vtc_version
+--    v.version as vtc_version
+    null as vtc_version
 from usage_share us
 left join decay d
 on us.platform_subset = d.platform_subset
@@ -991,7 +998,8 @@ left join vtc v
 on us.platform_subset = v.platform_subset
 and us.base_product_number = v.base_product_number
 and us.cal_date = v.cal_date
-and us.market10 = v.geography
+-- and us.market10 = v.geography
+and us.country_alpha2 = v.country_alpha2
 and us.customer_engagement = v.customer_engagement
 left join calendar c
 on us.cal_date = c.date
