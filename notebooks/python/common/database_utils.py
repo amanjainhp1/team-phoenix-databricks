@@ -3,6 +3,7 @@ import boto3
 import json
 import os
 import psycopg2
+import uuid
 
 from datetime import datetime
 from functools import singledispatch
