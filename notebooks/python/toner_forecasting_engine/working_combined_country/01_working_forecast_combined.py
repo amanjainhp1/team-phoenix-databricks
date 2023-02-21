@@ -13,12 +13,16 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../config_forecasting_engine
+
+# COMMAND ----------
+
 ink_working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '2023.01.25.1'") \
+    .option("query", "select * from prod.working_forecast where version = '{}'".format(toner_ib_version)) \
     .load()
 
 toner_working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '2023.02.09.1'") \
+    .option("query", "select * from prod.working_forecast where version = '{}'".format(ink_ib_version)) \
     .load()
 
 # COMMAND ----------

@@ -29,11 +29,12 @@
 
 # COMMAND ----------
 
-# tables to stream line:
-    # prod.actuals_supplies
-
 actuals_supplies = read_redshift_to_df(configs) \
     .option("dbtable", "prod.actuals_supplies") \
+    .load()
+
+installed_base = read_redshift_to_df(configs) \
+    .option("query", "select * from prod.ib where version='{}'".format(ib_version)) \
     .load()
 
 iso_cc_rollup_xref = read_redshift_to_df(configs) \
@@ -41,7 +42,7 @@ iso_cc_rollup_xref = read_redshift_to_df(configs) \
     .load()
 
 norm_shipments = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.norm_shipments") \
+    .option("query", "select * from  prod.norm_shipments where version='{}'".format(ib_version)) \
     .load()
 
 shm_base_helper = read_redshift_to_df(configs) \
@@ -59,17 +60,23 @@ working_forecast_combined = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 tables = [
-    ["prod.actuals_supplies", actuals_supplies, "overwrite"],
-    ["mdm.iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite"],
-    ["prod.norm_shipments", norm_shipments, "overwrite"],
-    ["stage.shm_base_helper", shm_base_helper, "overwrite"],
-    ["mdm.supplies_xref", supplies_xref, "overwrite"],
-    ["scen.working_forecast_combined", working_forecast_combined, "overwrite"]
+    ["actuals_supplies", actuals_supplies, "overwrite"],
+    ["installed_base", installed_base, "overwrite"],
+    ["iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite"],
+    ["norm_shipments", norm_shipments, "overwrite"],
+    ["shm_base_helper", shm_base_helper, "overwrite"],
+    ["supplies_xref", supplies_xref, "overwrite"],
+    ["working_forecast_combined", working_forecast_combined, "overwrite"]
 ]
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+for table in tables:
+    df = table[1]
+    table_name = table[0]
+    df.createOrReplaceTempView('{}'.format(table_name))
+    print("row count for " + table_name + ":")
+    print(df.count())
 
 # COMMAND ----------
 
@@ -83,10 +90,10 @@ vtc_02 = spark.sql("""
 
 SELECT add_months(MAX(hw.cal_date), 1) AS hw_forecast_start
     , MAX(sup.supplies_forecast_start) AS supplies_forecast_start
-FROM prod.norm_shipments AS hw
+FROM norm_shipments AS hw
 CROSS JOIN (
     SELECT add_months(MAX(sup.cal_date), 1) AS supplies_forecast_start
-    FROM prod.actuals_supplies AS sup
+    FROM actuals_supplies AS sup
     WHERE 1=1
         AND sup.official = 1
 ) AS sup
@@ -96,6 +103,10 @@ WHERE 1=1
 """.format(ib_version))
 
 vtc_02.createOrReplaceTempView("c2c_vtc_02_forecast_months")
+
+# COMMAND ----------
+
+spark.sql("""select * from c2c_vtc_02_forecast_months""").show()
 
 # COMMAND ----------
 
@@ -109,7 +120,7 @@ ctry_01 = spark.sql("""
         , vtc
         , SUM(cartridges) AS cartridges
         , SUM(adjusted_cartridges) AS mvtc_adjusted_crgs
-    FROM scen.working_forecast_combined
+    FROM working_forecast_combined
     WHERE 1=1
         AND geography_grain = 'MARKET10'
     GROUP BY geography
@@ -130,7 +141,7 @@ ctry_02 = spark.sql("""
 
         SELECT DISTINCT base_product_number
             , geography
-        FROM stage.shm_base_helper
+        FROM shm_base_helper
         WHERE 1=1
     )-- negative values in source table
         SELECT DISTINCT acts.market10
@@ -145,12 +156,12 @@ ctry_02 = spark.sql("""
             -- used for forecast
             , SUM(acts.base_quantity) OVER (PARTITION BY acts.cal_date, acts.country_alpha2, acts.platform_subset, acts.base_product_number) * 1.0 /
                 NULLIF(ROUND(SUM(acts.base_quantity) OVER (PARTITION BY acts.cal_date, acts.market10, acts.platform_subset, acts.base_product_number), 7), 0.0) AS ctry_pfs_bpn_qty_mix
-        FROM prod.actuals_supplies AS acts
+        FROM actuals_supplies AS acts
         JOIN vol_2_crg_mapping AS map
             ON map.base_product_number = acts.base_product_number
-        JOIN mdm.supplies_xref AS xref
+        JOIN supplies_xref AS xref
             ON xref.base_product_number = acts.base_product_number
-        JOIN mdm.iso_cc_rollup_xref AS cref
+        JOIN iso_cc_rollup_xref AS cref
             ON cref.country_alpha2 = acts.country_alpha2
             AND cref.country_scenario = 'MARKET10'
         WHERE 1=1
@@ -169,8 +180,8 @@ SELECT geography
   , platform_subset
   , base_product_number
   , customer_engagement
-  , vtc
   , cartridges
+  , vtc
   , mvtc_adjusted_crgs
   , SUM(cartridges)
     OVER (PARTITION BY geography, cal_date, platform_subset, base_product_number, customer_engagement) *
@@ -201,8 +212,8 @@ SELECT DISTINCT c2c.geography
               , c2c.platform_subset
               , c2c.base_product_number
               , c2c.customer_engagement
-              , c2c.cartridges
               , c2c.vtc
+              , c2c.cartridges
               , c2c.mvtc_adjusted_crgs
               -- mixes
               , acts.ctry_bpn_qty_mix
@@ -286,36 +297,31 @@ ctry_05.createOrReplaceTempView("ctry_05_hist_country_mix")
 # COMMAND ----------
 
 ctry_06 = spark.sql("""
-
-    with ctrypf_01_filter_vars as (
+with ctrypf_01_filter_vars as (
         SELECT record
             , version
         FROM prod.version
         WHERE 1=1
             AND record = 'IB'
-            AND version = '{ib_version}'
-
+            AND version = '{}'
         UNION ALL
-
         SELECT DISTINCT record
             , version
-        FROM prod.actuals_supplies
-        WHERE record = 'actuals - supplies'
+        FROM actuals_supplies
+        WHERE record = 'ACTUALS - SUPPLIES'
             AND official = 1
     ),  ctrypf_05_ib_ctry_mix_prep as (
-
-
     SELECT mk.country_level_2 AS geography
         , ib.country_alpha2
         , ib.cal_date
         , ib.platform_subset
         , ib.units
-    FROM prod.ib AS ib
+    FROM installed_base AS ib
     CROSS JOIN c2c_vtc_02_forecast_months AS fcst
     JOIN ctrypf_01_filter_vars AS vars
         ON vars.version = ib.version
         AND vars.record = 'IB'
-    JOIN mdm.iso_cc_rollup_xref AS mk
+    JOIN iso_cc_rollup_xref AS mk
         ON mk.country_alpha2 = ib.country_alpha2
         AND mk.country_scenario = 'MARKET10'
     WHERE 1=1
@@ -328,7 +334,8 @@ ctry_06 = spark.sql("""
         , SUM(ib.units) OVER (PARTITION BY ib.geography, ib.country_alpha2, ib.cal_date, ib.platform_subset) * 1.0 /
             NULLIF(SUM(ib.units) OVER (PARTITION BY ib.geography, ib.cal_date, ib.platform_subset), 0) AS ctry_pfs_ib_mix
     FROM ctrypf_05_ib_ctry_mix_prep AS ib
-""")
+    
+""".format(ib_version))
 
 ctry_06.createOrReplaceTempView("ctry_06_ib_country_mix")
 
@@ -536,8 +543,8 @@ ctry_12 = spark.sql("""
         , c2c.platform_subset
         , c2c.base_product_number
         , c2c.customer_engagement
-        , c2c.cartridges
         , c2c.vtc
+        , c2c.cartridges
         , c2c.mvtc_adjusted_crgs
         -- mixes
         , c2c.ctry_pfs_qty_mix
@@ -571,8 +578,8 @@ SELECT 1 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
-    , fcst.cartridges
     , fcst.vtc
+    , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
     , fcst.ctry_pfs_qty_mix
@@ -617,7 +624,7 @@ SELECT 3 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
-    , fcst.vtc\
+    , fcst.vtc
     , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
@@ -664,6 +671,10 @@ FROM ctry_13_adj_fcst_ctry_mix AS fcst
 """)
 
 ctry_14.createOrReplaceTempView("c2c_adj_country_pf_split")
+
+# COMMAND ----------
+
+spark.sql("""select count(*) from c2c_adj_country_pf_split""").show()
 
 # COMMAND ----------
 
