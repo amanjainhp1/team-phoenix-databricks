@@ -13,12 +13,16 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../config_forecasting_engine
+
+# COMMAND ----------
+
 ink_working_fcst = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.ink_working_fcst") \
+    .option("query", "select * from prod.working_forecast where version = '{}'".format(toner_ib_version)) \
     .load()
 
 toner_working_fcst = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.toner_working_fcst") \
+    .option("query", "select * from prod.working_forecast where version = '{}'".format(ink_ib_version)) \
     .load()
 
 # COMMAND ----------
@@ -30,7 +34,7 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
