@@ -43,7 +43,7 @@ SELECT record
     , base_product_number
     , pl
     , cartridge_alias
-    , regionalization
+    , CAST(null as varchar(8)) as regionalization
     , toner_category
     , "type"
     , single_multi
