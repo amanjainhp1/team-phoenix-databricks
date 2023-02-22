@@ -618,3 +618,7 @@ and stage.page_cc_cartridges.base_product_number = cc.base_product_number and st
 """
 )
 
+
+# COMMAND ----------
+
+

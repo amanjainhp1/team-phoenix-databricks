@@ -19,13 +19,19 @@
 
 # COMMAND ----------
 
-ib_version = ''
-us_version = ''
+ib_version = '2023.01.26.1'
+us_version = '2023.01.30.2'
+
+toner_ib_version = ''
+ink_ib_version = ''
 
 # COMMAND ----------
 
 print('ib_version: ' + ib_version)
 print('us_version: ' + us_version)
+
+print('toner_ib_version: ' + toner_ib_version)
+print('ink_ib_version: ' + ink_ib_version)
 
 # COMMAND ----------
 

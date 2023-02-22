@@ -1,33 +1,28 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 query = """
 
-select 
-	record,
-	cal_date,
-	region_5,
-	country_alpha2,
-	platform_subset,
-	units,
-	version,
-	load_date
-from prod.norm_shipments
-where
-	1 = 1
-	and version = '2022.10.31.1'
-order by
-	version
+SELECT
+    ns.record
+    , ns.cal_date
+    , ns.region_5
+    , ns.country_alpha2
+    , ns.platform_subset
+    , ns.units
+    , getdate() as load_date
+    ,'PRELIM' as version
+FROM stage.norm_ships ns
 """
 
 
@@ -37,4 +32,4 @@ redshift_ns_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-write_df_to_sqlserver(configs, redshift_ns_records, "ie2_prod.dbo.norm_shipments", "append")
+write_df_to_sqlserver(configs, redshift_ns_records, "[IE2_Staging].[dbo].[norm_shipments]", "append")

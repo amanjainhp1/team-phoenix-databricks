@@ -476,3 +476,25 @@ query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+# MAGIC %run "../../../common/configs"
+
+# COMMAND ----------
+
+# MAGIC %run ../../../common/database_utils
+
+# COMMAND ----------
+
+# copy from stage to scen
+submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_ships; CREATE TABLE scen.prelim_norm_ships AS SELECT * FROM stage.norm_ships;")
+
+# COMMAND ----------
+
+# copy from stage to scen
+submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_shipments_ce; CREATE TABLE scen.prelim_norm_shipments_ce AS SELECT * FROM stage.norm_shipments_ce;")
+
+# COMMAND ----------
+
+

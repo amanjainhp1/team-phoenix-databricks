@@ -2494,10 +2494,11 @@ adj_rev_3.createOrReplaceTempView("adjusted_revenue2")
 adj_rev_4 = spark.sql("""
  select
 				cal_date,
-                country_alpha2,
+        nmd_mkt8_embargo_flag
+        country_alpha2,
 				country,
 				geography,
-                geography_grain,
+        geography_grain,
 				region_5,
 				sales_product_number,
 				pl,

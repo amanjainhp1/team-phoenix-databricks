@@ -5,4 +5,10 @@ itg-springboard.yml
 itg-jobs.yml
 prod-springboard.yml
 prod-jobs.yml
+
+# ignore ide related files
 .idea
+.vscode
+
+#ignore user code
+notebooks/user_code/

@@ -50,3 +50,7 @@ submit_remote_query(configs, stf_dollarization)
 # stf_dollarization = spark.sql(stf_dollarization)
 # write_df_to_redshift(configs, stf_dollarization, "fin_prod.stf_dollarization", "overwrite")
 # stf_dollarization.createOrReplaceTempView("stf_dollarization")
+
+# COMMAND ----------
+
+

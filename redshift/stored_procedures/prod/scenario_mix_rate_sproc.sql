@@ -159,7 +159,7 @@ SELECT user_name
 
 ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
-  INSERT INTO prod.working_forecast_mix_rate
+  INSERT INTO scen.working_forecast_mix_rate
 (
        user_name
       ,load_date
