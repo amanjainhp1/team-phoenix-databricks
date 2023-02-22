@@ -1365,7 +1365,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
 WHERE cal_date < '2021-11-01'  -- edw is system of record thru FY21; odw is system of record thereafter
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, base_product_number, sales_product_number, sales_product_option
 """
 
@@ -7967,7 +7966,7 @@ SELECT
     COALESCE(SUM(warranty), 0) AS warranty,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
-FROM xcode_adjusted_data
+FROM fin_stage.xcode_adjusted_data
 GROUP BY cal_date, currency, region_5, pl, sales_product_number, ce_split, country_alpha2
 """
         
@@ -7996,7 +7995,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM xcode_adjusted_data2
 WHERE 1=1 
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
@@ -8009,14 +8007,9 @@ salesprod_preplanet_with_currency_map1.createOrReplaceTempView("salesprod_prepla
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from fin_stage.cbm_st_data
-# MAGIC limit 5;
-
-# COMMAND ----------
-
-# possible mixes for planet/sacp country estimates
+# because of a conflict in requirements (finance at region 5; drivers at market), we need to push "official" targets to country level
+# options for mix
+# EMEA (because financials don't include EMEA data at country grain)
 cbm_country_actuals_mapping_mix = f"""
 SELECT cal.Date AS cal_date,
     region_5,
@@ -8045,7 +8038,7 @@ cbm_country_actuals_mapping_mix = spark.sql(cbm_country_actuals_mapping_mix)
 cbm_country_actuals_mapping_mix.createOrReplaceTempView("cbm_country_actuals_mapping_mix")
 
 
-# determine country mix to enhance finance tieouts that originate at region 5
+# usage share country as mix source
 rdma_correction_2023_restatements_baseprod = f"""
 SELECT 
     base_product_number,
@@ -8103,6 +8096,7 @@ supplies_hw_country_actuals_mapping_mix = spark.sql(supplies_hw_country_actuals_
 supplies_hw_country_actuals_mapping_mix.createOrReplaceTempView("supplies_hw_country_actuals_mapping_mix")
 
 
+# best source: use ODW detailed data to create country mix (AP, AMS)
 general_ledger_mapping_mix = f"""
 SELECT cal_date,
     region_5,
@@ -8589,22 +8583,6 @@ GROUP BY cal_date,
 
 planet_targets_fully_restated_to_country = spark.sql(planet_targets_fully_restated_to_country)
 planet_targets_fully_restated_to_country.createOrReplaceTempView("planet_targets_fully_restated_to_country")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select cal_date, 
-# MAGIC     Fiscal_Yr, 
-# MAGIC     region_5, 
-# MAGIC     pl,   
-# MAGIC     SUM(p_gross_revenue) AS p_gross_revenue,
-# MAGIC     SUM(p_net_currency) AS p_net_currency,
-# MAGIC     SUM(p_contractual_discounts) AS p_contractual_discounts,
-# MAGIC     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
-# MAGIC     SUM(p_warranty) AS p_warranty,
-# MAGIC     SUM(p_total_cos) AS p_total_cos
-# MAGIC from planet_targets_fully_restated_to_country
-# MAGIC group by cal_date, Fiscal_Yr, region_5, pl
 
 # COMMAND ----------
 
@@ -9659,41 +9637,6 @@ data_with_plgd_currency_adjusted = f"""
 
 data_with_plgd_currency_adjusted = spark.sql(data_with_plgd_currency_adjusted)
 data_with_plgd_currency_adjusted.createOrReplaceTempView("data_with_plgd_currency_adjusted")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select pl,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(net_revenue) AS net_revenue,
-# MAGIC     SUM(warranty) as warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(gross_profit) AS gross_profit,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from data_with_plgd_currency_adjusted
-# MAGIC group by pl;
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select pl,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(net_revenue) AS net_revenue,
-# MAGIC     SUM(warranty) as warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(gross_profit) AS gross_profit,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from data_with_plgd_currency_adjusted
-# MAGIC where sales_product_number like '%EDW%'
-# MAGIC group by pl;
 
 # COMMAND ----------
 
