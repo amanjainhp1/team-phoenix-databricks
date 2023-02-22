@@ -1082,31 +1082,31 @@ select fiscal_year_qtr,
     sum (total_inventory_impact) as total_inventory_impact,
     sum (adjusted_revenue) as adjusted_revenue,
     lag(coalesce (sum (reported_revenue), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_rept_revenue,      -- needs to be a full year lag
     lag(coalesce (sum (hedge), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_hedge,
     lag(coalesce (sum (currency), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_currency,
     lag(coalesce (sum (revenue_in_cc), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_revenue_in_cc,
     lag(coalesce (sum (inventory_change), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as inventory_change_prior_year,
     lag(coalesce (sum (ci_currency_impact), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as ci_currency_impact_prior_year,
     lag(coalesce (sum (total_inventory_impact), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as total_inventory_impact_prior_year,
     lag(coalesce (sum (adjusted_revenue), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as adjusted_revenue_prior_year,
     lag(coalesce (sum (cbm_ci_dollars), 0), 1) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as cbm_ci_dollars_prior_period -- prior period (a.k.a., quarter) lag
 from adjusted_revenue_quarterly
 group by fiscal_year_qtr,
@@ -1348,7 +1348,7 @@ select record,
        l5_description,
        technology,
        accounting_rate,
-       embargoed_sanctioned_flag,
+      -- embargoed_sanctioned_flag,
        sum(reported_revenue)              as reported_revenue,
        sum(hedge)                         as hedge,
        sum(currency)                      as currency,
@@ -1385,7 +1385,7 @@ group by record,
          technology,
          fiscal_yr,
          accounting_rate,
-         embargoed_sanctioned_flag,
+       --  embargoed_sanctioned_flag,
          official,
          load_date,
          version
@@ -1395,6 +1395,8 @@ group by record,
 write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
 
 # COMMAND ----------
+
+import re
 
 tables = [
     ['fin_prod.adjusted_revenue_flash', adj_rev_flash, 'overwrite']
@@ -1416,7 +1418,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
