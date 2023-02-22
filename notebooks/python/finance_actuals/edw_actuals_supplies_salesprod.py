@@ -8009,6 +8009,42 @@ salesprod_preplanet_with_currency_map1.createOrReplaceTempView("salesprod_prepla
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC select *
+# MAGIC from fin_stage.cbm_st_data
+# MAGIC limit 5;
+
+# COMMAND ----------
+
+# possible mixes for planet/sacp country estimates
+cbm_country_actuals_mapping_mix = f"""
+SELECT cal.Date AS cal_date,
+    region_5,
+    cbm.country_code AS country_alpha2,
+    product_line_id AS pl,
+    CASE
+       WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id) = 0 THEN NULL
+       ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id)
+    END AS country_mix
+FROM fin_stage.cbm_st_data cbm
+JOIN mdm.calendar cal
+    ON cbm.month = cal.Date
+JOIN mdm.iso_country_code_xref iso
+    ON iso.country_alpha2 = cbm.country_code
+WHERE 1=1
+AND region_5 = 'EU'
+AND sell_thru_usd > 0
+GROUP BY cal.Date,
+    region_5,
+    cbm.country_code,
+    product_line_id,
+    sell_thru_usd
+"""
+
+cbm_country_actuals_mapping_mix = spark.sql(cbm_country_actuals_mapping_mix)
+cbm_country_actuals_mapping_mix.createOrReplaceTempView("cbm_country_actuals_mapping_mix")
+
+
 # determine country mix to enhance finance tieouts that originate at region 5
 rdma_correction_2023_restatements_baseprod = f"""
 SELECT 
@@ -8038,6 +8074,7 @@ JOIN mdm.iso_country_code_xref iso
     ON iso.country_alpha2 = shcam.country_alpha2
 JOIN rdma_correction_2023_restatements_baseprod rdma
     ON rdma.base_product_number = shcam.base_product_number
+WHERE hp_pages > 0
 GROUP BY cal_date, shcam.country_alpha2, base_product_line_code, region_5
 """
 
@@ -8079,6 +8116,8 @@ FROM fin_stage.final_union_edw_data fued
 LEFT JOIN mdm.iso_country_code_xref iso
     ON fued.country_alpha2 = iso.country_alpha2
 WHERE fued.country_alpha2 NOT LIKE "%X%"
+AND region_5 NOT IN ('EU', 'XW', 'XU')
+AND gross_revenue > 0
 GROUP BY cal_date,
     region_5,
     fued.country_alpha2,
@@ -8427,7 +8466,7 @@ SELECT p.cal_date,
     SUM(p_warranty * country_mix) AS p_warranty,
     SUM(p_total_cos * country_mix) AS p_total_cos
 FROM planet_targets_post_all_restatements_country2a p
-JOIN supplies_hw_country_actuals_mapping_mix gl
+JOIN cbm_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
     AND p.pl = gl.pl
@@ -8450,7 +8489,7 @@ SELECT p.cal_date,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
 FROM planet_targets_post_all_restatements_country2a p
-LEFT JOIN supplies_hw_country_actuals_mapping_mix gl
+LEFT JOIN cbm_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
     AND p.pl = gl.pl
@@ -8550,6 +8589,22 @@ GROUP BY cal_date,
 
 planet_targets_fully_restated_to_country = spark.sql(planet_targets_fully_restated_to_country)
 planet_targets_fully_restated_to_country.createOrReplaceTempView("planet_targets_fully_restated_to_country")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select cal_date, 
+# MAGIC     Fiscal_Yr, 
+# MAGIC     region_5, 
+# MAGIC     pl,   
+# MAGIC     SUM(p_gross_revenue) AS p_gross_revenue,
+# MAGIC     SUM(p_net_currency) AS p_net_currency,
+# MAGIC     SUM(p_contractual_discounts) AS p_contractual_discounts,
+# MAGIC     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+# MAGIC     SUM(p_warranty) AS p_warranty,
+# MAGIC     SUM(p_total_cos) AS p_total_cos
+# MAGIC from planet_targets_fully_restated_to_country
+# MAGIC group by cal_date, Fiscal_Yr, region_5, pl
 
 # COMMAND ----------
 
