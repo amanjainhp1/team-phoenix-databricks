@@ -22,8 +22,8 @@
 ib_version = '2023.01.26.1'
 us_version = '2023.01.30.2'
 
-toner_ib_version = ''
-ink_ib_version = ''
+toner_ib_version = '2023.01.26.1'
+ink_ib_version = '2023.02.09.1'
 
 # COMMAND ----------
 
