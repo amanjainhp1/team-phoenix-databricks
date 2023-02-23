@@ -117,7 +117,7 @@ ctry_01 = spark.sql("""
         , platform_subset
         , base_product_number
         , customer_engagement
-        , vtc
+        , SUM(vtc) as vtc
         , SUM(cartridges) AS cartridges
         , SUM(adjusted_cartridges) AS mvtc_adjusted_crgs
     FROM working_forecast_combined
@@ -132,6 +132,30 @@ ctry_01 = spark.sql("""
 """)
 
 ctry_01.createOrReplaceTempView("ctry_01_c2c_adj_agg")
+
+# COMMAND ----------
+
+spark.sql("""
+select *
+from ctry_01_c2c_adj_agg
+where cal_date = '2032-10-01'
+    and platform_subset = 'SALSA MLK CISJAP'
+    and base_product_number = 'CH562H'
+    and geography = 'ISE'
+order by cal_date desc, geography
+""").show()
+
+# COMMAND ----------
+
+spark.sql("""
+select *
+from ctry_01_c2c_adj_agg
+where cal_date = '2032-10-01'
+    and platform_subset = 'SALSA MLK CISJAP'
+    and base_product_number = 'CH562H'
+    and geography = 'ISE'
+order by cal_date desc, geography
+""").show()
 
 # COMMAND ----------
 
