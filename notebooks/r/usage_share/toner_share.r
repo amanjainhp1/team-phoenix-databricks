@@ -2087,7 +2087,7 @@ final_list2 <- SparkR::sql("
                           when a.BD_Usage_Flag is NULL then a.MPV_TD
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TD
                           when a.MPV_DASH is NULL then a.MPV_TD
-                          when a.usage_n < 75 then a.MPV_TD
+                          --when a.usage_n < 75 then a.MPV_TD
                             else a.MPV_DASH
                             end
                         when a.technology='PWA' then
@@ -2177,20 +2177,17 @@ final_list7 <- mutate(final_list2
                      ,index1 = over(dense_rank(), ws)
                      )
 
-final_list7$Usage_Source2 <- substr(final_list7$Usage_Source,1,3)
-final_list7$Usage_Source3 <- substr(final_list7$lagUsage_Source,1,3)
 final_list7$hd_mchange_ps <- ifelse(substr(final_list7$Share_Source_PS,1,8)=="MODELLED",ifelse(final_list7$lagShare_Source_PS=="HAVE DATA",final_list7$Page_Share_sig-final_list7$lagShare_PS, NA ), NA)
 final_list7$hd_mchange_ps_i <- ifelse(!isNull(final_list7$hd_mchange_ps),final_list7$index1,NA)
 final_list7$hd_mchange_psb <- ifelse(final_list7$Share_Source_PS=="HAVE DATA",ifelse(substr(final_list7$lagShare_Source_PS,1,8)=="MODELLED",final_list7$Page_Share_sig, NA ),NA)
 final_list7$hd_mchange_ps_j <- ifelse(!isNull(final_list7$hd_mchange_psb),final_list7$index1,NA)
 #final_list7$hd_mchange_cu <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse(final_list7$lagShare_Source_CU=="Have Data",final_list7$Crg_Unit_Share-final_list7$lagShare_CU, NA ),NA)
 #final_list7$hd_mchange_cu_i <- ifelse(!is.na(final_list7$hd_mchange_cu),final_list7$index1,NA)
-final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source2=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD" | upper(final_list7$lagUsage_Source)=="UPM SAMPLE SIZE",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 #final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
-final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD",ifelse(final_list7$Usage_Source3=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD"| upper(final_list7$Usage_Source)=="UPM SAMPLE SIZE",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
 final_list7$hd_mchange_use_j <- ifelse(!isNull(final_list7$hd_mchange_used),final_list7$index1,NA)
-
 
 createOrReplaceTempView(final_list7, "final_list7")
 
@@ -2375,8 +2372,7 @@ final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final
 final_list7$adjust_use_i <- ifelse(isNull(final_list7$adjust_use_i),0,final_list7$adjust_use_i)
 final_list7$adjust_use_j <- ifelse(isNull(final_list7$adjust_use_j),0,final_list7$adjust_use_j)
 #final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+0.95*final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source2=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index1,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
-
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index1,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 
 final_list7$Page_Share_old <- cast(final_list7$Page_Share_sig, "double")
