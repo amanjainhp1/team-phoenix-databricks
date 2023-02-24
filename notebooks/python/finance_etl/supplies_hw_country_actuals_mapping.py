@@ -554,7 +554,8 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
     END AS page_mix
-    , current_date() as load_date
+    , '{addversion_info[1]}' AS load_date
+    , '{addversion_info[0]}' AS version
 FROM usage_share_baseprod_01
 GROUP BY cal_date
     , country_alpha2
