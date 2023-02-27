@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # load S3 tables to df
 calendar = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.calendar") \
@@ -33,6 +37,8 @@ usage_share_country = read_redshift_to_df(configs) \
 usage_share_country.createOrReplaceTempView("usage_share_country")
 
 # COMMAND ----------
+
+import re
 
 tables = [
     ['mdm.iso_country_code_xref', iso_country_code_xref],
@@ -529,7 +535,7 @@ JOIN shm_12_map_geo_6 shm
     AND usc.platform_subset = shm.platform_subset
     AND usc.customer_engagement = shm.customer_engagement
 WHERE 1=1
-    AND hp_pages <> 0
+    AND hp_pages > 0
     AND usc.cal_date > '2015-10-01' 
 GROUP BY usc.cal_date
     , usc.country_alpha2
