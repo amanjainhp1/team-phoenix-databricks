@@ -765,4 +765,17 @@ submit_remote_query(configs, query)
 
 # COMMAND ----------
 
+query = """
+CREATE OR REPLACE VIEW financials.list_price_filtered_vw AS 
+(
+SELECT * FROM fin_prod.list_price_filtered
+);
+
+GRANT ALL ON TABLE financials.list_price_filtered_vw TO GROUP phoenix_dev;
+"""
+
+submit_remote_query(configs, query)
+
+# COMMAND ----------
+
 

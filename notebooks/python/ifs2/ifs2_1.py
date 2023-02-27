@@ -130,9 +130,9 @@ cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
     .load()
-##working_forecast_country = read_redshift_to_df(configs) \
-##    .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
-##    .load()
+# working_forecast_country = read_redshift_to_df(configs) \
+#     .option("query", f"SELECT * FROM prod.working_forecast_country WHERE version = '{working_forecast_country_version}'") \
+#     .load()
 working_forecast_country = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM scen.working_forecast_country") \
     .load()
@@ -162,12 +162,12 @@ tables = [
  ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
  ['mdm.iso_country_code_xref' , iso_country_code_xref],
  ['scen.working_forecast_country' , working_forecast_country],
- #['prod.working_forecast_country' , working_forecast_country],
+# ['prod.working_forecast_country' , working_forecast_country],
  ['prod.working_forecast' , working_forecast],
  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
  ['prod.norm_shipments' , norm_shipments],
  ['ifs2.toner_host_yield' , toner_host_yield],
- ['mdm.calendar' , calendar]
+  ['mdm.calendar' , calendar]
 ]
 
 for table in tables:
@@ -185,6 +185,7 @@ for table in tables:
         .format(write_format) \
         .mode("overwrite") \
         .option("mergeSchema", "true") \
+        .option("overwriteSchema", "true") \
         .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
@@ -471,6 +472,7 @@ select usiut.record
                 , crg_chrome
                 , case when (usiut.record = 'TONER' and crg_chrome = 'BLK') then 'BLACK'
          when (usiut.record = 'TONER' and crg_chrome in ('CYN','MAG','YEL')) then 'COLOR'  -- work on MUL
+         when (usiut.record = 'TONER' and crg_chrome in ('DRUM')) then 'DRUM'
         else 'NONE' end as crg_chrome_type
                 , usiut.customer_engagement
                 , hw_product_family
@@ -503,6 +505,17 @@ select usiut.record
 '''
 usage_share = spark.sql(query)
 usage_share.createOrReplaceTempView("usage_share")
+
+# COMMAND ----------
+
+query = '''
+select min(cal_date), platform_subset, country_alpha2
+from usage_share
+group by platform_subset, country_alpha2
+order by min(cal_date) asc
+'''
+test = spark.sql(query)
+test.display()
 
 # COMMAND ----------
 
@@ -872,44 +885,52 @@ fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
-# vtc at country
+# # vtc at country
+# query = '''
+# select cast(cal_date as date) as cal_date
+# -- 	, geography_grain
+#  	, geography
+#     , country_alpha2
+#  	, platform_subset
+#  	, base_product_number
+#  	, customer_engagement
+#  	, vtc
+# -- 	, version
+#  from working_forecast_country 
+#   where 
+# --  version = '{}'
+# -- and 
+#  cal_date between '{}' and '{}'
+#  '''.format(working_forecast_version, start_ifs2_date , end_ifs2_date)
+# vtc = spark.sql(query)
+# vtc.createOrReplaceTempView("vtc")
+
+# COMMAND ----------
+
 query = '''
-select cal_date
--- 	, geography_grain
- 	, geography
-    , country_alpha2
- 	, platform_subset
- 	, base_product_number
- 	, customer_engagement
- 	, vtc
--- 	, version
- from working_forecast_country 
-  where 
---  version = '{}'
--- and 
- cal_date between '{}' and '{}'
- '''.format(working_forecast_version, start_ifs2_date , end_ifs2_date)
-vtc = spark.sql(query)
-vtc.createOrReplaceTempView("vtc")
+select * from vtc limit 100
+'''
+test = spark.sql(query)
+test.display()
 
 # COMMAND ----------
 
 # vtc at market10
-#query = '''
-#select cal_date
-#	, geography_grain
-#	, geography
-#	, platform_subset
-#	, base_product_number
-#	, customer_engagement
-#   , vtc
-#	, version
-#from working_forecast
-#where version = '{}'
-#and cal_date between '{}' and '{}'
-#'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
-#vtc = spark.sql(query)
-#vtc.createOrReplaceTempView("vtc")
+query = '''
+select cal_date
+	, geography_grain
+	, geography
+	, platform_subset
+	, base_product_number
+	, customer_engagement
+  , vtc
+	, version
+from working_forecast
+where version = '{}'
+and cal_date between '{}' and '{}'
+'''.format(working_forecast_version , start_ifs2_date , end_ifs2_date)
+vtc = spark.sql(query)
+vtc.createOrReplaceTempView("vtc")
 
 # COMMAND ----------
 
@@ -941,14 +962,18 @@ select distinct
 --    us.sum_of_k_usage_till_date,
     us.usage,
     us.sum_of_usage_till_date,
-    case when (us.sum_of_usage_till_date - hy.host_yield) < 0 then 0
+    case when us.crg_chrome = 'DRUM' and (us.sum_of_usage_till_date - 100000) < 0 then 0
+        when us.crg_chrome = 'DRUM' and (us.sum_of_usage_till_date - 100000) >= 0 then (us.sum_of_usage_till_date - 100000)
+        when (us.sum_of_usage_till_date - hy.host_yield) < 0 then 0
         else (us.sum_of_usage_till_date - hy.host_yield)
         end as after_market_usage_cumulative,
     us.hp_share,
     d.value as decay,
     d.remaining_amount,
     y.value as yield,
-    hy.host_yield as host_yield,
+    case when us.crg_chrome = 'DRUM' and us.record = 'TONER' then 100000
+        else hy.host_yield 
+        end as host_yield,
     case when (us.record = 'INK' and us.crg_chrome in ('CYN','MAG','YEL')) then t.trade_split*3
         else t.trade_split
         end as trade_split, 
@@ -958,8 +983,8 @@ select distinct
     d.version as decay_version,
     y.yield_version,
     t.version as trade_split_version,
---    v.version as vtc_version
-    null as vtc_version
+    v.version as vtc_version
+--    null as vtc_version
 from usage_share us
 left join decay d
 on us.platform_subset = d.platform_subset
@@ -998,8 +1023,8 @@ left join vtc v
 on us.platform_subset = v.platform_subset
 and us.base_product_number = v.base_product_number
 and us.cal_date = v.cal_date
--- and us.market10 = v.geography
-and us.country_alpha2 = v.country_alpha2
+and us.market10 = v.geography
+-- and us.country_alpha2 = v.country_alpha2
 and us.customer_engagement = v.customer_engagement
 left join calendar c
 on us.cal_date = c.date
@@ -1007,6 +1032,17 @@ on us.cal_date = c.date
 '''.format(discounting_factor)
 pen_per_printer1 = spark.sql(query)
 pen_per_printer1.createOrReplaceTempView("pen_per_printer1")
+
+# COMMAND ----------
+
+query = '''
+select min(cal_date), platform_subset, country_alpha2
+from pen_per_printer1
+group by platform_subset, country_alpha2
+order by min(cal_date) desc
+'''
+test = spark.sql(query)
+test.display()
 
 # COMMAND ----------
 
@@ -1058,6 +1094,18 @@ pen_per_printer2.createOrReplaceTempView("pen_per_printer2")
 
 # COMMAND ----------
 
+uery = '''
+select min(cal_date), platform_subset, base_product_number
+from pen_per_printer2
+group by platform_subset, base_product_number
+order by min(cal_date) desc
+'''
+test = spark.sql(query)
+
+test.display()
+
+# COMMAND ----------
+
 pen_per_printer2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
 
 # COMMAND ----------
@@ -1099,6 +1147,14 @@ query = '''select
 '''
 pen_per_printer = spark.sql(query)
 pen_per_printer.createOrReplaceTempView("pen_per_printer")
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, pen_per_printer, "ifs2.pen_per_printer", "overwrite")
 
 # COMMAND ----------
 
