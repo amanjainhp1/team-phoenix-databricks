@@ -127,7 +127,7 @@ actuals_supplies_baseprod.createOrReplaceTempView("actuals_supplies_baseprod")
 
 # COMMAND ----------
 
-#platform subset by cartridge mix
+#platform subset by mix
 usage_share_country_hp_pages_mix = f"""
 SELECT cal_date,
     country_alpha2,
