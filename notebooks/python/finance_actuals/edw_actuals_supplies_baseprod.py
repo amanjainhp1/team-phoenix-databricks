@@ -7,13 +7,6 @@
 
 # COMMAND ----------
 
-# pull in working forecast from SFAI (DELETE ME LATER; MIGRATE TO RS)
-working_forecast = read_sql_server_to_df(configs) \
-    .option("dbtable", "IE2_Prod.dbo.working_forecast") \
-    .load()
-
-# COMMAND ----------
-
 # load S3 tables to df
 edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
@@ -30,9 +23,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 iso_cc_rollup_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_cc_rollup_xref") \
     .load()
-#working_forecast = read_redshift_to_df(configs) \
-#    .option("query", "SELECT * FROM prod.working_forecast WHERE version = (SELECT max(version) from prod.working_forecast)") \
-#    .load()
+supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
+    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
+    .load()
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
@@ -41,9 +34,6 @@ calendar = read_redshift_to_df(configs) \
     .load()
 product_line_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_xref") \
-    .load()
-ib = read_redshift_to_df(configs) \
-    .option("query", "SELECT * FROM prod.ib WHERE version = (SELECT MAX(version) FROM prod.ib WHERE record = 'IB' AND official = 1)") \
     .load()
 edw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.edw_actuals_supplies_salesprod") \
@@ -64,7 +54,7 @@ tables = [
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['mdm.calendar', calendar],
     ['mdm.product_line_xref', product_line_xref],
-    #['prod.ib', ib],
+    #['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping],
     ['fin_prod.edw_actuals_supplies_salesprod', edw_actuals_supplies_salesprod],
     ['mdm.hardware_xref', hardware_xref]
 ]
@@ -97,7 +87,7 @@ for table in tables:
 
 # COMMAND ----------
 
-ib.createOrReplaceTempView("ib")
+supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
@@ -138,7 +128,7 @@ actuals_supplies_baseprod.createOrReplaceTempView("actuals_supplies_baseprod")
 
 # COMMAND ----------
 
-#platform subset by cartridge demand mix
+#platform subset by cartridge mix
 cartridge_demand = f"""
 SELECT 
     cal_date,
@@ -146,8 +136,8 @@ SELECT
     platform_subset,
     base_product_number,
     SUM(adjusted_cartridges) AS units
-FROM working_forecast
-WHERE version = (select max(version) from working_forecast)
+FROM stage.supplies_hw_country_atuals_mapping
+WHERE version = (select max(version) from stage.supplies_hw_country_atuals_mapping)
     AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod) 
     AND adjusted_cartridges > 0
     AND geography_grain = 'MARKET10'

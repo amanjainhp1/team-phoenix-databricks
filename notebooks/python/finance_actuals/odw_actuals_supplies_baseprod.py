@@ -134,8 +134,8 @@ SELECT cal_date,
     customer_engagement,
     sum(page_mix) AS platform_mix,
     version
-FROM supplies_hw_country_actuals_mapping
-WHERE version = (select max(version) from supplies_hw_country_actuals_mapping)
+FROM stage.supplies_hw_country_actuals_mapping
+WHERE version = (select max(version) from stage.supplies_hw_country_actuals_mapping)
     AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
                     AND (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
     AND page_mix > 0

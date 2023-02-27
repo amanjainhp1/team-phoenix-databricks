@@ -142,9 +142,9 @@ SELECT
     platform_subset,
     base_product_number,
     SUM(adjusted_cartridges) AS units
-FROM working_forecast
-WHERE version = (select max(version) from working_forecast)
-    AND cal_date = (SELECT distinct cal_date FROM actuals_supplies_baseprod) 
+FROM stage.supplies_hw_country_actuals_mapping
+WHERE version = (select max(version) from stage.supplies_hw_country_actuals_mapping)
+    AND cal_date = (SELECT distinct cal_date FROM fin_prod.actuals_supplies_baseprod) 
     AND adjusted_cartridges > 0
     AND geography_grain = 'MARKET10'
 GROUP BY 
