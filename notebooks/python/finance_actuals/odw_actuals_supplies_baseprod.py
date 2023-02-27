@@ -45,9 +45,11 @@ supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+import re
+
 tables = [
     ['fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only],
-    ['fin_stage.odw_sacp_actuals', sacp_actuals],
+    ['fin_prod.odw_sacp_actuals', sacp_actuals],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.iso_cc_rollup_xref', iso_cc_rollup_xref],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
@@ -134,8 +136,8 @@ SELECT cal_date,
     customer_engagement,
     sum(page_mix) AS platform_mix,
     version
-FROM stage.supplies_hw_country_actuals_mapping
-WHERE version = (select max(version) from stage.supplies_hw_country_actuals_mapping)
+FROM supplies_hw_country_actuals_mapping
+WHERE version = (select max(version) from supplies_hw_country_actuals_mapping)
     AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
                     AND (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
     AND page_mix > 0
@@ -363,7 +365,7 @@ SELECT
     SUM(warranty) as p_warranty,
     SUM(other_cos) as p_other_cos,
     SUM(total_cos) AS p_total_cos
-FROM fin_stage.odw_sacp_actuals AS p
+FROM fin_prod.odw_sacp_actuals AS p
 JOIN mdm.calendar AS cal ON cal.Date = p.cal_date
 WHERE pl IN 
     (
@@ -648,7 +650,7 @@ SELECT
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM planet_adjusts p
 JOIN mdm.calendar cal ON cal.Date = p.cal_date
-WHERE Day_of_Month = 1 
+WHERE day_of_month = 1 
 and pl IN 
     (
     SELECT DISTINCT (pl) 
