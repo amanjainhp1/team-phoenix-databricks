@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # load S3 tables to df
 edw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only") \
@@ -43,6 +47,8 @@ hardware_xref = read_redshift_to_df(configs) \
     .load()
 
 # COMMAND ----------
+
+import re
 
 tables = [
     ['fin_stage.edw_actuals_supplies_baseprod_staging_interim_supplies_only', edw_actuals_supplies_baseprod_staging_interim_supplies_only],
@@ -640,11 +646,317 @@ planet_targets_post_restatements.createOrReplaceTempView("planet_targets_post_re
 
 # COMMAND ----------
 
+# because of a conflict in requirements (finance at region 5; drivers at market), we need to push "official" targets to country level
+# options for mix
+# EMEA (because financials don't include EMEA data at country grain)
+cbm_country_actuals_mapping_mix = f"""
+SELECT cal.Date AS cal_date,
+    region_5,
+    cbm.country_code AS country_alpha2,
+    product_line_id AS pl,
+    CASE
+       WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id) = 0 THEN NULL
+       ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id)
+    END AS country_mix
+FROM fin_stage.cbm_st_data cbm
+JOIN mdm.calendar cal
+    ON cbm.month = cal.Date
+JOIN mdm.iso_country_code_xref iso
+    ON iso.country_alpha2 = cbm.country_code
+WHERE 1=1
+AND region_5 = 'EU'
+AND sell_thru_usd > 0
+GROUP BY cal.Date,
+    region_5,
+    cbm.country_code,
+    product_line_id,
+    sell_thru_usd
+"""
+
+cbm_country_actuals_mapping_mix = spark.sql(cbm_country_actuals_mapping_mix)
+cbm_country_actuals_mapping_mix.createOrReplaceTempView("cbm_country_actuals_mapping_mix")
+
+
+# usage share country as mix source
+rdma_correction_2023_restatements_baseprod = f"""
+SELECT 
+    base_product_number,
+    CASE
+      WHEN base_product_line_code = '65' THEN 'UD'
+      WHEN base_product_line_code = 'EO' THEN 'GL'
+      WHEN base_product_line_code = 'GM' THEN 'K6'
+      ELSE base_product_line_code
+    END AS base_product_line_code
+FROM mdm.rdma_base_to_sales_product_map
+WHERE 1=1
+"""
+
+rdma_correction_2023_restatements_baseprod = spark.sql(rdma_correction_2023_restatements_baseprod)
+rdma_correction_2023_restatements_baseprod.createOrReplaceTempView("rdma_correction_2023_restatements_baseprod")
+
+
+supplies_hw_country_actuals_mapping_countries_x_region5 = f"""
+SELECT cal_date,
+    region_5,
+    shcam.country_alpha2,
+    base_product_line_code as pl,
+    sum(hp_pages) as hp_pages
+FROM stage.supplies_hw_country_actuals_mapping shcam
+JOIN mdm.iso_country_code_xref iso
+    ON iso.country_alpha2 = shcam.country_alpha2
+JOIN rdma_correction_2023_restatements_baseprod rdma
+    ON rdma.base_product_number = shcam.base_product_number
+WHERE hp_pages > 0
+GROUP BY cal_date, shcam.country_alpha2, base_product_line_code, region_5
+"""
+
+supplies_hw_country_actuals_mapping_countries_x_region5 = spark.sql(supplies_hw_country_actuals_mapping_countries_x_region5)
+supplies_hw_country_actuals_mapping_countries_x_region5.createOrReplaceTempView("supplies_hw_country_actuals_mapping_countries_x_region5")
+
+
+supplies_hw_country_actuals_mapping_mix = f"""
+SELECT cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    CASE
+       WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
+       ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, pl)
+    END AS country_mix
+FROM supplies_hw_country_actuals_mapping_countries_x_region5
+GROUP BY cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    hp_pages
+"""
+
+supplies_hw_country_actuals_mapping_mix = spark.sql(supplies_hw_country_actuals_mapping_mix)
+supplies_hw_country_actuals_mapping_mix.createOrReplaceTempView("supplies_hw_country_actuals_mapping_mix")
+
+
+# best source: use ODW detailed data to create country mix (AP, AMS)
+general_ledger_mapping_mix = f"""
+SELECT cal_date,
+    region_5,
+    fued.country_alpha2,
+    pl,
+    CASE
+       WHEN SUM(gross_revenue) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
+       ELSE gross_revenue / SUM(gross_revenue) OVER (PARTITION BY cal_date, region_5, pl)
+    END AS country_mix
+FROM fin_stage.final_union_edw_data fued
+LEFT JOIN mdm.iso_country_code_xref iso
+    ON fued.country_alpha2 = iso.country_alpha2
+WHERE fued.country_alpha2 NOT LIKE "%X%"
+AND region_5 NOT IN ('EU', 'XW', 'XU')
+AND gross_revenue > 0
+GROUP BY cal_date,
+    region_5,
+    fued.country_alpha2,
+    pl,
+    gross_revenue
+"""
+
+general_ledger_mapping_mix = spark.sql(general_ledger_mapping_mix)
+general_ledger_mapping_mix.createOrReplaceTempView("general_ledger_mapping_mix")
+
+# COMMAND ----------
+
+# create country level planet targets; multiple options
+planet_targets_post_all_restatements_country1 = f"""
+SELECT p.cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    p.region_5,
+    p.pl,    
+    SUM(p_gross_revenue * country_mix) AS p_gross_revenue,
+    SUM(p_net_currency  * country_mix) AS p_net_currency,
+    SUM(p_contractual_discounts * country_mix) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts * country_mix) AS p_discretionary_discounts,
+    SUM(p_warranty * country_mix) AS p_warranty,
+    SUM(p_total_cos * country_mix) AS p_total_cos
+FROM planet_targets_post_restatements p
+JOIN general_ledger_mapping_mix gl
+    ON p.cal_date = gl.cal_date
+    AND p.region_5 = gl.region_5
+    AND p.pl = gl.pl
+GROUP BY p.cal_date, p.region_5, p.pl, Fiscal_Yr, country_alpha2
+"""
+
+planet_targets_post_all_restatements_country1 = spark.sql(planet_targets_post_all_restatements_country1)
+planet_targets_post_all_restatements_country1.createOrReplaceTempView("planet_targets_post_all_restatements_country1")
+
+
+planet_targets_post_all_restatements_country2a = f"""
+SELECT p.cal_date,
+    Fiscal_Yr,
+    p.region_5,
+    p.pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_post_restatements p
+LEFT JOIN general_ledger_mapping_mix gl
+    ON p.cal_date = gl.cal_date
+    AND p.region_5 = gl.region_5
+    AND p.pl = gl.pl
+WHERE country_alpha2 is null
+GROUP BY p.cal_date, p.region_5, p.pl, Fiscal_Yr
+"""
+
+planet_targets_post_all_restatements_country2a = spark.sql(planet_targets_post_all_restatements_country2a)
+planet_targets_post_all_restatements_country2a.createOrReplaceTempView("planet_targets_post_all_restatements_country2a")
+
+
+planet_targets_post_all_restatements_country2b = f"""
+SELECT p.cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    p.region_5,
+    p.pl,    
+    SUM(p_gross_revenue * country_mix) AS p_gross_revenue,
+    SUM(p_net_currency  * country_mix) AS p_net_currency,
+    SUM(p_contractual_discounts * country_mix) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts * country_mix) AS p_discretionary_discounts,
+    SUM(p_warranty * country_mix) AS p_warranty,
+    SUM(p_total_cos * country_mix) AS p_total_cos
+FROM planet_targets_post_all_restatements_country2a p
+JOIN cbm_country_actuals_mapping_mix gl
+    ON p.cal_date = gl.cal_date
+    AND p.region_5 = gl.region_5
+    AND p.pl = gl.pl
+GROUP BY p.cal_date, p.region_5, p.pl, Fiscal_Yr, country_alpha2
+"""
+
+planet_targets_post_all_restatements_country2b = spark.sql(planet_targets_post_all_restatements_country2b)
+planet_targets_post_all_restatements_country2b.createOrReplaceTempView("planet_targets_post_all_restatements_country2b")
+
+
+planet_targets_post_all_restatements_country2c = f"""
+SELECT p.cal_date,
+    Fiscal_Yr,
+    p.region_5,
+    p.pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_post_all_restatements_country2a p
+LEFT JOIN cbm_country_actuals_mapping_mix gl
+    ON p.cal_date = gl.cal_date
+    AND p.region_5 = gl.region_5
+    AND p.pl = gl.pl
+WHERE country_alpha2 is null
+GROUP BY p.cal_date, p.region_5, p.pl, Fiscal_Yr
+"""
+
+planet_targets_post_all_restatements_country2c = spark.sql(planet_targets_post_all_restatements_country2c)
+planet_targets_post_all_restatements_country2c.createOrReplaceTempView("planet_targets_post_all_restatements_country2c")
+
+
+planet_targets_post_all_restatements_country3 = f"""
+SELECT cal_date,
+    Fiscal_Yr,
+    CASE
+		WHEN region_5 = 'JP' THEN 'JP'
+		WHEN region_5 = 'AP' THEN 'XI'
+		WHEN region_5 = 'EU' THEN 'XA'
+		WHEN region_5 = 'LA' THEN 'XH'
+		WHEN region_5 = 'NA' THEN 'XG'
+		ELSE 'XW' 
+    END AS country_alpha2,
+    region_5,
+    pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_post_all_restatements_country2c
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_targets_post_all_restatements_country3 = spark.sql(planet_targets_post_all_restatements_country3)
+planet_targets_post_all_restatements_country3.createOrReplaceTempView("planet_targets_post_all_restatements_country3")
+
+planet_targets_fully_restated_to_country = f"""
+SELECT cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_post_all_restatements_country1 
+GROUP BY cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    pl
+
+UNION ALL
+
+SELECT cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_post_all_restatements_country3 
+GROUP BY cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    pl
+
+UNION ALL
+
+SELECT cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+    SUM(p_net_currency) AS p_net_currency,
+    SUM(p_contractual_discounts) AS p_contractual_discounts,
+    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_warranty) AS p_warranty,
+    SUM(p_total_cos) AS p_total_cos
+FROM planet_targets_post_all_restatements_country2b 
+GROUP BY cal_date,
+    Fiscal_Yr,
+    country_alpha2,
+    region_5,
+    pl
+"""
+
+planet_targets_fully_restated_to_country = spark.sql(planet_targets_fully_restated_to_country)
+planet_targets_fully_restated_to_country.createOrReplaceTempView("planet_targets_fully_restated_to_country")
+
+# COMMAND ----------
+
 #add targets to base product dataset
 baseprod_prep_for_planet_targets = f"""
 SELECT
 	bp.cal_date,
 	Fiscal_Yr,
+    bp.country_alpha2,
 	region_5,
 	bp.pl,
 	SUM(gross_revenue) AS gross_revenue,
@@ -661,7 +973,7 @@ LEFT JOIN mdm.iso_country_code_xref AS iso ON bp.country_alpha2 = iso.country_al
 JOIN mdm.calendar AS cal ON bp.cal_date = cal.Date
 WHERE Fiscal_Yr > '2016'
 AND Day_of_Month = 1
-GROUP BY bp.cal_date, bp.pl, region_5, Fiscal_Yr
+GROUP BY bp.cal_date, bp.pl, region_5, Fiscal_Yr, bp.country_alpha2
 """
 
 baseprod_prep_for_planet_targets = spark.sql(baseprod_prep_for_planet_targets)
@@ -671,6 +983,7 @@ baseprod_add_planet = f"""
 SELECT
 	bp.cal_date,
 	bp.Fiscal_Yr,
+    bp.country_alpha2,
 	bp.region_5,
 	bp.pl,
 	COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
@@ -692,8 +1005,8 @@ SELECT
 	COALESCE(SUM(p_total_cos), 0) AS p_total_cos,
 	COALESCE(SUM(p_gross_profit), 0) AS p_gross_profit
 FROM baseprod_prep_for_planet_targets AS bp 
-LEFT JOIN planet_targets_post_restatements AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr)
-GROUP BY bp.cal_date, bp.region_5, bp.pl, bp.Fiscal_Yr
+LEFT JOIN planet_targets_fully_restated_to_country AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr AND p.country_alpha2 = bp.country_alpha2)
+GROUP BY bp.cal_date, bp.region_5, bp.pl, bp.Fiscal_Yr, bp.country_alpha2
 """
 
 baseprod_add_planet = spark.sql(baseprod_add_planet)
@@ -704,6 +1017,7 @@ baseprod_calc_difference = f"""
 SELECT
 	cal_date,
 	Fiscal_Yr,
+    country_alpha2,
 	region_5,
 	pl,
 	COALESCE(SUM(p_gross_revenue) - SUM(gross_revenue), 0) AS plug_gross_revenue,
@@ -716,13 +1030,13 @@ SELECT
 	COALESCE(SUM(p_total_cos) - SUM(total_cos), 0) AS plug_total_cos,
 	COALESCE(SUM(p_gross_profit) - SUM(gross_profit), 0) AS plug_gross_profit
 FROM baseprod_add_planet
-GROUP BY cal_date, Fiscal_Yr, region_5, pl
+GROUP BY cal_date, Fiscal_Yr, region_5, pl, country_alpha2
 """
 
 baseprod_calc_difference = spark.sql(baseprod_calc_difference)
 baseprod_calc_difference.createOrReplaceTempView("baseprod_calc_difference")
 
-
+# start here 2-28-2023
 baseprod_planet_tieout = f"""
 SELECT
 	cal_date,
@@ -1098,7 +1412,7 @@ baseprod_load_financials.createOrReplaceTempView("baseprod_load_financials")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, baseprod_load_financials, "fin_prod.edw_actuals_supplies_baseprod", "append", postactions = "", preactions = "truncate fin_prod.edw_actuals_supplies_baseprod")
+#write_df_to_redshift(configs, baseprod_load_financials, "fin_prod.edw_actuals_supplies_baseprod", "append", postactions = "", preactions = "truncate fin_prod.edw_actuals_supplies_baseprod")
 
 # COMMAND ----------
 
