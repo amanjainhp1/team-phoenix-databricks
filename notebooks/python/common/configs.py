@@ -133,8 +133,8 @@ developer_constants = {
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
     },
     "SESSION_DURATION": {
-        "dev": 3600,
-        "itg": 3600,
+        "dev": 14400,
+        "itg": 14400,
         "prod": 14400
     }
 }
