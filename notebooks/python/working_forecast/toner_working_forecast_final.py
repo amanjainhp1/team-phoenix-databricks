@@ -191,7 +191,7 @@ WITH cfadj_01_c2c                AS
          ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '2022.12.16.1'
+       AND ns.version = '2023.01.26.1'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -430,7 +430,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '2022.12.16.1'
+        AND ns.version = '2023.01.26.1'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -751,7 +751,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(iso.region_5)
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = '2022.12.16.1'
+       AND ns.version = '2023.01.26.1'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -784,7 +784,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(cc.country_level_1) -- region_8
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = '2022.12.16.1'
+       AND ns.version = '2023.01.26.1'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -825,7 +825,7 @@ WITH shm_07_geo_1_host           AS
          ON UPPER(shm.geography) = UPPER(iso.market10)
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
      WHERE 1 = 1
-       AND ns.version = '2022.12.16.1'
+       AND ns.version = '2023.01.26.1'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -948,7 +948,7 @@ WITH wel_01_stf_enroll    AS
      LEFT JOIN mdm.iso_country_code_xref AS iso
          ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = '2022.12.16.1'
+       AND ib.version = '2023.01.26.1'
        AND ib.cal_date > CAST('2022-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -1048,7 +1048,7 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '2022.12.16.1'
+       AND ns.version = '2023.01.26.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1119,10 +1119,10 @@ WITH vtc_01_analytic_cartridges AS
           , ac.welcome_kits
           , ac.imp
           , COALESCE(SUM(ac.imp_corrected_cartridges)
-                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number),
+                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
                      0) /
             NULLIF(SUM(ac.expected_crgs)
-                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number),
+                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
                    0) AS vtc
      FROM c2c_vtc_04_expected_crgs AS ac)
 
@@ -1136,7 +1136,7 @@ WITH vtc_01_analytic_cartridges AS
                    AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = '2022.12.16.1')
+       AND hw.version = '2023.01.26.1')
 
    , c2c_vtc_06_vol_count       AS
     (SELECT DISTINCT geography
@@ -1144,7 +1144,7 @@ WITH vtc_01_analytic_cartridges AS
                    , base_product_number
                    , customer_engagement
                    , COUNT(cal_date)
-                     OVER (PARTITION BY geography, base_product_number) AS vol_count -- count of months with volume
+                     OVER (PARTITION BY geography, base_product_number,platform_subset,customer_engagement) AS vol_count -- count of months with volume
      FROM c2c_vtc_05_vtc_calc
      CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
@@ -1172,7 +1172,7 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.vtc
           , vol_counts.vol_count
           , MAX(vtcc.cal_date)
-            OVER (PARTITION BY vtcc.geography, vtcc.base_product_number) AS max_cal_date
+            OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
      CROSS JOIN c2c_vtc_02_forecast_months AS fm
      LEFT JOIN c2c_vtc_06_vol_count AS vol_counts
@@ -1400,7 +1400,7 @@ WITH geography_mapping   AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1 = 1
-       AND ns.version = '2022.12.16.1'
+       AND ns.version = '2023.01.26.1'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1482,7 +1482,7 @@ WITH geography_mapping   AS
     (SELECT 'IB'         AS record
           , 'SYSTEM'     AS user_name
           , NULL         AS load_date
-          , '2022.12.16.1' AS version
+          , '2023.01.26.1' AS version
      FROM prod.ib
 
      UNION ALL
@@ -1490,7 +1490,7 @@ WITH geography_mapping   AS
      SELECT 'USAGE_SHARE' AS record
           , 'SYSTEM'      AS user_name
           , NULL          AS load_date
-          , '2023.01.05.1'  AS version
+          , '2023.01.30.2'  AS version
      FROM prod.usage_share
 
      UNION ALL
@@ -1730,6 +1730,56 @@ WITH geography_mapping   AS
           , vtc.base_product_number
           , vtc.customer_engagement
           , vtc.cartridges
+          , vtc.channel_fill   AS channel_fill
+          , vtc.supplies_spares_crgs  AS supplies_spares_cartridges
+          , vtc.expected_crgs AS expected_cartridges
+          , vtc.mvtc              AS vtc
+          , vtc.mvtc_adjusted_crgs                     AS adjusted_cartridges
+          , enr.supplies_product_family
+          , enr.supplies_family
+          , enr.supplies_mkt_cat
+          , enr.epa_family
+          , hw.pl                                                  AS hw_pl
+          , cc.region_3
+          , cc.region_4
+          , cc.region_5
+          , cc.market10
+          , cal.fiscal_year_qtr
+          , cal.fiscal_yr
+          , CAST(vtc.cal_date AS VARCHAR(25)) + '-' + vtc.platform_subset +
+            '-' + vtc.base_product_number + '-' + vtc.geography + '-' +
+            vtc.customer_engagement                                AS composite_key
+          , NULL                                                   AS cartridge_type
+          , pf.yield
+     FROM scen.toner_13_toner_crgs_w_vtc AS vtc
+     LEFT JOIN supplies_enrichment AS enr
+         ON enr.platform_subset = vtc.platform_subset
+     JOIN mdm.calendar AS cal
+         ON vtc.cal_date = cal.date
+     JOIN mdm.hardware_xref AS hw
+         ON vtc.platform_subset = hw.platform_subset
+     JOIN country_code_xref AS cc
+         ON vtc.geography = cc.market10
+     LEFT JOIN toner_supplies_xref AS supp
+         ON supp.base_product_number = vtc.base_product_number
+     LEFT JOIN pen_fills AS pf
+         ON pf.market_10 = cc.market10
+         AND pf.cal_date = vtc.cal_date
+         AND pf.base_product_number = vtc.base_product_number
+     WHERE 1 = 1 AND vtc.cal_date <= (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
+       AND hw.technology IN ('LASER') 
+       
+       UNION 
+    
+    SELECT 'IE2-WORKING-FORECAST'                                 AS record
+          , GETDATE()                                              AS build_time
+          , vtc.cal_date
+          , vtc.geography_grain
+          , vtc.geography
+          , vtc.platform_subset
+          , vtc.base_product_number
+          , vtc.customer_engagement
+          , vtc.cartridges
           , COALESCE(cf.channel_fill, vtc.channel_fill)            AS channel_fill
           , COALESCE(ss.supplies_spares,
                      vtc.supplies_spares_crgs)                     AS supplies_spares_cartridges
@@ -1789,7 +1839,7 @@ WITH geography_mapping   AS
          ON pf.market_10 = cc.market10
          AND pf.cal_date = vtc.cal_date
          AND pf.base_product_number = vtc.base_product_number
-     WHERE 1 = 1
+     WHERE 1 = 1 AND vtc.cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
        AND hw.technology IN ('LASER')
 
      UNION ALL
