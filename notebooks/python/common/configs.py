@@ -129,7 +129,7 @@ developer_constants = {
     },
     "STS_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
-        "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
+        "itg": "arn:aws:iam::740156627385:role/dataos-itg-databricks-phoenix-role",
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
     },
     "SESSION_DURATION": {
