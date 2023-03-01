@@ -774,8 +774,11 @@ SELECT p.cal_date,
     SUM(p_net_currency  * country_mix) AS p_net_currency,
     SUM(p_contractual_discounts * country_mix) AS p_contractual_discounts,
     SUM(p_discretionary_discounts * country_mix) AS p_discretionary_discounts,
+    SUM(p_net_revenue * country_mix) as p_net_revenue,
     SUM(p_warranty * country_mix) AS p_warranty,
-    SUM(p_total_cos * country_mix) AS p_total_cos
+    SUM(p_other_cos * country_mix) as p_other_cos,
+    SUM(p_total_cos * country_mix) AS p_total_cos,
+    SUM(p_gross_profit * country_mix) AS p_gross_profit
 FROM planet_targets_post_restatements p
 JOIN general_ledger_mapping_mix gl
     ON p.cal_date = gl.cal_date
@@ -797,8 +800,11 @@ SELECT p.cal_date,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
     SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
 FROM planet_targets_post_restatements p
 LEFT JOIN general_ledger_mapping_mix gl
     ON p.cal_date = gl.cal_date
@@ -822,8 +828,11 @@ SELECT p.cal_date,
     SUM(p_net_currency  * country_mix) AS p_net_currency,
     SUM(p_contractual_discounts * country_mix) AS p_contractual_discounts,
     SUM(p_discretionary_discounts * country_mix) AS p_discretionary_discounts,
+    SUM(p_net_revenue * country_mix) AS p_net_revenue,
     SUM(p_warranty * country_mix) AS p_warranty,
-    SUM(p_total_cos * country_mix) AS p_total_cos
+    SUM(p_other_cos * country_mix) AS p_other_cos,
+    SUM(p_total_cos * country_mix) AS p_total_cos,
+    SUM(p_gross_profit * country_mix) AS p_gross_profit
 FROM planet_targets_post_all_restatements_country2a p
 JOIN cbm_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
@@ -845,8 +854,11 @@ SELECT p.cal_date,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
     SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
 FROM planet_targets_post_all_restatements_country2a p
 LEFT JOIN cbm_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
@@ -877,8 +889,11 @@ SELECT cal_date,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
     SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
 FROM planet_targets_post_all_restatements_country2c
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
@@ -896,8 +911,11 @@ SELECT cal_date,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
     SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
 FROM planet_targets_post_all_restatements_country1 
 GROUP BY cal_date,
     Fiscal_Yr,
@@ -916,8 +934,11 @@ SELECT cal_date,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
     SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
 FROM planet_targets_post_all_restatements_country3 
 GROUP BY cal_date,
     Fiscal_Yr,
@@ -936,8 +957,11 @@ SELECT cal_date,
     SUM(p_net_currency) AS p_net_currency,
     SUM(p_contractual_discounts) AS p_contractual_discounts,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+    SUM(p_net_revenue) AS p_net_revenue,
     SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos
+    SUM(p_other_cos) AS p_other_cos,
+    SUM(p_total_cos) AS p_total_cos,
+    SUM(p_gross_profit) AS p_gross_profit
 FROM planet_targets_post_all_restatements_country2b 
 GROUP BY cal_date,
     Fiscal_Yr,
@@ -1013,6 +1037,66 @@ baseprod_add_planet = spark.sql(baseprod_add_planet)
 baseprod_add_planet.createOrReplaceTempView("baseprod_add_planet")
 
 
+planet_add_baseprod = f"""
+SELECT
+	bp.cal_date,
+	bp.Fiscal_Yr,
+    bp.country_alpha2,
+	bp.region_5,
+	bp.pl,
+	COALESCE(SUM(p_gross_revenue), 0) AS p_gross_revenue,
+	COALESCE(SUM(p_net_currency), 0) AS p_net_currency,
+	COALESCE(SUM(p_contractual_discounts), 0) AS p_contractual_discounts,
+	COALESCE(SUM(p_discretionary_discounts), 0) AS p_discretionary_discounts,
+	COALESCE(SUM(p_net_revenue), 0) AS p_net_revenue,
+	COALESCE(SUM(p_warranty), 0) AS p_warranty,
+	COALESCE(SUM(p_other_cos), 0) AS p_other_cos,
+	COALESCE(SUM(p_total_cos), 0) AS p_total_cos,
+	COALESCE(SUM(p_gross_profit), 0) AS p_gross_profit
+FROM planet_targets_fully_restated_to_country AS bp 
+LEFT JOIN baseprod_prep_for_planet_targets AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr AND p.country_alpha2 = bp.country_alpha2)
+WHERE 1=1
+AND (gross_revenue is null
+OR net_currency is null
+OR contractual_discounts is null
+OR discretionary_discounts is null
+OR net_revenue is null
+OR warranty is null
+OR other_cos is null
+OR total_cos is null
+OR gross_profit is null)
+GROUP BY bp.cal_date, bp.region_5, bp.pl, bp.Fiscal_Yr, bp.country_alpha2  
+"""
+
+planet_add_baseprod = spark.sql(planet_add_baseprod)
+planet_add_baseprod.createOrReplaceTempView("planet_add_baseprod")
+
+
+planet_add_baseprod2 = f"""
+SELECT cal_date,
+	region_5,
+	country_alpha2,
+	'NA' AS platform_subset,
+	'EDW_TIE2_SALES_TO_BASE_ROUNDING_ERROR' AS base_product_number,
+	pl,
+	'TRAD' AS customer_engagement,
+	SUM(p_gross_revenue) AS gross_revenue,
+	SUM(p_net_currency) AS net_currency,
+	SUM(p_contractual_discounts) AS contractual_discounts,
+	SUM(p_discretionary_discounts) ASdiscretionary_discounts,
+	SUM(p_net_revenue) AS net_revenue,
+	SUM(p_warranty) AS warranty,
+	SUM(p_other_cos) AS other_cos,
+	SUM(p_total_cos) AS total_cos,
+	SUM(p_gross_profit) AS gross_profit
+FROM planet_add_baseprod
+GROUP BY cal_date, region_5, pl, country_alpha2  
+"""
+
+planet_add_baseprod2 = spark.sql(planet_add_baseprod2)
+planet_add_baseprod2.createOrReplaceTempView("planet_add_baseprod2")
+
+
 baseprod_calc_difference = f"""
 SELECT
 	cal_date,
@@ -1036,19 +1120,12 @@ GROUP BY cal_date, Fiscal_Yr, region_5, pl, country_alpha2
 baseprod_calc_difference = spark.sql(baseprod_calc_difference)
 baseprod_calc_difference.createOrReplaceTempView("baseprod_calc_difference")
 
-# start here 2-28-2023
+
 baseprod_planet_tieout = f"""
 SELECT
 	cal_date,
 	region_5,
-	CASE
-		WHEN region_5 = 'JP' THEN 'JP'
-		WHEN region_5 = 'AP' THEN 'XI'
-		WHEN region_5 = 'EU' THEN 'XA'
-		WHEN region_5 = 'LA' THEN 'XH'
-		WHEN region_5 = 'NA' THEN 'XG'
-		ELSE 'XW'
-	END AS country_alpha2,
+	country_alpha2,
 	'NA' AS platform_subset,
 	'EDW_TIE2_SALES_TO_BASE_ROUNDING_ERROR' AS base_product_number,
 	pl,
@@ -1067,7 +1144,7 @@ SELECT
 	0 AS yield_x_units,
 	0 as yield_x_units_black_only
 FROM baseprod_calc_difference
-GROUP BY cal_date, region_5, pl
+GROUP BY cal_date, region_5, pl, country_alpha2
 """
 
 baseprod_planet_tieout = spark.sql(baseprod_planet_tieout)
@@ -1311,6 +1388,35 @@ SELECT
 	SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM final_planet_adjust_to_baseprod_llcs
 GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
+
+UNION ALL
+			
+SELECT
+	cal_date,
+    p.country_alpha2,
+	market10,
+	platform_subset,
+	base_product_number,
+	p.pl,
+	l5_description,
+	customer_engagement,
+	SUM(gross_revenue) AS gross_revenue,
+	SUM(net_currency) AS net_currency,
+	SUM(contractual_discounts) AS contractual_discounts,
+	SUM(discretionary_discounts) AS discretionary_discounts,
+	SUM(net_revenue) AS net_revenue,
+	SUM(warranty) AS warranty,
+	SUM(other_cos) AS other_cos,
+	SUM(total_cos) AS total_cos,
+	SUM(gross_profit) AS gross_profit,
+	0 AS revenue_units,
+	0 AS equivalent_units,
+	0 AS yield_x_units,
+	0 AS yield_x_units_black_only
+FROM planet_add_baseprod2 p
+JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = p.country_alpha2
+JOIN mdm.product_line_xref plx ON plx.pl = p.pl
+GROUP BY cal_date, p.country_alpha2, market10, platform_subset, base_product_number, p.pl, l5_description, customer_engagement, market10, l5_description
 """
 
 final_planet_adjust_to_baseprod = spark.sql(final_planet_adjust_to_baseprod)
@@ -1377,6 +1483,31 @@ baseprod_add_planet_adjusts.createOrReplaceTempView("baseprod_add_planet_adjusts
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC select cal_date
+# MAGIC   , fiscal_yr
+# MAGIC   , region_5
+# MAGIC   , pl
+# MAGIC   , SUM(gross_revenue) AS gross_revenue
+# MAGIC   ,	SUM(net_currency) AS net_currency
+# MAGIC   ,	SUM(contractual_discounts) AS contractual_discounts
+# MAGIC   ,	SUM(discretionary_discounts) AS discretionary_discounts
+# MAGIC   ,  SUM(warranty) AS warranty
+# MAGIC   ,	SUM(total_cos) AS total_cos
+# MAGIC from baseprod_add_planet_adjusts p
+# MAGIC join mdm.iso_country_code_xref iso
+# MAGIC   on iso.country_alpha2 = p.country_alpha2
+# MAGIC join mdm.calendar cal
+# MAGIC   on cal.Date = p.cal_date
+# MAGIC where 1=1
+# MAGIC and day_of_month = 1
+# MAGIC group by cal_date
+# MAGIC   , region_5
+# MAGIC   , pl
+# MAGIC   , fiscal_yr
+
+# COMMAND ----------
+
 baseprod_load_financials = f"""    
 SELECT 'actuals - edw supplies base product financials' AS record,
 	cal_date,
@@ -1412,7 +1543,7 @@ baseprod_load_financials.createOrReplaceTempView("baseprod_load_financials")
 
 # COMMAND ----------
 
-#write_df_to_redshift(configs, baseprod_load_financials, "fin_prod.edw_actuals_supplies_baseprod", "append", postactions = "", preactions = "truncate fin_prod.edw_actuals_supplies_baseprod")
+write_df_to_redshift(configs, baseprod_load_financials, "fin_prod.edw_actuals_supplies_baseprod", "append", postactions = "", preactions = "truncate fin_prod.edw_actuals_supplies_baseprod")
 
 # COMMAND ----------
 
