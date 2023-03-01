@@ -710,7 +710,7 @@ SELECT nl.record
     , nl.proxy_used
     , nl.ib_version
     , nl.load_date
-FROM npi_helper_4 nl
+FROM npi_helper_4b nl
 UNION ALL
 SELECT fl.record
     , fl.cal_date

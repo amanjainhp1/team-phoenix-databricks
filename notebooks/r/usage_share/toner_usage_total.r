@@ -188,8 +188,8 @@ ibtable <- SparkR::collect(SparkR::sql(paste0("
                     left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
                     where a.measure='IB'
-                      and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                          or a.platform_subset like 'PANTHER%' or a.platform_subset like 'JAGUAR%'))
+                      and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA'))
+                         ))
                     group by a.platform_subset, a.cal_date, d.technology  --, a.customer_engagement
                             ,a.version
                             , b.region_5, a.country_alpha2
