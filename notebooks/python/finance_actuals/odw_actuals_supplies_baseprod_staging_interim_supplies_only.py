@@ -80,7 +80,7 @@ for table in tables:
     # Write the data to its target.
     df.write \
       .format(write_format) \
-      .mode(mode) \
+      .mode('overwrite') \
       .option("overwriteSchema", "true")\
       .save(save_path)
 
