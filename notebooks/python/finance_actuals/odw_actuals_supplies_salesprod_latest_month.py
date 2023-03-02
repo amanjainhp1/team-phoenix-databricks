@@ -277,9 +277,6 @@ odw_dollars_raw = f"""
       ,SUM(warr) * -1 as warranty
       ,SUM(total_cost_of_sales_usd) * -1 as total_cos
       ,SUM(gross_margin_usd) as gross_profit
-        ,SUM(gross_trade_revenues_usd) + SUM(net_currency_usd) + SUM(contractual_discounts_usd) +
-        SUM(discretionary_discounts_usd) + SUM(net_revenues_usd) + SUM(warr) + SUM(total_cost_of_sales_usd) +
-        SUM(gross_margin_usd) as totals
   FROM odw_report_rac_product_financials_actuals land
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
@@ -498,7 +495,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
 WHERE 1=1
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
@@ -3412,7 +3408,7 @@ estimated_mps_revenue = f"""
 SELECT 
     cal_date,
     CASE
-        WHEN country_alpha2 = 'XS' THEN 'RU'
+        WHEN country_alpha2 = 'XS' THEN 'CZ'
         WHEN country_alpha2 = 'XW' THEN 'US'
         ELSE country_alpha2
     END AS country_alpha2,
@@ -6436,7 +6432,6 @@ SELECT
 FROM xcode_adjusted_data2
 WHERE 1=1
 AND total_sums <> 0
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 

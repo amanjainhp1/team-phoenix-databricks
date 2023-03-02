@@ -4754,7 +4754,7 @@ estimated_mps_revenue = f"""
 SELECT 
     cal_date,
     CASE
-        WHEN country_alpha2 = 'XS' THEN 'RU'
+        WHEN country_alpha2 = 'XS' THEN 'CZ'
         WHEN country_alpha2 = 'XW' THEN 'US'
         ELSE country_alpha2
     END AS country_alpha2,
