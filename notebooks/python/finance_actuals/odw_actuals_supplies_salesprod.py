@@ -390,7 +390,7 @@ SELECT
     SUM(total_cos) - SUM(warranty) as total_cos_without_warranty
 FROM odw_dollars_raw odw
 LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
-WHERE totals <> 0
+WHERE 1=1
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
@@ -6985,7 +6985,7 @@ SELECT
     COALESCE(SUM(p_warranty), 0) AS p_warranty,
     COALESCE(SUM(p_other_cos), 0) AS p_other_cos,
     COALESCE(SUM(p_total_cos), 0) AS p_total_cos
-FROM planet_targets
+FROM planet_targets_fully_restated_to_country
 GROUP BY cal_date, region_5, pl, Fiscal_Yr, country_alpha2
 """
 
@@ -7332,7 +7332,7 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency
 all_salesprod2 = spark.sql(all_salesprod2)
 all_salesprod2.createOrReplaceTempView("all_salesprod2")
 
-
+# COMMAND ----------
 
 all_salesprod3 = f"""
 SELECT
@@ -7427,7 +7427,6 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement
 
 salesprod_planet_precurrency = spark.sql(salesprod_planet_precurrency)
 salesprod_planet_precurrency.createOrReplaceTempView("salesprod_planet_precurrency")
-
 
 # COMMAND ----------
 
