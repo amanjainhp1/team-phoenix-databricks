@@ -644,7 +644,7 @@ SELECT a.platform_subset
     , a.country_alpha2
     , a.measure
     , a.units
-FROM npi_helper_4 a
+FROM npi_helper_4b a
 INNER JOIN npi_fill_missing_dates b
     ON a.platform_subset = b.platform_subset
         AND a.customer_engagement = b.customer_engagement
