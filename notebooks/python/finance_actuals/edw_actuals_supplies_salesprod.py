@@ -175,6 +175,10 @@ actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
 
 # COMMAND ----------
 
+supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
+
+# COMMAND ----------
+
 addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIES SALES PRODUCT FINANCIALS", "ACTUALS - EDW SUPPLIES SALES PRODUCT FINANCIALS")
 
 # COMMAND ----------
@@ -8096,7 +8100,7 @@ supplies_hw_country_actuals_mapping_mix = spark.sql(supplies_hw_country_actuals_
 supplies_hw_country_actuals_mapping_mix.createOrReplaceTempView("supplies_hw_country_actuals_mapping_mix")
 
 
-# best source: use ODW detailed data to create country mix (AP, AMS)
+# best source: use EDW detailed data to create country mix (AP, AMS)
 general_ledger_mapping_mix = f"""
 SELECT cal_date,
     region_5,
