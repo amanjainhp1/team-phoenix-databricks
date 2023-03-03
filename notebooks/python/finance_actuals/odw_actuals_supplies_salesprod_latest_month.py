@@ -321,7 +321,7 @@ SELECT
     SUM(total_cos) - SUM(warranty) as total_cos_without_warranty
 FROM odw_dollars_raw odw
 LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
-WHERE totals <> 0
+WHERE 1=1
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
