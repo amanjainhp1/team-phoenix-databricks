@@ -1279,24 +1279,10 @@ orig_official_fin_prep1.createOrReplaceTempView("orig_official_fin_prep1")
 orig_official_fin_prep2 = spark.sql("""
  	SELECT 
       cal_date
-      ,CASE
-          WHEN country_alpha2 = 'BY' THEN 'HU'
-          WHEN country_alpha2 = 'RU' THEN 'HU'
-          WHEN country_alpha2 = 'CU' THEN 'MX'
-          WHEN country_alpha2 = 'IR' THEN 'LB'
-          WHEN country_alpha2 = 'KP' THEN 'KR'
-          WHEN country_alpha2 = 'SY' THEN 'LB'
-          ELSE country_alpha2
-       END AS country_alpha2
+      ,country_alpha2
       ,CASE
           WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
-          WHEN country_alpha2 = 'BY' THEN 'CENTRAL & EASTERN EUROPE'
-          WHEN country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
-          WHEN country_alpha2 = 'CU' THEN 'LATIN AMERICA'
-          WHEN country_alpha2 = 'IR' THEN 'SOUTHERN EUROPE, ME & AFRICA'
-          WHEN country_alpha2 = 'KP' THEN 'GREATER ASIA'
-          WHEN country_alpha2 = 'SY' THEN 'SOUTHERN EUROPE, ME & AFRICA'
-		ELSE market8
+          ELSE market8
       END AS market8
 	  ,platform_subset
       ,base_product_number
