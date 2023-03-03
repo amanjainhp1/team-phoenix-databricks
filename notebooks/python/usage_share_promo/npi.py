@@ -408,8 +408,8 @@ npi_helper_4.count()
 # COMMAND ----------
 
 #Add share values for Big Ink (set to 1)
-#Full list of Big Ink platforms
-hw_bi = read_redshift_to_df(configs) \
+
+hw_ink = read_redshift_to_df(configs) \
   .option("query","""
     SELECT distinct platform_subset, brand
     FROM "mdm"."hardware_xref"
@@ -417,12 +417,20 @@ hw_bi = read_redshift_to_df(configs) \
     AND technology = 'INK'
     """) \
   .load()
+hw_ink.createOrReplaceTempView("hw_ink")
+
+#Full list of Big Ink platforms
+hw_bi =spark.sql("""
+    SELECT distinct platform_subset
+    FROM hw_ink
+    WHERE brand='BIG INK'
+    """)
 hw_bi.createOrReplaceTempView("hw_bi")
 
 #Full list of I-INK platforms
 hw_ii = """SELECT distinct ib.platform_subset 
     FROM ib_info_r5 ib
-    INNER JOIN hw_bi hw
+    INNER JOIN hw_ink hw
     ON ib.platform_subset=hw.platform_subset
     WHERE ib.customer_engagement = 'I-INK' 
 """
@@ -432,7 +440,7 @@ hw_ii.createOrReplaceTempView("hw_ii")
 npi_helper_4_bia = """
 SELECT distinct platform_subset
 FROM npi_helper_4 
-WHERE platform_subset in (select distinct platform_subset from hw_bi where brand='BIG INK')
+WHERE platform_subset in (select distinct platform_subset from hw_bi)
 AND measure='HP_SHARE'
 """
 npi_helper_4_bia=spark.sql(npi_helper_4_bia)
