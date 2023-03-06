@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # load S3 tables to df
 odw_actuals_supplies_baseprod_staging_interim_supplies_only = read_redshift_to_df(configs) \
     .option("dbtable", "fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only") \
@@ -511,10 +515,10 @@ SELECT
     region_5,
     CASE
         WHEN region_5 = 'JP' THEN 'JP'
-        WHEN region_5 = 'AP' THEN 'XI'
-        WHEN region_5 = 'EU' THEN 'XA'
-        WHEN region_5 = 'LA' THEN 'XH'
-        WHEN region_5 = 'NA' THEN 'XG'
+        WHEN region_5 = 'AP' THEN 'SG'
+        WHEN region_5 = 'EU' THEN 'DE'
+        WHEN region_5 = 'LA' THEN 'MX'
+        WHEN region_5 = 'NA' THEN 'US'
         ELSE 'XW'
     END AS country_alpha2,
     'NA' AS platform_subset,
