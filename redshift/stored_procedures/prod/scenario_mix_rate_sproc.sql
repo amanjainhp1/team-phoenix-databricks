@@ -86,7 +86,7 @@ CREATE TABLE stage.scenario_mix_rate_staging(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_mix_rate_staging TO auto_glue;
-EXECUTE 'GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP '||group_param||';';
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_mix_rate_staging TO GROUP '||group_param||';';
 
 ---------LOAD STAGING TABLE----------------------------------------------------------
 
