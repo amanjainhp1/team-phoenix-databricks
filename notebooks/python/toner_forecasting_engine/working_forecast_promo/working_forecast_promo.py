@@ -24,7 +24,7 @@ for input in add_version_inputs:
 
 # COMMAND ----------
 
-country = read_redshift_to_df(configs) \
+c2c_country = read_redshift_to_df(configs) \
     .option("dbtable", "scen.c2c_adj_country_pf_split")\
     .load()
 
@@ -32,9 +32,14 @@ version = read_redshift_to_df(configs) \
     .option("dbtable", "prod.version") \
     .load()
 
+wf_country = read_redshift_to_df(configs) \
+    .option("dbtable", "scen.working_forecast_country") \
+    .load()
+
 tables = [
-    ['scen.c2c_adj_country_pf_split', country, "overwrite"],
-    ['prod.version', version, "overwrite"]
+    ['prod.version', version, "overwrite"],
+    ['scen.c2c_adj_country_pf_split', c2c_country, "overwrite"],
+    ['scen.working_forecast_country', wf_country, "overwrite"]
 ]
 
 # COMMAND ----------
