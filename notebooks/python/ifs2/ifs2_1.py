@@ -476,11 +476,11 @@ select usiut.record
         else 'NONE' end as crg_chrome_type
                 , usiut.customer_engagement
                 , hw_product_family
-                ,case when crg_chrome = 'BLK' then k_usage
+                ,case when crg_chrome in ('BLK','DRUM') then k_usage
                      when (usiut.record = 'INK' and crg_chrome in ('CYN','MAG','YEL')) then color_usage/3
                  else color_usage
                 end as usage
-                ,case when crg_chrome = 'BLK' then sum_of_k_usage_till_date
+                ,case when crg_chrome in ('BLK','DRUM') then sum_of_k_usage_till_date
                     when (usiut.record = 'INK' and crg_chrome in ('CYN','MAG','YEL')) then sum_of_color_usage_till_date/3
                 else sum_of_color_usage_till_date
                 end as sum_of_usage_till_date
