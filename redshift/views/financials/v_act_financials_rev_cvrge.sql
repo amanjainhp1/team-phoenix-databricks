@@ -7,8 +7,8 @@ WITH
 	current_fiscal_yr AS
 	(
 		SELECT 
-			Fiscal_Yr-4 Start_Fiscal_Yr
-			, Fiscal_Yr+5 End_Fiscal_Yr
+			CAST(fiscal_yr AS INT)-4 start_fiscal_yr
+			, CAST(fiscal_yr AS INT)+5 end_fiscal_yr
 		FROM
 		mdm.calendar
 		WHERE Date = cast(GETDATE() AS DATE)
@@ -16,7 +16,7 @@ WITH
 	supplies_baseprod_actuals AS
 	(
 		SELECT 
-			'actuals' AS record_type
+			'ACTUALS' AS record_type
 			, actuals_supplies_baseprod.base_product_number
 			, actuals_supplies_baseprod.platform_subset
 			, actuals_supplies_baseprod.pl base_product_line_code
@@ -29,9 +29,9 @@ WITH
 			, iso_country_code_xref.country_alpha2
 			, iso_country_code_xref.market10
 			, cal_date
-			, calendar.Fiscal_Year_Qtr
-			, calendar.Fiscal_Year_Half
-			, calendar.Fiscal_Yr
+			, calendar.fiscal_year_qtr
+			, calendar.fiscal_year_half
+			, calendar.fiscal_yr
 			, SUM(revenue_units) Units
 			, SUM(gross_revenue) AS GrossRevenue
 			, SUM(contractual_discounts) + SUM(discretionary_discounts) AS Contra
@@ -51,8 +51,8 @@ WITH
 			ON calendar.Date = actuals_supplies_baseprod.cal_date
 		CROSS JOIN
 		current_fiscal_yr
-		WHERE Fiscal_Yr >= Start_Fiscal_Yr
-		and customer_engagement <> 'est_direct_fulfillment'
+		WHERE fiscal_yr >= start_fiscal_yr
+		and customer_engagement <> 'EST_DIRECT_FULFILLMENT'
 		and Day_of_Month = 1
 		GROUP BY actuals_supplies_baseprod.record
 			, actuals_supplies_baseprod.base_product_number

@@ -20,7 +20,7 @@ SELECT actuals_plus_stf.record,
        actuals_plus_stf.gross_margin,
        actuals_plus_stf.insights_units,
        actuals_plus_stf.username
-FROM (SELECT 'actuals'::character varying AS record,
+FROM (SELECT 'ACTUALS'::character varying AS record,
              actuals.geography,
              actuals.base_product_number,
              actuals.pl,
@@ -152,4 +152,4 @@ FROM (SELECT 'actuals'::character varying AS record,
 alter table financials.v_stf_dollarization_actuals
     owner to auto_glue;
 
-grant delete, insert, references, select, trigger, update on financials.v_stf_dollarization_actuals to group phoenix_dev;
+GRANT ALL on financials.v_stf_dollarization_actuals TO GROUP phoenix_dev;

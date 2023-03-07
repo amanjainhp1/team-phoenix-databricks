@@ -579,7 +579,7 @@ group by cal_date,market10,platform_subset,base_product_number,customer_engageme
 )
 
 UPDATE stage.page_cc_cartridges
-set imp_corrected_cartridges = ac.base_quantity, cartridges = ac.base_quantity
+set imp_corrected_cartridges = ac.base_quantity
 FROM stage.page_cc_cartridges ccs
 INNER JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
 						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement                 
@@ -617,4 +617,8 @@ where stage.page_cc_cartridges.cal_date = cc.cal_date and stage.page_cc_cartridg
 and stage.page_cc_cartridges.base_product_number = cc.base_product_number and stage.page_cc_cartridges.customer_engagement = cc.customer_engagement 
 """
 )
+
+
+# COMMAND ----------
+
 

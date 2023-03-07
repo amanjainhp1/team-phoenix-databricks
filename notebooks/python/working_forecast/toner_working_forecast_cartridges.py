@@ -119,7 +119,7 @@ WITH dmd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2022.11.29.1'
+       AND ib.version = '2023.01.26.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -239,11 +239,11 @@ WITH dmd_01_ib_load AS
           , SUM(ib)                            AS IB
           , SUM(k_usage * hp_share * ib)       AS HP_K_PAGES
           , SUM(k_usage * (1 - hp_share) * ib) AS NON_HP_K_PAGES
-          , SUM(color_usage * hp_share * ib)   AS HP_C_PAGES
+          , SUM(color_usage * hp_share * ib)   AS HP_COLOR_PAGES
           , SUM(color_usage *
                 (1 - hp_share) *
-                ib)                            AS NON_HP_C_PAGES
-          , SUM(color_usage * ib)              AS TOTAL_C_PAGES
+                ib)                            AS NON_HP_COLOR_PAGES
+          , SUM(color_usage * ib)              AS TOTAL_COLOR_PAGES
           , SUM(k_usage * ib)                  AS TOTAL_K_PAGES
      FROM dmd_06_us_ib
      GROUP BY cal_date
@@ -261,7 +261,7 @@ WITH dmd_01_ib_load AS
           , units
           , version
      FROM dmd_07_calcs UNPIVOT (
-                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_C_PAGES, NON_HP_C_PAGES, TOTAL_C_PAGES, TOTAL_K_PAGES)
+                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_COLOR_PAGES, TOTAL_K_PAGES)
          ) AS final_unpivot)
 
 SELECT 'DEMAND'           AS record
@@ -302,7 +302,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2022.11.29.1'
+       AND ib.version = '2023.01.26.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -337,7 +337,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = '2022.12.16.1'
+       AND us.version = '2023.01.30.2'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -452,8 +452,8 @@ query_list.append(["scen.toner_demand", toner_demand, "overwrite"])
 
 toner_03_usage_share = """
 WITH override_filters  AS
-    (SELECT '2022.11.29.1'    AS ib_version
-          , '2022.12.16.1' AS us_version
+    (SELECT '2023.01.26.1'    AS ib_version
+          , '2023.01.30.2' AS us_version
      )
 
    , toner_usage_share AS
@@ -662,9 +662,9 @@ WITH pcm_02_hp_demand                                AS
             WHEN UPPER(d.measure) = 'HP_K_PAGES'
                 THEN units END) AS black_demand
           , MAX(CASE
-            WHEN UPPER(d.measure) = 'HP_C_PAGES'
+            WHEN UPPER(d.measure) = 'HP_COLOR_PAGES'
                 THEN units END) AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END *
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)              AS cmy_demand
      FROM scen.toner_03_usage_share AS d
      JOIN mdm.hardware_xref AS hw
@@ -1779,9 +1779,9 @@ WITH crg_months               AS
           , d.customer_engagement
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES'
                          THEN units END)                                      AS black_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES'
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES'
                          THEN units END)                                      AS color_demand
-          , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END *
+          , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)                                                            AS cmy_demand
      FROM scen.toner_03_usage_share AS d
      JOIN mdm.hardware_xref AS hw
@@ -2291,7 +2291,7 @@ group by cal_date,market10,platform_subset,base_product_number,customer_engageme
 )
 
 UPDATE scen.toner_07_page_cc_cartridges
-set imp_corrected_cartridges = ac.base_quantity, cartridges = ac.base_quantity
+set imp_corrected_cartridges = ac.base_quantity
 FROM scen.toner_07_page_cc_cartridges ccs
 INNER JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
 						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement
@@ -2317,15 +2317,15 @@ from ac_ce
 group by cal_date,market10,platform_subset,base_product_number,customer_engagement
 )
 
-UPDATE stage.page_cc_cartridges 
+UPDATE scen.toner_07_page_cc_cartridges 
 set imp_corrected_cartridges = 0, cartridges = 0
-FROM (select ccs.* from stage.page_cc_cartridges ccs
+FROM (select ccs.* from scen.toner_07_page_cc_cartridges ccs
 LEFT JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
 						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement 
 WHERE ccs.cal_date < (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1) 
 and ac.base_quantity is null) cc
-where stage.page_cc_cartridges.cal_date = cc.cal_date and stage.page_cc_cartridges.geography  = cc.geography  and stage.page_cc_cartridges.platform_subset = cc.platform_subset 
-and stage.page_cc_cartridges.base_product_number = cc.base_product_number and stage.page_cc_cartridges.customer_engagement = cc.customer_engagement
+where scen.toner_07_page_cc_cartridges.cal_date = cc.cal_date and scen.toner_07_page_cc_cartridges.geography  = cc.geography  and scen.toner_07_page_cc_cartridges.platform_subset = cc.platform_subset 
+and scen.toner_07_page_cc_cartridges.base_product_number = cc.base_product_number and scen.toner_07_page_cc_cartridges.customer_engagement = cc.customer_engagement
 """
 )
 

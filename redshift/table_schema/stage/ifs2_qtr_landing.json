@@ -1,0 +1,116 @@
+{
+    "fields": [
+        {
+            "description": "platform_subset",
+            "name": "platform_subset",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "customer_engagement",
+            "name": "customer_engagement",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "fiscal_yr",
+            "name": "fiscal_yr",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "fiscal_year_qtr",
+            "name": "fiscal_year_qtr",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "hw_units",
+            "name": "hw_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "ifs2_net_revenue",
+            "name": "ifs2_net_revenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "ifs2_contribution_margin",
+            "name": "ifs2_contribution_margin",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "ifs2_gross_margin",
+            "name": "ifs2_gross_margin",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "record",
+            "name": "record",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "load_date",
+            "name": "load_date",
+            "type": "TIMESTAMP WITH TIME ZONE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "baseprod_version",
+            "name": "baseprod_version",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "demand_version",
+            "name": "demand_version",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

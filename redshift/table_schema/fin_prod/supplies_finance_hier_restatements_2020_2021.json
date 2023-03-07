@@ -16,6 +16,13 @@
             "encode": "lzo"
         },
         {
+            "description": "pl",
+            "name": "pl",
+            "type": "VARCHAR(5)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
             "description": "market",
             "name": "market",
             "type": "VARCHAR(255)",

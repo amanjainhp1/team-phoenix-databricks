@@ -61,6 +61,7 @@ with adjusted_revenue_staging as
                  'NON-HQ'                          as hq_flag,
                  pl,
                  accounting_rate,
+                 embargoed_sanctioned_flag,
                  sum(net_revenue)                  as reported_revenue,
                  sum(net_hedge_benefit)            as hedge,
                  sum(currency_impact)              as currency,
@@ -89,6 +90,7 @@ with adjusted_revenue_staging as
                    geography,
                    geography_grain,
                    pl,
+                   embargoed_sanctioned_flag,
                    accounting_rate)
 
 select 'ACTUALS'                   as record_description,
@@ -99,6 +101,7 @@ select 'ACTUALS'                   as record_description,
        hq_flag,
        pl,
        accounting_rate,
+       embargoed_sanctioned_flag,
        sum(reported_revenue)       as reported_revenue,
        sum(hedge)                  as hedge,
        sum(currency)               as currency,
@@ -114,6 +117,7 @@ group by fiscal_year_qtr,
          geography_grain,
          hq_flag,
          pl,
+         embargoed_sanctioned_flag,
          accounting_rate
 """)
 
@@ -281,23 +285,28 @@ zero_history_data.createOrReplaceTempView("zero_history_data")
 
 cbm_ci_data = spark.sql("""
 with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet or "stock" item
-         (select fiscal_year_qtr,
+(select fiscal_year_qtr,
                  ar.geography,
+                 embargoed_sanctioned_flag,
                  pl,
                  sum(inventory_usd) as ci_dollars
           from fin_prod.adjusted_revenue_salesprod ar
                    join mdm.calendar cal
                         on ar.cal_date = cal.date
+                    join mdm.iso_country_code_xref iso
+                        on iso.country_alpha2 = ar.country_alpha2
           where 1 = 1
             and day_of_month = 1
-            and version = (select max(version) from fin_prod.adjusted_revenue_salesprod)
+            and ar.version = (select max(version) from fin_prod.adjusted_revenue_salesprod)
             and fiscal_month in ('3.0', '6.0', '9.0', '12.0') -- dropping to get end of quarter balance
           group by fiscal_year_qtr,
-                   ar.geography,
+                   ar.geography,                   
+                   embargoed_sanctioned_flag,
                    pl),
      ci_inventory_unadjusted as
          (select fiscal_year_qtr,
                  geography,
+                 embargoed_sanctioned_flag,
                  pl,
                  sum(ci_dollars) as ci_dollars
           from adjusted_revenue_staging_ci_inventory_balance
@@ -306,11 +315,12 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                            where pl_category = 'SUP'
                              and technology in ('INK', 'PWA'))
              or geography not in ('LATIN AMERICA', 'NORTH AMERICA')
-          group by fiscal_year_qtr, geography, pl),
+          group by fiscal_year_qtr, geography, embargoed_sanctioned_flag, pl),
      ci_inventory_ams_post_adustment_period as
          (select fiscal_year_qtr,
                  geography,
                  pl,
+                 embargoed_sanctioned_flag,
                  sum(ci_dollars) as ci_dollars
           from adjusted_revenue_staging_ci_inventory_balance
           where pl in (select distinct pl
@@ -319,7 +329,7 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                          and technology in ('INK', 'PWA'))
             and geography in ('LATIN AMERICA', 'NORTH AMERICA')
             and fiscal_year_qtr > '2021Q1'
-          group by fiscal_year_qtr, geography, pl),
+          group by fiscal_year_qtr, embargoed_sanctioned_flag, geography, pl),
      cbm_st_database2 as
          (select case
                      when data_type = 'ACTUALS' then 'ACTUALS - CBM_ST_BASE_QTY'
@@ -361,6 +371,7 @@ group by data_type, month, country_code, product_number, product_line_id, partne
     (
 select cal_date,
     market8 as geography,
+    embargoed_sanctioned_flag,
     pl,
     fiscal_year_qtr,
     sum (channel_inventory_usd) as channel_inventory_usd
@@ -376,63 +387,85 @@ where day_of_month = 1
   and region_3 = 'AMS'
   and fiscal_year_qtr <= '2021Q1'
   and market8 is not null
-group by fiscal_year_qtr, cal_date, market8, pl),
+group by fiscal_year_qtr, embargoed_sanctioned_flag, cal_date, market8, pl),
     americas_ink_media as
     (
 select fiscal_year_qtr,
     cal_date,
     geography,
+    embargoed_sanctioned_flag,
     pl,
     sum (channel_inventory_usd) as ci_usd,
     sum (channel_inventory_usd * 0.983) as finance_ink_ci
 from cbm_quarterly
-group by cal_date, geography, fiscal_year_qtr, pl),
+group by fiscal_year_qtr,
+    cal_date,
+    geography,
+    embargoed_sanctioned_flag,
+    pl),
     americas_ink_media2 as
     (
 select fiscal_year_qtr,
     cal_date,
     geography,
+    embargoed_sanctioned_flag,
     case
     when pl = 'AU' then '1N'
     else pl
     end as pl,
     sum (finance_ink_ci) as ci_dollars
 from americas_ink_media
-group by cal_date, geography, fiscal_year_qtr, pl
-        ),
+group by fiscal_year_qtr,
+    cal_date,
+    geography,
+    embargoed_sanctioned_flag,
+    pl),
     ci_inventory_adjusted as
     (select fiscal_year_qtr,
     geography,
+    embargoed_sanctioned_flag,
     pl,
     coalesce (sum (ci_dollars), 0) as ci_dollars
 from americas_ink_media2
-group by fiscal_year_qtr, geography, pl),
+group by fiscal_year_qtr, embargoed_sanctioned_flag, geography, pl),
     ci_inventory_fully_adjusted as
     (
 select fiscal_year_qtr,
     geography,
     pl,
+    embargoed_sanctioned_flag,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_unadjusted
-group by fiscal_year_qtr, geography, pl
+group by fiscal_year_qtr,
+    geography,
+    pl,
+    embargoed_sanctioned_flag
 
 union all
 
 select fiscal_year_qtr,
     geography,
     pl,
+    embargoed_sanctioned_flag,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_ams_post_adustment_period
-group by fiscal_year_qtr, geography, pl
+group by fiscal_year_qtr,
+    geography,
+    pl,
+    embargoed_sanctioned_flag
 
 union all
 
 select fiscal_year_qtr,
     geography,
     pl,
+    embargoed_sanctioned_flag,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_adjusted
-group by fiscal_year_qtr, geography, pl),
+group by fiscal_year_qtr,
+    geography,
+    pl,
+    embargoed_sanctioned_flag),
 
     region_table as
     (
@@ -456,6 +489,7 @@ where 1 = 1
 select fiscal_year_qtr,
     ci.geography,
     region_3,
+    embargoed_sanctioned_flag,
     ci.pl,
     technology,
     coalesce (sum (ci_dollars), 0) as ci_dollars
@@ -463,12 +497,18 @@ from ci_inventory_fully_adjusted ci
     left join mdm.product_line_xref plx
 on ci.pl = plx.pl
     left join region_table iso on iso.geography = ci.geography
-group by fiscal_year_qtr, ci.geography, ci.pl, technology, region_3),
+group by fiscal_year_qtr,
+    ci.geography,
+    region_3,
+    embargoed_sanctioned_flag,
+    ci.pl,
+    technology),
     ci_inventory_fully_adjusted3 as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
+    embargoed_sanctioned_flag,
     pl,
     case
     when technology = 'PWA' then 'INK'
@@ -476,43 +516,62 @@ select fiscal_year_qtr,
     end as technology,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_fully_adjusted2
-group by fiscal_year_qtr, geography, pl, technology, region_3),
+group by fiscal_year_qtr,
+    geography,
+    region_3,
+    embargoed_sanctioned_flag,
+    pl,
+    technology),
     ci_inventory_fully_adjusted4 as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
     pl,
+    embargoed_sanctioned_flag,
     technology,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_fully_adjusted3
 where region_3 <> 'EMEA'
    or technology <> 'INK'
    or fiscal_year_qtr <> '2018Q2'
-group by fiscal_year_qtr, geography, pl, technology, region_3),
+group by fiscal_year_qtr,
+    geography,
+    region_3,
+    pl,
+    embargoed_sanctioned_flag,
+    technology),
     market_ci_mix as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
     pl,
+    embargoed_sanctioned_flag,
     technology,
     case
     when sum (ci_dollars) over (partition by fiscal_year_qtr, region_3, technology) = 0 then null
     else ci_dollars / sum (ci_dollars) over (partition by fiscal_year_qtr, region_3, technology)
     end as market_mix
 from ci_inventory_fully_adjusted3 ci
-group by fiscal_year_qtr, geography, pl, technology, region_3, ci_dollars),
+group by fiscal_year_qtr,
+    geography,
+    region_3,
+    pl,
+    embargoed_sanctioned_flag,
+    technology,
+    ci_dollars),
     market_ci_mix2 as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
+    embargoed_sanctioned_flag,
     pl,
     technology,
     coalesce (sum (market_mix), 0) as market_mix
 from market_ci_mix
-group by fiscal_year_qtr, geography, pl, technology, region_3),
+group by fiscal_year_qtr, embargoed_sanctioned_flag, geography, pl, technology, region_3),
     finance_source_ci as
     (
 select fiscal_year_qtr,
@@ -531,6 +590,7 @@ select ci.fiscal_year_qtr,
     geography,
     ci.region_3,
     pl,
+    embargoed_sanctioned_flag,
     ci.technology,
     sum (finance_reported_ci * coalesce (market_mix, 0)) as ci_dollars
 from finance_source_ci ci
@@ -541,29 +601,31 @@ on
     ci.technology = mix.technology
 where 1 = 1
   and geography is not null
-group by ci.fiscal_year_qtr, ci.region_3, ci.technology, pl, geography),
+group by ci.fiscal_year_qtr, ci.region_3, ci.technology, pl, embargoed_sanctioned_flag, geography),
     finance_official_ci2 as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
+    embargoed_sanctioned_flag,
     pl,
     technology,
     sum (ci_dollars) as ci_dollars
 from finance_official_ci
 where 1 = 1
   and ci_dollars <> 0
-group by fiscal_year_qtr, region_3, technology, pl, geography),
+group by fiscal_year_qtr, region_3, embargoed_sanctioned_flag,technology, pl, geography),
     final_official_ci as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
     pl,
+    embargoed_sanctioned_flag,
     technology,
     sum (ci_dollars) as ci_dollars
 from finance_official_ci2
-group by fiscal_year_qtr, region_3, technology, pl, geography
+group by fiscal_year_qtr, region_3, technology, embargoed_sanctioned_flag, pl, geography
 
 union all
 
@@ -571,16 +633,18 @@ select fiscal_year_qtr,
     geography,
     region_3,
     pl,
+    embargoed_sanctioned_flag,
     technology,
     sum (ci_dollars) as ci_dollars
 from ci_inventory_fully_adjusted4
 where fiscal_year_qtr > '2017Q4'
-group by fiscal_year_qtr, region_3, technology, pl, geography),
+group by fiscal_year_qtr, region_3, technology, embargoed_sanctioned_flag, pl, geography),
     final_official_ci2 as
     (
 select fiscal_year_qtr,
     geography,
     region_3,
+    embargoed_sanctioned_flag,
     pl,
     technology,
     coalesce (sum (ci_dollars), 0) as ci_dollars
@@ -590,14 +654,15 @@ where fiscal_year_qtr not in (select distinct fiscal_year_qtr
     where net_revenue <> 0
   and version =
     (select max (version) from fin_prod.supplies_finance_flash))
-group by fiscal_year_qtr, region_3, technology, pl, geography)
+group by fiscal_year_qtr, region_3, technology, pl, embargoed_sanctioned_flag, geography)
 select fiscal_year_qtr,
        geography,
+       embargoed_sanctioned_flag,
        pl,
        'ACTUALS'       as record_description,
        sum(ci_dollars) as cbm_ci_dollars
 from final_official_ci2
-group by fiscal_year_qtr, geography, pl
+group by fiscal_year_qtr, geography, pl, embargoed_sanctioned_flag
 """)
 
 cbm_ci_data.createOrReplaceTempView("cbm_ci_data")
@@ -612,6 +677,7 @@ with adjusted_revenue_flash as
                  hq_flag,
                  pl,
                  record_description,
+                 embargoed_sanctioned_flag,
                  sum(reported_revenue)       as reported_revenue,
                  sum(hedge)                  as hedge,
                  sum(currency)               as currency,
@@ -627,6 +693,7 @@ with adjusted_revenue_flash as
                    geography,
                    hq_flag,
                    record_description,
+                   embargoed_sanctioned_flag,
                    pl
 
           union all
@@ -637,6 +704,7 @@ with adjusted_revenue_flash as
                  hq_flag,
                  pl,
                  record_description,
+                 'N' as embargoed_sanctioned_flag,
                  sum(reported_revenue)       as reported_revenue,
                  sum(hedge)                  as hedge,
                  sum(currency)               as currency,
@@ -662,6 +730,7 @@ with adjusted_revenue_flash as
                  hq_flag,
                  pl,
                  record_description,
+                 'N' as embargoed_sanctioned_flag,
                  sum(reported_revenue)       as reported_revenue,
                  sum(hedge)                  as hedge,
                  sum(currency)               as currency,
@@ -687,6 +756,7 @@ with adjusted_revenue_flash as
                  'NON-HQ'            as hq_flag,
                  pl,
                  record_description,
+                 embargoed_sanctioned_flag,
                  0                   as reported_revenue,
                  0                   as hedge,
                  0                   as currency,
@@ -706,6 +776,7 @@ with adjusted_revenue_flash as
                    fiscal_yr,
                    geography,
                    record_description,
+                   embargoed_sanctioned_flag,
                    pl),
      adjusted_revenue_flash2 as
          (select cal.date                                 as cal_date,
@@ -715,6 +786,7 @@ with adjusted_revenue_flash as
                  hq_flag,
                  pl,
                  record_description,
+                 embargoed_sanctioned_flag,
                  coalesce(sum(reported_revenue), 0)       as reported_revenue,
                  coalesce(sum(hedge), 0)                  as hedge,
                  coalesce(sum(currency), 0)               as currency,
@@ -736,6 +808,7 @@ with adjusted_revenue_flash as
                    geography,
                    hq_flag,
                    record_description,
+                   embargoed_sanctioned_flag,
                    pl)
 
 select cal_date,
@@ -745,6 +818,7 @@ select cal_date,
        hq_flag,
        pl,
        record_description,
+       embargoed_sanctioned_flag,
        sum(reported_revenue)       as reported_revenue,
        sum(hedge)                  as hedge,
        sum(currency)               as currency,
@@ -761,6 +835,7 @@ group by cal_date,
          geography,
          hq_flag,
          record_description,
+         embargoed_sanctioned_flag,
          pl
 """)
 
@@ -787,6 +862,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -806,7 +882,8 @@ select distinct d.cal_date,
     d.fiscal_year_qtr,
     geography,
     pl,
-    hq_flag
+    hq_flag,
+    embargoed_sanctioned_flag
 from date_helper d
     cross join yoy_analytic_setup ar
 where d.cal_date between ar.min_cal_date
@@ -818,6 +895,7 @@ select c.cal_date,
     coalesce (c.geography, s.geography) as geography,
     coalesce (c.pl, s.pl) as pl,
     coalesce (c.hq_flag, s.hq_flag) as hq_flag,
+    coalesce (c.embargoed_sanctioned_flag, s.embargoed_sanctioned_flag) as embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -835,6 +913,7 @@ on
     c.fiscal_year_qtr = s.fiscal_year_qtr and
     c.geography = s.geography and
     c.pl = s.pl and
+    c.embargoed_sanctioned_flag = s.embargoed_sanctioned_flag and
     c.hq_flag = s.hq_flag)
     , fill_gap2 as
     (
@@ -844,6 +923,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     coalesce (sum (reported_revenue), 0) as reported_revenue,
     coalesce (sum (hedge), 0) as hedge,
     coalesce (sum (currency), 0) as currency,
@@ -857,7 +937,7 @@ select cal_date,
 from fill_gap1
 where 1=1
 and fiscal_year_qtr in (select distinct fiscal_year_qtr from adjusted_revenue_data)
-group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag)
+group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag, embargoed_sanctioned_flag)
 , fill_gap3 as
     (
 select cal_date,
@@ -866,6 +946,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     coalesce (sum (reported_revenue), 0) as reported_revenue,
     coalesce (sum (hedge), 0) as hedge,
     coalesce (sum (currency), 0) as currency,
@@ -879,7 +960,7 @@ select cal_date,
 from fill_gap1
 where 1=1
 and fiscal_year_qtr in (select distinct fiscal_year_qtr from flash_data)
-group by cal_date, fiscal_year_qtr, geography, pl, record_description, hq_flag)
+group by cal_date, fiscal_year_qtr, geography, pl, record_description, embargoed_sanctioned_flag, hq_flag)
 , fill_gap4 as
     (
 select cal_date,
@@ -888,6 +969,7 @@ select cal_date,
     pl,
     'ACTUALS' as record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -908,6 +990,7 @@ select cal_date,
     pl,
     'FLASH' as record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -928,6 +1011,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     reported_revenue,
     hedge,
     currency,
@@ -949,6 +1033,7 @@ select cal_date,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     coalesce (sum (reported_revenue), 0) as reported_revenue,
     coalesce (sum (hedge), 0) as hedge,
     coalesce (sum (currency), 0) as currency,
@@ -959,7 +1044,7 @@ select cal_date,
     coalesce (sum (total_inventory_impact), 0) as total_inventory_impact,
     coalesce (sum (adjusted_revenue), 0) as adjusted_revenue
 from adjusted_rev_staging_time_series ar
-group by cal_date, geography, pl, fiscal_year_qtr, record_description, hq_flag)
+group by cal_date, geography, pl, fiscal_year_qtr, record_description, hq_flag, embargoed_sanctioned_flag)
         , adjusted_revenue_quarterly as
     (
 select fiscal_year_qtr,
@@ -967,6 +1052,7 @@ select fiscal_year_qtr,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     sum (reported_revenue) as reported_revenue,
     sum (hedge) as hedge,
     sum (currency) as currency,
@@ -977,7 +1063,7 @@ select fiscal_year_qtr,
     sum (total_inventory_impact) as total_inventory_impact,
     sum (adjusted_revenue) as adjusted_revenue
 from adjusted_revenue_full_calendar
-group by fiscal_year_qtr, geography, pl, record_description, hq_flag)
+group by fiscal_year_qtr, geography, pl, record_description, hq_flag, embargoed_sanctioned_flag)
         , adjusted_revenue_staging_lagged as
     (
 select fiscal_year_qtr,
@@ -985,6 +1071,7 @@ select fiscal_year_qtr,
     pl,
     record_description,
     hq_flag,
+    embargoed_sanctioned_flag,
     sum (reported_revenue) as reported_revenue,
     sum (hedge) as hedge,
     sum (currency) as currency,
@@ -995,37 +1082,38 @@ select fiscal_year_qtr,
     sum (total_inventory_impact) as total_inventory_impact,
     sum (adjusted_revenue) as adjusted_revenue,
     lag(coalesce (sum (reported_revenue), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_rept_revenue,      -- needs to be a full year lag
     lag(coalesce (sum (hedge), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_hedge,
     lag(coalesce (sum (currency), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_currency,
     lag(coalesce (sum (revenue_in_cc), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as prior_yr_revenue_in_cc,
     lag(coalesce (sum (inventory_change), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as inventory_change_prior_year,
     lag(coalesce (sum (ci_currency_impact), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as ci_currency_impact_prior_year,
     lag(coalesce (sum (total_inventory_impact), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as total_inventory_impact_prior_year,
     lag(coalesce (sum (adjusted_revenue), 0), 4) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as adjusted_revenue_prior_year,
     lag(coalesce (sum (cbm_ci_dollars), 0), 1) over
-    (partition by geography, pl
+    (partition by geography, pl, embargoed_sanctioned_flag
     order by fiscal_year_qtr) as cbm_ci_dollars_prior_period -- prior period (a.k.a., quarter) lag
 from adjusted_revenue_quarterly
 group by fiscal_year_qtr,
     geography,
     pl,
     record_description,
+    embargoed_sanctioned_flag,
     hq_flag)
 
 select fiscal_year_qtr,
@@ -1033,6 +1121,7 @@ select fiscal_year_qtr,
        ar.pl,
        ar.record_description,
        hq_flag,
+       embargoed_sanctioned_flag,
        coalesce
            (sum(reported_revenue), 0)
                                                            as reported_revenue,
@@ -1058,6 +1147,7 @@ group by fiscal_year_qtr,
          geography,
          ar.pl,
          record_description,
+         embargoed_sanctioned_flag,
          hq_flag
 """)
 
@@ -1116,6 +1206,7 @@ select record_description,
     mdb.pl,
     l5_description,
     technology,
+    embargoed_sanctioned_flag,
     sum (reported_revenue) as reported_revenue,
     sum (hedge) as hedge,
     sum (currency) as currency,
@@ -1153,6 +1244,7 @@ group by cal.date,
     fiscal_yr,
     l5_description,
     record_description,
+    embargoed_sanctioned_flag,
     technology)
 
 select 'ADJUSTED REVENUE PLUS FLASH'                                               as record,
@@ -1188,6 +1280,7 @@ select 'ADJUSTED REVENUE PLUS FLASH'                                            
        pl,
        l5_description,
        technology,
+       embargoed_sanctioned_flag,
        (select accounting_rate from accounting_rate_applied)                       as accounting_rate,
        sum(reported_revenue)                                                       as reported_revenue,
        sum(hedge)                                                                  as hedge,
@@ -1232,6 +1325,7 @@ group by record_description,
          pl,
          l5_description,
          technology,
+         embargoed_sanctioned_flag,
          fiscal_yr
 """)
 
@@ -1254,6 +1348,7 @@ select record,
        l5_description,
        technology,
        accounting_rate,
+      -- embargoed_sanctioned_flag,
        sum(reported_revenue)              as reported_revenue,
        sum(hedge)                         as hedge,
        sum(currency)                      as currency,
@@ -1290,14 +1385,18 @@ group by record,
          technology,
          fiscal_yr,
          accounting_rate,
+       --  embargoed_sanctioned_flag,
          official,
          load_date,
          version
 """)
 
+#adj_rev_flash.createOrReplaceTempView("adj_rev_flash")
 write_df_to_redshift(configs, adj_rev_flash, "fin_prod.adjusted_revenue_flash", "append")
 
 # COMMAND ----------
+
+import re
 
 tables = [
     ['fin_prod.adjusted_revenue_flash', adj_rev_flash, 'overwrite']
@@ -1319,7 +1418,7 @@ for table in tables:
     renamed_df.write \
       .format(write_format) \
       .mode(mode) \
-      .option("mergeSchema", "true")\
+      .option("overwriteSchema", "true")\
       .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")

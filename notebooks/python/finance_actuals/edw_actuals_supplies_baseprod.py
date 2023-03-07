@@ -149,7 +149,7 @@ SELECT
 FROM working_forecast
 WHERE version = (select max(version) from working_forecast)
     AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod) 
-    AND adjusted_cartridges <> 0
+    AND adjusted_cartridges > 0
     AND geography_grain = 'MARKET10'
 GROUP BY 
     cal_date,
@@ -196,7 +196,7 @@ LEFT JOIN iso_country_code_xref iso
     ON ib.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 --AND ib.version = (select max(version) from ib where record = 'IB' AND official = 1)
-AND units <> 0
+AND units > 0
 AND units IS NOT NULL
 AND cal_date <= (SELECT MAX(cal_date) FROM edw_actuals_supplies_salesprod)
 GROUP BY
@@ -932,32 +932,6 @@ planet_data = spark.sql(planet_data)
 planet_data.createOrReplaceTempView("planet_data")
 
 
-planet_data_2023_restatements = f"""
-SELECT cal_date,
-    Fiscal_Yr,
-    region_5,
-    CASE
-        WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
-        --WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL' -- will get overridden by prior restatements; need to implement later down
-        WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
-        ELSE pl
-    END AS pl,
-    SUM(p_gross_revenue) AS p_gross_revenue,
-    SUM(p_net_currency) AS p_net_currency,
-    SUM(p_contractual_discounts) AS p_contractual_discounts,
-    SUM(p_discretionary_discounts) AS p_discretionary_discounts,
-    SUM(p_net_revenue) AS p_net_revenue,
-    SUM(p_warranty) AS p_warranty,
-    SUM(p_total_cos) AS p_total_cos,
-    SUM(p_gross_profit) AS p_gross_profit
-FROM planet_data
-GROUP BY cal_date, region_5, pl, Fiscal_Yr
-"""
-
-planet_data_2023_restatements = spark.sql(planet_data_2023_restatements)
-planet_data_2023_restatements.createOrReplaceTempView("planet_data_2023_restatements")
-
-
 planet_system_targets = f"""
 SELECT cal_date,
     Fiscal_Yr,
@@ -975,7 +949,7 @@ SELECT cal_date,
     SUM(p_total_cos) - SUM(p_warranty) AS p_other_cos,
     SUM(p_total_cos) AS p_total_cos,
     SUM(p_gross_profit) AS p_gross_profit
-FROM planet_data_2023_restatements
+FROM planet_data
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
 
@@ -1036,12 +1010,11 @@ FROM calendar_table
 calendar_table2 = spark.sql(calendar_table2)
 calendar_table2.createOrReplaceTempView("calendar_table2")
 
+#2022 restatements
 incremental_data_raw = f"""
 SELECT 
-	CASE
-        WHEN l6_description = 'A3 LASER SUPPLIES' THEN 'A3 LASER S-PRINT SUPPLIES'
-        ELSE l6_description
-    END AS l6_description,
+	pl,
+    l6_description,
 	CASE	
 		WHEN market = 'AMERICAS HQ' THEN 'NORTH AMERICA'
 		WHEN market = 'APJ HQ L2' THEN 'GREATER ASIA'
@@ -1065,7 +1038,7 @@ SELECT
 	SUM(COALESCE(total_cost_of_sales,0)) as total_cos,
 	SUM(COALESCE(net_revenues, 0) - COALESCE(total_cost_of_sales, 0)) as gross_profit
 FROM supplies_finance_hier_restatements_2020_2021
-GROUP BY market, l6_description, sacp_date_period
+GROUP BY market, l6_description, sacp_date_period, pl
 """
 
 incremental_data_raw = spark.sql(incremental_data_raw)
@@ -1095,7 +1068,6 @@ SELECT
 	SUM(gross_profit) AS p_gross_profit
 FROM incremental_data_raw r 
 left join calendar_table2 cal ON r.sacp_fiscal_period = cal.sacp_fiscal_period
-left join product_line_xref plx ON r.l6_description = plx.L6_Description
 WHERE 1=1
 GROUP BY cal_date, market10, fiscal_yr, pl
 """
@@ -1105,7 +1077,7 @@ incremental_data.createOrReplaceTempView("incremental_data")
 
 
 #restated targets
-planet_targets_restated = f"""
+planet_targets_2022_restatements = f"""
 SELECT cal_date,
 	Fiscal_Yr,
 	region_5,
@@ -1141,11 +1113,9 @@ FROM incremental_data
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
 
-planet_targets_restated = spark.sql(planet_targets_restated)
-planet_targets_restated.createOrReplaceTempView("planet_targets_restated")
+planet_targets_2022_restatements = spark.sql(planet_targets_2022_restatements)
+planet_targets_2022_restatements.createOrReplaceTempView("planet_targets_2022_restatements")
 
-
-#new_planet_targets
 
 planet_targets = f"""
 SELECT cal_date,
@@ -1161,7 +1131,7 @@ SELECT cal_date,
 	COALESCE(SUM(p_other_cos), 0) AS p_other_cos,
 	COALESCE(SUM(p_total_cos), 0) AS p_total_cos,
 	COALESCE(SUM(p_gross_profit), 0) AS p_gross_profit
-FROM planet_targets_restated
+FROM planet_targets_2022_restatements
 GROUP BY cal_date, region_5, pl, Fiscal_Yr
 """
 
@@ -1170,12 +1140,14 @@ planet_targets.createOrReplaceTempView("planet_targets")
 
 
 planet_targets_2023_restatements = f"""
--- 2023 finance hierarchy restatements (part 2) -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
+-- 2023 finance hierarchy restatements  -- have to do here because EO to GL was impacted by the FY22 restatements (impacting FY20 and FY21)
 SELECT cal_date,
     Fiscal_Yr,
     region_5,
     CASE
+      WHEN cal_date > '2020-10-01' AND pl = 'GM' THEN 'K6'
       WHEN cal_date > '2020-10-01' AND pl = 'EO' THEN 'GL'
+      WHEN cal_date > '2020-10-01' AND pl = '65' THEN 'UD'
       ELSE pl
     END AS pl,    
     SUM(p_gross_revenue) AS p_gross_revenue,
@@ -1193,6 +1165,28 @@ GROUP BY cal_date, region_5, pl, Fiscal_Yr
 
 planet_targets_2023_restatements = spark.sql(planet_targets_2023_restatements)
 planet_targets_2023_restatements.createOrReplaceTempView("planet_targets_2023_restatements")
+
+
+planet_targets_post_restatements = f"""
+SELECT cal_date,
+    Fiscal_Yr,
+    region_5,
+    pl,    
+    SUM(p_gross_revenue) AS p_gross_revenue,
+	SUM(p_net_currency) AS p_net_currency,
+	SUM(p_contractual_discounts) AS p_contractual_discounts,
+	SUM(p_discretionary_discounts) AS p_discretionary_discounts,
+	SUM(p_net_revenue) AS p_net_revenue,
+	SUM(p_warranty) AS p_warranty,
+	SUM(p_other_cos) AS p_other_cos,
+	SUM(p_total_cos) AS p_total_cos,
+	SUM(p_gross_profit) AS p_gross_profit
+FROM planet_targets_2023_restatements            
+GROUP BY cal_date, region_5, pl, Fiscal_Yr
+"""
+
+planet_targets_post_restatements = spark.sql(planet_targets_post_restatements)
+planet_targets_post_restatements.createOrReplaceTempView("planet_targets_post_restatements")
 
 # COMMAND ----------
 
@@ -1248,7 +1242,7 @@ SELECT
 	COALESCE(SUM(p_total_cos), 0) AS p_total_cos,
 	COALESCE(SUM(p_gross_profit), 0) AS p_gross_profit
 FROM baseprod_prep_for_planet_targets AS bp 
-LEFT JOIN planet_targets_2023_restatements AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr)
+LEFT JOIN planet_targets_post_restatements AS p ON (bp.cal_date = p.cal_date AND bp.region_5 = p.region_5 AND bp.pl = p.pl AND bp.Fiscal_Yr = p.Fiscal_Yr)
 GROUP BY bp.cal_date, bp.region_5, bp.pl, bp.Fiscal_Yr
 """
 

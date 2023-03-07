@@ -157,7 +157,7 @@ SELECT user_name
 ------------------------------------LOAD WORKING FORECAST TO PROD-------------------
 
 
-  INSERT INTO prod.working_forecast_usage_share
+  INSERT INTO scen.working_forecast_usage_share
 (
        user_name
       ,load_date

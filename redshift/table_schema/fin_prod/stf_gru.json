@@ -1,0 +1,53 @@
+{
+    "fields": [
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(255)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_line_code",
+            "name": "base_product_line_code",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(255)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "cal_date",
+            "name": "cal_date",
+            "type": "DATE",
+            "nullable": false,
+            "encode": "az64"
+        },
+        {
+            "description": "baseprod_gru",
+            "name": "baseprod_gru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

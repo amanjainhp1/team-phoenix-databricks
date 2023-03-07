@@ -741,7 +741,7 @@ WITH shm_07_geo_1_host AS
                    , shm.host_multiplier
      FROM shm_08_map_geo_host AS shm
      WHERE 1 = 1
-       AND shm.customer_engagement = 'TRAD')
+       )
 
 , hostadj_02_norm_ships_r5 AS
     (SELECT ns.cal_date
@@ -752,14 +752,15 @@ WITH shm_07_geo_1_host AS
           , SUM(ns.units)                       AS ns_units
           , shm.host_multiplier
           , SUM(ns.units * shm.host_multiplier) AS host_units
-     FROM prod.norm_shipments AS ns
+     FROM prod.norm_shipments_ce AS ns
               JOIN mdm.iso_country_code_xref AS iso
                    ON UPPER(iso.country_alpha2) = ns.country_alpha2 -- region_5
               JOIN hostadj_01_shm_host_mult AS shm
                    ON UPPER(shm.geography) = UPPER(iso.region_5)
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
+                       AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments_ce)
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -783,7 +784,7 @@ WITH shm_07_geo_1_host AS
             OVER (PARTITION BY ns.cal_date, cc.country_level_1, ns.platform_subset, shm.base_product_number, shm.customer_engagement) AS ns_units_r8
           , SUM(ns.units * shm.host_multiplier)
             OVER (PARTITION BY ns.cal_date, cc.country_level_1, ns.platform_subset, shm.base_product_number, shm.customer_engagement) AS host_units_r8
-     FROM prod.norm_shipments AS ns
+     FROM prod.norm_shipments_ce AS ns
               JOIN mdm.iso_cc_rollup_xref AS cc
                    ON UPPER(cc.country_alpha2) = UPPER(ns.country_alpha2)
               JOIN mdm.iso_country_code_xref AS iso
@@ -791,8 +792,9 @@ WITH shm_07_geo_1_host AS
               JOIN hostadj_01_shm_host_mult AS shm
                    ON UPPER(shm.geography) = UPPER(cc.country_level_1) -- region_8
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
+                       AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments_ce)
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -825,14 +827,15 @@ WITH shm_07_geo_1_host AS
           , SUM(ns.units)                       AS ns_units
           , shm.host_multiplier
           , SUM(ns.units * shm.host_multiplier) AS host_units
-     FROM prod.norm_shipments AS ns
+     FROM prod.norm_shipments_ce AS ns
               JOIN mdm.iso_country_code_xref AS iso
                    ON UPPER(iso.country_alpha2) = UPPER(ns.country_alpha2) -- to get market10
               JOIN hostadj_01_shm_host_mult AS shm
                    ON UPPER(shm.geography) = UPPER(iso.market10)
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
+                       AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments)
+       AND ns.version = (SELECT MAX(version) FROM prod.norm_shipments_ce)
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -957,7 +960,7 @@ WITH wel_01_stf_enroll AS
                         ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
        AND ib.version = (SELECT MAX(version) FROM prod.ib)
-       AND ib.cal_date > CAST('2022-10-01' AS DATE)
+       AND ib.cal_date > CAST('2023-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
 
@@ -1128,10 +1131,10 @@ WITH vtc_01_analytic_cartridges AS
           , ac.welcome_kits
           , ac.imp
           , COALESCE(SUM(ac.imp_corrected_cartridges)
-                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number),
+                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
                      0) /
             NULLIF(SUM(ac.expected_crgs)
-                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number),
+                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
                    0) AS vtc
      FROM c2c_vtc_04_expected_crgs AS ac)
 
@@ -1153,7 +1156,7 @@ WITH vtc_01_analytic_cartridges AS
                    , base_product_number
                    , customer_engagement
                    , COUNT(cal_date)
-                     OVER (PARTITION BY geography, base_product_number) AS vol_count -- count of months with volume
+                     OVER (PARTITION BY geography, base_product_number,platform_subset,customer_engagement) AS vol_count -- count of months with volume
      FROM c2c_vtc_05_vtc_calc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
@@ -1181,7 +1184,7 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.vtc
           , vol_counts.vol_count
           , MAX(vtcc.cal_date)
-            OVER (PARTITION BY vtcc.geography, vtcc.base_product_number) AS max_cal_date
+            OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
               LEFT JOIN c2c_vtc_06_vol_count AS vol_counts

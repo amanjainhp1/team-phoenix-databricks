@@ -277,9 +277,6 @@ odw_dollars_raw = f"""
       ,SUM(warr) * -1 as warranty
       ,SUM(total_cost_of_sales_usd) * -1 as total_cos
       ,SUM(gross_margin_usd) as gross_profit
-        ,SUM(gross_trade_revenues_usd) + SUM(net_currency_usd) + SUM(contractual_discounts_usd) +
-        SUM(discretionary_discounts_usd) + SUM(net_revenues_usd) + SUM(warr) + SUM(total_cost_of_sales_usd) +
-        SUM(gross_margin_usd) as totals
   FROM odw_report_rac_product_financials_actuals land
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
@@ -324,7 +321,7 @@ SELECT
     SUM(total_cos) - SUM(warranty) as total_cos_without_warranty
 FROM odw_dollars_raw odw
 LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
-WHERE totals <> 0
+WHERE 1=1
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
@@ -498,7 +495,6 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM final_findata edw
 WHERE 1=1
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
@@ -3412,7 +3408,7 @@ estimated_mps_revenue = f"""
 SELECT 
     cal_date,
     CASE
-        WHEN country_alpha2 = 'XS' THEN 'RU'
+        WHEN country_alpha2 = 'XS' THEN 'CZ'
         WHEN country_alpha2 = 'XW' THEN 'US'
         ELSE country_alpha2
     END AS country_alpha2,
@@ -3954,11 +3950,28 @@ salesprod_edw_spread.createOrReplaceTempView("salesprod_edw_spread")
 
 # COMMAND ----------
 
+rdma_correction_2023_restatements = f"""
+SELECT 
+    sales_product_number,
+    CASE
+      WHEN sales_product_line_code = '65' THEN 'UD'
+      WHEN sales_product_line_code = 'EO' THEN 'GL'
+      WHEN sales_product_line_code = 'GM' THEN 'K6'
+      ELSE sales_product_line_code
+    END AS sales_product_line_code
+FROM rdma_base_to_sales_product_map
+WHERE 1=1
+"""
+
+rdma_correction_2023_restatements = spark.sql(rdma_correction_2023_restatements)
+rdma_correction_2023_restatements.createOrReplaceTempView("rdma_correction_2023_restatements")
+
+
 rdma_updated_sku_PLs = f"""
 SELECT 
     DISTINCT sales_product_number,
     sales_product_line_code
-FROM rdma_base_to_sales_product_map
+FROM rdma_correction_2023_restatements
 WHERE 1=1
 """
 
@@ -4025,7 +4038,12 @@ SELECT cal_date,
     country_alpha2,
     region_5,
     edw_recorded_pl,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'GM' THEN 'K6'
+        WHEN pl = 'EO' THEN 'GL'
+        ELSE pl
+    END AS pl,
     sales_product_number,
     ce_split,
     SUM(gross_revenue) AS gross_revenue,
@@ -5335,12 +5353,18 @@ emea_salesprod_xcode_adjusted2.createOrReplaceTempView("emea_salesprod_xcode_adj
 
 # COMMAND ----------
 
-edw_document_currency_raw = f"""
+edw_document_currency_2023_restatements = f"""
+-- restatements should not apply to future, monthly periods
 SELECT
     cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
-    pl,
+    CASE
+        WHEN pl = '65' THEN 'UD'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
     country_alpha2,
     region_5,
     document_currency_code,
@@ -5353,6 +5377,30 @@ WHERE 1=1
     AND cal_date > '2021-10-01'
     AND day_of_month = 1
     AND cal_date = (SELECT MAX(cal_date) FROM odw_document_currency)
+GROUP BY cal_date,
+    Fiscal_year_qtr,
+    Fiscal_yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code
+"""
+
+edw_document_currency_2023_restatements = spark.sql(edw_document_currency_2023_restatements)
+edw_document_currency_2023_restatements.createOrReplaceTempView("edw_document_currency_2023_restatements")
+
+
+edw_document_currency_raw = f"""
+SELECT
+    cal_date,
+    Fiscal_year_qtr,
+    Fiscal_yr,
+    pl,
+    country_alpha2,
+    region_5,
+    document_currency_code,
+    SUM(revenue) AS revenue
+FROM edw_document_currency_2023_restatements
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
@@ -6384,7 +6432,6 @@ SELECT
 FROM xcode_adjusted_data2
 WHERE 1=1
 AND total_sums <> 0
-AND country_alpha2 NOT IN ('BY', 'RU', 'CU', 'IR', 'KP', 'SY')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 

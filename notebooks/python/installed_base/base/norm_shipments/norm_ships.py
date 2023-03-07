@@ -432,7 +432,7 @@ WHERE 1=1
     , ns.country_alpha2
     , ns.platform_subset
     , ns.month_begin
-    , COALESCE(ce.split_name, 'TRAD') AS split_name
+    , CASE WHEN ns.platform_subset LIKE '%PAAS%' THEN COALESCE(ce.split_name, 'I-INK') ELSE COALESCE(ce.split_name, 'TRAD') END AS split_name
     , COALESCE(ce.value, 1.0) AS split_value
     , ns.units * COALESCE(ce.value, 1.0) AS units
 FROM ib_03_norm_shipments_agg AS ns
@@ -476,3 +476,25 @@ query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+# MAGIC %run "../../../common/configs"
+
+# COMMAND ----------
+
+# MAGIC %run ../../../common/database_utils
+
+# COMMAND ----------
+
+# copy from stage to scen
+submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_ships; CREATE TABLE scen.prelim_norm_ships AS SELECT * FROM stage.norm_ships;")
+
+# COMMAND ----------
+
+# copy from stage to scen
+submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_shipments_ce; CREATE TABLE scen.prelim_norm_shipments_ce AS SELECT * FROM stage.norm_shipments_ce;")
+
+# COMMAND ----------
+
+

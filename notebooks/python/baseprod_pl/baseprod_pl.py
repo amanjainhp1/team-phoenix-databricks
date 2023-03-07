@@ -24,7 +24,7 @@ query_list = []
 currency_hedge_version = dbutils.widgets.get("currency_hedge_version")
 if currency_hedge_version == "":
     currency_hedge_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM prod.currency_hedge") \
+        .option("query", "SELECT MAX(version) FROM fin_prod.currency_hedge") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
@@ -77,10 +77,13 @@ forecast_fixed_cost_input = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.forecast_fixed_cost_input") \
     .load()
 currency_hedge = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.currency_hedge") \
+    .option("dbtable", "fin_prod.currency_hedge") \
     .load()
 product_line_scenarios_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_scenarios_xref") \
+    .load()
+product_line_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.product_line_xref") \
     .load()
 forecast_variable_cost_ink = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.forecast_variable_cost_ink") \
@@ -112,7 +115,7 @@ tables = [
           ['mdm.rdma',rdma],
           ['mdm.supplies_xref',supplies_xref],
           ['fin_prod.forecast_fixed_cost_input',forecast_fixed_cost_input],
-          ['prod.currency_hedge' ,currency_hedge],
+          ['fin_prod.currency_hedge' ,currency_hedge],
           ['mdm.product_line_scenarios_xref' ,product_line_scenarios_xref],
           ['fin_prod.forecast_variable_cost_ink' ,forecast_variable_cost_ink],
           ['fin_prod.forecast_variable_cost_toner' ,forecast_variable_cost_toner],
@@ -123,7 +126,8 @@ tables = [
           ['fin_prod.forecast_gru_override' ,forecast_gru_override],
           ['fin_prod.forecast_contra_input' ,forecast_contra_input],
           ['mdm.country_currency_map' ,country_currency_map],
-          ['prod.working_forecast_country' ,working_forecast_country]
+          ['prod.working_forecast_country' ,working_forecast_country],
+          ['mdm.product_line_xref' ,product_line_xref]
          ]
 
 
@@ -610,7 +614,7 @@ with  __dbt__CTE__bpp_18_revenue_sum AS (
 
 
 SELECT
-		product_line_scenarios_xref.pl_level_1
+		base_gru.base_product_line_code
 		, country_currency_map.currency_iso_code
 		, base_gru.cal_date
 		, SUM(coalesce(base_gru.cartridges, 0) * coalesce(base_gru.base_gru, 0)) AS revenue_sum
@@ -619,32 +623,31 @@ SELECT
 	INNER JOIN
 	country_currency_map country_currency_map
 		ON country_currency_map.country_alpha2 = base_gru.country_alpha2
-	INNER JOIN
-	product_line_scenarios_xref product_line_scenarios_xref
-		ON product_line_scenarios_xref.pl = base_gru.base_product_line_code
-	WHERE
-		product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-		AND product_line_scenarios_xref.version = (SELECT version FROM base_product_filter_vars WHERE record = 'PRODUCT_LINE_SCENARIOS')
-	GROUP BY
-		product_line_scenarios_xref.pl_level_1
+	where 1=1
+	group by
+		base_gru.base_product_line_code
 		, country_currency_map.currency_iso_code
 		, base_gru.cal_date
 ),  __dbt__CTE__bpp_19_revenue_currency_per AS (
 
 
 SELECT
-		revenue_sum.pl_level_1
+		revenue_sum.base_product_line_code
 		, revenue_sum.currency_iso_code
 		, revenue_sum.cal_date
 		, coalesce(revenue_currency_hedge, 0)/nullif(revenue_sum.revenue_sum, 0) AS hedge_per
 		, currency_hedge.version
 	FROM
 		__dbt__CTE__bpp_18_revenue_sum revenue_sum
+        INNER JOIN
+		product_line_xref plx
+			on revenue_sum.base_product_line_code = plx.pl
 		INNER JOIN
 		currency_hedge currency_hedge                
-			on currency_hedge.Product_category = revenue_sum.pl_level_1
+			on currency_hedge.profit_center = plx.profit_center_code
 			and currency_hedge.currency = revenue_sum.currency_iso_code
 			and revenue_sum.cal_date = currency_hedge.month
+		
 	WHERE currency_hedge.version = '{}'
 )SELECT distinct
 		base_gru.base_product_number
@@ -658,16 +661,10 @@ SELECT
 		country_currency_map country_currency_map
 			ON country_currency_map.country_alpha2 = base_gru.country_alpha2
 		INNER JOIN
-		product_line_scenarios_xref product_line_scenarios_xref
-			ON product_line_scenarios_xref.pl = base_gru.base_product_line_code
-		INNER JOIN
 		__dbt__CTE__bpp_19_revenue_currency_per revenue_currency_per
 			ON revenue_currency_per.cal_date = base_gru.cal_date
 			AND revenue_currency_per.currency_iso_code = country_currency_map.currency_iso_code
-			AND revenue_currency_per.pl_level_1 = product_line_scenarios_xref.pl_level_1
-	WHERE
-		product_line_scenarios_xref.pl_scenario = 'FINANCE-HEDGE'
-		AND product_line_scenarios_xref.version = (SELECT version FROM base_product_filter_vars WHERE record = 'PRODUCT_LINE_SCENARIOS')
+			AND revenue_currency_per.base_product_line_code = base_gru.base_product_line_code
 """.format(currency_hedge_version)
 
 bpp_03_base_currency_hedge_insights = spark.sql(bpp_03_base_currency_hedge_insights)
@@ -1086,7 +1083,7 @@ from
 		on vcost.base_product_number = gru.base_product_number
 		and vcost.country_alpha2 = gru.country_alpha2
 		and vcost.cal_date = gru.cal_date
-""".format(currency_hedge_version)
+""".format(sales_gru_version)
 
 forecast_base_pl = spark.sql(forecast_base_pl)
 forecast_base_pl = forecast_base_pl.withColumn("load_date" , lit(None).cast(StringType())) \
