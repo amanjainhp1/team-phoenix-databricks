@@ -21,7 +21,6 @@ variables:
 trigger: 
   branches:
     include:
-    - master
     - dev
   paths:
     exclude:
