@@ -2492,7 +2492,7 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , Usage_Source as data_source
                 , '",vsn,"' as version
                 , 'usage' as measure
-                , CASE WHEN CM='C' THEN Usage_k+lit(3)*Usage_c
+                , CASE WHEN CM='C' THEN Usage_k+3*Usage_c
                       ELSE Usage_k
                       END as units
                 , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
