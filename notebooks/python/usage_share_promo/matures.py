@@ -72,7 +72,7 @@ mature_helper_1 ="""
       ,upper(mat.customer_engagement) as customer_engagement
       ,upper(mat.forecast_process_note) as forecast_process_note
       ,upper(mat.post_processing_note) as post_processing_note
-      ,upper(mat.data_source) as data_source
+      ,'MATURES' as data_source
       ,mat.version
       ,upper(mat.measure) as measure
       ,mat.units
@@ -402,7 +402,7 @@ SELECT bl.record
     , bl.load_date
 FROM combine_data_b bl
 """
-matures_norm_final_landing=spark.sql(matures_norm_final_landing)
+matures_norm_final_landing=spark.sql(matures_norm_final_landing).distinct()
 matures_norm_final_landing.createOrReplaceTempView("matures_norm_final_landing")
 
 # COMMAND ----------
