@@ -408,17 +408,6 @@ npi_helper_4.count()
 # COMMAND ----------
 
 #Add share values for Big Ink (set to 1)
-
-hw_ink = read_redshift_to_df(configs) \
-  .option("query","""
-    SELECT distinct platform_subset, brand
-    FROM "mdm"."hardware_xref"
-    WHERE product_lifecycle_status_share='N'
-    AND technology = 'INK'
-    """) \
-  .load()
-hw_ink.createOrReplaceTempView("hw_ink")
-
 #Full list of Big Ink platforms
 hw_ink = read_redshift_to_df(configs) \
   .option("query","""
