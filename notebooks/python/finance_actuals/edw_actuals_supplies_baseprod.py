@@ -1047,19 +1047,19 @@ SELECT
 	pl,
 	l5_description,
 	customer_engagement,
-	SUM(gross_revenue) AS gross_revenue,
-	SUM(net_currency) AS net_currency,
-	SUM(contractual_discounts) AS contractual_discounts,
-	SUM(discretionary_discounts) AS discretionary_discounts,
-	SUM(net_revenue) AS net_revenue,
-    SUM(warranty) AS warranty,
-	SUM(other_cos) AS other_cos,
-	SUM(total_cos) AS total_cos,
-	SUM(gross_profit) AS gross_profit,
-	SUM(revenue_units) AS revenue_units,
-	SUM(equivalent_units) AS equivalent_units,
-	SUM(yield_x_units) AS yield_x_units,
-	SUM(yield_x_units_black_only) AS yield_x_units_black_only
+	COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
+	COALESCE(SUM(net_currency), 0) AS net_currency,
+	COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
+	COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
+	COALESCE(SUM(net_revenue), 0) AS net_revenue,
+	COALESCE(SUM(warranty), 0) AS warranty,
+	COALESCE(SUM(other_cos), 0) AS other_cos,
+	COALESCE(SUM(total_cos), 0) AS total_cos,
+	COALESCE(SUM(gross_profit), 0) AS gross_profit,
+	COALESCE(SUM(revenue_units), 0) AS revenue_units,
+	COALESCE(SUM(equivalent_units), 0) AS equivalent_units,
+	COALESCE(SUM(yield_x_units), 0) AS yield_x_units,
+	COALESCE(SUM(yield_x_units_black_only), 0) AS yield_x_units_black_only
 FROM final_planet_adjust_to_baseprod
 GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, market10, l5_description
 """
