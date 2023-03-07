@@ -26,7 +26,7 @@ dbutils.widgets.text("usage_share_version",'') # set usage_share_version to mark
 dbutils.widgets.text("forecast_supplies_baseprod_version",'') # set forecast_supplies_baseprod_version to mark as official
 dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
-dbutils.widgets.text("cartridge_demand_pages_ccs_mix_version",'')
+dbutils.widgets.text("page_cc_mix_version",'')
 dbutils.widgets.text("working_forecast_country_version",'')
 dbutils.widgets.text("working_forecast_version",'')
 dbutils.widgets.text("discounting_factor",'')
@@ -62,10 +62,10 @@ if end_ifs2_date == "":
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
-cartridge_demand_pages_ccs_mix_version = dbutils.widgets.get("cartridge_demand_pages_ccs_mix_version")
-if cartridge_demand_pages_ccs_mix_version == "":
-    cartridge_demand_pages_ccs_mix_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM ifs2.cartridge_demand_pages_ccs_mix") \
+page_cc_mix_version = dbutils.widgets.get("page_cc_mix_version")
+if page_cc_mix_version == "":
+    page_cc_mix_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM prod.page_cc_mix") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
@@ -124,8 +124,8 @@ yield_ = read_redshift_to_df(configs) \
 forecast_supplies_baseprod = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM fin_prod.forecast_supplies_baseprod WHERE version = '{forecast_supplies_baseprod_version}'") \
     .load()
-cartridge_demand_pages_ccs_mix = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM ifs2.cartridge_demand_pages_ccs_mix WHERE version = '{cartridge_demand_pages_ccs_mix_version}'") \
+page_cc_mix = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM prod.page_cc_mix WHERE version = '{page_cc_mix_version}'") \
     .load()
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
@@ -159,7 +159,7 @@ tables = [
  ['prod.decay_m13' , decay_m13],
  ['mdm.yield' , yield_],
  ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ['ifs2.cartridge_demand_pages_ccs_mix' , cartridge_demand_pages_ccs_mix],
+ ['prod.page_cc_mix' , page_cc_mix],
  ['mdm.iso_country_code_xref' , iso_country_code_xref],
  ['scen.working_forecast_country' , working_forecast_country],
 # ['prod.working_forecast_country' , working_forecast_country],
@@ -832,13 +832,13 @@ select cal_date
 		, country_alpha2
 		, (pgs_ccs_mix) as trade_split
 		, cdpcm.version
-from ifs2.cartridge_demand_pages_ccs_mix cdpcm
+from prod.page_cc_mix cdpcm
 left join mdm.iso_country_code_xref iccx
 on cdpcm.geography = iccx.market10
 where cdpcm.version = '{}'
 and cal_date between '{}' and '{}'
 
-'''.format(cartridge_demand_pages_ccs_mix_version , start_ifs2_date , end_ifs2_date)
+'''.format(page_cc_mix_version , start_ifs2_date , end_ifs2_date)
 trade_split = spark.sql(query)
 trade_split.createOrReplaceTempView("trade_split")
 
