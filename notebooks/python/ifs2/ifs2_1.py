@@ -494,12 +494,12 @@ select usiut.record
             from usage_share_ink_union_toner as usiut
             left join iso_country_code_xref iccx
             on usiut.market10 = iccx.market10 
-            left join mdm.supplies_hw_mapping shm
+            inner join mdm.supplies_hw_mapping shm
             on usiut.platform_subset = shm.platform_subset
             and (region_5 = shm.geography)
             and usiut.customer_engagement = shm.customer_engagement
             and shm.official = 1
-            left join supplies_xref sx
+            inner join supplies_xref sx
             on shm.base_product_number = sx.base_product_number
             and sx.official = 1
 '''
@@ -508,11 +508,14 @@ usage_share.createOrReplaceTempView("usage_share")
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
 query = '''
-select min(cal_date), platform_subset, country_alpha2
+select distinct platform_subset,base_product_number, region_5, country_alpha2, crg_chrome
 from usage_share
-group by platform_subset, country_alpha2
-order by min(cal_date) asc
+where record = 'TONER' and crg_chrome is null and platform_subset = 'NEBULA'
 '''
 test = spark.sql(query)
 test.display()
@@ -1147,10 +1150,6 @@ query = '''select
 '''
 pen_per_printer = spark.sql(query)
 pen_per_printer.createOrReplaceTempView("pen_per_printer")
-
-# COMMAND ----------
-
-
 
 # COMMAND ----------
 
