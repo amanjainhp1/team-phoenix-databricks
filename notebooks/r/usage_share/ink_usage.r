@@ -156,8 +156,8 @@ ibtable <- SparkR::collect(SparkR::sql("
                     left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
                     where a.measure='IB'
-                      and (upper(d.technology)='INK' or (d.technology='PWA' and (upper(d.hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3'))
-                          and a.platform_subset not like 'PANTHER%' and a.platform_subset not like 'JAGUAR%'))
+                      and (upper(d.technology)='INK' or (d.technology='PWA' and (upper(d.hw_product_family) not in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA'))
+                         ))
                       and d.product_lifecycle_status not in ('E','M') 
                     group by a.platform_subset, a.customer_engagement, a.cal_date, d.technology, a.version, d.hw_product_family
                             , b.region_5, a.country_alpha2

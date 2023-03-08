@@ -13,6 +13,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
 

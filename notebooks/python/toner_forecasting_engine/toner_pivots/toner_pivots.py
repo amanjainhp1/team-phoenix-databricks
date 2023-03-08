@@ -29,43 +29,17 @@
 
 # COMMAND ----------
 
-actuals_plus_forecast_financials = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.actuals_plus_forecast_financials") \
-    .load()
-
-demand = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.demand") \
-    .load()
-
-toner_03_usage_share = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.toner_03_usage_share") \
-    .load()
-
-toner_06_mix_rate_final = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.toner_06_mix_rate_final") \
-    .load()
-
 trade_forecast = read_redshift_to_df(configs) \
     .option("dbtable", "prod.trade_forecast") \
     .load()
 
-#--------- SQL SERVER -----------
-ms4_v_canon_units_prelim = read_sql_server_to_df(configs)\
-    .option("dbtable", "IE2_Prod.ms4.v_canon_units_prelim")\
-    .load()
-
 tables = [
-    ["fin_prod.actuals_plus_forecast_financials", actuals_plus_forecast_financials, "overwrite"],
-    ["prod.demand", demand, "overwrite"],
-    ["scen.toner_03_usage_share", toner_03_usage_share, "overwrite"],
-    ["scen.toner_06_mix_rate_final", toner_06_mix_rate_final, "overwrite"],
     ["prod.trade_forecast", trade_forecast, "overwrite"],
-    ["prod.ms4_v_canon_units_prelim", ms4_v_canon_units_prelim, "overwrite"],
 ]
 
 # COMMAND ----------
 
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
@@ -131,6 +105,10 @@ GROUP BY record
 """.format(us_version, ib_version, ib_version))
 
 filter_vars.createOrReplaceTempView("pivots_lib_01_filter_vars")
+
+# COMMAND ----------
+
+spark.sql("""select * from pivots_lib_01_filter_vars""").show()
 
 # COMMAND ----------
 
