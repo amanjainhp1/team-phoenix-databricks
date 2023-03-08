@@ -561,8 +561,7 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
     END AS page_mix
-    , '{addversion_info[1]}' AS load_date
-    , '{addversion_info[0]}' AS version
+    , current_date() as load_date
 FROM usage_share_baseprod_01
 GROUP BY cal_date
     , country_alpha2
@@ -600,40 +599,4 @@ write_df_to_redshift(configs, supplies_hw_country_actuals_mapping, "stage.suppli
 
 # COMMAND ----------
 
-import re
 
-tables = [
-    ['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping]
-]
-
-for table in tables:
-    # Define the input and output formats and paths and the table name.
-    schema = table[0].split(".")[0]
-    table_name = table[0].split(".")[1]
-    write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    # Load the data from its source.
-    df = table[1]    
-    print(f'loading {table[0]}...')
-    
-    for column in df.dtypes:
-        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
-        df = df.withColumnRenamed(column[0], renamed_column)
-        print(renamed_column)
-    
-    # Write the data to its target.
-    df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .option("overwriteSchema", "true")\
-      .save(save_path)
-
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
-    spark.table(table[0]).createOrReplaceTempView(table_name)
-    
-    print(f'{table[0]} loaded')

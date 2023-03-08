@@ -15,7 +15,7 @@
 query_list = []
 
 ## Supplies History 3
-cur_period = '2022-10-01'  # accounting rate
+cur_period = '2023-02-01'  # accounting rate
 
 ## Channel Inventory Prep 1
 cbm_st_month = '2015-10-01'
@@ -224,8 +224,10 @@ supp_hist_3 = spark.sql("""
 				effectivedate as accounting_rate,
 				accountingrate
 			from accounting_rates_table
-			where effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
-            --(select distinct '{cur_period}' as current_period from prod.acct_rates)
+			where 1=1
+            and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
+            --and effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
+            --and effectivedate = '2023-01-01'
 """)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")
@@ -2492,35 +2494,9 @@ adj_rev_3.createOrReplaceTempView("adjusted_revenue2")
 adj_rev_4 = spark.sql("""
  select
 				cal_date,
-				CASE
-                    WHEN country_alpha2 = 'BY' THEN 'HU'
-                    WHEN country_alpha2 = 'RU' THEN 'HU'
-                    WHEN country_alpha2 = 'CU' THEN 'MX'
-                    WHEN country_alpha2 = 'IR' THEN 'LB'
-                    WHEN country_alpha2 = 'KP' THEN 'KR'
-                    WHEN country_alpha2 = 'SY' THEN 'LB'
-                    ELSE country_alpha2
-                END AS country_alpha2,
-				CASE
-                    WHEN country = 'BELARUS' THEN 'HUNGARY'
-                    WHEN country = 'RUSSIAN FEDERATION' THEN 'HUNGARY'
-                    WHEN country = 'CUBA' THEN 'MEXICO'
-                    WHEN country = 'NORTH KOREA' THEN 'SOUTH KOREA'
-                    WHEN country = 'IRAN' THEN 'LEBANON'
-                    WHEN country = 'SYRIA' THEN 'LEBANON'
-                    ELSE country                
-                END AS country,
-				CASE
-                    WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
-                    WHEN country_alpha2 = 'BY' THEN 'CENTRAL & EASTERN EUROPE'
-                    WHEN country_alpha2 = 'RU' THEN 'CENTRAL & EASTERN EUROPE'
-                    WHEN country_alpha2 = 'CU' THEN 'LATIN AMERICA'
-                    WHEN country_alpha2 = 'IR' THEN 'SOUTHERN EUROPE, ME & AFRICA'
-                    WHEN country_alpha2 = 'KP' THEN 'GREATER ASIA'
-                    WHEN country_alpha2 = 'SY' THEN 'SOUTHERN EUROPE, ME & AFRICA'
-
-                    ELSE geography
-                END AS geography,
+                country_alpha2,
+				country,
+				geography,
                 geography_grain,
 				region_5,
 				sales_product_number,
@@ -2778,6 +2754,10 @@ query_list.append(["fin_prod.adjusted_revenue_salesprod", adj_rev_sales, "append
 
 for t_name, df, mode in query_list:
     write_df_to_redshift(configs, df, t_name, mode)
+
+# COMMAND ----------
+
+from pyspark.sql import functions as F
 
 # COMMAND ----------
 

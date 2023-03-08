@@ -821,19 +821,19 @@ where day_of_month  = 1
 norm_ships as 
 (
 select distinct n.platform_subset,d.cal_date,n.country_alpha2,0 units
-from prod.norm_shipments n
+from stage.norm_ships n
 cross join dates d 
-where n.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+where platform_subset LIKE '%PAAS%'
 and not exists 
-(select 1 from prod.norm_shipments ns where ns.platform_subset = n.platform_subset and ns.country_alpha2 = n.country_alpha2 
+(select 1 from stage.norm_ships ns where ns.platform_subset = n.platform_subset and ns.country_alpha2 = n.country_alpha2 
 and ns.version = n.version 
 and ns.cal_date = d.cal_date)
 
 union 
 
 select distinct n.platform_subset,n.cal_date,n.country_alpha2,n.units 
-from prod.norm_shipments n
-where n.version = (SELECT MAX(version) FROM prod.norm_shipments) AND platform_subset LIKE '%PAAS%'
+from stage.norm_ships n
+where platform_subset LIKE '%PAAS%'
 ),
 
 ns_country_cum AS 
@@ -1007,7 +1007,7 @@ WHERE 1=1
     , pre.split_name
     , pre.platform_subset
     , pre.printer_installs
-    , CASE WHEN pre.ib < 1 THEN 1 ELSE pre.ib END AS ib
+    , CASE WHEN pre.ib != 0 AND pre.ib < 1 THEN 1 ELSE pre.ib END AS ib
 FROM ib_staging_temp_pre AS pre
 WHERE 1=1
     AND pre.record IN ('IB_TRAD', 'IB_IINK')
@@ -1024,3 +1024,20 @@ query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+# MAGIC %run "../../../common/configs"
+
+# COMMAND ----------
+
+# MAGIC %run ../../../common/database_utils
+
+# COMMAND ----------
+
+# copy from stage to scen
+submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_ib; CREATE TABLE scen.prelim_ib AS SELECT * FROM stage.ib_staging;")
+
+# COMMAND ----------
+
+

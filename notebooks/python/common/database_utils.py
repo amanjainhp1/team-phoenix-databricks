@@ -1,7 +1,10 @@
 # Databricks notebook source
 import boto3
 import json
+import os
 import psycopg2
+import re
+import uuid
 
 from datetime import datetime
 from functools import singledispatch
@@ -34,11 +37,28 @@ def _(configs: dict, sql_query: str):
 
 # COMMAND ----------
 
+# function to read redshift to rows
+def read_redshift_to_rows(configs: dict, sql_query: str):
+    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+        .format(configs["redshift_dbname"], configs["redshift_port"], \
+                configs["redshift_username"], configs["redshift_password"], configs["redshift_url"])
+    conn = psycopg2.connect(conn_string)
+    cur = conn.cursor()
+    cur.execute(sql_query)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+# COMMAND ----------
+
 def read_redshift_to_df(configs: dict) -> DataFrame:
     df = spark.read \
     .format("com.databricks.spark.redshift") \
     .option("url", "jdbc:redshift://{}:{}/{}?ssl_verify=None".format(configs["redshift_url"], configs["redshift_port"], configs["redshift_dbname"])) \
-    .option("aws_iam_role", configs["aws_iam_role"]) \
+    .option("temporary_aws_access_key_id", os.getenv("AWS_ACCESS_KEY_ID")) \
+    .option("temporary_aws_secret_access_key", os.getenv("AWS_SECRET_ACCESS_KEY")) \
+    .option("temporary_aws_session_token", os.getenv("AWS_SESSION_TOKEN")) \
     .option("user", configs["redshift_username"]) \
     .option("password", configs["redshift_password"]) \
     .option("tempdir", configs["redshift_temp_bucket"])
@@ -153,3 +173,56 @@ def call_redshift_addversion_sproc(configs: dict, record: str, source_name: str)
     cur.close()
     
     return output
+
+# COMMAND ----------
+
+# alternate function to read from redshift to spark via unload and read
+def read_redshift_to_spark_df(configs: dict, query: str) -> DataFrame:
+    # generate uuid and append to redshift_temp_bucket
+    redshift_temp_bucket = configs['redshift_temp_bucket'] + str(uuid.uuid4())  + "/"
+    # redshift cannot unload to s3a or s3n path, so we clean the path
+    clean_s3_path = redshift_temp_bucket.replace("s3a://", "s3://").replace("s3n://", "s3://")
+    # construct unload query from query provided
+    unload_query = "UNLOAD('{}') TO '{}' WITH CREDENTIALS 'aws_iam_role={}' FORMAT AS PARQUET;".format(query, clean_s3_path, configs["aws_iam_role"])
+    submit_remote_query(configs, unload_query)
+    # read data into Spark dataframe
+    df = spark.read.parquet(redshift_temp_bucket) 
+    return df
+
+# COMMAND ----------
+
+# write dataframe to delta table
+# expected input is a list of ['schema_name.table_name', dataframe]
+def write_df_to_delta(tables: list, rename_cols: bool = False):
+    for table in tables:
+        # Define the input and output formats and paths and the table name.
+        schema_name = table[0].split(".")[0]
+        table_name = table[0].split(".")[1]
+        write_format = 'delta'
+        save_path = f'/tmp/delta/{schema_name}/{table_name}'
+        
+        # Load the data from its source.
+        df = table[1]
+        print(f'loading {table[0]}...')
+
+        # Rename columns with restricted characters
+        if rename_cols:
+            for column in df.dtypes:
+                renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+                df = df.withColumnRenamed(column[0], renamed_column)
+
+        # Write the data to its target.
+        df.write \
+            .format(write_format) \
+            .mode("overwrite") \
+            .option('overwriteSchema', 'true') \
+            .save(save_path)
+
+        spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+        
+        # Create the table.
+        spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+        
+        spark.table(table[0]).createOrReplaceTempView(table_name)
+        
+        print(f'{table[0]} loaded')

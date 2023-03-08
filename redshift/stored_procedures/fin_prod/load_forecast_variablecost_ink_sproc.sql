@@ -7,7 +7,7 @@ BEGIN
 --Add version to version table
 CALL prod.addversion_sproc('FORECAST_VARIABLECOST_INK','FINANCE');
 
-UPDATE fin_prod.forecast_variablecost_ink
+UPDATE fin_prod.forecast_variable_cost_ink
 SET official = 0
 WHERE EXISTS (
     SELECT 1
@@ -19,7 +19,7 @@ WHERE EXISTS (
 );
 
 --copy max version from landing to financials
-INSERT INTO fin_prod.forecast_variablecost_ink
+INSERT INTO fin_prod.forecast_variable_cost_ink
     (record
     ,product_family
     ,region_5

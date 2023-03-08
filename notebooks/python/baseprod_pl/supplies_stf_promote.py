@@ -34,8 +34,8 @@ SELECT
       ,fixed_cost
       ,gross_margin
       ,insights_units
-	  ,'WORKING VERSION' AS version
 	  ,current_timestamp as load_date
+	  ,'WORKING VERSION' AS version
 	  ,username
 FROM financials.v_stf_dollarization;
 
@@ -50,3 +50,7 @@ submit_remote_query(configs, stf_dollarization)
 # stf_dollarization = spark.sql(stf_dollarization)
 # write_df_to_redshift(configs, stf_dollarization, "fin_prod.stf_dollarization", "overwrite")
 # stf_dollarization.createOrReplaceTempView("stf_dollarization")
+
+# COMMAND ----------
+
+

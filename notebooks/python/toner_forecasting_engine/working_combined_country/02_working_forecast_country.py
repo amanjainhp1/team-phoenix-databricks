@@ -11,15 +11,15 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../config_forecasting_engine
-
-# COMMAND ----------
-
 # MAGIC %run ../../common/configs
 
 # COMMAND ----------
 
 # MAGIC %run ../../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
 
@@ -29,29 +29,6 @@
 
 # COMMAND ----------
 
-# tables to stream line:
-    # prod.actuals_supplies
-
-actuals_supplies = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.actuals_supplies") \
-    .load()
-
-iso_cc_rollup_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.iso_cc_rollup_xref") \
-    .load()
-
-norm_shipments = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.norm_shipments") \
-    .load()
-
-shm_base_helper = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.shm_base_helper") \
-    .load()
-
-supplies_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.supplies_xref") \
-    .load()
-
 working_forecast_combined = read_redshift_to_df(configs) \
     .option("dbtable", "scen.working_forecast_combined") \
     .load()
@@ -59,17 +36,12 @@ working_forecast_combined = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 tables = [
-    ["prod.actuals_supplies", actuals_supplies, "overwrite"],
-    ["mdm.iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite"],
-    ["prod.norm_shipments", norm_shipments, "overwrite"],
-    ["stage.shm_base_helper", shm_base_helper, "overwrite"],
-    ["mdm.supplies_xref", supplies_xref, "overwrite"],
     ["scen.working_forecast_combined", working_forecast_combined, "overwrite"]
 ]
 
 # COMMAND ----------
 
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
@@ -99,6 +71,10 @@ vtc_02.createOrReplaceTempView("c2c_vtc_02_forecast_months")
 
 # COMMAND ----------
 
+spark.sql("""select * from c2c_vtc_02_forecast_months""").show()
+
+# COMMAND ----------
+
 # originally ctrypf_07_c2c_adj_agg
 ctry_01 = spark.sql("""
     SELECT geography
@@ -106,6 +82,7 @@ ctry_01 = spark.sql("""
         , platform_subset
         , base_product_number
         , customer_engagement
+        , SUM(vtc) as vtc
         , SUM(cartridges) AS cartridges
         , SUM(adjusted_cartridges) AS mvtc_adjusted_crgs
     FROM scen.working_forecast_combined
@@ -116,6 +93,7 @@ ctry_01 = spark.sql("""
         , platform_subset
         , base_product_number
         , customer_engagement
+        , vtc
 """)
 
 ctry_01.createOrReplaceTempView("ctry_01_c2c_adj_agg")
@@ -168,6 +146,7 @@ SELECT geography
   , base_product_number
   , customer_engagement
   , cartridges
+  , vtc
   , mvtc_adjusted_crgs
   , SUM(cartridges)
     OVER (PARTITION BY geography, cal_date, platform_subset, base_product_number, customer_engagement) *
@@ -198,6 +177,7 @@ SELECT DISTINCT c2c.geography
               , c2c.platform_subset
               , c2c.base_product_number
               , c2c.customer_engagement
+              , c2c.vtc
               , c2c.cartridges
               , c2c.mvtc_adjusted_crgs
               -- mixes
@@ -234,6 +214,7 @@ ctry_04 = spark.sql("""
       , hist.platform_subset
       , hist.base_product_number
       , hist.customer_engagement
+      , hist.vtc
       , hist.cartridges
       , hist.mvtc_adjusted_crgs
       -- mixes
@@ -281,25 +262,20 @@ ctry_05.createOrReplaceTempView("ctry_05_hist_country_mix")
 # COMMAND ----------
 
 ctry_06 = spark.sql("""
-
-    with ctrypf_01_filter_vars as (
+with ctrypf_01_filter_vars as (
         SELECT record
             , version
         FROM prod.version
         WHERE 1=1
             AND record = 'IB'
-            AND version = '{ib_version}'
-
+            AND version = '{}'
         UNION ALL
-
         SELECT DISTINCT record
             , version
         FROM prod.actuals_supplies
-        WHERE record = 'actuals - supplies'
+        WHERE record = 'ACTUALS - SUPPLIES'
             AND official = 1
     ),  ctrypf_05_ib_ctry_mix_prep as (
-
-
     SELECT mk.country_level_2 AS geography
         , ib.country_alpha2
         , ib.cal_date
@@ -323,7 +299,8 @@ ctry_06 = spark.sql("""
         , SUM(ib.units) OVER (PARTITION BY ib.geography, ib.country_alpha2, ib.cal_date, ib.platform_subset) * 1.0 /
             NULLIF(SUM(ib.units) OVER (PARTITION BY ib.geography, ib.cal_date, ib.platform_subset), 0) AS ctry_pfs_ib_mix
     FROM ctrypf_05_ib_ctry_mix_prep AS ib
-""")
+    
+""".format(ib_version))
 
 ctry_06.createOrReplaceTempView("ctry_06_ib_country_mix")
 
@@ -368,6 +345,7 @@ SELECT 1 AS mix_type
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -398,6 +376,7 @@ SELECT 2 AS mix_type
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -431,6 +410,7 @@ SELECT 3 AS model_number
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -461,6 +441,7 @@ SELECT c2c.geography
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -494,6 +475,7 @@ SELECT c2c.geography
     , c2c.platform_subset
     , c2c.base_product_number
     , c2c.customer_engagement
+    , c2c.vtc
     , c2c.cartridges
     , c2c.mvtc_adjusted_crgs
     -- mixes
@@ -526,6 +508,7 @@ ctry_12 = spark.sql("""
         , c2c.platform_subset
         , c2c.base_product_number
         , c2c.customer_engagement
+        , c2c.vtc
         , c2c.cartridges
         , c2c.mvtc_adjusted_crgs
         -- mixes
@@ -560,6 +543,7 @@ SELECT 1 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc
     , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
@@ -582,6 +566,7 @@ SELECT 2 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc
     , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
@@ -604,6 +589,7 @@ SELECT 3 AS combo_mapping
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc
     , fcst.cartridges
     , fcst.mvtc_adjusted_crgs
     -- mixes
@@ -630,6 +616,7 @@ SELECT acts.geography
     , acts.platform_subset
     , acts.base_product_number
     , acts.customer_engagement
+    , acts.vtc
     , acts.ctry_ce_crgs AS cartridges
     , acts.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
 FROM ctry_04_adj_hist_mix_2 AS acts
@@ -642,6 +629,7 @@ SELECT fcst.geography
     , fcst.platform_subset
     , fcst.base_product_number
     , fcst.customer_engagement
+    , fcst.vtc
     , fcst.ctry_ce_crgs AS cartridges
     , fcst.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
 FROM ctry_13_adj_fcst_ctry_mix AS fcst
@@ -651,7 +639,11 @@ ctry_14.createOrReplaceTempView("c2c_adj_country_pf_split")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ctry_14, "scen.c2c_adj_country_pf_split", "overwrite")
+spark.sql("""select count(*) from c2c_adj_country_pf_split""").show()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, ctry_14, "scen.working_forecast_country", "overwrite")
 
 # COMMAND ----------
 

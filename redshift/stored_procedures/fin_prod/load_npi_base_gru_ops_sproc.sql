@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE fin_prod.load_npi_base_gru_sproc()
+CREATE OR REPLACE PROCEDURE fin_prod.load_npi_base_gru_ops_sproc()
     LANGUAGE plpgsql
 AS $$
 

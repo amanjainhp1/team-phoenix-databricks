@@ -1,0 +1,130 @@
+{
+    "fields": [
+        {
+            "description": "country_alpha2",
+            "name": "country_alpha2",
+            "type": "VARCHAR(3)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "sales_product_number",
+            "name": "sales_product_number",
+            "type": "VARCHAR(150)",
+            "nullable": true,
+            "encode": "lzo"
+        },
+        {
+            "description": "ibp_sales_product_forecast_units",
+            "name": "ibp_sales_product_forecast_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "sales_product_gru",
+            "name": "sales_product_gru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "salesprod_grossrevenue",
+            "name": "salesprod_grossrevenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_product_number",
+            "name": "base_product_number",
+            "type": "VARCHAR(50)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_product_line_code",
+            "name": "base_product_line_code",
+            "type": "VARCHAR(10)",
+            "nullable": false,
+            "encode": "lzo"
+        },
+        {
+            "description": "base_prod_per_sales_prod_qty",
+            "name": "base_prod_per_sales_prod_qty",
+            "type": "INTEGER",
+            "nullable": false,
+            "encode": "raw"
+        },
+        {
+            "description": "base_product_amount_percent",
+            "name": "base_product_amount_percent",
+            "type": "INTEGER",
+            "nullable": false,
+            "encode": "raw"
+        },
+        {
+            "description": "base_prod_fcst_revenue_units",
+            "name": "base_prod_fcst_revenue_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "baseprod_grossrevenue",
+            "name": "baseprod_grossrevenue",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "region_5",
+            "name": "region_5",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_units",
+            "name": "base_units",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_gr",
+            "name": "base_gr",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "base_gru",
+            "name": "base_gru",
+            "type": "DOUBLE PRECISION",
+            "nullable": true,
+            "encode": "raw"
+        },
+        {
+            "description": "version",
+            "name": "version",
+            "type": "VARCHAR(50)",
+            "nullable": true,
+            "encode": "lzo"
+        }
+    ],
+    "permissions": [
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "group",
+            "permission_target": "dev_arch_eng"
+        },
+        {
+            "permission_type": "grant",
+            "permission_type_level": "all",
+            "permission_target_level": "user",
+            "permission_target": "auto_glue"
+        }
+    ]
+}

@@ -7,7 +7,7 @@ BEGIN
 --Add version to version table
 CALL prod.addversion_sproc('FORECAST_FIXED_COST','FINANCE');
 
-UPDATE fin_prod.forecast_fixedcost_input
+UPDATE fin_prod.forecast_fixed_cost_input
 SET official = 0
 WHERE EXISTS (
     SELECT 1
@@ -19,7 +19,7 @@ WHERE EXISTS (
 );
 
 --copy max version from landing to financials
-INSERT INTO fin_prod.forecast_fixedcost_input
+INSERT INTO fin_prod.forecast_fixed_cost_input
     (record
     ,fixedcost_desc
     ,pl
@@ -42,7 +42,7 @@ SELECT 'FORECAST_FIXED_COST' as record
             AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'FORECAST_FIXED_COST')) as version
     ,(SELECT load_date from prod.version WHERE record = 'FORECAST_FIXED_COST' 
             AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'FORECAST_FIXED_COST')) as load_date
-FROM fin_stage.forecast_variablecost_ink_landing;
+FROM fin_stage.forecast_fixedcost_input_landing;
 
 END;
 

@@ -23,52 +23,52 @@
     
     
 #--------- fin_prod ---------
-actuals_supplies_baseprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.actuals_supplies_baseprod") \
-    .load()\
-    .select(col("record")
-      ,col("cal_date")
-      ,col("country_alpha2")
-      ,col("market10")
-      ,col("platform_subset")
-      ,col("base_product_number")
-      ,col("pl")
-      ,col("l5_description").alias("L5_Description")
-      ,col("customer_engagement")
-      ,col("gross_revenue")
-      ,col("net_currency")
-      ,col("contractual_discounts")
-      ,col("discretionary_discounts")
-      ,col("net_revenue")
-      ,col("total_cos")
-      ,col("gross_profit")
-      ,col("revenue_units")
-      ,col("equivalent_units")
-      ,col("yield_x_units")
-      ,col("yield_x_units_black_only")
-      ,col("official")
-      ,col("load_date")
-      ,col("version")
-      ,col("warranty")
-      ,col("other_cos"))
+#actuals_supplies_baseprod = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_prod.actuals_supplies_baseprod") \
+#    .load()\
+#    .select(col("record")
+#      ,col("cal_date")
+#      ,col("country_alpha2")
+#      ,col("market10")
+#      ,col("platform_subset")
+#      ,col("base_product_number")
+#      ,col("pl")
+#      ,col("l5_description").alias("L5_Description")
+#      ,col("customer_engagement")
+#      ,col("gross_revenue")
+#      ,col("net_currency")
+#      ,col("contractual_discounts")
+#      ,col("discretionary_discounts")
+#      ,col("net_revenue")
+#      ,col("total_cos")
+#      ,col("gross_profit")
+#      ,col("revenue_units")
+#      ,col("equivalent_units")
+#      ,col("yield_x_units")
+#      ,col("yield_x_units_black_only")
+#      ,col("official")
+#      ,col("load_date")
+#      ,col("version")
+#      ,col("warranty")
+#      ,col("other_cos"))
 
-odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
-    .load()\
-    .select(col("fiscal_year_period").alias("Fiscal Year/Period")
-      , col("material_number").alias("Material Number")
-      , col("profit_center_code").alias("Profit Center Code")
-      , col("segment_code").alias("Segment Code")
-      , col("segment_name").alias("Segment Name")
-      , col("gross_trade_revenues_usd").alias("Gross Trade Revenues USD")
-      , col("contractual_discounts_usd").alias("Contractual Discounts USD")
-      , col("discretionary_discounts_usd").alias("Discretionary Discounts USD")
-      , col("net_currency_usd").alias("Net Currency USD")
-      , col("net_revenues_usd").alias("Net Revenues USD")
-      , col("warr").alias("WARR")
-      , col("total_cost_of_sales_usd").alias("TOTAL COST OF SALES USD")
-      , col("gross_margin_usd").alias("GROSS MARGIN USD")
-      , col("load_date").alias("load_date"))
+#odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
+#    .load()\
+#    .select(col("fiscal_year_period").alias("Fiscal Year/Period")
+#      , col("material_number").alias("Material Number")
+#      , col("profit_center_code").alias("Profit Center Code")
+#      , col("segment_code").alias("Segment Code")
+#      , col("segment_name").alias("Segment Name")
+#      , col("gross_trade_revenues_usd").alias("Gross Trade Revenues USD")
+#      , col("contractual_discounts_usd").alias("Contractual Discounts USD")
+#      , col("discretionary_discounts_usd").alias("Discretionary Discounts USD")
+#      , col("net_currency_usd").alias("Net Currency USD")
+#      , col("net_revenues_usd").alias("Net Revenues USD")
+#      , col("warr").alias("WARR")
+#      , col("total_cost_of_sales_usd").alias("TOTAL COST OF SALES USD")
+#      , col("gross_margin_usd").alias("GROSS MARGIN USD")
+#      , col("load_date").alias("load_date"))
 
 #odw_report_ships_deliveries_actuals = read_redshift_to_df(configs) \
 #    .option("dbtable", "stage.odw_report_ships_deliveries_actuals") \
@@ -120,56 +120,56 @@ odw_revenue_units_sales_actuals = read_redshift_to_df(configs) \
         , col("unit_reporting_code").alias("Unit Reporting Code")
         , col("unit_reporting_description").alias("Unit Reporting Description"))
 
-odw_sacp_actuals = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_sacp_actuals") \
-    .load()
+#odw_sacp_actuals = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_prod.odw_sacp_actuals") \
+#    .load()
 
-actuals_supplies_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
-    .load()\
-    .select(col("record")
-      , col("cal_date")
-      , col("country_alpha2")
-      , col("currency")
-      , col("market10")
-      , col("sales_product_number")
-      , col("pl")
-      , col("l5_description").alias("L5_Description")
-      , col("customer_engagement")
-      , col("gross_revenue")
-      , col("net_currency")
-      , col("contractual_discounts")
-      , col("discretionary_discounts")
-      , col("net_revenue")
-      , col("total_cos")
-      , col("gross_profit")
-      , col("revenue_units")
-      , col("official")
-      , col("load_date")
-      , col("version")
-      , col("warranty")
-      , col("other_cos"))
+#actuals_supplies_salesprod = read_redshift_to_df(configs) \
+#    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
+#    .load()\
+#    .select(col("record")
+#      , col("cal_date")
+#      , col("country_alpha2")
+#      , col("currency")
+#      , col("market10")
+#      , col("sales_product_number")
+#      , col("pl")
+#      , col("l5_description").alias("L5_Description")
+#      , col("customer_engagement")
+#      , col("gross_revenue")
+#      , col("net_currency")
+#      , col("contractual_discounts")
+#      , col("discretionary_discounts")
+#      , col("net_revenue")
+#      , col("total_cos")
+#      , col("gross_profit")
+#      , col("revenue_units")
+#      , col("official")
+#      , col("load_date")
+#      , col("version")
+#      , col("warranty")
+#      , col("other_cos"))
 
 #---------   mdm  -----------
     
 #---------   prod   ---------
-actuals_supplies = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.actuals_supplies") \
-    .load()\
-    .select("record"
-      , "cal_date"
-      , "country_alpha2"
-      , "market10"
-      , "platform_subset"
-      , "base_product_number"
-      , "customer_engagement"
-      , "base_quantity"
-      , "equivalent_units"
-      , "yield_x_units"
-      , "yield_x_units_black_only"
-      , "official"
-      , "load_date"
-      , "version")
+#actuals_supplies = read_redshift_to_df(configs) \
+#    .option("dbtable", "prod.actuals_supplies") \
+#    .load()\
+#    .select("record"
+#      , "cal_date"
+#      , "country_alpha2"
+#      , "market10"
+#      , "platform_subset"
+#      , "base_product_number"
+#      , "customer_engagement"
+#      , "base_quantity"
+#      , "equivalent_units"
+#      , "yield_x_units"
+#      , "yield_x_units_black_only"
+#      , "official"
+#      , "load_date"
+#      , "version")
 
 
 # COMMAND ----------
@@ -181,14 +181,14 @@ actuals_supplies = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 tables = [
-    ['IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing', odw_report_rac_product_financials_actuals, "overwrite"],
+   # ['IE2_Landing.ms4.odw_report_rac_product_financials_actuals_landing', odw_report_rac_product_financials_actuals, "overwrite"],
     ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing', odw_revenue_units_sales_actuals, "overwrite"],
    # ['IE2_Landing.ms4.odw_revenue_units_sales_actuals_prelim_landing', odw_revenue_units_sales_actuals_prelim, "overwrite"],
    # ['IE2_Landing.ms4.odw_report_ships_deliveries_actuals_landing', odw_report_ships_deliveries_actuals, "overwrite"],
-    ['IE2_Financials.ms4.odw_sacp_actuals', odw_sacp_actuals, "overwrite"],
-    ['IE2_Financials.dbo.actuals_supplies_baseprod', actuals_supplies_baseprod, "overwrite"],
-    ['IE2_Financials.dbo.actuals_supplies_salesprod', actuals_supplies_salesprod, "overwrite"],
-    ['IE2_Prod.dbo.actuals_supplies', actuals_supplies, "overwrite"]
+   # ['IE2_Financials.ms4.odw_sacp_actuals', odw_sacp_actuals, "overwrite"],
+   # ['IE2_Financials.dbo.actuals_supplies_baseprod', actuals_supplies_baseprod, "overwrite"],
+   # ['IE2_Financials.dbo.actuals_supplies_salesprod', actuals_supplies_salesprod, "overwrite"],
+   # ['IE2_Prod.dbo.actuals_supplies', actuals_supplies, "overwrite"]
 ]
 
 # COMMAND ----------
