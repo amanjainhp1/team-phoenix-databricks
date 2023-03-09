@@ -1,7 +1,7 @@
 # Databricks notebook source
 # ---
-# #Version 2021.03.14.1#
-# title: "UPM with IE2.0 IB Country Level"
+# #Version 2023.03.09.1#
+# title: "Toner Usage Country Level"
 # output: html_notebook
 # ---
 # 
@@ -2615,8 +2615,7 @@ PoR_1 <- SparkR::collect(SparkR::sql(
           , format as platform_page_category
         FROM
           hardware_xref
-        WHERE (upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                            or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
+        WHERE (upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA')) )
     "
   ))
 
