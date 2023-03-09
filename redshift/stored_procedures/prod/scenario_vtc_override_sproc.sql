@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS stage.scenario_vtc_override_landing(
     ,value DOUBLE PRECISION NOT NULL
 );
 GRANT ALL ON TABLE stage.scenario_vtc_override_landing TO auto_glue;
-EXECUTE 'GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP '||group_param||';';
+EXECUTE 'GRANT ALL ON TABLE stage.scenario_vtc_override_landing TO GROUP '||group_param||';';
 
 INSERT INTO stage.scenario_vtc_override_landing
 (
@@ -51,7 +51,6 @@ INSERT INTO stage.scenario_vtc_override_landing
       ,value
 )
 SELECT user_name
-      ,load_date
       ,TO_TIMESTAMP(load_date, 'YYYY-MM-DD HH24:MI:SS')
       ,upload_type
       ,scenario_name
