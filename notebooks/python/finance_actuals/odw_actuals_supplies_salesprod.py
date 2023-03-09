@@ -3170,29 +3170,6 @@ spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTemp
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(warranty) AS warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from fin_stage.odw_salesprod_before_plcharges_temp odw
-# MAGIC join mdm.iso_country_code_xref iso on iso.country_alpha2 = odw.country_alpha2
-# MAGIC join mdm.calendar cal on cal.Date = odw.cal_date
-# MAGIC where 1=1
-# MAGIC and day_of_month = 1
-# MAGIC group by fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5
-
-# COMMAND ----------
-
 unknown_skus = f"""
 select distinct sales_product_number 
 from odw_salesprod_before_plcharges_temp2
