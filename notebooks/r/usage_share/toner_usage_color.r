@@ -205,8 +205,7 @@ hwval <- SparkR::collect(SparkR::sql("
                                   ELSE NULL
                               END AS platform_market_code
                     FROM hardware_xref
-                    WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3') 
-                          or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')))
+                    WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA'))))
                     "))
 
 
