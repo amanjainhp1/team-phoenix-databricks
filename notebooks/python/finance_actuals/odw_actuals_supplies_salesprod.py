@@ -1195,7 +1195,8 @@ SELECT
         ELSE pl                
     END AS pl,
     edw.sales_product_number,
-    SUM(sell_thru_usd) AS sell_thru_usd
+    SUM(sell_thru_usd) AS sell_thru_usd,
+    SUM(sell_thru_qty) AS sell_thru_qty
 FROM tier1_emea_raw edw
 INNER JOIN mdm.rdma_base_to_sales_product_map rdma ON edw.sales_product_number = rdma.sales_product_number
 WHERE pl IN (
@@ -1223,10 +1224,14 @@ SELECT distinct cal_date,
     CASE
         WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal_date, sales_product_number, pl) = 0 THEN NULL
         ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal_date, sales_product_number, pl)
-    END AS product_country_mix
+    END AS product_country_mix,
+    CASE
+        WHEN SUM(sell_thru_qty) OVER (PARTITION BY cal_date, sales_product_number, pl) = 0 THEN NULL
+        ELSE sell_thru_qty / SUM(sell_thru_qty) OVER (PARTITION BY cal_date, sales_product_number, pl)
+    END AS unit_country_mix
 FROM emea_st est
 WHERE 1=1
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, sell_thru_usd
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, sell_thru_usd, sell_thru_qty
 """
 
 emea_st_product_mix = spark.sql(emea_st_product_mix)
@@ -1245,7 +1250,7 @@ SELECT edw.cal_date,
     COALESCE(SUM(warranty * product_country_mix), 0) AS warranty,
     COALESCE(SUM(other_cos * product_country_mix), 0) AS other_cos,
     COALESCE(SUM(total_cos * product_country_mix), 0) AS total_cos,
-    COALESCE(SUM(revenue_units * product_country_mix), 0) AS revenue_units
+    COALESCE(SUM(revenue_units * unit_country_mix), 0) AS revenue_units
 FROM salesprod_emea_remove_edw_country edw
 JOIN emea_st_product_mix st
     ON edw.cal_date = st.cal_date
@@ -1290,10 +1295,14 @@ SELECT distinct cal_date,
     CASE
         WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal_date, pl) = 0 THEN NULL
         ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal_date, pl)
-    END AS product_country_mix
+    END AS product_country_mix,
+    CASE
+        WHEN SUM(sell_thru_qty) OVER (PARTITION BY cal_date, pl) = 0 THEN NULL
+        ELSE sell_thru_qty / SUM(sell_thru_qty) OVER (PARTITION BY cal_date, pl)
+    END AS unit_country_mix
 FROM emea_st est
 WHERE 1=1
-GROUP BY cal_date, country_alpha2, pl, sell_thru_usd
+GROUP BY cal_date, country_alpha2, pl, sell_thru_usd, sell_thru_qty
 """
 
 emea_st_product_line_mix = spark.sql(emea_st_product_line_mix)
@@ -1312,7 +1321,7 @@ SELECT edw.cal_date,
     COALESCE(SUM(warranty * product_country_mix), 0) AS warranty,
     COALESCE(SUM(other_cos * product_country_mix), 0) AS other_cos,
     COALESCE(SUM(total_cos * product_country_mix), 0) AS total_cos,
-    COALESCE(SUM(revenue_units * product_country_mix), 0) AS revenue_units
+    COALESCE(SUM(revenue_units * unit_country_mix), 0) AS revenue_units
 FROM salesprod_emea_product_mix_country_no_match edw
 JOIN emea_st_product_line_mix st
     ON edw.cal_date = st.cal_date
@@ -1458,29 +1467,6 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_all_cleaned USING 
 # COMMAND ----------
 
 spark.table("fin_stage.odw_salesprod_all_cleaned").createOrReplaceTempView("odw_salesprod_all_cleaned")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(warranty) AS warranty,
-# MAGIC     SUM(other_cos) AS other_cos,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from odw_salesprod_all_cleaned odw
-# MAGIC join mdm.iso_country_code_xref iso on iso.country_alpha2 = odw.country_alpha2
-# MAGIC join mdm.calendar cal on cal.Date = odw.cal_date
-# MAGIC where 1=1
-# MAGIC and day_of_month = 1
-# MAGIC group by fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5
 
 # COMMAND ----------
 
@@ -3181,6 +3167,29 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_before_plcharges_t
 
 
 spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTempView("odw_salesprod_before_plcharges_temp2")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select fiscal_year_qtr,
+# MAGIC     pl,
+# MAGIC     odw.region_5,
+# MAGIC     SUM(gross_revenue) AS gross_revenue,
+# MAGIC     SUM(net_currency) AS net_currency,
+# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
+# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
+# MAGIC     SUM(warranty) AS warranty,
+# MAGIC     SUM(other_cos) AS other_cos,
+# MAGIC     SUM(total_cos) AS total_cos,
+# MAGIC     SUM(revenue_units) AS revenue_units
+# MAGIC from fin_stage.odw_salesprod_before_plcharges_temp odw
+# MAGIC join mdm.iso_country_code_xref iso on iso.country_alpha2 = odw.country_alpha2
+# MAGIC join mdm.calendar cal on cal.Date = odw.cal_date
+# MAGIC where 1=1
+# MAGIC and day_of_month = 1
+# MAGIC group by fiscal_year_qtr,
+# MAGIC     pl,
+# MAGIC     odw.region_5
 
 # COMMAND ----------
 
