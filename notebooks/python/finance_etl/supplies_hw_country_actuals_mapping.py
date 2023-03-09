@@ -533,7 +533,7 @@ JOIN shm_12_map_geo_6 shm
     AND usc.platform_subset = shm.platform_subset
     AND usc.customer_engagement = shm.customer_engagement
 WHERE 1=1
-    AND hp_pages <> 0
+    AND hp_pages > 0
     AND usc.cal_date > '2015-10-01' 
 GROUP BY usc.cal_date
     , usc.country_alpha2
@@ -561,6 +561,7 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
     END AS page_mix
     , '{addversion_info[1]}' AS load_date
     , '{addversion_info[0]}' AS version
+FROM usage_share_baseprod_01
 FROM usage_share_baseprod_01
 GROUP BY cal_date
     , country_alpha2
@@ -594,7 +595,7 @@ supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, usage_share_baseprod_02, "stage.supplies_hw_country_actuals_mapping", "append", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
+write_df_to_redshift(configs, supplies_hw_country_actuals_mapping, "stage.supplies_hw_country_actuals_mapping", "append", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
