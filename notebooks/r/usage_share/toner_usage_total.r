@@ -219,8 +219,7 @@ hw_info <- SparkR::collect(SparkR::sql("
                                     ELSE NULL
                                 END AS platform_market_code
                       FROM hardware_xref
-                      WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                            or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
+                      WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA')) ))
                       "))
 
 zero <- sqldf("with sub0 as (select a.printer_platform_name,a.printer_region_code, c.market10, c.developed_emerging, a.FYearMo, SUBSTR(d.mono_color,1,1) as CM
@@ -2874,8 +2873,7 @@ platDim <- SparkR::collect(SparkR::sql("SELECT distinct platform_subset AS print
                         WHEN product_structure in ('VALUE','PERSONAL','OPS') THEN 'VAL'
                         ELSE NULL
                     END AS VV
-                 FROM hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                          or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')"))
+                 FROM hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA')) )"))
 
 head(platDim)
 colnames(platDim)
@@ -3198,8 +3196,7 @@ new1 <- SparkR::collect(SparkR::sql("SELECT distinct platform_subset AS printer_
                     WHEN vc_category in ('WG') THEN 'WGP'
                     ELSE NULL
                     END AS platform_market_code
-                 FROM hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                          or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')
+                 FROM hardware_xref WHERE upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA')) )
                   --AND subbrand is not null
        "))
 
