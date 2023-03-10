@@ -1132,7 +1132,7 @@ channel_inventory2.createOrReplaceTempView("channel_inventory2")
 
 
 channel_inventory_pl_restated = f"""
-SELECT 
+SELECT distinct
     ci2.cal_date,
     country_alpha2,
     ci2.sales_product_number,
@@ -1219,19 +1219,18 @@ emea_st.createOrReplaceTempView("emea_st")
 emea_st_product_mix = f"""
 SELECT distinct cal_date,
     country_alpha2,
-    pl,
     sales_product_number,
     CASE
-        WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal_date, sales_product_number, pl) = 0 THEN NULL
-        ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal_date, sales_product_number, pl)
+        WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal_date, sales_product_number) = 0 THEN NULL
+        ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal_date, sales_product_number)
     END AS product_country_mix,
     CASE
-        WHEN SUM(sell_thru_qty) OVER (PARTITION BY cal_date, sales_product_number, pl) = 0 THEN NULL
-        ELSE sell_thru_qty / SUM(sell_thru_qty) OVER (PARTITION BY cal_date, sales_product_number, pl)
+        WHEN SUM(sell_thru_qty) OVER (PARTITION BY cal_date, sales_product_number) = 0 THEN NULL
+        ELSE sell_thru_qty / SUM(sell_thru_qty) OVER (PARTITION BY cal_date, sales_product_number)
     END AS unit_country_mix
 FROM emea_st est
 WHERE 1=1
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, sell_thru_usd, sell_thru_qty
+GROUP BY cal_date, country_alpha2, sales_product_number, sell_thru_usd, sell_thru_qty
 """
 
 emea_st_product_mix = spark.sql(emea_st_product_mix)
@@ -1254,7 +1253,6 @@ SELECT edw.cal_date,
 FROM salesprod_emea_remove_edw_country edw
 JOIN emea_st_product_mix st
     ON edw.cal_date = st.cal_date
-    AND edw.pl = st.pl
     AND edw.sales_product_number = st.sales_product_number
 GROUP BY edw.cal_date, edw.pl, edw.sales_product_number, st.country_alpha2
 """
@@ -1278,7 +1276,6 @@ SELECT edw.cal_date,
 FROM salesprod_emea_remove_edw_country edw
 LEFT JOIN emea_st_product_mix st
     ON edw.cal_date = st.cal_date
-    AND edw.pl = st.pl
     AND edw.sales_product_number = st.sales_product_number
 WHERE st.country_alpha2 is null
 GROUP BY edw.cal_date, edw.pl, edw.sales_product_number
