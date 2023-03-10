@@ -1026,6 +1026,28 @@ salesprod_emea_supplies = spark.sql(salesprod_emea_supplies)
 salesprod_emea_supplies.createOrReplaceTempView("salesprod_emea_supplies")
 
 
+salesprod_emea_supplies_lz_gy = f"""
+SELECT cal_date,
+    pl,
+    country_alpha2,
+    sales_product_number,    
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_emea_supplies
+WHERE pl IN ('LZ', 'GY')
+GROUP BY cal_date, country_alpha2, pl, sales_product_number
+"""
+
+salesprod_emea_supplies_lz_gy = spark.sql(salesprod_emea_supplies_lz_gy)
+salesprod_emea_supplies_lz_gy.createOrReplaceTempView("salesprod_emea_supplies_lz_gy")
+
+
 salesprod_emea_remove_edw_country = f"""
 SELECT cal_date,
     pl,
@@ -1039,6 +1061,7 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_emea_supplies
+WHERE pl NOT IN ('LZ', 'GY')
 GROUP BY cal_date, pl, sales_product_number
 """
 
@@ -1336,6 +1359,10 @@ SELECT * FROM salesprod_emea_product_mix_country
 UNION ALL
 
 SELECT * FROM salesprod_emea_product_line_mix_country
+
+UNION ALL
+
+SELECT * FROM salesprod_emea_supplies_lz_gy
 """
 
 all_emea_salesprod_country = spark.sql(all_emea_salesprod_country)
