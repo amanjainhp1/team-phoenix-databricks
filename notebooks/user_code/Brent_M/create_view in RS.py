@@ -9,29 +9,22 @@
 
 ib_datamart_source_code = """
 
-create or replace view prod.prelim_norm_ships_ce_vw as  
+create or replace view financials.currency_hedge_vw as  
   
-SELECT  
-    a.record,  
-    cal_date,  
-    a.region_5,  
-    a.country_alpha2,  
-    a.platform_subset,  
-    customer_engagement,  
-    split_value,  
-    b.embargoed_sanctioned_flag,  
-    c.technology,  
-    units,  
-    a.version,  
-    a.load_date  
-FROM scen.prelim_norm_shipments_ce a  
-    LEFT JOIN mdm.iso_country_code_xref b on a.country_alpha2=b.country_alpha2  
-    LEFT JOIN mdm.hardware_xref c on a.platform_subset = c.platform_subset  
-WITH NO SCHEMA BINDING;  
+SELECT
+   a.profit_center,
+   a.currency,
+   a.month,
+   a.revenue_currency_hedge,
+   b.technology,
+   a.load_date,
+   a.version
+FROM fin_prod.currency_hedge a 
+    left join mdm.product_line_xref b on a.profit_center=b.profit_center_code; 
   
-GRANT ALL ON prod.prelim_norm_ships_ce_vw to GROUP phoenix_dev;  
-GRANT SELECT ON prod.prelim_norm_ships_ce_vw to GROUP int_analyst;  
-GRANT SELECT ON prod.prelim_norm_ships_ce_vw to GROUP auto_team_phoenix_analyst;
+ALTER TABLE financials.currency_hedge_vw owner to auto_glue;
+GRANT ALL ON financials.currency_hedge_vw to GROUP phoenix_dev;
+
 """
 
 # COMMAND ----------
@@ -51,7 +44,7 @@ cur.close()
 
 drop_view_code = """
 
-drop view prod.prelim_ib_vs_latest_official_vw
+drop view financials.currency_hedge_vw
 """
 
 # COMMAND ----------

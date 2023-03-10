@@ -29,7 +29,7 @@ import pandas as pd
 # COMMAND ----------
 
 # LTF versions
-prev_version = '2023.02.13.1'
+prev_version = '2022.11.17.1'
 
 # COMMAND ----------
 

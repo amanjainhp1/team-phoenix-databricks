@@ -191,6 +191,10 @@ write_df_to_s3(unpivotDF_records, s3_output_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
+# NO LONGER NEED TO COPY TO SFAI
+
+# COMMAND ----------
+
 # # Rename the columns to match SFAI
 unpivotDF_records = unpivotDF_records \
     .withColumnRenamed("product_category","Product_Category") \

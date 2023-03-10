@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # HW_STF review 09-14-2022
+# MAGIC # HW FLASH review 02-21-2023
 
 # COMMAND ----------
 
@@ -28,13 +28,13 @@ import pandas as pd
 
 # COMMAND ----------
 
-# ns/ib versions
-prev_version = '2023.02.15.1'
+# FLASH versions
+prev_version = '2023.01.18.1'
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## hardware_stf v2v compare
+# MAGIC ## hardware FLASH v2v compare
 # MAGIC 
 # MAGIC Synopsis: compare
 
@@ -42,96 +42,96 @@ prev_version = '2023.02.15.1'
 
 # not a permanent solution as source SQL could change
 
-stf_sql = """
-select stf.*
-from prod.hardware_ltf as stf
-left join mdm.rdma rdma on stf.base_product_number = rdma.base_prod_number
+flash_sql = """
+select flash.*
+from prod.flash_wd3 as flash
+left join mdm.rdma rdma on flash.base_product_number = rdma.base_prod_number
 left join mdm.hardware_xref AS hw
     on upper(hw.platform_subset) = upper(rdma.platform_subset)
 where 1=1
     and hw.technology in ('INK', 'LASER', 'PWA')
-    and stf.record = 'HW_STF_FCST'
-    and stf.official=1
+    and flash.version = (select max(version) from prod.flash_wd3 WHERE record = 'FLASH')
 """
 
 # COMMAND ----------
 
-stf_df = read_redshift_to_df(configs) \
-  .option("query", stf_sql) \
+flash_df = read_redshift_to_df(configs) \
+  .option("query", flash_sql) \
   .load()
 
 # COMMAND ----------
 
-stf_df.show()
+flash_df.show()
 
 # COMMAND ----------
 
 # prep for visualization
-stf_agg_prep = stf_df.toPandas()
+flash_agg_prep = flash_df.toPandas()
 
 # drop unwanted columns
-drop_list = ['hw_ltf_id', 'record', 'forecast_name', 'country_alpha2', 'platform_subset', 'base_product_number', 'official','load_date','version']
-stf_agg_1 = stf_agg_prep.drop(drop_list, axis=1)
+drop_list = ['record', 'source_name', 'country_alpha2', 'base_product_number', 'load_date','version']
+flash_agg_1 = flash_agg_prep.drop(drop_list, axis=1)
 
 # aggregate time series
-stf_agg_2 = stf_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
-stf_agg_2['variable'] = 'current.stf'
+flash_agg_2 = flash_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
+flash_agg_2['variable'] = 'current.flash'
 
-stf_agg_3 = stf_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
-
-# COMMAND ----------
-
-stf_agg_3
+flash_agg_3 = flash_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
 
 # COMMAND ----------
 
-stf_prod_sql = """
-SELECT 'previous.stf' AS variable
-    , stf.cal_date
-    , SUM(stf.units) AS units
-FROM prod.hardware_ltf AS stf
+flash_agg_3
+
+# COMMAND ----------
+
+flash_prod_sql = """
+SELECT 'previous.flash' AS variable
+    , prev_flash.cal_date
+    , SUM(prev_flash.units) AS units
+FROM prod.flash_wd3 AS prev_flash
+left join mdm.rdma rdma on prev_flash.base_product_number = rdma.base_prod_number
 LEFT JOIN mdm.hardware_xref AS hw
-    ON hw.platform_subset = stf.platform_subset
+    ON hw.platform_subset = rdma.platform_subset
 WHERE 1=1
     AND hw.technology IN ('INK', 'LASER', 'PWA')
-    AND stf.version = '{}'
-    AND stf.record = 'HW_STF_FCST'
-GROUP BY stf.cal_date
-ORDER BY stf.cal_date
+    AND prev_flash.version = '{}'
+    AND prev_flash.record = 'FLASH'
+GROUP BY prev_flash.cal_date
+ORDER BY prev_flash.cal_date
 """.format(prev_version)
 
 # COMMAND ----------
 
-stf_prod_df = read_redshift_to_df(configs) \
-  .option("query", stf_prod_sql) \
+flash_prod_df = read_redshift_to_df(configs) \
+  .option("query", flash_prod_sql) \
   .load()
 
 # COMMAND ----------
 
-stf_agg_prod_prep = stf_prod_df.toPandas()
+flash_agg_prod_prep = flash_prod_df.toPandas()
 
 # COMMAND ----------
 
-stf_agg_4 = stf_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+flash_agg_4 = flash_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
 
 # COMMAND ----------
 
-stf_agg_4
+flash_agg_4
 
 # COMMAND ----------
 
-stf_agg_5 = pd.concat([stf_agg_3, stf_agg_4], sort=True)
+flash_agg_5 = pd.concat([flash_agg_3, flash_agg_4], sort=True)
 
 # COMMAND ----------
 
 # https://plotly.com/python-api-reference/generated/plotly.express.line
 
-fig = px.line(data_frame=stf_agg_5,
+fig = px.line(data_frame=flash_agg_5,
               x='cal_date',
               y='units',
               line_group='variable',
               color='variable',
-              title='RS - STF v2v compare')
+              title='RS - FLASH v2v compare')
 
 fig.update_xaxes(
     rangeslider_visible=True,
@@ -168,20 +168,20 @@ fig.show()
 
 # COMMAND ----------
 
-stf_generics_sql = """
+flash_generics_sql = """
 
-select distinct platform_subset 
-from prod.hardware_ltf
+select distinct b.platform_subset
+from prod.flash_wd3 a left join mdm.rdma b on a.base_product_number = b.base_prod_number
 where 1=1
-	and record = 'HW_STF_FCST'
-	and official =1
+	and record = 'FLASH'
+    and version = (SELECT MAX(version) from prod.flash_wd3 WHERE record = 'FLASH')
 	and platform_subset like '%GENERIC%'
 """
 
 # COMMAND ----------
 
-stf_generics_df = read_redshift_to_df(configs) \
-  .option("query", stf_generics_sql) \
+flash_generics_df = read_redshift_to_df(configs) \
+  .option("query", flash_generics_sql) \
   .load()
 
-stf_generics_df.show()
+flash_generics_df.show()
