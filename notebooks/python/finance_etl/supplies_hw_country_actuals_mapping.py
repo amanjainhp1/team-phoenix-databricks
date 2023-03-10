@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # load S3 tables to df
 calendar = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.calendar") \
@@ -529,7 +533,7 @@ JOIN shm_12_map_geo_6 shm
     AND usc.platform_subset = shm.platform_subset
     AND usc.customer_engagement = shm.customer_engagement
 WHERE 1=1
-    AND hp_pages <> 0
+    AND hp_pages > 0
     AND usc.cal_date > '2015-10-01' 
 GROUP BY usc.cal_date
     , usc.country_alpha2
@@ -550,12 +554,14 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
     , platform_subset
     , base_product_number
     , customer_engagement
+    , sum(hp_pages) as hp_pages
     , CASE
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
     END AS page_mix
     , '{addversion_info[1]}' AS load_date
     , '{addversion_info[0]}' AS version
+FROM usage_share_baseprod_01
 FROM usage_share_baseprod_01
 GROUP BY cal_date
     , country_alpha2
@@ -577,9 +583,8 @@ SELECT record
     , platform_subset
     , base_product_number
     , customer_engagement
+    , hp_pages
     , page_mix
-    , load_date
-    , version
     , CAST(load_date AS date) as load_date
     , CAST(load_date AS date) as version
 FROM usage_share_baseprod_02
@@ -595,25 +600,26 @@ write_df_to_redshift(configs, supplies_hw_country_actuals_mapping, "stage.suppli
 # COMMAND ----------
 
 import re
+
 tables = [
-    ['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping]
-]
+    ['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping]]
+
 for table in tables:
     # Define the input and output formats and paths and the table name.
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
-    
+
     # Load the data from its source.
-    df = table[1]    
+    df = table[1]
     print(f'loading {table[0]}...')
-    
+
     for column in df.dtypes:
         renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
         df = df.withColumnRenamed(column[0], renamed_column)
         print(renamed_column)
-    
+
     # Write the data to its target.
     df.write \
       .format(write_format) \
@@ -621,3 +627,7 @@ for table in tables:
       .option("overwriteSchema", "true")\
       .save(save_path)
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+
+# COMMAND ----------
+
+
