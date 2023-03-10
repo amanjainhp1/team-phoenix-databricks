@@ -490,7 +490,7 @@ SELECT revenue_recognition_fiscal_year_month_code,
     manufacturing_product_identifier AS sales_product_option,
     functional_area_level_11_name AS finance11,
     SUM(transaction_detail_us_dollar_amount) AS edw_dollars
-FROM edw_revenue_dollars_staging
+FROM fin_stage.edw_revenue_dollars_staging
 WHERE business_area_code NOT IN ('AU00')
 GROUP BY revenue_recognition_fiscal_year_month_code, profit_center_code, business_area_code, ipg_product_base_product_number,
 product_base_identifier, manufacturing_product_identifier, functional_area_level_11_name
@@ -1415,7 +1415,7 @@ SELECT
         ELSE SUM(total_cos) 
     END AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM final_union_edw_data
+FROM fin_stage.final_union_edw_data
 GROUP BY cal_date, country_alpha2, pl, base_product_number, sales_product_number, sales_product_option, gross_revenue, total_cos
 """
 
@@ -2035,7 +2035,7 @@ finance_sys_recorded_pl = f"""
 SELECT distinct cal_date,
     sales_product_number,
     pl as fin_pl
-FROM edw_supplies_combined_findata
+FROM fin_stage.edw_supplies_combined_findata
 """
 
 finance_sys_recorded_pl = spark.sql(finance_sys_recorded_pl)
@@ -2054,7 +2054,7 @@ SELECT cal_date,
     SUM(warranty) AS warranty,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM edw_supplies_combined_findata AS sup
+FROM fin_stage.edw_supplies_combined_findata AS sup
 JOIN iso_country_code_xref AS geo ON sup.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA' 
 GROUP BY cal_date, sup.country_alpha2, pl, sales_product_number
@@ -2063,6 +2063,26 @@ GROUP BY cal_date, sup.country_alpha2, pl, sales_product_number
 salesprod_emea_supplies = spark.sql(salesprod_emea_supplies)
 salesprod_emea_supplies.createOrReplaceTempView("salesprod_emea_supplies")
 
+
+salesprod_emea_supplies_lz_gy = f"""
+SELECT cal_date,
+    pl,
+    country_alpha2,
+    sales_product_number,    
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_emea_supplies
+WHERE pl IN ('LZ', 'GY')
+GROUP BY cal_date, country_alpha2, pl, sales_product_number
+"""
+
+salesprod_emea_supplies_lz_gy = spark.sql(salesprod_emea_supplies_lz_gy)
+salesprod_emea_supplies_lz_gy.createOrReplaceTempView("salesprod_emea_supplies_lz_gy")
 
 salesprod_emea_remove_edw_country = f"""
 SELECT cal_date,
@@ -2076,6 +2096,7 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_emea_supplies
+WHERE pl NOT IN ('LZ', 'GY')
 GROUP BY cal_date, pl, sales_product_number
 """
 
@@ -2378,6 +2399,10 @@ SELECT * FROM salesprod_emea_product_mix_country
 UNION ALL
 
 SELECT * FROM salesprod_emea_product_line_mix_country
+
+UNION ALL
+
+SELECT * FROM salesprod_emea_supplies_lz_gy
 """
 
 all_emea_salesprod_country = spark.sql(all_emea_salesprod_country)
@@ -2409,8 +2434,8 @@ supplies_salesprod2.createOrReplaceTempView("supplies_salesprod2")
 
 salesprod_row = f""" 
 SELECT cal_date,
-    sup.country_alpha2,
     pl,
+    sup.country_alpha2,
     sales_product_number,    
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -2508,28 +2533,6 @@ GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number
 
 salesprod_all_cleaned = spark.sql(salesprod_all_cleaned)
 salesprod_all_cleaned.createOrReplaceTempView("salesprod_all_cleaned")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(warranty) AS warranty,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from fin_stage.salesprod_all_cleaned odw
-# MAGIC join mdm.iso_country_code_xref iso on iso.country_alpha2 = odw.country_alpha2
-# MAGIC join mdm.calendar cal on cal.Date = odw.cal_date
-# MAGIC where 1=1
-# MAGIC and day_of_month = 1
-# MAGIC group by fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5
 
 # COMMAND ----------
 
@@ -2749,28 +2752,6 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.salesprod_all_cleaned2 USING DEL
 # COMMAND ----------
 
 spark.table("fin_stage.salesprod_all_cleaned2").createOrReplaceTempView("salesprod_all_cleaned2")
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC select fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5,
-# MAGIC     SUM(gross_revenue) AS gross_revenue,
-# MAGIC     SUM(net_currency) AS net_currency,
-# MAGIC     SUM(contractual_discounts) AS contractual_discounts,
-# MAGIC     SUM(discretionary_discounts) AS discretionary_discounts,
-# MAGIC     SUM(warranty) AS warranty,
-# MAGIC     SUM(total_cos) AS total_cos,
-# MAGIC     SUM(revenue_units) AS revenue_units
-# MAGIC from fin_stage.salesprod_all_cleaned2 odw
-# MAGIC join mdm.iso_country_code_xref iso on iso.country_alpha2 = odw.country_alpha2
-# MAGIC join mdm.calendar cal on cal.Date = odw.cal_date
-# MAGIC where 1=1
-# MAGIC and day_of_month = 1
-# MAGIC group by fiscal_year_qtr,
-# MAGIC     pl,
-# MAGIC     odw.region_5
 
 # COMMAND ----------
 
