@@ -79,6 +79,13 @@ odw_sacp_actuals = read_redshift_to_df(configs) \
 supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.supplies_finance_hier_restatements_2020_2021") \
     .load()
+supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
+    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
+    .load()
+
+# COMMAND ----------
+
+supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
@@ -1154,10 +1161,10 @@ channel_inventory2 = spark.sql(channel_inventory2)
 channel_inventory2.createOrReplaceTempView("channel_inventory2")
 
 
-channel_inventory_pl_restated = f"""
+channel_inventory_pl_restated_drivers = f"""
 SELECT distinct
     ci2.cal_date,
-    country_alpha2,
+    ci2.country_alpha2,
     ci2.sales_product_number,
     fin_pl as pl,
     SUM(sell_thru_usd) AS sell_thru_usd,
@@ -1166,11 +1173,66 @@ FROM channel_inventory2 ci2
 JOIN finance_sys_recorded_pl fpl
     ON fpl.cal_date = ci2.cal_date
     AND fpl.sales_product_number = ci2.sales_product_number
-GROUP BY ci2.cal_date, country_alpha2, ci2.sales_product_number, fin_pl
+JOIN mdm.rdma_base_to_sales_product_map rdma
+    ON rdma.sales_product_number = ci2.sales_product_number
+JOIN stage.supplies_hw_country_actuals_mapping shcam
+    ON rdma.base_product_number = shcam.base_product_number
+    AND ci2.cal_date = shcam.cal_date
+    AND ci2.country_alpha2 = shcam.country_alpha2
+WHERE 1=1
+AND hp_pages > 0
+AND fin_pl IN (select pl from mdm.product_line_xref where pl_category ='SUP' and technology in ('LASER', 'PWA', 'INK'))
+GROUP BY ci2.cal_date, ci2.country_alpha2, ci2.sales_product_number, fin_pl
+"""
+
+channel_inventory_pl_restated_drivers = spark.sql(channel_inventory_pl_restated_drivers)
+channel_inventory_pl_restated_drivers.createOrReplaceTempView("channel_inventory_pl_restated_drivers")
+
+
+channel_inventory_pl_restated_not_drivers = f"""
+SELECT distinct
+    ci2.cal_date,
+    ci2.country_alpha2,
+    ci2.sales_product_number,
+    fin_pl as pl,
+    SUM(sell_thru_usd) AS sell_thru_usd,
+    SUM(sell_thru_qty) AS sell_thru_qty
+FROM channel_inventory2 ci2
+JOIN finance_sys_recorded_pl fpl
+    ON fpl.cal_date = ci2.cal_date
+    AND fpl.sales_product_number = ci2.sales_product_number
+WHERE 1=1
+AND fin_pl NOT IN (select pl from mdm.product_line_xref where pl_category ='SUP' and technology in ('LASER', 'PWA', 'INK'))
+GROUP BY ci2.cal_date, ci2.country_alpha2, ci2.sales_product_number, fin_pl
+"""
+
+channel_inventory_pl_restated_not_drivers = spark.sql(channel_inventory_pl_restated_not_drivers)
+channel_inventory_pl_restated_not_drivers.createOrReplaceTempView("channel_inventory_pl_restated_not_drivers")
+
+
+channel_inventory_pl_restated = f"""
+SELECT cal_date,
+    country_alpha2,
+    sales_product_number,
+    pl,
+    sell_thru_usd,
+    sell_thru_qty
+FROM channel_inventory_pl_restated_drivers
+
+UNION ALL
+
+SELECT cal_date,
+    country_alpha2,
+    sales_product_number,
+    pl,
+    sell_thru_usd,
+    sell_thru_qty
+FROM channel_inventory_pl_restated_not_drivers
 """
 
 channel_inventory_pl_restated = spark.sql(channel_inventory_pl_restated)
 channel_inventory_pl_restated.createOrReplaceTempView("channel_inventory_pl_restated")
+
 
 
 tier1_emea_raw = f"""
