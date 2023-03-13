@@ -143,7 +143,7 @@ SELECT cal_date,
     SUM(page_mix) AS platform_mix,
     version
 FROM supplies_hw_country_actuals_mapping
-WHERE version = (select max(version) from supplies_hw_country_atuals_mapping)
+WHERE version = (select max(version) from supplies_hw_country_actuals_mapping)
     AND cal_date <= (SELECT MAX(cal_date) FROM fin_prod.edw_actuals_supplies_salesprod) 
     AND page_mix > 0
 GROUP BY cal_date,
