@@ -174,6 +174,10 @@ actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
 
 # COMMAND ----------
 
+supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
+
+# COMMAND ----------
+
 addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIES SALES PRODUCT FINANCIALS", "ACTUALS - EDW SUPPLIES SALES PRODUCT FINANCIALS")
 
 # COMMAND ----------
@@ -2206,7 +2210,7 @@ JOIN finance_sys_recorded_pl fpl
     AND fpl.sales_product_number = ci2.sales_product_number
 JOIN mdm.rdma_base_to_sales_product_map rdma
     ON rdma.sales_product_number = ci2.sales_product_number
-JOIN stage.supplies_hw_country_actuals_mapping shcam
+JOIN supplies_hw_country_actuals_mapping shcam
     ON rdma.base_product_number = shcam.base_product_number
     AND ci2.cal_date = shcam.cal_date
     AND ci2.country_alpha2 = shcam.country_alpha2
