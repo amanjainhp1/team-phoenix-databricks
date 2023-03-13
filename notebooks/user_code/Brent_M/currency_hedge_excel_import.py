@@ -11,11 +11,11 @@ dbutils.widgets.text("spreadsheet_startdate", "")
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
