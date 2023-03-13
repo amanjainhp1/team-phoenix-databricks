@@ -1147,7 +1147,7 @@ JOIN finance_sys_recorded_pl fpl
     AND fpl.sales_product_number = ci2.sales_product_number
 JOIN mdm.rdma_base_to_sales_product_map rdma
     ON rdma.sales_product_number = ci2.sales_product_number
-JOIN stage.supplies_hw_country_actuals_mapping shcam
+JOIN supplies_hw_country_actuals_mapping shcam
     ON rdma.base_product_number = shcam.base_product_number
     AND ci2.cal_date = shcam.cal_date
     AND ci2.country_alpha2 = shcam.country_alpha2
