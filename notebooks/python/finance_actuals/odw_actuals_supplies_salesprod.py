@@ -1047,7 +1047,7 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_emea_supplies
-WHERE pl IN ('LZ', 'GY')
+WHERE pl IN ('LZ', 'GY', 'N5')
 GROUP BY cal_date, country_alpha2, pl, sales_product_number
 """
 
@@ -1068,7 +1068,7 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_emea_supplies
-WHERE pl NOT IN ('LZ', 'GY')
+WHERE pl NOT IN ('LZ', 'GY', 'N5')
 GROUP BY cal_date, pl, sales_product_number
 """
 
@@ -1150,11 +1150,10 @@ SELECT
         THEN LEFT(sales_product_number, 6)
         ELSE sales_product_number
     END AS sales_product_number,
-    pl,
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM channel_inventory
-GROUP BY cal_date, country_alpha2, sales_product_number, pl
+GROUP BY cal_date, country_alpha2, sales_product_number
 """
 
 channel_inventory2 = spark.sql(channel_inventory2)
@@ -1234,6 +1233,20 @@ channel_inventory_pl_restated = spark.sql(channel_inventory_pl_restated)
 channel_inventory_pl_restated.createOrReplaceTempView("channel_inventory_pl_restated")
 
 
+channel_inventory_pl_restated2 = f"""
+SELECT cal_date,
+    country_alpha2,
+    sales_product_number,
+    pl,
+    COALESCE(SUM(sell_thru_usd), 0) as sell_thru_usd,
+    COALESCE(SUM(sell_thru_qty), 0) as sell_thru_qty
+FROM channel_inventory_pl_restated
+GROUP BY cal_date, country_alpha2, sales_product_number, pl
+"""
+
+channel_inventory_pl_restated2 = spark.sql(channel_inventory_pl_restated2)
+channel_inventory_pl_restated2.createOrReplaceTempView("channel_inventory_pl_restated2")
+
 
 tier1_emea_raw = f"""
 SELECT
@@ -1247,7 +1260,7 @@ SELECT
     sales_product_number,
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
-FROM channel_inventory_pl_restated AS st
+FROM channel_inventory_pl_restated2 AS st
 JOIN mdm.iso_country_code_xref AS geo ON st.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA'
   AND sell_thru_usd > 0
@@ -1291,8 +1304,8 @@ WHERE pl IN (
             AND PL_category IN ('SUP', 'LLC')
             OR pl IN ('IE')
     ) 
-    AND (sell_thru_usd != 0
-    OR sell_thru_qty != 0)
+    AND (sell_thru_usd > 0
+    OR sell_thru_qty > 0)
 GROUP BY cal_date, country_alpha2, pl, edw.sales_product_number
 """            
 
