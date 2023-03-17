@@ -371,8 +371,6 @@ SELECT cal_date
 	, ib as units
 	, 'IB' as source
 FROM step5
-WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
 )
 SELECT "USAGE_SHARE" as record
       ,cal_date
