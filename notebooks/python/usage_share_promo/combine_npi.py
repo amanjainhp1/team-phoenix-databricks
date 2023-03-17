@@ -144,7 +144,7 @@ SELECT c.record
       ,c.load_date
       ,c.grp_id
 FROM current_1 c
-INNER JOIN npi_1 m
+LEFT JOIN npi_1 m
     ON 1=1
     AND c.platform_subset=m.platform_subset
     AND c.customer_engagement=m.customer_engagement
@@ -158,27 +158,7 @@ overlap_1.createOrReplaceTempView("overlap_1")
 # COMMAND ----------
 
 combine_1 = """
-with cur_1 as (SELECT record
-      ,cal_date
-      ,geography_grain
-      ,geography
-      ,platform_subset
-      ,customer_engagement
-      ,forecast_process_note
-      ,CASE WHEN measure='HP_SHARE' AND data_source = 'HAVE DATA' THEN 'TELEMETRY'
-            WHEN measure like '%USAGE%' AND data_source = 'DASHBOARD' THEN 'TELEMETRY'
-            WHEN data_source = 'OVERRIDE' THEN 'MATURE'
-            ELSE 'MODELED'
-            END AS data_source
-      ,version
-      ,measure
-      ,units
-      ,proxy_used
-      ,ib_version
-      ,load_date
-FROM current_1
- WHERE grp_id not in (select distinct grp_id from overlap_1))
-, ovr_1 as (SELECT record
+with ovr_1 as (SELECT record
       ,cal_date
       ,geography_grain
       ,geography
@@ -210,10 +190,8 @@ FROM overlap_1)
 FROM npi_1
 WHERE grp_id not in (select distinct grp_id from overlap_1))
 , combine as (
-SELECT * FROM cur_1
-UNION ALL
 SELECT * FROM ovr_1
-UNION ALL
+UNION
 SELECT * FROM npi_1
 )
 SELECT * FROM combine
