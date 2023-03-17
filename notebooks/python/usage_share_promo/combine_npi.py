@@ -132,7 +132,7 @@ SELECT c.record
             END AS data_source
       ,c.version
       ,c.measure
-      ,WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.customer_engagement = 'I-INK' THEN 1
+      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.customer_engagement = 'I-INK' THEN 1
             WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.customer_engagement != 'I-INK' THEN m.units
             WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN m.units
             WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
