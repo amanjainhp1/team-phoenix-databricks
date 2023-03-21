@@ -15,7 +15,7 @@ odw_revenue_units_sales_landing_media = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM fin_prod.odw_revenue_units_sales_actuals") \
     .load() \
     .filter("profit_center_code IN ('PAU00', 'PUR00')") \
-    .withColumnRenamed('unit_quantity_sign_flip', 'unit_quantity')
+    .withColumnRenamed('revenue_unit_quantity', 'unit_quantity')
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_country_code_xref") \
     .load()
@@ -242,13 +242,33 @@ odw_media_units = f"""
   LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  --AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_revenue_units_sales_landing_media)
+  AND cal.Date < '2023-03-0'
   AND cal.Date > '2021-10-01'
   AND unit_quantity <> 0
   AND Day_of_Month = 1
   AND unit_quantity is not null
   AND ((land.profit_center_code = 'PAU00' AND unit_reporting_code = 'O')
   OR (land.profit_center_code = 'PUR00' AND unit_reporting_code = 'S'))
+  GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_description, unit_reporting_code
+  
+  UNION ALL
+  
+  SELECT cal.Date AS cal_date
+      ,segment_code
+      ,pl
+      ,material_number as sales_product_option
+      ,unit_reporting_code
+      ,unit_reporting_description
+      ,SUM(unit_quantity) as extended_quantity
+  FROM fin_stage.odw_revenue_units_sales_landing_media land
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  WHERE 1=1
+  --AND fiscal_year_period >= '2023005'
+  AND cal.Date > '2023-02-01'
+  AND unit_quantity <> 0
+  AND Day_of_Month = 1
+  AND unit_quantity is not null
   GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_description, unit_reporting_code
 """
 

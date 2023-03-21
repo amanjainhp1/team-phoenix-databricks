@@ -132,30 +132,31 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - ODW SUPPLIE
 
 # COMMAND ----------
 
-odw_extended_quantity = f"""
+odw_extended_quantity_uqsf = f"""
 SELECT cal.Date AS cal_date
       ,segment_code
       ,pl
       ,material_number as sales_product_option
       ,unit_reporting_code
       ,unit_reporting_description
-      ,SUM(unit_quantity_sign_flip) as extended_quantity
+      ,SUM(revenue_unit_quantity) as extended_quantity
   FROM fin_stage.odw_revenue_units_sales_actuals land
   LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
   AND Day_of_Month = 1
   AND cal.Date > '2021-10-01'
+  AND cal.Date < '2023-03-01'
   AND unit_quantity_sign_flip <> 0
   AND unit_quantity_sign_flip is not null
   GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_code, unit_reporting_description
 """
 
-odw_extended_quantity = spark.sql(odw_extended_quantity)
-odw_extended_quantity.createOrReplaceTempView("odw_extended_quantity")
+odw_extended_quantity_uqsf = spark.sql(odw_extended_quantity_uqsf)
+odw_extended_quantity_uqsf.createOrReplaceTempView("odw_extended_quantity_uqsf")
 
 
-odw_extended_quantity_country = f"""
+odw_extended_quantity_country_uqsf = f"""
 SELECT
     cal_date,
     country_alpha2,
@@ -164,17 +165,17 @@ SELECT
     unit_reporting_code,
     unit_reporting_description,
     SUM(extended_quantity) as extended_quantity
-FROM odw_extended_quantity odw
+FROM odw_extended_quantity_uqsf odw
 LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 GROUP BY cal_date, country_alpha2, pl, sales_product_option, unit_reporting_code, unit_reporting_description
 """
 
-odw_extended_quantity_country = spark.sql(odw_extended_quantity_country)
-odw_extended_quantity_country.createOrReplaceTempView("odw_extended_quantity_country")
+odw_extended_quantity_country_uqsf = spark.sql(odw_extended_quantity_country_uqsf)
+odw_extended_quantity_country_uqsf.createOrReplaceTempView("odw_extended_quantity_country_uqsf")
 
 
 #SELECT ONLY SUPPLIES AND LLC PRODUCT LINES 
-supplies_units = f"""
+supplies_units_uqsf = f"""
 SELECT
     cal_date,
     country_alpha2,
@@ -187,7 +188,7 @@ SELECT
     0 as warranty,
     0 as total_cos_without_warranty,
     SUM(extended_quantity) as extended_quantity
-FROM odw_extended_quantity_country
+FROM odw_extended_quantity_country_uqsf
 WHERE pl IN (
     SELECT distinct pl 
     FROM mdm.product_line_xref 
@@ -202,11 +203,11 @@ GROUP BY cal_date,
     sales_product_option
 """
 
-supplies_units = spark.sql(supplies_units)
-supplies_units.createOrReplaceTempView("supplies_units")
+supplies_units_uqsf = spark.sql(supplies_units_uqsf)
+supplies_units_uqsf.createOrReplaceTempView("supplies_units_uqsf")
 
 
-llcs_units = f"""
+llcs_units_usqf = f"""
 SELECT
     cal_date,
     country_alpha2,
@@ -219,7 +220,7 @@ SELECT
     0 as warranty,
     0 as total_cos_without_warranty,
     SUM(extended_quantity) as extended_quantity
-FROM odw_extended_quantity_country
+FROM odw_extended_quantity_country_uqsf
 WHERE pl IN (
     SELECT distinct pl 
     FROM mdm.product_line_xref 
@@ -234,11 +235,11 @@ GROUP BY cal_date,
     sales_product_option
 """
 
-llcs_units = spark.sql(llcs_units)
-llcs_units.createOrReplaceTempView("llcs_units")
+llcs_units_usqf = spark.sql(llcs_units_usqf)
+llcs_units_usqf.createOrReplaceTempView("llcs_units_usqf")
 
 
-combined_unit_types = f"""
+combined_unit_types_uqsf = f"""
 SELECT
     cal_date,
     country_alpha2,
@@ -251,7 +252,7 @@ SELECT
     SUM(warranty) as warranty,
     SUM(total_cos_without_warranty) as total_cos_without_warranty,
     SUM(extended_quantity) AS revenue_units
-FROM supplies_units
+FROM supplies_units_uqsf
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 
 UNION ALL
@@ -268,12 +269,218 @@ SELECT
     SUM(warranty) as warranty,
     SUM(total_cos_without_warranty) as total_cos_without_warranty,
     SUM(extended_quantity) AS revenue_units
-FROM llcs_units
+FROM llcs_units_uqsf
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
-combined_unit_types = spark.sql(combined_unit_types)
-combined_unit_types.createOrReplaceTempView("combined_unit_types")
+combined_unit_types_uqsf = spark.sql(combined_unit_types_uqsf)
+combined_unit_types_uqsf.createOrReplaceTempView("combined_unit_types_uqsf")
+
+
+odw_revenue_unit_data_uqsf = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,    
+    COALESCE(SUM(gross_revenue), 0) as gross_revenue,
+    COALESCE(SUM(net_currency), 0) as net_currency,
+    COALESCE(SUM(contractual_discounts), 0) as contractual_discounts,
+    COALESCE(SUM(discretionary_discounts), 0) as discretionary_discounts,
+    COALESCE(SUM(warranty),0) as warranty,
+    COALESCE(SUM(total_cos_without_warranty), 0) as total_cos_without_warranty,
+    COALESCE(SUM(revenue_units), 0) AS revenue_units
+FROM combined_unit_types_uqsf
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+"""
+
+odw_revenue_unit_data_uqsf = spark.sql(odw_revenue_unit_data_uqsf)
+odw_revenue_unit_data_uqsf.createOrReplaceTempView("odw_revenue_unit_data_uqsf")
+
+
+# COMMAND ----------
+
+odw_extended_quantity_ru = f"""
+SELECT cal.Date AS cal_date
+      ,segment_code
+      ,pl
+      ,material_number as sales_product_option
+      ,unit_reporting_code
+      ,unit_reporting_description
+      ,SUM(revenue_unit_quantity) as extended_quantity
+  FROM fin_stage.odw_revenue_units_sales_actuals land
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  WHERE 1=1
+  AND Day_of_Month = 1
+  AND cal.Date > '2023-02-01'
+  AND revenue_unit_quantity <> 0
+  AND revenue_unit_quantity is not null
+  GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_code, unit_reporting_description
+"""
+
+odw_extended_quantity_ru = spark.sql(odw_extended_quantity_ru)
+odw_extended_quantity_ru.createOrReplaceTempView("odw_extended_quantity_ru")
+
+
+odw_extended_quantity_country_ru = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,
+    unit_reporting_code,
+    unit_reporting_description,
+    SUM(extended_quantity) as extended_quantity
+FROM odw_extended_quantity_ru odw
+LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
+GROUP BY cal_date, country_alpha2, pl, sales_product_option, unit_reporting_code, unit_reporting_description
+"""
+
+odw_extended_quantity_country_ru = spark.sql(odw_extended_quantity_country_ru)
+odw_extended_quantity_country_ru.createOrReplaceTempView("odw_extended_quantity_country_ru")
+
+
+#SELECT ONLY SUPPLIES AND LLC PRODUCT LINES 
+supplies_units_ru = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,
+    0 as gross_revenue,
+    0 as net_currency,
+    0 as contractual_discounts,
+    0 as discretionary_discounts,
+    0 as warranty,
+    0 as total_cos_without_warranty,
+    SUM(extended_quantity) as extended_quantity
+FROM odw_extended_quantity_country_ru
+WHERE pl IN (
+    SELECT distinct pl 
+    FROM mdm.product_line_xref 
+    WHERE 1=1
+    AND pl_category IN ('SUP') 
+    AND technology IN ('PWA', 'LASER', 'INK', 'LF')
+    )
+   -- AND unit_reporting_code = 'S'
+GROUP BY cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option
+"""
+
+supplies_units_ru = spark.sql(supplies_units_ru)
+supplies_units_ru.createOrReplaceTempView("supplies_units_ru")
+
+
+llcs_units_ru = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,
+    0 as gross_revenue,
+    0 as net_currency,
+    0 as contractual_discounts,
+    0 as discretionary_discounts,
+    0 as warranty,
+    0 as total_cos_without_warranty,
+    SUM(extended_quantity) as extended_quantity
+FROM odw_extended_quantity_country_ru
+WHERE pl IN (
+    SELECT distinct pl 
+    FROM mdm.product_line_xref 
+    WHERE 1=1
+    AND pl_category IN ('LLC') 
+    AND technology IN ('LLCS')
+    )
+    --AND unit_reporting_code = 'O'
+GROUP BY cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option
+"""
+
+llcs_units_ru = spark.sql(llcs_units_ru)
+llcs_units_ru.createOrReplaceTempView("llcs_units_ru")
+
+
+combined_unit_types_ru = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,    
+    SUM(gross_revenue) as gross_revenue,
+    SUM(net_currency) as net_currency,
+    SUM(contractual_discounts) as contractual_discounts,
+    SUM(discretionary_discounts) as discretionary_discounts,
+    SUM(warranty) as warranty,
+    SUM(total_cos_without_warranty) as total_cos_without_warranty,
+    SUM(extended_quantity) AS revenue_units
+FROM supplies_units_ru
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,    
+    SUM(gross_revenue) as gross_revenue,
+    SUM(net_currency) as net_currency,
+    SUM(contractual_discounts) as contractual_discounts,
+    SUM(discretionary_discounts) as discretionary_discounts,
+    SUM(warranty) as warranty,
+    SUM(total_cos_without_warranty) as total_cos_without_warranty,
+    SUM(extended_quantity) AS revenue_units
+FROM llcs_units_ru
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+"""
+
+combined_unit_types_ru = spark.sql(combined_unit_types_ru)
+combined_unit_types_ru.createOrReplaceTempView("combined_unit_types_ru")
+
+
+odw_revenue_unit_data_ru_uqsf = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,    
+    COALESCE(SUM(gross_revenue), 0) as gross_revenue,
+    COALESCE(SUM(net_currency), 0) as net_currency,
+    COALESCE(SUM(contractual_discounts), 0) as contractual_discounts,
+    COALESCE(SUM(discretionary_discounts), 0) as discretionary_discounts,
+    COALESCE(SUM(warranty),0) as warranty,
+    COALESCE(SUM(total_cos_without_warranty), 0) as total_cos_without_warranty,
+    COALESCE(SUM(revenue_units), 0) AS revenue_units
+FROM combined_unit_types_ru
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    sales_product_option,    
+    COALESCE(SUM(gross_revenue), 0) as gross_revenue,
+    COALESCE(SUM(net_currency), 0) as net_currency,
+    COALESCE(SUM(contractual_discounts), 0) as contractual_discounts,
+    COALESCE(SUM(discretionary_discounts), 0) as discretionary_discounts,
+    COALESCE(SUM(warranty),0) as warranty,
+    COALESCE(SUM(total_cos_without_warranty), 0) as total_cos_without_warranty,
+    COALESCE(SUM(revenue_units), 0) AS revenue_units
+FROM combined_unit_types_usqf
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+"""
+
+odw_revenue_unit_data_ru_uqsf = spark.sql(odw_revenue_unit_data_ru_uqsf)
+odw_revenue_unit_data_ru_uqsf.createOrReplaceTempView("odw_revenue_unit_data_ru_uqsf")
+
 
 
 odw_revenue_unit_data = f"""
@@ -289,13 +496,12 @@ SELECT
     COALESCE(SUM(warranty),0) as warranty,
     COALESCE(SUM(total_cos_without_warranty), 0) as total_cos_without_warranty,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
-FROM combined_unit_types
+FROM odw_revenue_unit_data_ru_uqsf
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
 odw_revenue_unit_data = spark.sql(odw_revenue_unit_data)
 odw_revenue_unit_data.createOrReplaceTempView("odw_revenue_unit_data")
-
 
 # COMMAND ----------
 
