@@ -227,7 +227,7 @@ baseprod_without_acct_items.createOrReplaceTempView("baseprod_without_acct_items
 # COMMAND ----------
 
 #base product with assigned printers based upon cartridge demand // addback 2
-baseprod_printer_from_crtg_demand = f"""
+baseprod_printer_from_usc = f"""
 SELECT 
     act.cal_date,            
     act.country_alpha2,
