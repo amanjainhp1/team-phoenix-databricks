@@ -15,7 +15,7 @@
 
 add_version_inputs = [
     #['WORKING_FORECAST_TONER', 'WORKING FORECAST TONER'],
-    ['WORKING_FORECAST_INK', 'WORKING FORECAST INK'],
+    #['WORKING_FORECAST_INK', 'WORKING FORECAST INK'],
     ['WORKING_FORECAST_COUNTRY', 'WORKING FORECAST COUNTRY']
 ]
 
@@ -99,7 +99,6 @@ tables = [
 # COMMAND ----------
 
 working_country = spark.sql("""
-
 with scen_promo_01_filter_vars as (
 SELECT DISTINCT record
     , version
@@ -121,7 +120,7 @@ WHERE record in ('IE2-WORKING-FORECAST', 'WORKING_FORECAST_INK', 'WORKING_FORECA
     , ctry.mvtc_adjusted_crgs AS imp_corrected_cartridges
     , vars.load_date
     , vars.version
-FROM scen.c2c_adj_country_pf_split AS ctry
+FROM scen.working_forecast_country AS ctry
 CROSS JOIN scen_promo_01_filter_vars AS vars
 WHERE 1=1
     AND vars.record = 'WORKING_FORECAST_COUNTRY'

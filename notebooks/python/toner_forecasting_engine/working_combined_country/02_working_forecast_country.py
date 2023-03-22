@@ -71,10 +71,6 @@ vtc_02.createOrReplaceTempView("c2c_vtc_02_forecast_months")
 
 # COMMAND ----------
 
-spark.sql("""select * from c2c_vtc_02_forecast_months""").show()
-
-# COMMAND ----------
-
 # originally ctrypf_07_c2c_adj_agg
 ctry_01 = spark.sql("""
     SELECT geography

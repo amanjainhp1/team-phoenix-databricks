@@ -35,6 +35,7 @@ combined = spark.sql("""
         , wft.adjusted_cartridges
     FROM prod.working_forecast AS wft
     WHERE wft.version = '{}'
+        AND record = 'IE2-WORKING-FORECAST'
 
     UNION ALL
 
@@ -55,6 +56,7 @@ combined = spark.sql("""
         , wfi.adjusted_cartridges
     FROM prod.working_forecast AS wfi
     WHERE wfi.version = '{}'
+        AND record = 'WORKING_FORECAST_INK'
 """.format(toner_wf_version, ink_wf_version))
 
 
