@@ -74,6 +74,7 @@
             "trade_forecast_vw",
             "yield_vw",
             "cartridge_demand_cartridges_vw",
+            "cartridge_demand_cartridges_plus_mdm_vw",
             "fill_rates_vw",
             "iso_country_code_xref_vw",
             "cartridge_mix_override_errors_vw",
