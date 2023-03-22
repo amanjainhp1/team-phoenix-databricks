@@ -23,7 +23,7 @@ for input in add_version_inputs:
 # COMMAND ----------
 
 toner_pivots_data_source = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.toner_pivots_data_source_nt") \
+    .option("dbtable", "stage.toner_pivots_data_source") \
     .load()
 
 version = read_redshift_to_df(configs) \
