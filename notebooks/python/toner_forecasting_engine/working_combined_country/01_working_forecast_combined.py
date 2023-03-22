@@ -33,7 +33,8 @@ combined = spark.sql("""
         --, 0.0 AS welcome_kits
         , wft.expected_cartridges
         , wft.adjusted_cartridges
-    FROM toner_working_fcst AS wft
+    FROM prod.working_forecast AS wft
+    WHERE wft.version = '{}'
 
     UNION ALL
 
@@ -52,8 +53,9 @@ combined = spark.sql("""
         --, wfi.welcome_kits
         , wfi.expected_cartridges
         , wfi.adjusted_cartridges
-    FROM ink_working_fcst AS wfi
-""")
+    FROM prod.working_forecast AS wfi
+    WHERE wfi.version = '{}'
+""".format(toner_wf_version, ink_wf_version))
 
 
 write_df_to_redshift(configs, combined, "scen.working_forecast_combined", "overwrite")

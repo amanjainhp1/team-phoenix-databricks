@@ -23,7 +23,7 @@ for input in add_version_inputs:
 # COMMAND ----------
 
 toner_pivots_data_source = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.toner_pivots_data_source") \
+    .option("dbtable", "stage.toner_pivots_data_source_nt") \
     .load()
 
 version = read_redshift_to_df(configs) \
@@ -38,6 +38,10 @@ tables = [
 # COMMAND ----------
 
 # MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
+spark.sql("""select max(version) from prod.version""").show()
 
 # COMMAND ----------
 
@@ -113,6 +117,8 @@ with pivots_promo_01_filter_vars as (
     , channel_fill_w
     , equiv_units_w
     , vtc_w
+    , tp.rev_units_nt
+    , tp.equiv_units_nt
     , pgswmktshr_blackonly
     , pgswomktshr_blackonly
     , pgswmktshr_color
