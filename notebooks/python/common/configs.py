@@ -66,7 +66,7 @@ for tag in custom_tags:
 
 # define constants
 developer_constants = {
-    "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;",
+    "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;trustServerCertificate=true;",
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "SFAI_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:prod/sqlserver/team-phoenix/auto_databricks-TuXNHG",
