@@ -242,7 +242,7 @@ odw_media_units = f"""
   LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  AND cal.Date < '2023-03-0'
+  AND cal.Date < '2023-03-01'
   AND cal.Date > '2021-10-01'
   AND unit_quantity <> 0
   AND Day_of_Month = 1
@@ -291,7 +291,7 @@ odw_unit_data_selected = f"""
     END AS sales_product_number,
     unit_reporting_code,
     unit_reporting_description,
-    SUM(extended_quantity) as extended_quantity
+    COALESCE(SUM(extended_quantity), 0) as extended_quantity
 FROM odw_media_units odw
 LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 LEFT JOIN mdm.iso_country_code_xref iso ON (iso.country_alpha2 = s.country_alpha2)

@@ -147,8 +147,8 @@ SELECT cal.Date AS cal_date
   AND Day_of_Month = 1
   AND cal.Date > '2021-10-01'
   AND cal.Date < '2023-03-01'
-  AND unit_quantity_sign_flip <> 0
-  AND unit_quantity_sign_flip is not null
+  AND revenue_unit_quantity <> 0
+  AND revenue_unit_quantity is not null
   GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_code, unit_reporting_description
 """
 
@@ -207,7 +207,7 @@ supplies_units_uqsf = spark.sql(supplies_units_uqsf)
 supplies_units_uqsf.createOrReplaceTempView("supplies_units_uqsf")
 
 
-llcs_units_usqf = f"""
+llcs_units_uqsf = f"""
 SELECT
     cal_date,
     country_alpha2,
@@ -235,8 +235,8 @@ GROUP BY cal_date,
     sales_product_option
 """
 
-llcs_units_usqf = spark.sql(llcs_units_usqf)
-llcs_units_usqf.createOrReplaceTempView("llcs_units_usqf")
+llcs_units_uqsf = spark.sql(llcs_units_uqsf)
+llcs_units_uqsf.createOrReplaceTempView("llcs_units_uqsf")
 
 
 combined_unit_types_uqsf = f"""
@@ -474,7 +474,7 @@ SELECT
     COALESCE(SUM(warranty),0) as warranty,
     COALESCE(SUM(total_cos_without_warranty), 0) as total_cos_without_warranty,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
-FROM combined_unit_types_usqf
+FROM combined_unit_types_uqsf
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
 
