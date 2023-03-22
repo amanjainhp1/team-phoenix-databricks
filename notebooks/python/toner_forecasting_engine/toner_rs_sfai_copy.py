@@ -7,19 +7,82 @@
 
 # COMMAND ----------
 
-base_forecast = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.vtc") \
-    .load()
-
-working_forecast = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.toner_working_fcst") \
+toner_pivots = read_redshift_to_df(configs) \
+    .option("query", "select  record_type\
+      , record\
+      , cycle\
+      , begin_cycle_date\
+      , period_dt\
+      , month\
+      , fiscal_year_qtr\
+      , fiscal_yr\
+      , calendar_yr_qtr\
+      , calendar_yr\
+      , market10\
+      , region_5\
+      , platform_subset\
+      , base_prod_name\
+      , base_prod_number\
+      , customer_engagement\
+      , yield\
+      , hw_pl\
+      , business_feature\
+      , hw_product_family\
+      , sf_mf\
+      , format\
+      , mono_color_devices\
+      , product_structure\
+      , vc_category\
+      , supplies_pl\
+      , crg_pl_name\
+      , crg_category\
+      , crg_business\
+      , cartridge_alias\
+      , cartridge_type\
+      , cartridge_size\
+      , single_multi\
+      , crg_chrome\
+      , crg_intro_dt\
+      , trans_vs_contract\
+      , p2j_identifier\
+      , hw_fc_units\
+      , ib_units\
+      , trd_units_w\
+      , pmf_units\
+      , pmf_dollars\
+      , expected_crgs_w\
+      , spares_w\
+      , channel_fill_w\
+      , equiv_units_w\
+      , vtc_w\
+      , rev_units_nt\
+      , equiv_units_nt\
+      , pgswmktshr_blackonly\
+      , pgswomktshr_blackonly\
+      , pgswmktshr_color\
+      , pgswomktshr_color\
+      , hp_crg_sz\
+      , fiji_usd\
+      , discount_pcnt\
+      , rpp_gross_rev\
+      , rpp_net_rev_w\
+      , pgswmktshr\
+      , pgswomktshr\
+      , fiji_k_mpv\
+      , fiji_mkt_shr\
+      , supplies_base_qty\
+      , supplies_equivalent_units\
+      , wampv_k_mpv\
+      , wampv_ib_units\
+      , load_date\
+      , version\
+      from prod.toner_pivots_nt where version = (select max(version) from prod.toner_pivots_nt)") \
     .load()
 
 # COMMAND ----------
 
 tables = [
-    ['IE2_Scenario.toner.c2c_cartridges_w_vtc_rs_2023_02_08', base_forecast, "overwrite"],
-    ['IE2_Scenario.toner.toner_working_fcst_rs_2023_02_08', working_forecast, "overwrite"]
+    ['IE2_Prod.dbo.pivots_toner', toner_pivots, "append"]
 ]
 
 # COMMAND ----------

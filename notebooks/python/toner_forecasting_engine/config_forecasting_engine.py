@@ -19,10 +19,10 @@
 
 # COMMAND ----------
 
-ib_version = '2023.01.26.1'
-us_version = '2023.01.30.2'
+ib_version = '2023.03.03.1'
+us_version = '2023.03.04.1'
 
-toner_wf_version = '2023.02.09.1'
+toner_wf_version = '2023.03.09.1'
 ink_wf_version = '2023.02.09.1'
 
 # COMMAND ----------
@@ -38,7 +38,7 @@ print('us_version: ' + us_version)
 print('toner_wf_version: ' + toner_wf_version)
 print('ink_wf_version: ' + ink_wf_version)
 
-#print('working_forecast_country: ' + wf_country_version)
+print('working_forecast_country: ' + wf_country_version)
 
 # COMMAND ----------
 
@@ -69,8 +69,8 @@ print('iink_stf_month_end: ' + iink_stf_month_end)
 
 # COMMAND ----------
 
-pivots_start = '2017-11-01'
-pivots_end = '2027-10-01'
+pivots_start = '2018-01-01'
+pivots_end = '2027-12-01'
 
 # COMMAND ----------
 
