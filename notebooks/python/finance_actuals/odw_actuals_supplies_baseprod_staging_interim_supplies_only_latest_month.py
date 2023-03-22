@@ -270,8 +270,8 @@ odw_media_units = f"""
   AND unit_quantity <> 0
   AND Day_of_Month = 1
   AND unit_quantity is not null
-  AND ((land.profit_center_code = 'PAU00' AND unit_reporting_code = 'O')
-  OR (land.profit_center_code = 'PUR00' AND unit_reporting_code = 'S') )
+  --AND ((land.profit_center_code = 'PAU00' AND unit_reporting_code = 'O')
+  --OR (land.profit_center_code = 'PUR00' AND unit_reporting_code = 'S') )
   GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_description, unit_reporting_code
 """
 
