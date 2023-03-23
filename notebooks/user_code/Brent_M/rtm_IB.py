@@ -29,6 +29,7 @@ from stage.f_report_units a
     left join mdm.hardware_xref c on b.platform_subset=c.platform_subset
 where 1=1
     and c.technology in ('INK','LASER','PWA')
+    and calendar_month > (select max(date) from stage.rtm_historical_actuals)
 group by
     record,
     calendar_month,
@@ -55,7 +56,6 @@ from stage.rtm_historical_actuals a
 where 1=1
     and c.technology in ('INK','LASER','PWA')
     and a.date > '2017-10-01'
-    and a.date < (select min(calendar_month) from stage.f_report_units)
 group by
     date,
     geo,

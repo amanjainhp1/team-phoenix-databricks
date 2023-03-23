@@ -18,7 +18,7 @@ from pyspark.sql.functions import col, lit, when
 
 #retrieve relevant data from source db
 planet_actuals = read_sql_server_to_df(configs) \
-    .option("query", f"""SELECT * FROM [Archer_Prod].dbo.stf_flash_country_speedlic_yeti_vw WHERE record = 'Planet-Actuals' AND date >= '2022-11-01'""") \
+    .option("query", f"""SELECT * FROM [Archer_Prod].dbo.stf_flash_country_speedlic_yeti_vw WHERE record = 'Planet-Actuals' AND date IN ('2022-11-01','2022-12-01','2023-01-01')""") \
     .load()
         
 # store data, in raw format from source DB to stage table
@@ -64,6 +64,13 @@ staging_actuals_units_hw = staging_actuals_units_hw \
     .withColumn("load_date", when(col("load_date") != (max_load_date), max_load_date))
 
 write_df_to_redshift(configs, staging_actuals_units_hw, "stage.actuals_hw", "overwrite")
+
+# COMMAND ----------
+
++ # clean up existing data
++ # delete from prod.actuals_hw where record = 'ACTUALS - HW' and version = '2023.03.03.2';
++ # update stage.actuals_hw set version = '2023.03.03.2', load_date = '2023-03-03 18:16:34.000000';
++ # delete from prod.version where record = 'ACTUALS - HW' and version = '2023.03.20.1';
 
 # COMMAND ----------
 
