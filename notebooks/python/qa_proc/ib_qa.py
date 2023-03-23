@@ -46,7 +46,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's versions
-prev_version = '2023.03.03.1'
+prev_version = '2023.03.10.1'
 
 # COMMAND ----------
 
@@ -381,6 +381,19 @@ enrollee_mismatches_records.display()
 # COMMAND ----------
 
 ns_sql = """
+SELECT 'stage' AS variable
+    , ns.cal_date
+    , SUM(ns.units) AS units
+FROM stage.norm_ships AS ns
+LEFT JOIN mdm.hardware_xref AS hw
+    ON hw.platform_subset = ns.platform_subset
+WHERE 1=1
+    AND hw.technology IN ('INK', 'LASER', 'PWA')
+    AND ns.cal_date between '2019-03-01' and '2026-10-01'
+GROUP BY ns.cal_date
+
+UNION ALL
+
 SELECT 'prod' AS variable
     , ns.cal_date
     , SUM(ns.units) AS units
@@ -392,22 +405,7 @@ WHERE 1=1
     AND ns.version = '{}'
     and ns.cal_date between '2019-03-01' and '2026-10-01'
 GROUP BY ns.cal_date
-
-UNION ALL
-
-SELECT 'stage' AS variable
-    , ns.cal_date
-    , SUM(ns.units) AS units
-FROM stage.norm_ships AS ns
-LEFT JOIN mdm.hardware_xref AS hw
-    ON hw.platform_subset = ns.platform_subset
-WHERE 1=1
-    AND hw.technology IN ('INK', 'LASER', 'PWA')
-    AND ns.cal_date between '2019-03-01' and '2026-10-01'
-GROUP BY ns.cal_date
-ORDER BY 2
-
-
+ORDER BY 2,1
 """.format(prev_version)
 
 
