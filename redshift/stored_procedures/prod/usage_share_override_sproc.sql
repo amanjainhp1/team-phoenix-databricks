@@ -102,7 +102,6 @@ CREATE TABLE IF NOT EXISTS stage.usage_share_override_historical2_landing(
     ,ib_version VARCHAR(20)
     ,load_date TIMESTAMP WITH TIME ZONE NOT NULL
 );
-GRANT ALL ON TABLE stage.usage_share_override_historical2_landing TO auto_glue;
 
 INSERT INTO stage.usage_share_override_historical2_landing
 (
