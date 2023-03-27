@@ -14,8 +14,8 @@
 # COMMAND ----------
 
 add_version_inputs = [
-    ['WORKING_FORECAST_TONER', 'WORKING FORECAST TONER'],
-    ['WORKING_FORECAST_INK', 'WORKING FORECAST INK'],
+    #['WORKING_FORECAST_TONER', 'WORKING FORECAST TONER'],
+    #['WORKING_FORECAST_INK', 'WORKING FORECAST INK'],
     ['WORKING_FORECAST_COUNTRY', 'WORKING FORECAST COUNTRY']
 ]
 
@@ -54,41 +54,41 @@ tables = [
 
 # COMMAND ----------
 
-working_promo = spark.sql("""
+# working_promo = spark.sql("""
 
-with scen_promo_01_filter_vars as (
-    SELECT DISTINCT record
-        , version
-        , source_name
-        , load_date
-        , official
-    FROM prod.version
-    WHERE record in ('WORKING_FORECAST_TONER', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY')
-        AND version = (SELECT MAX(version) FROM prod.version WHERE record IN ('WORKING_FORECAST_TONER', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY'))
-)SELECT wfc.record
-    , to_date(wfc.cal_date, 'yyyy-MM-dd') as cal_date
-    , wfc.geography_grain
-    , wfc.geography
-    , wfc.platform_subset
-    , wfc.base_product_number
-    , wfc.customer_engagement
-    , wfc.cartridges
-    , wfc.channel_fill
-    , wfc.supplies_spares_cartridges
-    , 0.0 as host_cartridges
-    --, CAST(wfc.welcome_kits AS FLOAT) AS welcome_kits
-    , wfc.expected_cartridges
-    , wfc.vtc
-    , wfc.adjusted_cartridges
-    , vars.load_date
-    , vars.version
-FROM scen.working_forecast_combined AS wfc
-JOIN scen_promo_01_filter_vars AS vars
-    ON vars.record = wfc.record
-WHERE 1=1
-""")
+# with scen_promo_01_filter_vars as (
+#     SELECT DISTINCT record
+#         , version
+#         , source_name
+#         , load_date
+#         , official
+#     FROM prod.version
+#     WHERE record in ('IE2-WORKING-FORECAST', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY')
+#         AND version = (SELECT MAX(version) FROM prod.version WHERE record IN ('IE2-WORKING-FORECAST', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY'))
+# )SELECT wfc.record
+#     , to_date(wfc.cal_date, 'yyyy-MM-dd') as cal_date
+#     , wfc.geography_grain
+#     , wfc.geography
+#     , wfc.platform_subset
+#     , wfc.base_product_number
+#     , wfc.customer_engagement
+#     , wfc.cartridges
+#     , wfc.channel_fill
+#     , wfc.supplies_spares_cartridges
+#     , 0.0 as host_cartridges
+#     --, CAST(wfc.welcome_kits AS FLOAT) AS welcome_kits
+#     , wfc.expected_cartridges
+#     , wfc.vtc
+#     , wfc.adjusted_cartridges
+#     , vars.load_date
+#     , vars.version
+# FROM scen.working_forecast_combined AS wfc
+# JOIN scen_promo_01_filter_vars AS vars
+#     ON vars.record = wfc.record
+# WHERE 1=1
+# """)
 
-write_df_to_redshift(configs, working_promo, "prod.working_forecast", "append")
+# write_df_to_redshift(configs, working_promo, "prod.working_forecast", "append")
 
 # COMMAND ----------
 
@@ -99,7 +99,6 @@ write_df_to_redshift(configs, working_promo, "prod.working_forecast", "append")
 # COMMAND ----------
 
 working_country = spark.sql("""
-
 with scen_promo_01_filter_vars as (
 SELECT DISTINCT record
     , version
@@ -107,8 +106,8 @@ SELECT DISTINCT record
     , load_date
     , official
 FROM prod.version
-WHERE record in ('WORKING_FORECAST_TONER', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY')
-    AND version = (SELECT MAX(version) FROM prod.version WHERE record IN ('WORKING_FORECAST_TONER', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY'))
+WHERE record in ('IE2-WORKING-FORECAST', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY')
+    AND version = (SELECT MAX(version) FROM prod.version WHERE record IN ('IE2-WORKING-FORECAST', 'WORKING_FORECAST_INK', 'WORKING_FORECAST_COUNTRY'))
 )SELECT vars.record
     , to_date(ctry.cal_date, 'yyyy-MM-dd') as cal_date
     , 'MARKET10' AS geography_grain
@@ -121,13 +120,13 @@ WHERE record in ('WORKING_FORECAST_TONER', 'WORKING_FORECAST_INK', 'WORKING_FORE
     , ctry.mvtc_adjusted_crgs AS imp_corrected_cartridges
     , vars.load_date
     , vars.version
-FROM scen.c2c_adj_country_pf_split AS ctry
+FROM scen.working_forecast_country AS ctry
 CROSS JOIN scen_promo_01_filter_vars AS vars
 WHERE 1=1
     AND vars.record = 'WORKING_FORECAST_COUNTRY'
 """)
 
-write_df_to_redshift(configs, working_country, "prod.working_forecast_country_test", "append")
+write_df_to_redshift(configs, working_country, "prod.working_forecast_country", "append")
 
 # COMMAND ----------
 

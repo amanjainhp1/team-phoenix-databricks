@@ -29,10 +29,10 @@ toner_por = spark.sql("""
         , units
         , us_version
         , ib_version
-        , override
-        , override_timestamp
-        , forecaster_name
-    FROM toner_03_usage_share
+        --, override
+        --, override_timestamp
+        --, forecaster_name
+    FROM scen.toner_03_usage_share
 """)
 
 toner_por.createOrReplaceTempView("toner_por")
@@ -40,3 +40,7 @@ toner_por.createOrReplaceTempView("toner_por")
 # COMMAND ----------
 
 write_df_to_redshift(configs, toner_por, "prod.usage_share_por_toner", "overwrite")
+
+# COMMAND ----------
+
+

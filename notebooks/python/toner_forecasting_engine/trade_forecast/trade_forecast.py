@@ -48,7 +48,7 @@ trade_01_common = spark.sql("""
         , '{}' as version
     FROM prod.working_forecast
     WHERE 1=1
-        AND record = 'WORKING_FORECAST_TONER'
+        AND record = 'IE2-WORKING-FORECAST'
     GROUP BY record
     
     UNION ALL
@@ -448,24 +448,32 @@ SELECT cal_date
     , base_product_number
     , customer_engagement
     , cartridges
-    , CAST(cal_date AS string) + ' ' + COALESCE(market10, 'blank') + ' ' + COALESCE(region_5, 'blank') + ' ' +
-        COALESCE(platform_subset, 'blank') + ' ' + base_product_number + ' ' + COALESCE(customer_engagement, 'blank') AS composite_key
 FROM trade_06_trade_forecast
-
 """)
 
+trade_07.createOrReplaceTempView("trade_forecast_staging")
 write_df_to_redshift(configs, trade_07, "stage.trade_forecast_staging", "overwrite")
 
 # COMMAND ----------
 
-#spark.sql("""select count(*) from trade_01_supplies_stf_country_mix""").show() #1,306,535
+#spark.sql("""select count(*) from trade_01_supplies_stf_country_mix""").show() #1,540,481
 #spark.sql("""select count(*) from trade_02_pfs_ce_mix""").show()
 #spark.sql("""select count(*) from trade_03_supplies_stf_transformed""").show()
 #spark.sql("""select count(*) from trade_04_stf_horizon_fill""").show()
 #spark.sql("""select count(*) from trade_05_working_forecast""").show()
 #spark.sql("""select count(*) from trade_06_trade_forecast""").show()
-#spark.sql("""select count(*) from trade_forecast_staging""").show() #5,052,812
+#spark.sql("""select count(*) from trade_forecast_staging""").show() #5,049,572
 
 # COMMAND ----------
 
+#from plotnine import *
 
+# COMMAND ----------
+
+#import numpy
+
+#numpy.version.version
+
+# COMMAND ----------
+
+#ggplot(data = trade_07, mapping = aes(x = cartridges, y = cal_date))

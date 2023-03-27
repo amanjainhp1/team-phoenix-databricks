@@ -41,6 +41,10 @@ tables = [
 
 # COMMAND ----------
 
+spark.sql("""select max(version) from prod.version""").show()
+
+# COMMAND ----------
+
 toner_pivots_promo = spark.sql("""
 
 with pivots_promo_01_filter_vars as (
@@ -113,6 +117,8 @@ with pivots_promo_01_filter_vars as (
     , channel_fill_w
     , equiv_units_w
     , vtc_w
+    , tp.rev_units_nt
+    , tp.equiv_units_nt
     , pgswmktshr_blackonly
     , pgswomktshr_blackonly
     , pgswmktshr_color
