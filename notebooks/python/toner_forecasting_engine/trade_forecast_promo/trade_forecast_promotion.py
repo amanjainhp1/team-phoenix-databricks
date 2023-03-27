@@ -37,7 +37,7 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 

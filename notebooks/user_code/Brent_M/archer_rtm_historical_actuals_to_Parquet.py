@@ -17,6 +17,7 @@ archer_rtm_historical_query = """
 
 select *
 from Archer_Prod.dbo.rtm_actuals_country_speedlic_vw
+where date > '2022-12-01'
 
 """
 
@@ -30,7 +31,7 @@ archer_rtm_historical_records.cache()
 
 # write to parquet file in s3
 
-s3_usage_share_output_bucket = constants["S3_BASE_BUCKET"][stack] + "archive/archer_rtm_historical_actuals/2023_01_27/"
+s3_usage_share_output_bucket = constants["S3_BASE_BUCKET"][stack] + "archive/archer_rtm_historical_actuals/2023_03_23/"
 
 
 # COMMAND ----------
@@ -39,7 +40,7 @@ write_df_to_s3(archer_rtm_historical_records, s3_usage_share_output_bucket, "par
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, archer_rtm_historical_records, "stage.rtm_historical_actuals", "overwrite")
+write_df_to_redshift(configs, archer_rtm_historical_records, "stage.rtm_historical_actuals", "append")
 
 # COMMAND ----------
 

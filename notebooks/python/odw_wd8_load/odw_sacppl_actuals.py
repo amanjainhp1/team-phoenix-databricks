@@ -110,7 +110,8 @@ if redshift_row_count > 0:
                         .withColumnRenamed("Segment Code","segment_code") \
                         .withColumnRenamed("Functional Area Code","functional_area_code") \
                         .withColumnRenamed("Functional Area Name","functional_area_name") \
-                        .withColumnRenamed("Sign Flip Amount","sign_flip_amount") 
+                        .withColumnRenamed("Sign Flip Amount","sign_flip_amount") \
+                        .filter(col("fiscal_year_period") != 'NULL')
     
     write_df_to_redshift(configs, sacp_actuals_df, "fin_stage.odw_sacp_actuals", "append")
 
@@ -132,16 +133,13 @@ SELECT "fiscal_year_period" as fiscal_year_period
       ,"profit_center_name" as profit_center_name
       ,"segment_code" as segment
       ,"functional_area_code" as fa_code
-      ,CASE
-		WHEN "functional_area_code" = 'SUPPLIES_U' THEN 'SUPPLIES_U'
-		WHEN "functional_area_code" = 'OEM_UNITS' THEN 'OEM_UNITS'
-		ELSE "functional_area_name"
-	  END as fa_name
+      ,"functional_area_name" as fa_name
       ,SUM("sign_flip_amount") as amount
   FROM "fin_stage"."odw_sacp_actuals" w
   LEFT JOIN "mdm"."product_line_xref" pc ON w.profit_center_code = pc.profit_center_code
   WHERE 1=1
 	AND fiscal_year_period is not null
+    AND "functional_area_name" <> ''
 	AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM "fin_stage"."odw_sacp_actuals")
 	AND w.profit_center_code IN (
 		select profit_center_code
