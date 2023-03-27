@@ -81,7 +81,7 @@ SELECT record
     , MAX(version) AS version
 FROM prod.working_forecast
 WHERE 1=1
-    AND record = 'WORKING_FORECAST_TONER'
+    AND record = 'IE2-WORKING-FORECAST'
 GROUP BY record
 
 UNION ALL
@@ -174,7 +174,7 @@ FROM prod.demand AS d
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
-    AND d.measure IN ('K_HP_DEMAND', 'COLOR_HP_DEMAND', 'COLOR_NON_HP_DEMAND', 'K_NON_HP_DEMAND')
+    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'HP_K_NON_PAGES')
     AND d.cal_date BETWEEN '{}' AND '{}'
     AND d.version = (select MAX(version) from prod.demand)
 """.format(pivots_start, pivots_end))
@@ -228,7 +228,7 @@ with pivots_t_19_hw_xref as (
         ON rdma.base_prod_number = s.base_product_number
     WHERE 1=1
         AND s.official = 'true'
-        -- AND s.Technology = 'LASER'
+        AND s.technology = 'LASER'
 )
 SELECT DISTINCT 'WORKING_FORECAST_MIX' AS record
     , mr.cal_date
@@ -348,8 +348,6 @@ usage.createOrReplaceTempView("pivots_04_usage")
 # COMMAND ----------
 
 pages_wo_mktshr = spark.sql("""
-
-
 with pivots_t_06_pages_wo_mktshr as (
     SELECT DISTINCT 'PGS WO MKTSHR' AS record
         , date_format(current_date, 'yyyy-MM') AS period
@@ -358,13 +356,13 @@ with pivots_t_06_pages_wo_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(COALESCE(color_non_hp_demand, 0) + COALESCE(k_non_hp_demand, 0) +
-                            COALESCE(color_hp_demand, 0) + COALESCE(k_hp_demand, 0), 0), 0) As units
+        , IFNULL(COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(HP_K_NON_PAGES , 0) +
+                            COALESCE(HP_COLOR_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0), 0) As units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
-    (
-        SUM(units) FOR measure IN ('COLOR_HP_DEMAND' as COLOR_HP_DEMAND, 'K_HP_DEMAND' as K_HP_DEMAND, 'COLOR_NON_HP_DEMAND' as COLOR_NON_HP_DEMAND, 'K_NON_HP_DEMAND' as K_NON_HP_DEMAND)
+        ( 
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
     )
 )
 SELECT p.record
@@ -415,12 +413,12 @@ with pivots_t_08_pages_w_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(color_hp_demand + k_hp_demand, color_hp_demand, k_hp_demand, 0), 0) AS units
+        , IFNULL(COALESCE(HP_COLOR_PAGES + HP_K_PAGES, HP_COLOR_PAGES, HP_K_PAGES, 0), 0) AS units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
     (
-        SUM(units) FOR measure IN ('COLOR_HP_DEMAND' AS color_hp_demand, 'K_HP_DEMAND' AS k_hp_demand, 'COLOR_NON_HP_DEMAND' AS color_non_hp_demand, 'K_NON_HP_DEMAND' AS k_non_hp_demand)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
     )
 )
 SELECT p.record
@@ -966,7 +964,7 @@ LEFT JOIN mdm.rdma AS rdma
     ON rdma.base_prod_number = s.base_product_number
 WHERE 1=1
     AND s.official = 'true'
-    -- AND s.Technology = 'LASER'
+    AND s.Technology = 'LASER'
 )
 SELECT wf.record
     , wf.cal_date
@@ -1027,7 +1025,7 @@ wampv_prep.createOrReplaceTempView("pivots_17_wampv_prep")
 
 # COMMAND ----------
 
-combined = spark.sql("""
+ combined = spark.sql("""
 
 with pivots_t_17_fiscal_calendar as (
     
@@ -1105,7 +1103,7 @@ with pivots_t_17_fiscal_calendar as (
         ON rdma.base_prod_number = s.base_product_number
     WHERE 1=1
         AND s.official = 'true'
-        -- AND s.Technology = 'LASER'
+        AND s.Technology = 'LASER'
 ),  pivots_t_22_net_rev_per_unit as (
 
 SELECT apf.cal_date
@@ -1181,6 +1179,8 @@ WHERE 1=1
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1201,7 +1201,7 @@ WHERE 1=1
     , SUM(0) AS wampv_ib_units
 
 FROM prod.ib AS ib
-JOIN pivots_lib_01_filter_vars AS fv  -- TODO locate VIEW IN Redshift 
+JOIN pivots_lib_01_filter_vars AS fv
     ON fv.record = ib.record
     AND fv.version = ib.version
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1292,6 +1292,8 @@ SELECT 'HW SHIPS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1397,6 +1399,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1517,6 +1521,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(wf.channel_fill) AS channel_fill_w
     , SUM(s.equivalents_multiplier * wf.adjusted_cartridges) AS equiv_units_w  -- singles
     , SUM(wf.vtc) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1636,6 +1642,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(p.pgs_w_mktshr_blk) AS pgswmktshr_blackonly
     , SUM(p.pgs_wo_mktshr_blk) AS pgswomktshr_blackonly
     , SUM(p.pgs_w_mktshr_kcmy) AS pgswmktshr_color
@@ -1658,9 +1666,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-LEFT JOIN pivots_t_19_hw_xref AS hw
+JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-LEFT JOIN pivots_t_18_supplies_xref AS s
+JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 
 GROUP BY f.date
@@ -1755,6 +1763,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(p.pmf_equiv) AS equiv_units_w  -- this is trade, but it is being mapped to working; incorrect
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1777,9 +1787,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-LEFT JOIN pivots_t_19_hw_xref AS hw
+JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-LEFT JOIN pivots_t_18_supplies_xref AS s
+JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -1875,6 +1885,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1894,12 +1906,12 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
 
-FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
+FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-LEFT JOIN pivots_t_19_hw_xref AS hw
+JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-LEFT JOIN pivots_t_18_supplies_xref AS s
+JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -1995,6 +2007,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2022,9 +2036,9 @@ LEFT JOIN pivots_17_wampv_prep as w
     AND w.customer_engagement = p.customer_engagement
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-LEFT JOIN pivots_t_19_hw_xref AS hw
+JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-LEFT JOIN pivots_t_18_supplies_xref AS s
+JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
     AND NOT p.k_usage IS NULL  -- this filters out base product numbers
@@ -2122,6 +2136,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2248,6 +2264,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2270,7 +2288,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = c.cal_date
-LEFT JOIN pivots_t_18_supplies_xref AS s
+JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = c.base_product_number
 
 GROUP BY f.date
@@ -2291,6 +2309,132 @@ GROUP BY f.date
     , s.single_multi
     , s.crg_chrome
     , s.crg_intro_dt
+    
+UNION ALL
+
+SELECT 'SUPPLIES FC/ACTUALS' AS record_type
+    , 'NON-TRADE UNITS' AS record
+
+    , date_format(current_date(), 'yyyy-MM') AS cycle
+    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
+    , CAST(current_date() AS DATE) AS period_dt
+
+    , f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+
+    , asb.market10 AS market_10
+    , geo.region_5
+
+    , asb.platform_subset
+
+    , s.base_prod_name AS base_prod_name
+    , asb.base_product_number AS base_prod_number
+
+    , asb.customer_engagement
+
+    , 0 as yield
+
+    , hw.pl AS hw_pl
+    , hw.business_feature AS business_feature
+    , hw.hw_product_family
+    , hw.sf_mf AS sf_mf
+    , hw.format AS format
+    , hw.mono_color AS mono_color_devices
+    , hw.product_structure AS product_structure
+    , hw.vc_category
+
+    , s.supplies_pl AS supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , s.cartridge_alias
+    , s.type AS cartridge_type
+    , s.size AS cartridge_size
+    , s.single_multi
+    , s.crg_chrome
+    , s.crg_intro_dt
+    , '' AS trans_vs_contract
+    , '' AS p2j_identifier
+
+    , SUM(0) AS hw_fc_units
+    , SUM(0) AS ib_units
+    , SUM(0) AS trd_units_w
+    , SUM(0) AS pmf_units
+    , SUM(0) AS pmf_dollars
+    , SUM(0) AS expected_crgs_w
+    , SUM(0) AS spares_w
+    , SUM(0) AS channel_fill_w
+    , SUM(0) AS equiv_units_w
+    , SUM(0) AS vtc_w
+    , asb.revenue_units AS rev_units_nt
+    , asb.equivalent_units AS equiv_units_nt
+    , SUM(0) AS pgswmktshr_blackonly
+    , SUM(0) AS pgswomktshr_blackonly
+    , SUM(0) AS pgswmktshr_color
+    , SUM(0) AS pgswomktshr_color
+    , SUM(0) AS hp_crg_sz
+    , SUM(0) AS fiji_usd
+    , SUM(0) AS discount_pcnt
+    , SUM(0) AS rpp_gross_rev
+    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS pgswmktshr
+    , SUM(0) AS pgswomktshr
+    , SUM(0) AS fiji_color_mpv
+    , SUM(0) AS fiji_k_mpv
+    , SUM(0) AS fiji_mkt_shr
+    , SUM(0) AS supplies_base_qty
+    , SUM(0) AS supplies_equivalent_units
+    , SUM(0) AS wampv_k_mpv
+    , SUM(0) AS wampv_ib_units
+
+FROM fin_prod.actuals_supplies_baseprod asb
+JOIN pivots_t_17_fiscal_calendar AS f
+    ON f.date = asb.cal_date
+JOIN pivots_t_19_hw_xref AS hw
+    ON hw.platform_subset = asb.platform_subset
+JOIN pivots_t_18_supplies_xref AS s
+    ON s.base_product_number = asb.base_product_number
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = asb.market10
+
+GROUP BY f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+
+    , asb.market10
+    , geo.region_5
+
+    , asb.platform_subset
+    , s.base_prod_name
+    , asb.base_product_number
+    , asb.customer_engagement
+
+    , hw.pl
+    , hw.business_feature
+    , hw.hw_product_family
+    , hw.sf_mf
+    , hw.format
+    , hw.mono_color
+    , hw.product_structure
+    , hw.vc_category
+
+    , s.supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , s.cartridge_alias
+    , s.type
+    , s.size
+    , s.single_multi
+    , s.crg_chrome
+    , s.crg_intro_dt
+    , asb.revenue_units
+    , asb.equivalent_units
 """.format(pivots_start, pivots_end))
 
 combined.createOrReplaceTempView("pivots_18_combined")
@@ -2363,6 +2507,8 @@ SELECT
     , channel_fill_w
     , equiv_units_w
     , vtc_w
+    , rev_units_nt
+    , equiv_units_nt
     , pgswmktshr_blackonly
     , pgswomktshr_blackonly
     , pgswmktshr_color
@@ -2381,7 +2527,7 @@ SELECT
     , supplies_equivalent_units
     , wampv_k_mpv
     , wampv_ib_units
-FROM pivots_18_combined  -- TODO locate VIEW IN Redshift 
+FROM pivots_18_combined
 """)
 
 write_df_to_redshift(configs, toner_pivots_data_source, "stage.toner_pivots_data_source", "overwrite")

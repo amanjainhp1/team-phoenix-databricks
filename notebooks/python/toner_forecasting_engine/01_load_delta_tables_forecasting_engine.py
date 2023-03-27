@@ -76,7 +76,7 @@ installed_base = read_redshift_to_df(configs) \
     .load()
 
 ink_working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '{}'".format(ink_wf_version)) \
+    .option("query", "select * from prod.working_forecast where version = '{}' and record = 'WORKING_FORECAST_INK'".format(ink_wf_version)) \
     .load()
 
 norm_shipments = read_redshift_to_df(configs) \
@@ -84,7 +84,7 @@ norm_shipments = read_redshift_to_df(configs) \
     .load()
 
 toner_working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '{}'".format(toner_wf_version)) \
+    .option("query", "select * from prod.working_forecast where version = '{}' and record = 'IE2-WORKING-FORECAST'".format(toner_wf_version)) \
     .load()
 
 # COMMAND ----------

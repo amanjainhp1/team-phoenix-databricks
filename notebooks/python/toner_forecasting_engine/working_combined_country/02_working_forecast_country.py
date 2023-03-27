@@ -41,7 +41,7 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
@@ -68,10 +68,6 @@ WHERE 1=1
 """.format(ib_version))
 
 vtc_02.createOrReplaceTempView("c2c_vtc_02_forecast_months")
-
-# COMMAND ----------
-
-spark.sql("""select * from c2c_vtc_02_forecast_months""").show()
 
 # COMMAND ----------
 
