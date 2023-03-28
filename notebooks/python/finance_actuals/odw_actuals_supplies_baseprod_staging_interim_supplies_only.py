@@ -7,6 +7,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../common/s3_utils
+
+# COMMAND ----------
+
 # load S3 tables to df
 odw_actuals_supplies_salesprod = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.odw_actuals_supplies_salesprod") \

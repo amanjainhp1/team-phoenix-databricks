@@ -1286,7 +1286,7 @@ orig_official_fin_prep2 = spark.sql("""
       ,country_alpha2
       ,CASE
           WHEN country_alpha2 = 'XW' THEN 'WORLD WIDE'
-		ELSE market8
+          ELSE market8
       END AS market8
 	  ,platform_subset
       ,base_product_number
