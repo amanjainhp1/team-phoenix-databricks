@@ -1,4 +1,4 @@
-CREATE OR REPLACE PROCEDURE stage.usage_share_override_sproc()
+CREATE OR REPLACE PROCEDURE prod.usage_share_override_sproc()
     LANGUAGE plpgsql
 AS $$
 
@@ -9,7 +9,7 @@ BEGIN
 
 SELECT GETDATE() INTO current_date;
 
-CREATE TABLE IF NOT EXISTS stage.usage_share_override_landing(
+CREATE TABLE IF NOT EXISTS prod.usage_share_override_npi(
     record VARCHAR(25) NOT NULL
     ,min_sys_dt DATE NOT NULL
     ,month_num INTEGER NOT NULL
@@ -28,19 +28,18 @@ CREATE TABLE IF NOT EXISTS stage.usage_share_override_landing(
     ,ib_version VARCHAR(20)
     ,load_date TIMESTAMP WITH TIME ZONE NOT NULL
 );
-GRANT ALL ON TABLE stage.usage_share_override_landing TO auto_glue;
 
 --remove any records that overlap from the temp table
-DELETE FROM stage.usage_share_override_landing
+DELETE FROM prod.usage_share_override_npi
 USING stage.usage_share_override_landing_temp b
-WHERE stage.usage_share_override_landing.geography = b.geography
-    AND stage.usage_share_override_landing.platform_subset = b.platform_subset
-    AND stage.usage_share_override_landing.customer_engagement = b.customer_engagement
-    AND stage.usage_share_override_landing.measure = b.measure;
+WHERE prod.usage_share_override_npi.geography = b.geography
+    AND prod.usage_share_override_npi.platform_subset = b.platform_subset
+    AND prod.usage_share_override_npi.customer_engagement = b.customer_engagement
+    AND prod.usage_share_override_npi.measure = b.measure;
 --might need to add month_num = month_num here to avoid partial loads like Cherry STND DM1 on 5/18/21
 
 --insert records from the temp table
-INSERT INTO stage.usage_share_override_landing
+INSERT INTO prod.usage_share_override_npi
 (
     record
     ,min_sys_dt
@@ -81,7 +80,7 @@ SELECT
  FROM stage.usage_share_override_landing_temp;
 
 --remove rows with a negative statistical_forecast_value value
-DELETE FROM stage.usage_share_override_landing WHERE units < 0;
+DELETE FROM prod.usage_share_override_npi WHERE units < 0;
 
 --insert records into the historical table
 CREATE TABLE IF NOT EXISTS stage.usage_share_override_historical2_landing(
@@ -103,7 +102,6 @@ CREATE TABLE IF NOT EXISTS stage.usage_share_override_historical2_landing(
     ,ib_version VARCHAR(20)
     ,load_date TIMESTAMP WITH TIME ZONE NOT NULL
 );
-GRANT ALL ON TABLE stage.usage_share_override_historical2_landing TO auto_glue;
 
 INSERT INTO stage.usage_share_override_historical2_landing
 (

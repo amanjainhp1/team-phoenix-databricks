@@ -19,7 +19,7 @@ odw_revenue_units_sales_landing_media = read_redshift_to_df(configs) \
     .option("query", "SELECT * FROM fin_prod.odw_revenue_units_sales_actuals") \
     .load() \
     .filter("profit_center_code IN ('PAU00', 'PUR00')") \
-    .withColumnRenamed('unit_quantity_sign_flip', 'unit_quantity')
+    .withColumnRenamed('revenue_unit_quantity', 'unit_quantity')
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_country_code_xref") \
     .load()
@@ -274,8 +274,8 @@ odw_media_units = f"""
   AND unit_quantity <> 0
   AND Day_of_Month = 1
   AND unit_quantity is not null
-  AND ((land.profit_center_code = 'PAU00' AND unit_reporting_code = 'O')
-  OR (land.profit_center_code = 'PUR00' AND unit_reporting_code = 'S') )
+  --AND ((land.profit_center_code = 'PAU00' AND unit_reporting_code = 'O')
+  --OR (land.profit_center_code = 'PUR00' AND unit_reporting_code = 'S') )
   GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_description, unit_reporting_code
 """
 

@@ -33,7 +33,7 @@ odw_revenue_units_sales_actuals_schema = StructType([ \
             StructField("segment_name", StringType(), True), \
             StructField("profit_center_code", StringType(), True), \
             StructField("material_number", StringType(), True), \
-            StructField("unit_quantity_sign_flip", DecimalType(), True), \
+            StructField("revenue_unit_quantity", DecimalType(), True), \
             StructField("load_date", TimestampType(), True), \
             StructField("unit_reporting_code", StringType(), True), \
             StructField("unit_reporting_description", StringType(), True)
@@ -152,13 +152,13 @@ if redshift_sales_actuals_row_count > 0:
         .load(f"s3a://{bucket}/{bucket_prefix}/{revenue_unit_latest_file}")
     
     revenue_unit_df = revenue_unit_df \
-        .withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,6))) \
-        .withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
+        .withColumn("revenue unit quantity", revenue_unit_df["revenue unit quantity"].cast(DecimalType(38,6))) \
+        .withColumn('revenue unit quantity', regexp_extract(col('revenue unit quantity'), '-?\d+\.\d{0,2}', 0))
 
     revenue_unit_df = revenue_unit_df \
-        .withColumn("unit quantity (sign-flip)", revenue_unit_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
+        .withColumn("revenue unit quantity", revenue_unit_df["revenue unit quantity"].cast(DecimalType(38,2))) \
         .withColumn("load_date", current_date()) \
-        .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
+        .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","revenue unit quantity","load_date","Unit Reporting Code","Unit Reporting Description")
 
     revenue_unit_df = odw_revenue_units_sales_actuals_schema_df.union(revenue_unit_df)    
     
@@ -178,14 +178,14 @@ SELECT
     , profit_center_code
     , material_number
     , segment_code AS segment
-    , SUM(unit_quantity_sign_flip) AS units
+    , SUM(revenue_unit_quantity) AS units
 FROM "fin_prod"."odw_revenue_units_sales_actuals" w
 LEFT JOIN "mdm"."calendar" cal 
     ON ms4_Fiscal_Year_Period = fiscal_year_period
 WHERE 1=1
     AND material_number is not null
-    AND unit_quantity_sign_flip <> 0
-    AND unit_quantity_sign_flip is not null
+    AND revenue_unit_quantity <> 0
+    AND revenue_unit_quantity is not null
     AND day_of_month = 1
     AND fiscal_year_period = ( SELECT MAX(fiscal_year_period ) FROM "fin_prod"."odw_revenue_units_sales_actuals" )
 GROUP BY cal.date
