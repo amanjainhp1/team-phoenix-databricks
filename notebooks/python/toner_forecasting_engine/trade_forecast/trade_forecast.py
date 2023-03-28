@@ -462,7 +462,7 @@ write_df_to_redshift(configs, trade_07, "stage.trade_forecast_staging", "overwri
 #spark.sql("""select count(*) from trade_04_stf_horizon_fill""").show()
 #spark.sql("""select count(*) from trade_05_working_forecast""").show()
 #spark.sql("""select count(*) from trade_06_trade_forecast""").show()
-#spark.sql("""select count(*) from trade_forecast_staging""").show() #5,049,572
+spark.sql("""select count(*) from trade_forecast_staging""").show() #5,049,572
 
 # COMMAND ----------
 

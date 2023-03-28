@@ -76,8 +76,10 @@ toner_pivots = read_redshift_to_df(configs) \
       , wampv_ib_units\
       , load_date\
       , version\
-      from prod.toner_pivots_nt where version = (select max(version) from prod.toner_pivots_nt)") \
+      from prod.toner_pivots where version = (select max(version) from prod.toner_pivots)") \
     .load()
+
+toner_pivots.createOrReplaceTempView("toner_pivots")
 
 # COMMAND ----------
 

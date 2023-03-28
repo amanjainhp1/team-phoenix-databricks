@@ -43,6 +43,13 @@ tables = [
 
 # COMMAND ----------
 
+spark.sql("""
+select distinct record, version
+from prod.trade_forecast
+""").show()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Toner Pivots Library/Common Models
@@ -78,7 +85,7 @@ GROUP BY record
 UNION ALL
 
 SELECT record
-    , MAX(version) AS version
+    , MAX(version) AS versiont
 FROM prod.working_forecast
 WHERE 1=1
     AND record = 'IE2-WORKING-FORECAST'
@@ -109,6 +116,13 @@ filter_vars.createOrReplaceTempView("pivots_lib_01_filter_vars")
 # COMMAND ----------
 
 spark.sql("""select * from pivots_lib_01_filter_vars""").show()
+
+# COMMAND ----------
+
+spark.sql("""
+select distinct record, version
+from prod.working_forecast
+""").show()
 
 # COMMAND ----------
 
@@ -180,6 +194,7 @@ WHERE 1=1
 """.format(pivots_start, pivots_end))
 
 demand.createOrReplaceTempView("pivots_01_demand")
+#write_df_to_redshift(configs, demand, "stage.pivots_01_demand", "overwrite")
 
 # COMMAND ----------
 
@@ -248,6 +263,7 @@ WHERE 1=1
 """.format(pivots_start, pivots_end))
 
 cartridge_mix.createOrReplaceTempView("pivots_02_cartridge_mix")
+#write_df_to_redshift(configs, cartridge_mix, "stage.pivots_02_cartridge_mix", "overwrite")
 
 # COMMAND ----------
 
@@ -313,6 +329,7 @@ JOIN pivots_t_04b_yield_step_2 AS y2
 """.format(pivots_start, pivots_end))
 
 yield_pivots.createOrReplaceTempView("pivots_03_yield")
+#write_df_to_redshift(configs, yield_pivots, "stage.pivots_03_yield", "overwrite")
 
 # COMMAND ----------
 
@@ -344,6 +361,7 @@ WHERE 1=1
 """.format(us_version, pivots_start, pivots_end))
 
 usage.createOrReplaceTempView("pivots_04_usage")
+#write_df_to_redshift(configs, usage, "stage.pivots_04_usage", "overwrite")
 
 # COMMAND ----------
 
@@ -400,6 +418,7 @@ GROUP BY p.record
 """)
 
 pages_wo_mktshr.createOrReplaceTempView("pivots_05_pages_wo_mktshr_split")
+#write_df_to_redshift(configs, pages_wo_mktshr, "stage.pivots_05_pages_wo_mktshr_split", "overwrite")
 
 # COMMAND ----------
 
@@ -455,6 +474,7 @@ GROUP BY p.record
 """)
 
 pages_w_mktshr.createOrReplaceTempView("pivots_06_pages_w_mktshr_split")
+#write_df_to_redshift(configs, pages_w_mktshr, "stage.pivots_06_pages_w_mktshr_split", "overwrite")
 
 # COMMAND ----------
 
@@ -482,6 +502,7 @@ WHERE 1=1
 """)
 
 crg_size.createOrReplaceTempView("pivots_07_crg_size")
+#write_df_to_redshift(configs, crg_size, "stage.pivots_07_crg_size", "overwrite")
 
 # COMMAND ----------
 
@@ -513,6 +534,7 @@ GROUP BY p.period
 """)
 
 pages_wo_mktshr_k.createOrReplaceTempView("pivots_08_pages_wo_mktshr_k")
+#write_df_to_redshift(configs, pages_wo_mktshr_k, "stage.pivots_08_pages_wo_mktshr_k", "overwrite")
 
 # COMMAND ----------
 
@@ -544,6 +566,7 @@ GROUP BY p.period
 """)
 
 pages_wo_mktshr_kcmy.createOrReplaceTempView("pivots_09_pages_wo_mktshr_kcmy")
+#write_df_to_redshift(configs, pages_wo_mktshr_kcmy, "stage.pivots_09_pages_wo_mktshr_kcmy", "overwrite")
 
 # COMMAND ----------
 
@@ -575,6 +598,7 @@ GROUP BY p.period
 """)
 
 pages_w_mktshr_k.createOrReplaceTempView("pivots_10_pages_w_mktshr_k")
+#write_df_to_redshift(configs, pages_w_mktshr_k, "stage.pivots_10_pages_w_mktshr_k", "overwrite")
 
 # COMMAND ----------
 
@@ -606,6 +630,7 @@ GROUP BY p.period
 """)
 
 pages_w_mktshr_kcmy.createOrReplaceTempView("pivots_11_pages_w_mktshr_kcmy")
+#write_df_to_redshift(configs, pages_w_mktshr_kcmy, "stage.pivots_11_pages_w_mktshr_kcmy", "overwrite")
 
 # COMMAND ----------
 
@@ -631,6 +656,7 @@ WHERE 1=1
 """.format(pivots_start, pivots_end))
 
 supplies_pmf.createOrReplaceTempView("pivots_12_supplies_pmf")
+#write_df_to_redshift(configs, supplies_pmf, "stage.pivots_12_supplies_pmf", "overwrite")
 
 # COMMAND ----------
 
@@ -656,6 +682,7 @@ WHERE 1=1
 """)
 
 supplies_pmf_equivalent.createOrReplaceTempView("pivots_13_supplies_pmf_equivalent")
+#write_df_to_redshift(configs, supplies_pmf_equivalent, "stage.pivots_13_supplies_pmf_equivalent", "overwrite")
 
 # COMMAND ----------
 
@@ -851,6 +878,7 @@ WHERE 1=1
 """)
 
 units_pivot_prep.createOrReplaceTempView("pivots_14_units_pivot_prep")
+#write_df_to_redshift(configs, units_pivot_prep, "stage.pivots_14_units_pivot_prep", "overwrite")
 
 # COMMAND ----------
 
@@ -904,6 +932,7 @@ PIVOT
 """)
 
 units_pivot.createOrReplaceTempView("pivots_15_units_pivot")
+#write_df_to_redshift(configs, units_pivot, "stage.pivots_15_units_pivot", "overwrite")
 
 # COMMAND ----------
 
@@ -996,6 +1025,7 @@ WHERE 1=1
 """.format(pivots_start, pivots_end))
 
 working_forecast.createOrReplaceTempView("pivots_16_working_forecast")
+#write_df_to_redshift(configs, working_forecast, "stage.pivots_16_working_forecast", "overwrite")
 
 # COMMAND ----------
 
@@ -1022,6 +1052,7 @@ GROUP BY ib.cal_date
 """)
 
 wampv_prep.createOrReplaceTempView("pivots_17_wampv_prep")
+#write_df_to_redshift(configs, wampv_prep, "stage.pivots_17_wampv_prep", "overwrite")
 
 # COMMAND ----------
 
@@ -2438,6 +2469,8 @@ GROUP BY f.date
 """.format(pivots_start, pivots_end))
 
 combined.createOrReplaceTempView("pivots_18_combined")
+write_df_to_redshift(configs, combined, "stage.pivots_18_combined", "overwrite")
+
 
 # COMMAND ----------
 
