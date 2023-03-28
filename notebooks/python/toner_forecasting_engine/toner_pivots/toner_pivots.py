@@ -85,7 +85,7 @@ GROUP BY record
 UNION ALL
 
 SELECT record
-    , MAX(version) AS versiont
+    , MAX(version) AS version
 FROM prod.working_forecast
 WHERE 1=1
     AND record = 'IE2-WORKING-FORECAST'
