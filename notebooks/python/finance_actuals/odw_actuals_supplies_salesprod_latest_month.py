@@ -109,7 +109,7 @@ SELECT cal.Date AS cal_date
       ,material_number as sales_product_option
       ,unit_reporting_code
       ,unit_reporting_description
-      ,SUM(unit_quantity_sign_flip) as extended_quantity
+      ,SUM(revenue_unit_quantity) as extended_quantity
   FROM odw_revenue_units_sales_actuals land
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
@@ -117,8 +117,8 @@ SELECT cal.Date AS cal_date
   AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_revenue_units_sales_actuals)
   AND Day_of_Month = 1
   AND cal.Date > '2021-10-01'
-  AND unit_quantity_sign_flip <> 0
-  AND unit_quantity_sign_flip is not null
+  AND revenue_unit_quantity <> 0
+  AND revenue_unit_quantity is not null
   GROUP BY cal.Date, pl, material_number, segment_code, unit_reporting_code, unit_reporting_description
 """
 
@@ -166,7 +166,7 @@ WHERE pl IN (
     AND pl_category IN ('SUP') 
     AND technology IN ('PWA', 'LASER', 'INK', 'LF')
     )
-    AND unit_reporting_code = 'S'
+    --AND unit_reporting_code = 'S'
 GROUP BY cal_date,
     country_alpha2,
     pl,
@@ -198,7 +198,7 @@ WHERE pl IN (
     AND pl_category IN ('LLC') 
     AND technology IN ('LLCS')
     )
-    AND unit_reporting_code = 'O'
+    --AND unit_reporting_code = 'O'
 GROUP BY cal_date,
     country_alpha2,
     pl,
