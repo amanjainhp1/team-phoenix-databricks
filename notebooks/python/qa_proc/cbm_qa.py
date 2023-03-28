@@ -102,7 +102,8 @@ cbm_test_01_pl.show()
 # COMMAND ----------
 
 cbm_test_02_ci = """
-SELECT cal_date
+SELECT 'CBM_TEST_02_CI' AS record
+  , cal_date
   , fiscal_year_qtr
   , fiscal_yr
   , pl
@@ -111,7 +112,7 @@ SELECT cal_date
   , region_5
   , sum(channel_inventory_usd) as channel_inventory_usd
   , sum(channel_inventory_qty) as channel_inventory_qty
-  , current_date() as load_date
+  , current_timestamp() as load_date
 FROM cbm_database cbm
 LEFT JOIN mdm.calendar c
   ON c.Date = cbm.cal_date
