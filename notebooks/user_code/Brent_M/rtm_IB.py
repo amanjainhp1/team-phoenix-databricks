@@ -139,7 +139,7 @@ FROM mdm.iso_country_code_xref iso
 WHERE CONCAT(iso.market10, CONCAT('-',CASE iso.developed_emerging WHEN 'DEVELOPED' THEN 'DM' ELSE 'EM' END)) NOT IN ('UK&I-EM','NORTHERN EUROPE-EM', 'SOUTHERN EUROPE-EM','WORLD WIDE-EM')
 )
 
-SELECT top 10
+SELECT
     CAST(DATEPART(year, ucep.cal_date) AS INTEGER) + (CAST(DATEPART(month, ucep.cal_date) AS INTEGER) + pl.month_lag - 1) / 12 AS year
     , ((CAST(DATEPART(month, ucep.cal_date) AS INTEGER) - 1 + pl.month_lag) % 12) + 1 AS month
     , ucep.cal_date as month_begin
@@ -313,6 +313,18 @@ LEFT JOIN "stage"."rtm_ib_01_hw_decay" AS hw
     AND (hw.split_name = ic.split_name OR ic.split_name IS NULL)
     AND hw.platform_subset = ic.platform_subset
     AND hw.printer_installs > 0
+)
+
+SELECT
+       month_begin,
+       region_5,
+       country_alpha2,
+       hps_ops,
+       split_name,
+       platform_subset,
+       printer_installs,
+       ib
+FROM ib_11_prelim_output
 """
 
 rtm_ib_02_ce_splits_records = read_redshift_to_df(configs) \
@@ -329,25 +341,27 @@ write_df_to_redshift(configs, rtm_ib_02_ce_splits_records, "stage.rtm_ib_02_ce_s
 rtm_ib_staging_query = """
 SELECT 'IB' AS record
     , 1 AS version  -- used for scenarios
-    , pre.load_date
+    , GETDATE() as load_date
     , pre.month_begin
-    , pre.geography_grain
-    , pre.geography
+    , 'MARKET10' as geography_grain
+    , iso.market10 as geography
     , pre.country_alpha2
     , pre.hps_ops
     , pre.split_name
     , pre.platform_subset
     , pre.printer_installs
-    , CASE WHEN pre.ib != 0 AND pre.ib < 1 THEN 1 ELSE pre.ib END AS ib
-FROM ib_staging_temp_pre AS pre
+    , CASE WHEN pre.ib != 0 AND pre.ib < 1 THEN 1 
+        ELSE pre.ib END AS ib
+FROM stage.rtm_ib_02_ce_splits AS pre
+LEFT JOIN mdm.iso_country_code_xref iso ON pre.country_alpha2=iso.country_alpha2
 WHERE 1=1
-    AND pre.record IN ('IB_TRAD', 'IB_IINK')
+
 """
 
-rtm_ib_02_ce_splits_records = read_redshift_to_df(configs) \
-    .option("query", rtm_ib_02_ce_splits_query) \
+rtm_ib_staging_records = read_redshift_to_df(configs) \
+    .option("query", rtm_ib_staging_query) \
     .load()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, rtm_ib_02_ce_splits_records, "stage.rtm_ib_02_ce_splits", "overwrite")
+write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_staging", "overwrite")
