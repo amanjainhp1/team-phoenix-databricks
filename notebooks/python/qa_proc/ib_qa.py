@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # IB - Feb 15, 2023 - QC/QA
+# MAGIC # IB - Mar 23, 2023 - QC/QA
 # MAGIC 
 # MAGIC Brent Merrick
 # MAGIC 
@@ -46,7 +46,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's versions
-prev_version = '2023.03.10.1'
+prev_version = '2023.03.03.1'
 
 # COMMAND ----------
 
