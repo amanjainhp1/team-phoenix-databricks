@@ -14,6 +14,7 @@ from pyspark.sql.types import DoubleType
 
 dbutils.widgets.text("forecast_fin_version", "")
 dbutils.widgets.text("currency_hedge_version", "")
+dbutils.widgets.text("forecast_supplies_baseprod_region_version", "")
 
 # COMMAND ----------
 
@@ -242,11 +243,29 @@ select
 forecast_supplies_baseprod_region = spark.sql(forecast_supplies_baseprod_region)
 forecast_supplies_baseprod_region = forecast_supplies_baseprod_region_schema.union(forecast_supplies_baseprod_region)
 write_df_to_redshift(configs, forecast_supplies_baseprod_region, "fin_prod.forecast_supplies_baseprod_region", "append")
+
+# COMMAND ----------
+
+##To handle Historical Versions of forecast_supplies_baseprod_region
+
+forecast_supplies_baseprod_region = read_redshift_to_df(configs) \
+        .option("query", "SELECT * FROM fin_prod.forecast_supplies_baseprod_region") \
+        .load()
+
 forecast_supplies_baseprod_region.createOrReplaceTempView("forecast_supplies_baseprod_region")
 
 # COMMAND ----------
 
 submit_remote_query(configs , '''truncate table fin_prod.forecast_supplies_baseprod_region_stf''')
+
+# COMMAND ----------
+
+forecast_supplies_baseprod_region_version = dbutils.widgets.get("forecast_supplies_baseprod_region_version")
+if forecast_supplies_baseprod_region_version == "":
+    forecast_supplies_baseprod_region_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod_region") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
 
 # COMMAND ----------
 
@@ -418,7 +437,7 @@ select distinct
 		, fin.cal_date
 		, fin.version
         
-""".format(currency_hedge_version,forecast_fin_version,forecast_fin_version,forecast_fin_version)
+""".format(currency_hedge_version,forecast_supplies_baseprod_region_version,forecast_supplies_baseprod_region_version,forecast_supplies_baseprod_region_version)
 
 
 forecast_supplies_baseprod_region_stf = spark.sql(forecast_supplies_baseprod_region_stf)
