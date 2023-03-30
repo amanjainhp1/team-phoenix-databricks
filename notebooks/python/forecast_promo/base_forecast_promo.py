@@ -50,6 +50,6 @@ FROM stage.vtc
 inputs.append(["page_cc_mix", page_cc_mix_query])
 inputs.append(["demand", demand_query])
 inputs.append(["cartridge_demand_volumes", cartridge_demand_volumes_query])
-inputs.append(["vtc", vtc_query])
+inputs.append(["cartridge_demand_cartridges", vtc_query])
 
 read_stage_write_prod(inputs)
