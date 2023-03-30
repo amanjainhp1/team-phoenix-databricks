@@ -6219,11 +6219,11 @@ SELECT
     SUM(other_cos) as p_other_cos,
     SUM(total_cos) AS p_total_cos
 FROM odw_sacp_actuals AS p
-JOIN calendar AS cal ON cal.Date = p.cal_date
+JOIN mdm.calendar AS cal ON cal.Date = p.cal_date
 WHERE pl IN 
     (
     SELECT DISTINCT (pl) 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
     )

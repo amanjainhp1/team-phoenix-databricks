@@ -521,10 +521,10 @@ SELECT
     region_5,
     CASE
         WHEN region_5 = 'JP' THEN 'JP'
-        WHEN region_5 = 'AP' THEN 'XI'
-        WHEN region_5 = 'EU' THEN 'XA'
-        WHEN region_5 = 'LA' THEN 'XH'
-        WHEN region_5 = 'NA' THEN 'XG'
+        WHEN region_5 = 'AP' THEN 'SG'
+        WHEN region_5 = 'EU' THEN 'DE'
+        WHEN region_5 = 'LA' THEN 'MX'
+        WHEN region_5 = 'NA' THEN 'US'
         ELSE 'XW'
     END AS country_alpha2,
     'NA' AS platform_subset,
