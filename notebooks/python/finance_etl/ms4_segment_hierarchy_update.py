@@ -99,7 +99,7 @@ profit_center_code_xref.createOrReplaceTempView("profit_center_code_xref")
 # COMMAND ----------
 
 load_segment_to_profit_center_code_xref = """
-SELECT profit_center_id, 
+SELECT  
 	record,
 	profit_center_code,
 	profit_center_name,
@@ -121,7 +121,7 @@ FROM profit_center_code_xref
 
 UNION ALL
 
-SELECT '' as profit_center_id,
+SELECT 
 	record,
 	profit_center_code,
 	profit_center_name,
@@ -149,7 +149,6 @@ load_segment_to_profit_center_code_xref.createOrReplaceTempView("load_segment_to
 
 # define mdm.profit center code xref shema
 profit_center_code_schema = StructType([ \
-            StructField("profit_center_id", IntegerType()), \
             StructField("record", StringType(), True), \
             StructField("profit_center_code", StringType(), True), \
             StructField("profit_center_name", StringType(), True), \
@@ -175,6 +174,10 @@ profit_center_code_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), pro
 
 # load/join latest hierarchy into pre-set schema & load to redshift
 load_segment_to_profit_center_code_xref2 = profit_center_code_df.union(load_segment_to_profit_center_code_xref) 
+
+# COMMAND ----------
+
+load_segment_to_profit_center_code_xref2.createOrReplaceTempView("load_segment_to_profit_center_code_xref2")
 
 # COMMAND ----------
 
