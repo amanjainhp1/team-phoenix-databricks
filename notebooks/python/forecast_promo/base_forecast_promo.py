@@ -34,9 +34,12 @@ cast(NULL as varchar(64)) version
 FROM stage.page_cc_mix;
 """
 
-page_cc_cartridges_query = """
-SELECT "type", cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, page_cc_mix, demand, yield, page_demand, cartridges, cartridge_volume, demand_scalar, imp, imp_corrected_cartridges, composite_key,cast(NULL as date) load_date, cast(NULL as varchar(64)) version
-FROM stage.page_cc_cartridges
+demand_query = """SELECT 'DEMAND' record, cal_date, 'MARKET10' geography_grain, geography, platform_subset, customer_engagement, measure, units,cast(NULL as date) load_date, cast(NULL as varchar(64)) version
+FROM stage.demand
+"""
+
+cartridge_demand_volumes_query = """select "source", cal_date, base_product_number, geography_grain, geography, k_color, crg_chrome, consumable_type, cartridge_volume 
+from stage.cartridge_units
 """
 
 vtc_query = """
@@ -45,7 +48,8 @@ FROM stage.vtc
 """
 
 inputs.append(["page_cc_mix", page_cc_mix_query])
-inputs.append(["page_cc_cartridges", page_cc_cartridges_query])
+inputs.append(["demand", demand_query])
+inputs.append(["cartridge_demand_volumes", cartridge_demand_volumes_query])
 inputs.append(["vtc", vtc_query])
 
 read_stage_write_prod(inputs)
