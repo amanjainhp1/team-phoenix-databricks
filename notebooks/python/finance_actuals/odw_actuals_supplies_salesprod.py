@@ -6800,7 +6800,7 @@ SELECT
     COALESCE(SUM(p_warranty), 0) AS p_warranty,
     COALESCE(SUM(p_other_cos), 0) AS p_other_cos,
     COALESCE(SUM(p_total_cos), 0) AS p_total_cos
-FROM planet_targets
+FROM planet_targets_fully_restated_to_country
 GROUP BY cal_date, region_5, pl, Fiscal_Yr, country_alpha2
 """
 
