@@ -29,7 +29,7 @@ def read_stage_write_prod(inputs: List):
 inputs = []
 
 page_cc_mix_query = """
-SELECT "type", cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, mix_rate, composite_key,cast(NULL as date) load_date, 
+SELECT "type", cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, mix_rate, cast(NULL as date) load_date, 
 cast(NULL as varchar(64)) version
 FROM stage.page_cc_mix;
 """
@@ -38,12 +38,12 @@ demand_query = """SELECT 'DEMAND' record, cal_date, 'MARKET10' geography_grain, 
 FROM stage.demand
 """
 
-cartridge_demand_volumes_query = """select "source", cal_date, base_product_number, geography_grain, geography, k_color, crg_chrome, consumable_type, cartridge_volume 
+cartridge_demand_volumes_query = """select "source", cal_date, geography_grain, geography,base_product_number, k_color, crg_chrome, consumable_type,cast(null as varchar(255)) as capacity, cartridge_volume,cast(NULL as date) load_date, cast(NULL as varchar(64)) version
 from stage.cartridge_units
 """
 
 vtc_query = """
-SELECT record, cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, vol_rate, volume, channel_fill, supplies_spares_crgs, host_crgs, welcome_kits, expected_crgs, vtc, vtc_adjusted_crgs, mvtc, mvtc_adjusted_crgs, vol_count, ma_vol, ma_exp, load_date, version
+SELECT record, cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, channel_fill, supplies_spares_crgs, host_crgs, welcome_kits, expected_crgs, mvtc, mvtc_adjusted_crgs, cast(NULL as date) load_date, cast(NULL as varchar(64)) version
 FROM stage.vtc
 """
 
