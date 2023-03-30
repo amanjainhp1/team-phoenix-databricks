@@ -1029,7 +1029,7 @@ SELECT
 	SUM(net_currency) AS net_currency,
 	SUM(contractual_discounts) AS contractual_discounts,
 	SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(net_revenue) AS net_revenue,
+  SUM(net_revenue) AS net_revenue,
 	SUM(warranty) AS warranty,
 	SUM(other_cos) AS other_cos,
 	SUM(total_cos ) AS total_cos,
