@@ -8075,7 +8075,7 @@ SELECT p.cal_date,
     SUM(p_discretionary_discounts * country_mix) AS p_discretionary_discounts,
     SUM(p_warranty * country_mix) AS p_warranty,
     SUM(p_total_cos * country_mix) AS p_total_cos
-FROM planet_targets_2023_restatements p
+FROM planet_targets_post_all_restatements p
 JOIN general_ledger_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
@@ -8098,7 +8098,7 @@ SELECT p.cal_date,
     SUM(p_discretionary_discounts) AS p_discretionary_discounts,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
-FROM planet_targets_2023_restatements p
+FROM planet_targets_post_all_restatements p
 LEFT JOIN general_ledger_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
