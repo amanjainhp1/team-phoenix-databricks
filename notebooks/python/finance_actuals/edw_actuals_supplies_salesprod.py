@@ -7773,6 +7773,7 @@ FROM fin_stage.final_union_edw_data fued
 LEFT JOIN mdm.iso_country_code_xref iso
     ON fued.country_alpha2 = iso.country_alpha2
 WHERE fued.country_alpha2 NOT LIKE "%X%"
+AND fued.country_alpha2 NOT LIKE ('X%')
 AND region_5 NOT IN ('EU', 'XW', 'XU')
 AND gross_revenue > 0
 GROUP BY cal_date,
@@ -8812,7 +8813,7 @@ SELECT
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
 FROM ALL_salesprod2 AS sp
-JOIN product_line_xref AS plx ON sp.pl = plx.pl 
+JOIN mdm.product_line_xref AS plx ON sp.pl = plx.pl 
 WHERE total_rows <> 0
 GROUP BY sp.cal_date, country_alpha2, sp.pl, sales_product_number, ce_split, l5_description, currency
 """
