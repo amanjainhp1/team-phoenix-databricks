@@ -38,6 +38,8 @@ usage_share_country.createOrReplaceTempView("usage_share_country")
 
 # COMMAND ----------
 
+import re
+
 tables = [
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
@@ -554,6 +556,7 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
     , platform_subset
     , base_product_number
     , customer_engagement
+    , sum(hp_pages) as hp_pages
     , CASE
         WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number) = 0 THEN NULL
         ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, country_alpha2, customer_engagement, base_product_number)
