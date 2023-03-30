@@ -113,7 +113,7 @@ SELECT profit_center_id,
 	country_alpha2,
 	region_3,
 	region_5,
-	update_date,
+	CAST(update_date as date),
 	official,
 	load_date,
 	version
@@ -147,12 +147,40 @@ load_segment_to_profit_center_code_xref.createOrReplaceTempView("load_segment_to
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from load_segment_to_profit_center_code_xref
-# MAGIC where profit_center_code = 'SEMLT00'
+# define mdm.profit center code xref shema
+profit_center_code_schema = StructType([ \
+            StructField("profit_center_id", IntegerType()), \
+            StructField("record", StringType(), True), \
+            StructField("profit_center_code", StringType(), True), \
+            StructField("profit_center_name", StringType(), True), \
+            StructField("pc_level_0", StringType(), True), \
+            StructField("pc_level_1", StringType(), True), \
+            StructField("pc_level_2", StringType(), True), \
+            StructField("pc_level_3", StringType(), True), \
+            StructField("pc_level_4", StringType(), True), \
+            StructField("pc_level_5", StringType(), True), \
+            StructField("pc_level_6", StringType(), True), \
+            StructField("country_alpha2", StringType(), True), \
+            StructField("region_3", StringType(), True), \
+            StructField("region_5", StringType(), True), \
+            StructField("update_date", DateType(), True), \
+            StructField("official", BooleanType(), True), \
+            StructField("load_date", TimestampType(), True), \
+            StructField("version", StringType(), True)
+        ])
+
+profit_center_code_df = spark.createDataFrame(spark.sparkContext.emptyRDD(), profit_center_code_schema)
+
+# COMMAND ----------
+
+# load/join latest hierarchy into pre-set schema & load to redshift
+load_segment_to_profit_center_code_xref2 = profit_center_code_df.union(load_segment_to_profit_center_code_xref) 
 
 # COMMAND ----------
 
 #LOAD TO DB
-write_df_to_redshift(configs, load_segment_to_profit_center_code_xref, "mdm.profit_center_code_xref", "append", postactions = "", preactions = "")
+write_df_to_redshift(configs, load_segment_to_profit_center_code_xref2, "mdm.profit_center_code_xref", "append", postactions = "", preactions = "truncate mdm.profit_center_code_xref")
+
+# COMMAND ----------
+
+
