@@ -1,7 +1,7 @@
 # Databricks notebook source
 # ---
-# #Version 2021.03.14.1#
-# title: "UPM with IE2.0 IB Country Level"
+# #Version 2023.03.09.1#
+# title: "Toner Usage Country Level"
 # output: html_notebook
 # ---
 # 
@@ -143,7 +143,7 @@ zeroi <- SparkR::collect(SparkR::sql("
                       , platform_business_code AS EP
                       , printer_function_code as platform_function_code
                       , platform_market_code
-                      , SUM(COALESCE(print_pages_total_ib_ext_sum,0)) as UsageNumerator
+                      , SUM(COALESCE(print_pages_mono_ib_ext_sum,0)) as UsageNumerator
                       , SUM(COALESCE(print_months_ib_ext_sum,0)) AS UsageDenominator
                       , SUM(printer_count_month_usage_flag_sum) AS SumN
                       FROM 
@@ -2615,8 +2615,7 @@ PoR_1 <- SparkR::collect(SparkR::sql(
           , format as platform_page_category
         FROM
           hardware_xref
-        WHERE (upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3')) 
-                            or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%'))
+        WHERE (upper(technology) ='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA')) ))
     "
   ))
 
