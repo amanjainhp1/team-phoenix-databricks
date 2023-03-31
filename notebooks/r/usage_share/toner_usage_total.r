@@ -143,7 +143,7 @@ zeroi <- SparkR::collect(SparkR::sql("
                       , platform_business_code AS EP
                       , printer_function_code as platform_function_code
                       , platform_market_code
-                      , SUM(COALESCE(print_pages_mono_ib_ext_sum,0)) as UsageNumerator
+                      , SUM(COALESCE(print_pages_total_ib_ext_sum,0)) as UsageNumerator
                       , SUM(COALESCE(print_months_ib_ext_sum,0)) AS UsageDenominator
                       , SUM(printer_count_month_usage_flag_sum) AS SumN
                       FROM 
