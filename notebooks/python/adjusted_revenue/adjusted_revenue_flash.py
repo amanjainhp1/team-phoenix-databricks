@@ -1257,7 +1257,7 @@ select 'ADJUSTED REVENUE PLUS FLASH'                                            
            when geography = 'EMEA' then 'EMEA CO'
            else geography
            end                                                                     as geography,
-       (select geography_grain from market_applied)                                as geography_grain,
+       'MARKET8'                                                                   as geography_grain,
        case
            when geography in ('EMEA', 'CENTRAL & EASTERN EUROPE', 'NORTHWEST EUROPE', 'SOUTHERN EUROPE, ME & AFRICA')
                then 'EMEA'
@@ -1348,7 +1348,6 @@ select record,
        l5_description,
        technology,
        accounting_rate,
-      -- embargoed_sanctioned_flag,
        sum(reported_revenue)              as reported_revenue,
        sum(hedge)                         as hedge,
        sum(currency)                      as currency,
@@ -1384,9 +1383,7 @@ group by record,
          pl,
          l5_description,
          technology,
-         fiscal_yr,
          accounting_rate,
-       --  embargoed_sanctioned_flag,
          official,
          load_date,
          version
