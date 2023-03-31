@@ -105,4 +105,14 @@ submit_remote_query(configs, query)
 
 # COMMAND ----------
 
+result = read_redshift_to_df(configs) \
+    .option("query", f"select [year_mon] year_month, [pl], [sales_Prod_Nbr] sales_product_number, [region_3], [region_4], [country], [route_to_market], [gross_revenue], [net_currency], [contractual_discounts], [discretionary_discounts], [total_cos], [revenue_units] from financials.salesprod_actuals_bd_dashboard_vw") \
+    .load()
+
+# COMMAND ----------
+
+result.display()
+
+# COMMAND ----------
+
 

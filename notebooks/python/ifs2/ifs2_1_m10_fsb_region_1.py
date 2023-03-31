@@ -23,7 +23,7 @@ from pyspark.sql.types import *
 
 ## Creating widgets for versions of drivers
 dbutils.widgets.text("usage_share_version",'') # set usage_share_version to mark as official
-dbutils.widgets.text("forecast_supplies_baseprod_mkt10_version",'') # set forecast_supplies_baseprod_version to mark as official
+dbutils.widgets.text("forecast_supplies_baseprod_region_version",'') # set forecast_supplies_baseprod_version to mark as official
 dbutils.widgets.text("start_ifs2_date",'') # set starting date of ifs2
 dbutils.widgets.text("end_ifs2_date",'') # set ending date of ifs2
 dbutils.widgets.text("page_cc_mix_version",'')
@@ -41,17 +41,17 @@ if usage_share_version == "":
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
 
-forecast_supplies_baseprod_mkt10_version = dbutils.widgets.get("forecast_supplies_baseprod_mkt10_version")
-if forecast_supplies_baseprod_mkt10_version == "":
-    forecast_supplies_baseprod_mkt10_version = read_redshift_to_df(configs) \
-        .option("query", "SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod_mkt10") \
+forecast_supplies_baseprod_region_version = dbutils.widgets.get("forecast_supplies_baseprod_region_version")
+if forecast_supplies_baseprod_region_version == "":
+    forecast_supplies_baseprod_region_version = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(version) FROM fin_prod.forecast_supplies_baseprod_region") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
 start_ifs2_date = dbutils.widgets.get("start_ifs2_date")
 if start_ifs2_date == "":
     start_ifs2_date = read_redshift_to_df(configs) \
-        .option("query", "SELECT cast(MIN(cal_date) as date) FROM fin_prod.forecast_supplies_baseprod_mkt10") \
+        .option("query", "SELECT cast(MIN(cal_date) as date) FROM fin_prod.forecast_supplies_baseprod_region") \
         .load() \
         .rdd.flatMap(lambda x: x).collect()[0]
     
@@ -125,8 +125,8 @@ decay_m13 = read_redshift_to_df(configs) \
 yield_ = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.yield") \
     .load()
-forecast_supplies_baseprod_mkt10 = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM fin_prod.forecast_supplies_baseprod_mkt10 WHERE version = '{forecast_supplies_baseprod_mkt10_version}'") \
+forecast_supplies_baseprod_region = read_redshift_to_df(configs) \
+    .option("query", f"SELECT * FROM fin_prod.forecast_supplies_baseprod_region WHERE version = '{forecast_supplies_baseprod_region_version}'") \
     .load()
 page_cc_mix = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.page_cc_mix WHERE version = '{page_cc_mix_version}'") \
@@ -157,21 +157,21 @@ calendar = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
-#  ['phoenix_spectrum_prod.usage_share1' , usage_share1],
-#  ['mdm.hardware_xref' , hardware_xref],
-#  ['mdm.supplies_xref' , supplies_xref],
-#  ['prod.decay_m13' , decay_m13],
-#  ['mdm.yield' , yield_],
-#  ['fin_prod.forecast_supplies_baseprod_mkt10' , forecast_supplies_baseprod_mkt10],
-#  ['prod.page_cc_mix' , page_cc_mix],
-#  ['mdm.iso_country_code_xref' , iso_country_code_xref],
-# ['scen.working_forecast_country' , working_forecast_country],
-# ['prod.working_forecast_country' , working_forecast_country],
- ['prod.working_forecast' , working_forecast]
-#  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
-#  ['prod.norm_shipments' , norm_shipments],
-#  ['ifs2.toner_host_yield' , toner_host_yield],
-#  ['mdm.calendar' , calendar]
+ ['phoenix_spectrum_prod.usage_share1' , usage_share1],
+ ['mdm.hardware_xref' , hardware_xref],
+ ['mdm.supplies_xref' , supplies_xref],
+ ['prod.decay_m13' , decay_m13],
+ ['mdm.yield' , yield_],
+ ['fin_prod.forecast_supplies_baseprod_region' , forecast_supplies_baseprod_region],
+ ['prod.page_cc_mix' , page_cc_mix],
+ ['mdm.iso_country_code_xref' , iso_country_code_xref],
+#['scen.working_forecast_country' , working_forecast_country],
+#['prod.working_forecast_country' , working_forecast_country],
+ ['prod.working_forecast' , working_forecast],
+ ['mdm.supplies_hw_mapping', supplies_hw_mapping],
+ ['prod.norm_shipments' , norm_shipments],
+ ['ifs2.toner_host_yield' , toner_host_yield],
+ ['mdm.calendar' , calendar]
 ]
 
 for table in tables:
@@ -855,8 +855,8 @@ select distinct fsb.record
 		, shm.platform_subset
 		, fsb.base_product_number
 		, fsb.base_product_line_code
-		--, fsb.region_5
-        , fsb.market10
+		, fsb.region_5
+        --, fsb.market10
 		--, fsb.country_alpha2
 		, fsb.cal_date
 		--, fsb.insights_base_units
@@ -870,47 +870,97 @@ select distinct fsb.record
 		--, fsb.contra_version
 		--, fsb.variable_cost_version
 		--, fsb.fixed_cost_version
-from forecast_supplies_baseprod_mkt10 fsb
+from forecast_supplies_baseprod_region fsb
 left join mdm.supplies_hw_mapping shm
 on fsb.base_product_number = shm.base_product_number
 --left join iso_country_code_xref iccx
 --on fsb.country_alpha2 = iccx.country_alpha2
 where fsb.cal_date between '{}' AND '{}'
 '''.format(start_ifs2_date, end_ifs2_date)
+fsb_0 = spark.sql(query)
+fsb_0.createOrReplaceTempView("fsb_0")
+
+# COMMAND ----------
+
+query = '''
+select record
+		, platform_subset
+		, base_product_number
+		, base_product_line_code
+		, region_5
+        --, market10
+		--, country_alpha2
+		, '2022-11-01' as cal_date
+		--, insights_base_units
+		, baseprod_gru
+		, baseprod_contra_per_unit
+		, baseprod_variable_cost_per_unit
+		, baseprod_fixed_cost_per_unit
+		--, load_date
+		, version
+		--, sales_gru_version
+		--, contra_version
+		--, variable_cost_version
+		--, fixed_cost_version
+from fsb_0
+where cal_date = '2023-01-01'
+Union
+select record
+		, platform_subset
+		, base_product_number
+		, base_product_line_code
+		, region_5
+        --, market10
+		--, country_alpha2
+		, '2022-12-01' as cal_date
+		--, insights_base_units
+		, baseprod_gru
+		, baseprod_contra_per_unit
+		, baseprod_variable_cost_per_unit
+		, baseprod_fixed_cost_per_unit
+		--, load_date
+		, version
+		--, sales_gru_version
+		--, contra_version
+		--, variable_cost_version
+		--, fixed_cost_version
+from fsb_0
+where cal_date = '2023-01-01'
+union
+select record
+		, platform_subset
+		, base_product_number
+		, base_product_line_code
+		, region_5
+        --, market10
+		--, country_alpha2
+		, cal_date
+		--, insights_base_units
+		, baseprod_gru
+		, baseprod_contra_per_unit
+		, baseprod_variable_cost_per_unit
+		, baseprod_fixed_cost_per_unit
+		--, load_date
+		, version
+		--, sales_gru_version
+		--, contra_version
+		--, variable_cost_version
+		--, fixed_cost_version
+from fsb_0
+'''
 fsb = spark.sql(query)
 fsb.createOrReplaceTempView("fsb")
 
 # COMMAND ----------
 
 query = '''
-select distinct fsb.record
-		, shm.platform_subset
-		, fsb.base_product_number
-		, fsb.base_product_line_code
-		--, fsb.region_5
-        , fsb.market10
-		--, fsb.country_alpha2
-		, fsb.cal_date - 2MONTHS
-		--, fsb.insights_base_units
-		, fsb.baseprod_gru
-		, fsb.baseprod_contra_per_unit
-		, fsb.baseprod_variable_cost_per_unit
-		, fsb.baseprod_fixed_cost_per_unit
-		--, fsb.load_date
-		, fsb.version
-		--, fsb.sales_gru_version
-		--, fsb.contra_version
-		--, fsb.variable_cost_version
-		--, fsb.fixed_cost_version
-from forecast_supplies_baseprod_mkt10 fsb
-left join mdm.supplies_hw_mapping shm
-on fsb.base_product_number = shm.base_product_number
---left join iso_country_code_xref iccx
---on fsb.country_alpha2 = iccx.country_alpha2
-where fsb.cal_date between '{}' AND '{}'
-'''.format(start_ifs2_date, end_ifs2_date)
-fsb = spark.sql(query)
-fsb.createOrReplaceTempView("fsb")
+select * from fsb
+where base_product_number = '3YL58A'
+and platform_subset = 'MALBEC YET1'
+and region_5 = 'NA'
+'''
+test = spark.sql(query)
+test.display()
 
 # COMMAND ----------
 
@@ -1237,8 +1287,8 @@ query = '''select
         inner join fsb fsb
         on ppp.platform_subset = fsb.platform_subset
         and ppp.base_product_number = fsb.base_product_number
-        --and ppp.region_5 = fsb.region_5
-        and ppp.market10 = fsb.market10
+        and ppp.region_5 = fsb.region_5
+        --and ppp.market10 = fsb.market10
 		--and ppp.country_alpha2 = fsb.country_alpha2
 		and ppp.cal_date = fsb.cal_date
 '''
@@ -1251,7 +1301,7 @@ ifs2.filter((col('platform_subset') == 'CONGO 2N') & (col('market10') == 'CENTRA
 
 # COMMAND ----------
 
-ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A') & (col('country_alpha2') == 'US')).orderBy('cal_date').display()
+ifs2.filter((col('platform_subset') == 'MALBEC YET1') & (col('market10') == 'NORTH AMERICA') & (col('base_product_number') == '3YL58A')).orderBy('cal_date').display()
 
 # COMMAND ----------
 
