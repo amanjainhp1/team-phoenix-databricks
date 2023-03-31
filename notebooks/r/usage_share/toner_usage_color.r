@@ -139,7 +139,7 @@ zeroi = SparkR::collect(SparkR::sql(" SELECT  tpmib.printer_platform_name as pla
                , tpmib.ps_region_incl_flag AS page_share_region_incl_flag 
                , tpmib.usage_region_incl_flag AS usage_region_incl_flag 
                --Get numerator and denominator, already ib weighted at printer level
-               , SUM(COALESCE(tpmib.print_pages_mono_ib_ext_sum,0)) as usage_numerator
+               , SUM(COALESCE(tpmib.print_pages_total_ib_ext_sum,0)) as usage_numerator
                , SUM(COALESCE(tpmib.print_pages_color_ib_ext_sum,0)) as color_numerator
                , SUM(COALESCE(tpmib.print_months_ib_ext_sum,0)) as usage_denominator
                , SUM(COALESCE(tpmib.printer_count_month_usage_flag_sum,0)) AS printer_count_month_use
@@ -266,7 +266,7 @@ zero <- sqldf("with sub0 as (select a.platform_name, c.region_5 as printer_regio
                     , SUM(usage_numerator) AS SumMPVwtN
                     , SUM(usage_denominator) AS SumibWt
                     , SUM(color_numerator) AS SumCMPVwtN
-                    , (SUM(color_numerator)/SUM(usage_numerator))/3 AS meansummpvwtn
+                    , SUM(color_numerator)/SUM(usage_numerator) AS meansummpvwtn
                     , SUM(SumN) AS SumN
                     , SUM(sumIB) AS sumIB
                     , SUM(sumIB*usage_numerator) AS pgs
