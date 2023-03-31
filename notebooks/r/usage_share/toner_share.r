@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# #Version 2021.01.19.1#
+# #Version 2023.03.09.1#
 # title: "100% IB Toner Share (country level)"
 # output:
 #   html_notebook: default
@@ -319,8 +319,8 @@ table_month <- sqldf("
                 --, c.developed_emerging as de
                 , SUM(a.ci_numerator) as ci_numerator
                 , SUM(a.ci_denominator) as ci_denominator
-                , SUM(a.ps_numerator) as ps_numerator
-                , SUM(a.ps_denominator) as ps_denominator
+                , SUM(a.ps_numerator)/sum(ib.ib) as ps_numerator
+                , SUM(a.ps_denominator)/sum(ib.ib) as ps_denominator
                 , SUM(a.usage_numerator) as usage_numerator
                 , SUM(a.usage_denominator) as usage_denominator
                 , SUM(a.printer_count_month_ps) as printer_count_month_ps
@@ -1264,7 +1264,9 @@ predlist_iter3 <- sqldf("
                   , a.Predecessor
                   , a.Source
                   , CASE
-                      WHEN b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name like '%MANAGED' and b.printer_platform_name like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name like '%MANAGED' THEN 'N'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name  not like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
                     ELSE 'N'
                     END AS curve_exists
                   , b.printer_platform_name as pred_iter
@@ -1306,7 +1308,9 @@ predlist_iter2 <- sqldf("
                   , a.Predecessor
                   , a.source
                   , CASE 
-                      WHEN b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name like '%MANAGED' and b.printer_platform_name like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name like '%MANAGED' THEN 'N'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name  not like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
                     ELSE 'N'
                     END AS curve_exists
                   , b.Predecessor as pred_iter
@@ -1344,7 +1348,9 @@ predlist_iter2 <- sqldf("
                   , a.Predecessor
                   , a.source
                   , CASE 
-                      WHEN b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name like '%MANAGED' and b.printer_platform_name like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name like '%MANAGED' THEN 'N'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name  not like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
                     ELSE 'N'
                     END AS curve_exists
                   , b.printer_platform_name as pred_iter
@@ -2086,7 +2092,7 @@ final_list2 <- SparkR::sql("
                           when a.BD_Usage_Flag is NULL then a.MPV_TD
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TD
                           when a.MPV_DASH is NULL then a.MPV_TD
-                          when a.usage_n < 75 then a.MPV_TD
+                          --when a.usage_n < 75 then a.MPV_TD
                             else a.MPV_DASH
                             end
                         when a.technology='PWA' then
@@ -2182,12 +2188,11 @@ final_list7$hd_mchange_psb <- ifelse(final_list7$Share_Source_PS=="HAVE DATA",if
 final_list7$hd_mchange_ps_j <- ifelse(!isNull(final_list7$hd_mchange_psb),final_list7$index1,NA)
 #final_list7$hd_mchange_cu <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse(final_list7$lagShare_Source_CU=="Have Data",final_list7$Crg_Unit_Share-final_list7$lagShare_CU, NA ),NA)
 #final_list7$hd_mchange_cu_i <- ifelse(!is.na(final_list7$hd_mchange_cu),final_list7$index1,NA)
-final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD" | upper(final_list7$lagUsage_Source)=="UPM SAMPLE SIZE",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 #final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
-final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD"| upper(final_list7$Usage_Source)=="UPM SAMPLE SIZE",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
 final_list7$hd_mchange_use_j <- ifelse(!isNull(final_list7$hd_mchange_used),final_list7$index1,NA)
-
 
 createOrReplaceTempView(final_list7, "final_list7")
 
@@ -2373,7 +2378,6 @@ final_list7$adjust_use_i <- ifelse(isNull(final_list7$adjust_use_i),0,final_list
 final_list7$adjust_use_j <- ifelse(isNull(final_list7$adjust_use_j),0,final_list7$adjust_use_j)
 #final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+0.95*final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
 final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index1,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
-
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 
 final_list7$Page_Share_old <- cast(final_list7$Page_Share_sig, "double")
@@ -2408,7 +2412,7 @@ final_list7$Pages_PS <- final_list7$Pages_Device_Use*cast(final_list7$Page_Share
 # final_list7 <- as.data.frame(final_list7)
 
 # #Change PWA to CCs
-
+                                            
 final_list7$Usage <- ifelse(final_list7$technology!='PWA',final_list7$Usage,
                             ifelse(final_list7$Region=="AP",final_list7$Usage*0.040,
                             ifelse(final_list7$Region=="EU",final_list7$Usage*0.036,
@@ -2424,30 +2428,34 @@ final_list7$Usage_c <- ifelse(final_list7$CM != "C",NA,ifelse(final_list7$techno
                             ifelse(final_list7$Region=="LA",final_list7$Usage_c*0.038,
                                    final_list7$Usage_c*0.037))))))
 
- final_list7$total_pages <- final_list7$Usage*final_list7$ib
- final_list7$hp_pages <- final_list7$Usage*final_list7$ib*final_list7$Page_Share     
+ final_list7$total_pages <- ifelse(final_list7$CM != 'M',((final_list7$Usage_k+lit(3)*final_list7$Usage_c)*final_list7$ib),(final_list7$Usage_k)*final_list7$ib)
+ final_list7$hp_pages <- ifelse(final_list7$CM != 'M',(final_list7$Usage_k+(lit(3)*final_list7$Usage_c))*final_list7$ib*final_list7$Page_Share, final_list7$Usage_k*final_list7$ib*final_list7$Page_Share)     
  final_list7$total_kpages <- final_list7$Usage_k*final_list7$ib 
- final_list7$total_cpages <- final_list7$Usage_c*final_list7$ib
+ final_list7$total_cpages <-  ifelse(final_list7$CM != 'M',lit(3)*final_list7$Usage_c*final_list7$ib,0)
  final_list7$hp_kpages <- final_list7$Usage_k*final_list7$ib*final_list7$Page_Share 
- final_list7$hp_cpages <- final_list7$Usage_c*final_list7$ib*final_list7$Page_Share
+ final_list7$hp_cpages <-  ifelse(final_list7$CM != 'M',lit(3)*final_list7$Usage_c*final_list7$ib*final_list7$Page_Share,0)
  final_list7$nonhp_kpages <- final_list7$Usage_k*final_list7$ib*(lit(1)-final_list7$Page_Share) 
- final_list7$nonhp_cpages <- final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share)
-
+ final_list7$nonhp_cpages <-  ifelse(final_list7$CM != 'M',lit(3)*final_list7$Usage_c*final_list7$ib*(lit(1)-final_list7$Page_Share),0)
+ final_list7$total_pages_old <- final_list7$Usage*final_list7$ib
+ final_list7$hp_pages_old <- final_list7$Usage*final_list7$ib*final_list7$Page_Share
+ createOrReplaceTempView(final_list7, "final_list7")
+                                            
 # COMMAND ----------
 
 # Change to match MDM format
 
 final_list8 <- filter(final_list7, !isNull(final_list7$Page_Share))  #missing intro date
-final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
+#final_list8$fiscal_date <- concat_ws(sep = "-", substr(final_list8$FYearMo, 1, 4), substr(final_list8$FYearMo, 5, 6), lit("01"))
 final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mkt, lit("_"), final_list8$market10, lit("_"), final_list8$Region_DE)
 
 #Change from Fiscal Date to Calendar Date
-final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
+final_list8$year_month_float <- to_date(final_list8$FYearMo, "yyyy-MM-dd")
 final_list8$dm_version <- dm_version
+final_list8$Usage_Source <- ifelse(upper(final_list8$Usage_Source)=="UPM SAMPLE SIZE","DASHBOARD",final_list8$Usage_Source)
 today <- datestamp
-vsn <- '2022.01.19.1'  #for DUPSM
-rec1 <- 'usage_share'
-geog1 <- 'country'
+vsn <- '2023.01.20.1'  #for DUPSM
+rec1 <- 'USAGE_SHARE'
+geog1 <- 'COUNTRY'
 tempdir(check=TRUE)
 
 gc()
@@ -2483,13 +2491,15 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
                 , '",vsn,"' as version
                 , 'usage' as measure
-                , Usage as units
+                , CASE WHEN CM='C' THEN Usage_k+3*Usage_c
+                      ELSE Usage_k
+                      END as units
                 , CONCAT(IMPV_Route,';',model_group,';',label,';',dm_version) as proxy_used
                 , '",ibversion,"' as ib_version
                 , '",today,"' as load_date
@@ -2504,7 +2514,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , 'n' as data_source
@@ -2525,7 +2535,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , 'n' as data_source
@@ -2546,7 +2556,7 @@ mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2567,7 +2577,7 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2588,7 +2598,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2609,7 +2619,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2630,7 +2640,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2651,7 +2661,7 @@ mdm_tbl_hppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2672,7 +2682,7 @@ mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2693,7 +2703,7 @@ mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2714,7 +2724,7 @@ mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2735,7 +2745,7 @@ mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2756,7 +2766,7 @@ mdm_tbl_ib <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , 'TRAD' as customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
