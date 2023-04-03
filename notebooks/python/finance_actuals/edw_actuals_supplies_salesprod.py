@@ -1213,7 +1213,7 @@ SELECT
     pcx.profit_center_code,
     geo.region_3
 FROM mdm.profit_center_code_xref AS pcx
-LEFT JOIN iso_country_code_xref AS geo ON (pcx.country_alpha2 = geo.country_alpha2)
+LEFT JOIN mdm.iso_country_code_xref AS geo ON (pcx.country_alpha2 = geo.country_alpha2)
 """
 
 sales_office_geography = spark.sql(sales_office_geography)
@@ -2053,7 +2053,7 @@ JOIN mdm.iso_country_code_xref iso
     ON shma.country_alpha2 = iso.country_alpha2
 WHERE 1=1
 AND region_5 = 'EU'
-AND hp_pages <> 0
+AND hp_pages > 0
 """
 
 supplies_hw_country_actuals_sort = spark.sql(supplies_hw_country_actuals_sort)
@@ -2182,8 +2182,8 @@ SELECT
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM cbm_st_database     
-WHERE (cal_date BETWEEN (SELECT MIN(cal_date) FROM edw_supplies_combined_findata)
-    AND (SELECT MAX(cal_date) FROM edw_supplies_combined_findata))
+WHERE (cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_stage.edw_supplies_combined_findata)
+    AND (SELECT MAX(cal_date) FROM fin_stage.edw_supplies_combined_findata))
     AND pl IN 
     (
         SELECT DISTINCT (pl) 
@@ -2354,7 +2354,7 @@ SELECT
     SUM(sell_thru_usd) AS sell_thru_usd,
     SUM(sell_thru_qty) AS sell_thru_qty
 FROM tier1_emea_raw edw
-INNER JOIN rdma_base_to_sales_product_map rdma ON edw.sales_product_number = rdma.sales_product_number
+INNER JOIN mdm.rdma_base_to_sales_product_map rdma ON edw.sales_product_number = rdma.sales_product_number
 WHERE pl IN (
         SELECT DISTINCT pl 
         FROM mdm.product_line_xref 
@@ -4076,7 +4076,7 @@ SELECT
     sales_product_number,
     platform_subset
 FROM itp_salesprod_to_baseprod itp
-LEFT JOIN supplies_hw_mapping map 
+LEFT JOIN mdm.supplies_hw_mapping map 
     ON itp.base_product_number = map.base_product_number
     AND itp.region_5 = map.geography
     AND map.geography_grain = 'REGION_5'
@@ -8205,6 +8205,7 @@ FROM planet_targets_post_all_restatements_country1
 GROUP BY cal_date,
   Fiscal_Yr,
   region_5,
+  country_alpha2,   
   pl
 
 UNION ALL
@@ -8242,7 +8243,8 @@ UNION ALL
 FROM planet_targets_post_all_restatements_country2b 
 GROUP BY cal_date,
     Fiscal_Yr,
-region_5,
+    region_5,
+    country_alpha2,
     pl
 """
 planet_targets_fully_restated_to_country = spark.sql(planet_targets_fully_restated_to_country)
@@ -8347,7 +8349,7 @@ SELECT
     SUM(p_warranty) AS warranty,
     SUM(p_total_cos) AS total_cos,
     0 AS revenue_units
-FROM any_planet_without_salesprod2
+FROM any_planet_without_salesprod
 GROUP BY cal_date, region_5, pl, country_alpha2
 """
 
@@ -8789,7 +8791,7 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency
 all_salesprod2 = spark.sql(all_salesprod2)
 all_salesprod2.createOrReplaceTempView("all_salesprod2")
 
-
+# COMMAND ----------
 
 all_salesprod3 = f"""
 SELECT
@@ -8884,7 +8886,6 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement
 
 salesprod_planet_precurrency = spark.sql(salesprod_planet_precurrency)
 salesprod_planet_precurrency.createOrReplaceTempView("salesprod_planet_precurrency")
-
 
 # COMMAND ----------
 
