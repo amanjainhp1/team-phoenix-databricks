@@ -7,6 +7,11 @@ import pandas as pd
 
 # COMMAND ----------
 
+#Global Variables
+query_list = []
+
+# COMMAND ----------
+
 # MAGIC %run "../common/configs"
 
 # COMMAND ----------
@@ -19,7 +24,7 @@ import pandas as pd
 
 # COMMAND ----------
 
-#load cbm data from sfai
+#load cbm data from sfai into DF
 cbm_st_data = read_sql_server_to_df(configs) \
     .option("dbtable", "CBM.dbo.cbm_st_data") \
     .load()
@@ -51,7 +56,7 @@ write_df_to_delta(tables, True)
 
 # COMMAND ----------
 
-#pull in cbm database data 
+#select and format cbm supplies data 
 cbm_database = """
 SELECT 
     CASE
@@ -91,7 +96,7 @@ cbm_database.count()
 # COMMAND ----------
 
 # list supplies pls in cbm
-cbm_test_01_pl = """
+cbm_01_pl_list = """
 SELECT distinct pl, count(*) as row_count
 FROM cbm_database
 WHERE 1=1
@@ -99,17 +104,17 @@ GROUP BY pl
 ORDER BY 1;
 """
 
-cbm_test_01_pl = spark.sql(cbm_test_01_pl)
-cbm_test_01_pl.createOrReplaceTempView("cbm_test_01_pl")
+cbm_01_pl_list = spark.sql(cbm_01_pl_list)
+cbm_01_pl_list.createOrReplaceTempView("cbm_01_pl_list")
 
 # COMMAND ----------
 
-cbm_test_01_pl.show()
+cbm_01_pl_list.show()
 
 # COMMAND ----------
 
-cbm_test_02_latest_ci = """
-SELECT 'CBM_TEST_02_CI' AS record
+cbm_02_current_ci = """
+SELECT 'CBM_02_CURRENT_CI' AS record
   , cal_date
   , fiscal_year_qtr
   , fiscal_yr
@@ -138,86 +143,78 @@ GROUP BY cal_date
   , region_5
 """
 
-cbm_test_02_latest_ci = spark.sql(cbm_test_02_latest_ci)
-cbm_test_02_latest_ci.createOrReplaceTempView("cbm_test_02_latest_ci")
+cbm_02_current_ci = spark.sql(cbm_02_current_ci)
+cbm_02_current_ci.createOrReplaceTempView("cbm_02_current_ci")
 
 # COMMAND ----------
 
-cbm_test_02_latest_ci.show()
+cbm_02_current_ci.show()
 
 # COMMAND ----------
 
-# This test compares cbm channel inventory extracts to previous channel inventory balances and identifies where the CI has changed by 5% or more by month x product line x market
-compare_01 = """
+# This test compares cbm channel inventory extracts to previous channel inventory balances and identifies where the CI has changed by 5% or more by fiscal_quarter x product line x market
+cbm_02_ci_coc = """
 SELECT *
 FROM
 (
-SELECT prior_cbm.cal_date
-  , prior_cbm.fiscal_year_qtr
-  , prior_cbm.pl
-  , prior_cbm.market8
-  , (sum(latest_cbm.latest_channel_inventory_usd) - sum(prior_cbm.channel_inventory_usd)) *1.0 / NULLIF(sum(prior_cbm.channel_inventory_usd), 0) as ci_usd_rate_change
-  , (sum(latest_cbm.latest_channel_inventory_qty) - sum(prior_cbm.channel_inventory_qty)) *1.0 / NULLIF(sum(prior_cbm.channel_inventory_qty), 0) as ci_qty_rate_change
-FROM
-(
-SELECT cbm.cal_date
-  , cbm.fiscal_year_qtr
-  , cbm.pl
-  , cbm.market8
-  , sum(channel_inventory_usd) as channel_inventory_usd
-  , sum(channel_inventory_qty) as channel_inventory_qty
-FROM cbm_test_02_ci_summary as cbm
-WHERE 1=1
-    AND channel_inventory_usd <> 0
-    AND channel_inventory_qty <> 0
-    AND cbm.load_date = (SELECT MAX(load_date) FROM cbm_test_02_ci_summary)
-GROUP BY cbm.cal_date
-  , cbm.fiscal_year_qtr
-  , cbm.pl
-  , cbm.market8
-) as prior_cbm
-JOIN
-(SELECT cbm.cal_date as latest_cal_date
-  , cbm.fiscal_year_qtr as latest_fiscal_year_qtr
-  , cbm.pl as latest_pl
-  , cbm.market8 as latest_market8
-  , sum(channel_inventory_usd) as latest_channel_inventory_usd
-  , sum(channel_inventory_qty) as latest_channel_inventory_qty
-FROM cbm_test_02_latest_ci as cbm
-WHERE 1=1
-    AND channel_inventory_usd <> 0
-    AND channel_inventory_qty <> 0
-GROUP BY cbm.cal_date
-  , cbm.fiscal_year_qtr
-  , cbm.pl
-  , cbm.market8
-) as latest_cbm
-    ON UPPER(latest_cbm.latest_cal_date) = UPPER(prior_cbm.cal_date)
-    AND UPPER(latset_cbm.latest_fiscal_year_qtr) = UPPER(prior_cbm.fiscal_year_qtr)
-    AND UPPER(latest_cbm.latest_pl) = UPPER(prior_cbm.pl)
-    AND UPPER(latest_cbm.latest_market8) = UPPER(prior_cbm.market8)
-) AS test
+    SELECT previous_cbm.previous_fiscal_year_qtr as fiscal_year_qtr
+        , previous_cbm.previous_pl as pl
+        , previous_cbm.previous_market8 as market8
+        , (current_cbm.current_ci_usd - previous_cbm.previous_ci_usd) *1.0 / NULLIF(previous_cbm.previous_ci_usd, 0) as ci_usd_rate_change
+        , (current_cbm.current_ci_qty - previous_cbm.previous_ci_qty) *1.0 / NULLIF(previous_cbm.previous_ci_qty, 0) as ci_qty_rate_change
+    FROM
+        (SELECT cbm.fiscal_year_qtr as previous_fiscal_year_qtr
+           , cbm.pl as previous_pl
+           , cbm.market8 as previous_market8
+           , sum(cbm.channel_inventory_usd) as previous_ci_usd
+           , sum(cbm.channel_inventory_qty) as previous_ci_qty
+           , cbm.load_date as previous_load_date
+        FROM fin_stage.cbm_test_02_ci_summary cbm
+        WHERE 1=1
+        AND load_date = (SELECT MAX(load_date) from fin_stage.cbm_test_02_ci_summary)
+        GROUP BY cbm.fiscal_year_qtr
+            , cbm.pl
+            , cbm.market8
+            , cbm.load_date
+        ) as previous_cbm
+        JOIN
+        (
+        SELECT new.fiscal_year_qtr as current_fiscal_year_qtr
+            , new.pl as current_pl
+            , new.market8 as current_market8
+            , sum(new.channel_inventory_usd) as current_ci_usd
+            , sum(new.channel_inventory_qty) as current_ci_qty
+            , new.load_date as current_load_date
+        FROM cbm_02_current_ci new
+        WHERE 1=1
+        GROUP BY new.fiscal_year_qtr
+            , new.pl
+            , new.market8
+            , new.load_date
+        ) as current_cbm
+        ON UPPER(current_cbm.current_fiscal_year_qtr) = UPPER(previous_cbm.previous_fiscal_year_qtr)
+        AND UPPER(current_cbm.current_pl) = UPPER(previous_cbm.previous_pl)
+        AND UPPER(current_cbm.current_market8) = UPPER(previous_cbm.previous_market8)
+) as test
 WHERE ROUND (ABS(test.ci_usd_rate_change), 4) > 0.05
 """
 
-compare_01 = spark.sql(compare_01)
-compare_01.createOrReplaceTempView("compare_01")
+cbm_02_ci_coc = spark.sql(cbm_02_ci_coc)
+cbm_02_ci_coc.createOrReplaceTempView("cbm_02_ci_coc")
 
 # COMMAND ----------
 
-#print(compare_01)
+#print(cbm_02_ci_coc)
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from compare_01
+cbm_02_ci_coc.show()
 
 # COMMAND ----------
 
 # add latest cbm extract to delta tables
 tables = [
-  ['fin_stage.cbm_test_02_ci_summary', cbm_test_02_latest_ci]
+  ['fin_stage.cbm_test_02_ci_summary', cbm_02_current_ci]
 ]
 
 for table in tables:
@@ -246,3 +243,19 @@ for table in tables:
         spark.table(table[0]).createOrReplaceTempView(table_name)
         
         print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+# delete Delta tables and underlying Delta files
+tables = [
+  #  ['stage.planet_actuals', planet_actuals],
+  #  ['stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
+]
+
+for table in tables:
+    schema = table[0].split(".")[0]
+    table_name = table[0].split(".")[1]
+    save_path = f'/tmp/delta/{schema}/{table_name}'
+    
+    spark.sql(f"DROP TABLE IF EXISTS {schema}.{table_name}")
+    dbutils.fs.rm(save_path, True)
