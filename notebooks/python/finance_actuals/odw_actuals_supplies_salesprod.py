@@ -757,8 +757,11 @@ final_union_odw_data.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.final_union_odw_data USING DELTA LOCATION '/tmp/delta/fin_stage/final_union_odw_data'")
-spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_union_odw_data")
 
+
+# COMMAND ----------
+
+spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_union_odw_data")
 
 # COMMAND ----------
 
@@ -778,10 +781,10 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC WHERE Prod_Line NOT IN 
 # MAGIC     (
 # MAGIC     SELECT DISTINCT pl
-# MAGIC     FROM product_line_xref 
-# MAGIC     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
-# MAGIC         AND PL_category IN ('SUP', 'LLC')
-# MAGIC         OR PL IN ('GO', 'GN', 'IE', 'IX')  
+# MAGIC     FROM mdm.product_line_xref 
+# MAGIC     WHERE technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
+# MAGIC         AND pl_category IN ('SUP', 'LLC')
+# MAGIC         OR pl IN ('GO', 'GN', 'IE', 'IX')  
 # MAGIC     )
 
 # COMMAND ----------
@@ -1193,8 +1196,6 @@ odw_supplies_combined_findata.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_supplies_combined_findata USING DELTA LOCATION '/tmp/delta/fin_stage/odw_supplies_combined_findata'")
-
-#spark.table("fin_stage.odw_supplies_combined_findata").createOrReplaceTempView("odw_supplies_combined_findata")
 
 # COMMAND ----------
 
@@ -3467,8 +3468,6 @@ odw_salesprod_before_plcharges_temp.write \
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_before_plcharges_temp USING DELTA LOCATION '/tmp/delta/fin_stage/odw_salesprod_before_plcharges_temp'")
 
-#spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTempView("odw_salesprod_before_plcharges_temp")
-
 # COMMAND ----------
 
 
@@ -5635,8 +5634,6 @@ odw_salesprod_with_country_detail3.write \
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_with_country_detail3 USING DELTA LOCATION '/tmp/delta/fin_stage/odw_salesprod_with_country_detail3'")
 
-#spark.table("fin_stage.odw_salesprod_with_country_detail3").createOrReplaceTempView("odw_salesprod_with_country_detail3")
-
 # COMMAND ----------
 
 spark.table("fin_stage.odw_salesprod_with_country_detail3").createOrReplaceTempView("odw_salesprod_with_country_detail3")
@@ -6258,8 +6255,6 @@ odw_xcode_adjusted_data.write \
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_xcode_adjusted_data USING DELTA LOCATION '/tmp/delta/fin_stage/odw_xcode_adjusted_data'")
-
-#spark.table("fin_stage.odw_xcode_adjusted_data").createOrReplaceTempView("odw_xcode_adjusted_data")
 
 # COMMAND ----------
 
@@ -7146,6 +7141,7 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency
 all_salesprod2 = spark.sql(all_salesprod2)
 all_salesprod2.createOrReplaceTempView("all_salesprod2")
 
+# COMMAND ----------
 
 
 all_salesprod3 = f"""
@@ -7241,7 +7237,6 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement
 
 salesprod_planet_precurrency = spark.sql(salesprod_planet_precurrency)
 salesprod_planet_precurrency.createOrReplaceTempView("salesprod_planet_precurrency")
-
 
 # COMMAND ----------
 
