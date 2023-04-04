@@ -33,7 +33,7 @@ odw_revenue_units_sales_actuals_prelim_schema = StructType([ \
             StructField("segment_name", StringType(), True), \
             StructField("profit_center_code", StringType(), True), \
             StructField("material_number", StringType(), True), \
-            StructField("unit_quantity_sign_flip", DecimalType(), True), \
+            StructField("revenue_unit_quantity", DecimalType(), True), \
             StructField("load_date", TimestampType(), True), \
             StructField("unit_reporting_code", StringType(), True), \
             StructField("unit_reporting_description", StringType(), True)
@@ -80,13 +80,13 @@ if redshift_sales_actuals_prelim_row_count > 0:
         .load(f"s3a://{bucket}/{bucket_prefix}/{revenue_unit_latest_file}")
     
     revenue_unit_prelim_df = revenue_unit_prelim_df \
-        .withColumn("unit quantity (sign-flip)", revenue_unit_prelim_df["unit quantity (sign-flip)"].cast(DecimalType(38,6))) \
-        .withColumn('unit quantity (sign-flip)', regexp_extract(col('unit quantity (sign-flip)'), '-?\d+\.\d{0,2}', 0))
+        .withColumn("revenue unit quantity", revenue_unit_prelim_df["revenue unit quantity"].cast(DecimalType(38,6))) \
+        .withColumn('revenue unit quantity', regexp_extract(col('revenue unit quantity'), '-?\d+\.\d{0,2}', 0))
 
     revenue_unit_prelim_df = revenue_unit_prelim_df \
-        .withColumn("unit quantity (sign-flip)", revenue_unit_prelim_df["unit quantity (sign-flip)"].cast(DecimalType(38,2))) \
+        .withColumn("revenue unit quantity", revenue_unit_prelim_df["revenue unit quantity"].cast(DecimalType(38,2))) \
         .withColumn("load_date", current_date()) \
-        .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","unit quantity (sign-flip)","load_date","Unit Reporting Code","Unit Reporting Description")
+        .select("Fiscal Year/Period","Profit Center Hier Desc Level4","Segment Hier Desc Level4","Segment Code","Segment Name","Profit Center Code","Material Number","revenue unit quantity","load_date","Unit Reporting Code","Unit Reporting Description")
 
     revenue_unit_prelim_df = odw_revenue_units_sales_actuals_prelim_schema_df.union(revenue_unit_prelim_df)    
     
@@ -109,7 +109,7 @@ odw_revenue_units_sales_actuals_prelim = read_redshift_to_df(configs) \
         , col("segment_name").alias("Segment Name")
         , col("profit_center_code").alias("Profit Center Code")
         , col("material_number").alias("Material Number")
-        , col("unit_quantity_sign_flip").alias("Unit Quantity (Sign-Flip)")
+        , col("revenue_unit_quantity").alias("Unit Quantity (Sign-Flip)")
         , col("load_date").alias("load_date")
         , col("unit_reporting_code").alias("Unit Reporting Code")
         , col("unit_reporting_description").alias("Unit Reporting Description"))
