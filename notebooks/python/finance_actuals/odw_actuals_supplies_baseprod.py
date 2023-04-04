@@ -498,7 +498,7 @@ SELECT
     region_5,
     CASE
         WHEN region_5 = 'JP' THEN 'JP'
-        WHEN region_5 = 'AP' THEN 'SG'
+        WHEN region_5 = 'AP' THEN 'AU'
         WHEN region_5 = 'EU' THEN 'DE'
         WHEN region_5 = 'LA' THEN 'MX'
         WHEN region_5 = 'NA' THEN 'US'
