@@ -45,8 +45,8 @@ tables = [
     ['mdm.rdma_base_to_sales_product_map', "mdm.rdma_base_to_sales_product_map", "redshift"],
     ['mdm.supplies_hw_mapping', "mdm.supplies_hw_mapping", "redshift"],
     ['stage.ib', "prod.ib", "redshift"],
-    ['fin_stage.odw_sacp_actuals', "fin_prod.odw_sacp_actuals", "redshift"],
-    ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"],
+    ['fin_prod.odw_sacp_actuals', "fin_prod.odw_sacp_actuals", "redshift"],
+   # ['fin_stage.supplies_finance_hier_restatements_2020_2021', "fin_prod.supplies_finance_hier_restatements_2020_2021", "redshift"],
     ['fin_stage.actuals_supplies_salesprod', "fin_prod.actuals_supplies_salesprod", "redshift"]
 ]
 
@@ -6931,7 +6931,7 @@ SELECT
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
 FROM ALL_salesprod2 AS sp
-JOIN product_line_xref AS plx ON sp.pl = plx.pl 
+JOIN mdm.product_line_xref AS plx ON sp.pl = plx.pl 
 WHERE total_rows <> 0
 GROUP BY sp.cal_date, country_alpha2, sp.pl, sales_product_number, ce_split, l5_description, currency
 """
@@ -6964,9 +6964,9 @@ SELECT
 FROM ALL_salesprod3
 WHERE pl IN (
         SELECT DISTINCT (pl) 
-        FROM product_line_xref 
-        WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
-        AND PL_category IN ('SUP', 'LLC')
+        FROM mdm.product_line_xref 
+        WHERE technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
+        AND pl_category IN ('SUP', 'LLC')
         )
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, customer_engagement, l5_description, version, load_date, currency
 """
@@ -7066,7 +7066,7 @@ SELECT
     pre.version,
     pre.load_date
 FROM salesprod_planet_precurrency pre
-LEFT JOIN iso_country_code_xref iso ON pre.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.iso_country_code_xref iso ON pre.country_alpha2 = iso.country_alpha2
 WHERE pl = 'GD' AND sales_product_number LIKE 'EDW%'
 GROUP BY cal_date,
     pre.country_alpha2,
@@ -7236,7 +7236,7 @@ SELECT
     region_5,
     document_currency_code,
     SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-FROM odw_document_currency doc
+FROM fin_stage.odw_document_currency doc
 WHERE 1=1
     AND document_currency_code <> '?'
     AND country_alpha2 NOT LIKE 'X%'
@@ -7443,7 +7443,7 @@ SELECT distinct
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
 FROM data_with_plgd_currency_adjusted final
-LEFT JOIN iso_country_code_xref iso ON final.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.iso_country_code_xref iso ON final.country_alpha2 = iso.country_alpha2
 GROUP BY cal_date, final.country_alpha2, pl, sales_product_number, customer_engagement, l5_description, currency, market10
 """
 
