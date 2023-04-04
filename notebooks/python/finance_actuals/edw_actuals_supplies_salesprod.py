@@ -7657,6 +7657,7 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM xcode_adjusted_data2
 WHERE 1=1
+AND pl IN (SELECT pl FROM mdm.product_line_xref WHERE pl_category IN ('SUP', 'LLC') and technology IN ('PWA', 'INK', 'LASER', 'LLCS', 'LF'))
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
@@ -8297,8 +8298,7 @@ SELECT
     COALESCE(SUM(p_warranty), 0) AS p_warranty,
     COALESCE(SUM(p_total_cos), 0) AS p_total_cos
 FROM salesprod_prep_for_planet_targets AS sp 
-LEFT JOIN planet_targets_fully_restated_to_country AS p ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 
-    AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr AND sp.country_alpha2 = p.country_alpha2)
+LEFT JOIN planet_targets_fully_restated_to_country AS p ON (sp.cal_date = p.cal_date AND sp.pl = p.pl AND sp.country_alpha2 = p.country_alpha2)
 GROUP BY sp.cal_date, sp.region_5, sp.pl, sp.Fiscal_Yr, sp.country_alpha2
 """
 
@@ -8326,7 +8326,7 @@ SELECT
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
 FROM planet_targets_fully_restated_to_country AS p
-LEFT JOIN salesprod_prep_for_planet_targets AS sp ON (sp.cal_date = p.cal_date AND sp.region_5 = p.region_5 AND sp.pl = p.pl AND sp.Fiscal_Yr = p.Fiscal_Yr AND sp.country_alpha2 = p.country_alpha2)
+LEFT JOIN salesprod_prep_for_planet_targets AS sp ON (sp.cal_date = p.cal_date AND sp.pl = p.pl AND sp.country_alpha2 = p.country_alpha2)
 WHERE gross_revenue IS NULL OR net_currency IS NULL OR contractual_discounts IS NULL OR discretionary_discounts IS NULL OR total_cos IS NULL
 GROUP BY p.cal_date, p.Fiscal_Yr, p.region_5, p.pl, p.country_alpha2
 """
