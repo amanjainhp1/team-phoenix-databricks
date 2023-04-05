@@ -1697,9 +1697,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 
 GROUP BY f.date
@@ -1818,9 +1818,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -1940,9 +1940,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -2069,7 +2069,7 @@ JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
     AND NOT p.k_usage IS NULL  -- this filters out base product numbers
@@ -2319,7 +2319,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = c.cal_date
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = c.base_product_number
 
 GROUP BY f.date
