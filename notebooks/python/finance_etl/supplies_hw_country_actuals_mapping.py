@@ -562,7 +562,6 @@ SELECT "ACTUALS SUPPLIES TO HW ALLOCATIONS - SUPPLIES HW COUNTRY MAPPING" AS rec
     , '{addversion_info[1]}' AS load_date
     , '{addversion_info[0]}' AS version
 FROM usage_share_baseprod_01
-FROM usage_share_baseprod_01
 GROUP BY cal_date
     , country_alpha2
     , platform_subset
