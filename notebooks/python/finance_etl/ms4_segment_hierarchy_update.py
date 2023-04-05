@@ -143,7 +143,6 @@ FROM ms4_segment_hierarchy
 """
 
 load_segment_to_profit_center_code_xref = spark.sql(load_segment_to_profit_center_code_xref)
-load_segment_to_profit_center_code_xref.createOrReplaceTempView("load_segment_to_profit_center_code_xref")
 
 # COMMAND ----------
 
@@ -177,13 +176,5 @@ load_segment_to_profit_center_code_xref2 = profit_center_code_df.union(load_segm
 
 # COMMAND ----------
 
-load_segment_to_profit_center_code_xref2.createOrReplaceTempView("load_segment_to_profit_center_code_xref2")
-
-# COMMAND ----------
-
 #LOAD TO DB
 write_df_to_redshift(configs, load_segment_to_profit_center_code_xref2, "mdm.profit_center_code_xref", "append", postactions = "", preactions = "truncate mdm.profit_center_code_xref")
-
-# COMMAND ----------
-
-
