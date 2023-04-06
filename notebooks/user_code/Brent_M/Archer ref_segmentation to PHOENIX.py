@@ -28,6 +28,10 @@ missing_platform_subsets = spark.sql("SELECT * FROM ref_segmentation rs LEFT JOI
 
 # COMMAND ----------
 
+# missing_platform_subsets.display()
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE temp view missing_platforms as
 # MAGIC SELECT
@@ -69,10 +73,6 @@ missing_platform_subsets = spark.sql("SELECT * FROM ref_segmentation rs LEFT JOI
 # COMMAND ----------
 
 missing_platforms2 = spark.sql("SELECT * FROM missing_platforms")
-
-# COMMAND ----------
-
-
 
 # COMMAND ----------
 

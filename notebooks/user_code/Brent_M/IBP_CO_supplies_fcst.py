@@ -1,6 +1,7 @@
 # Databricks notebook source
 # 4/06/2023 - Brent Merrick
-# load data from the "IBP Forecast Template.xlsx", "Fcst Data" sheet, make a copy and upload to the s3://dataos-core-prod-team-phoenix/landing/ibp_supplies_fcst/ bucket.
+# You'll need SAP access to IBP via Excel.
+# load data from the "IBP Forecast Template.xlsx", "Fcst Data" sheet, make a copy and upload to the s3://dataos-core-prod-team-phoenix/landing/ibp_supplies_fcst/ bucket and replace the existing file.
 
 
 # COMMAND ----------
