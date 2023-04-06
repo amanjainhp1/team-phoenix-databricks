@@ -37,7 +37,7 @@ pr: none
 pool: 'CodeWayAWSLinux'
 
 jobs:
-  - template: projects/dataos/stages/databricks_deployment.yml@templates
+  - template: projects/dataos/stages/databricks_deployment-v1.yml@templates
     parameters:
       account: '155654812859'
       region: 'us-west-2'
