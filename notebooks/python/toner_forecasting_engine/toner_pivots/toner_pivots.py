@@ -65,10 +65,6 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Toner Pivots Library/Common Models
@@ -196,8 +192,7 @@ FROM prod.demand AS d
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
-    AND d.measure IN ('K_HP_DEMAND', 'COLOR_HP_DEMAND', 'COLOR_NON_HP_DEMAND', 'K_NON_HP_DEMAND')
-    AND d.cal_date BETWEEN '{}' AND '{}'
+    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'NON_HP_K_PAGES')
     AND d.version = (select MAX(version) from prod.demand)
 """.format(pivots_start, pivots_end))
 
@@ -266,7 +261,6 @@ JOIN pivots_t_19_hw_xref AS hw
 JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = mr.base_product_number
 WHERE 1=1
-    AND mr.cal_date BETWEEN '{}' AND '{}'
 """.format(pivots_start, pivots_end))
 
 cartridge_mix.createOrReplaceTempView("pivots_02_cartridge_mix")
@@ -380,13 +374,15 @@ with pivots_t_06_pages_wo_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(COALESCE(color_non_hp_demand, 0) + COALESCE(k_non_hp_demand, 0) +
-                            COALESCE(color_hp_demand, 0) + COALESCE(k_hp_demand, 0), 0), 0) As units
+         , ISNULL(ISNULL(color_non_hp_demand, 0) + ISNULL(k_non_hp_demand, 0) +
+                            ISNULL(color_hp_demand, 0) + ISNULL(k_hp_demand, 0), 0) As total_units
+        , ISNULL(ISNULL(k_non_hp_demand, 0) + ISNULL(k_hp_demand, 0), 0) As k_units
+        , ISNULL(ISNULL(color_non_hp_demand, 0) + ISNULL(color_hp_demand, 0), 0) As color_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
     (
-        SUM(units) FOR measure IN ('COLOR_HP_DEMAND' as COLOR_HP_DEMAND, 'K_HP_DEMAND' as K_HP_DEMAND, 'COLOR_NON_HP_DEMAND' as COLOR_NON_HP_DEMAND, 'K_NON_HP_DEMAND' as K_NON_HP_DEMAND)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as COLOR_HP_DEMAND, 'HP_K_PAGES' as K_HP_DEMAND, 'NON_HP_COLOR_PAGES' as COLOR_NON_HP_DEMAND, 'NON_HP_K_PAGES' as K_NON_HP_DEMAND)
     )
 )
 SELECT p.record
@@ -399,7 +395,7 @@ SELECT p.record
     , crg.base_product_number
     , p.customer_engagement
     , crg.k_color
-    , SUM(p.units * crg.mix_rate) AS units
+    , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_06_pages_wo_mktshr AS p
 JOIN pivots_lib_02_geo_mapping AS geo
@@ -409,7 +405,7 @@ JOIN pivots_02_cartridge_mix AS crg
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
-WHERE 1=1
+WHERE 1=1 and crg.k_color = 'BLACK'
 GROUP BY p.record
     , p.period
     , p.period_dt
@@ -421,6 +417,43 @@ GROUP BY p.record
     , p.customer_engagement
     , crg.k_color
     , p.official_flag
+
+UNION 
+
+SELECT p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , SUM(p.color_units * crg.mix_rate) AS units
+    , p.official_flag
+FROM pivots_t_06_pages_wo_mktshr AS p
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = p.market10
+JOIN pivots_02_cartridge_mix AS crg
+    ON crg.platform_subset = p.platform_subset
+    AND crg.customer_engagement = p.customer_engagement
+    AND crg.cal_date = p.cal_date
+    AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'COLOR'
+GROUP BY p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , p.official_flag
+
+
 """)
 
 pages_wo_mktshr.createOrReplaceTempView("pivots_05_pages_wo_mktshr_split")
@@ -437,12 +470,14 @@ with pivots_t_08_pages_w_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(color_hp_demand + k_hp_demand, color_hp_demand, k_hp_demand, 0), 0) AS units
+        , ISNULL(color_hp_demand + k_hp_demand, 0) AS total_units
+        , ISNULL(color_hp_demand,0) color_units
+        , ISNULL(k_hp_demand,0) k_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
     (
-        SUM(units) FOR measure IN ('COLOR_HP_DEMAND' AS color_hp_demand, 'K_HP_DEMAND' AS k_hp_demand, 'COLOR_NON_HP_DEMAND' AS color_non_hp_demand, 'K_NON_HP_DEMAND' AS k_non_hp_demand)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as COLOR_HP_DEMAND, 'HP_K_PAGES' as K_HP_DEMAND, 'NON_HP_COLOR_PAGES' as COLOR_NON_HP_DEMAND, 'NON_HP_K_PAGES' as K_NON_HP_DEMAND)
     )
 )
 SELECT p.record
@@ -455,7 +490,7 @@ SELECT p.record
     , crg.base_product_number
     , p.customer_engagement
     , crg.k_color
-    , SUM(p.units * crg.mix_rate) AS units
+    , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_08_pages_w_mktshr AS p
 JOIN pivots_lib_02_geo_mapping AS geo
@@ -465,6 +500,42 @@ JOIN pivots_02_cartridge_mix AS crg
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'BLACK'
+GROUP BY p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , p.official_flag
+
+UNION
+
+SELECT p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , SUM(p.color_units * crg.mix_rate) AS units
+    , p.official_flag
+FROM pivots_t_08_pages_w_mktshr AS p
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = p.market10
+JOIN pivots_02_cartridge_mix AS crg
+    ON crg.platform_subset = p.platform_subset
+    AND crg.customer_engagement = p.customer_engagement
+    AND crg.cal_date = p.cal_date
+    AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
     , p.period
     , p.period_dt
