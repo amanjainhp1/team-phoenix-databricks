@@ -55,7 +55,8 @@ from stage.rtm_historical_actuals a
     left join mdm.hardware_xref c on b.platform_subset=c.platform_subset
 where 1=1
     and c.technology in ('INK','LASER','PWA')
-    and a.date > '2017-10-01'
+    and (a.date > '2015-10-01' or a.rtm IN ('PMPS','DMPS'))
+    and c.pl NOT IN ('GW','LX')
 group by
     date,
     geo,
@@ -73,6 +74,43 @@ redshift_rtm_ns_raw_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_redshift(configs, redshift_rtm_ns_raw_records, "stage.rtm_ns_raw_stage", "overwrite")
+
+# COMMAND ----------
+
+# APPEND actuals_hw data where date < '2015-11-01'
+actuals_hw_append_query = """
+
+--Actuals
+SELECT
+   'actuals_hw' as record,
+   cal_date,
+   country_alpha2,
+   a.platform_subset,
+   c.technology,
+   sum(base_quantity) as units,
+   'TRANSACTIONAL' as rtm,
+   getdate() as load_date
+FROM prod.actuals_hw a
+    left join mdm.hardware_xref c on a.platform_subset=c.platform_subset
+WHERE 1=1
+    and c.technology in ('LASER')
+    and cal_date < '2015-11-01'
+    and c.pl NOT IN ('GW','LX')
+GROUP BY
+    cal_date,
+    country_alpha2,
+    a.platform_subset,
+    c.technology
+"""
+
+
+actuals_hw_append_records = read_redshift_to_df(configs) \
+    .option("query", actuals_hw_append_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, actuals_hw_append_records, "stage.rtm_ns_raw_stage", "append")
 
 # COMMAND ----------
 
@@ -122,7 +160,7 @@ write_df_to_redshift(configs, redshift_rtm_ns_fixed_records, "stage.rtm_ns_stage
 
 
 # CREATE RTM lagged NS
-ib_01_hw_decay_query = """
+ib_01_hw_lagged_query = """
 
 WITH iso AS
 (
@@ -176,18 +214,18 @@ GROUP BY CAST(DATEPART(year, ucep.cal_date) AS INTEGER) + (CAST(DATEPART(month, 
 
 """
 
-ib_01_hw_decay_records = read_redshift_to_df(configs) \
-    .option("query", ib_01_hw_decay_query) \
+ib_01_hw_lagged_records = read_redshift_to_df(configs) \
+    .option("query", ib_01_hw_lagged_query) \
     .load()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ib_01_hw_decay_records, "stage.rtm_ib_01_hw_decay", "overwrite")
+write_df_to_redshift(configs, ib_01_hw_lagged_records, "stage.rtm_ib_hw_lagged", "overwrite")
 
 # COMMAND ----------
 
 # CREATE RTM decayed dataset
-rtm_ib_02_ce_splits_query = """
+rtm_ib_decayed_query = """
 with ib_07_years as (
 SELECT 1 AS year_num UNION ALL
 SELECT 2 AS year_num UNION ALL
@@ -278,7 +316,7 @@ SELECT hw_lag.year + CAST((hw_lag.month + amt.month_offset - 1) AS INTEGER) / 12
     , hw_lag.country_alpha2
     , hw_lag.platform_subset
     , SUM(amt.remaining_amt * hw_lag.printer_installs) AS ib
-FROM "stage"."rtm_ib_01_hw_decay" AS hw_lag
+FROM "stage"."rtm_ib_hw_lagged" AS hw_lag
 JOIN ib_09_remaining_amt AS amt
     ON hw_lag.platform_subset = amt.platform_subset
     AND hw_lag.market13 = amt.geography
@@ -301,11 +339,13 @@ SELECT to_date(cast(ic.month as varchar) + '/' + '01' + '/' + cast(ic.year as va
     , ic.hps_ops
     , ic.split_name
     , ic.platform_subset
-    , CASE WHEN hw.printer_installs IS NULL THEN 0.0
-           ELSE CAST(hw.printer_installs AS FLOAT) END AS printer_installs
+    , SUM(CASE
+        WHEN hw.printer_installs IS NULL THEN 0.0
+        ELSE CAST(hw.printer_installs AS FLOAT)
+        END) AS printer_installs
     , ic.ib
 FROM ib_10_hw_lag_w_remaining_amt AS ic
-LEFT JOIN "stage"."rtm_ib_01_hw_decay" AS hw
+LEFT JOIN "stage"."rtm_ib_hw_lagged" AS hw
     ON hw.year = ic.year
     AND hw.month = ic.month
     AND hw.country_alpha2 = ic.country_alpha2
@@ -313,6 +353,14 @@ LEFT JOIN "stage"."rtm_ib_01_hw_decay" AS hw
     AND (hw.split_name = ic.split_name OR ic.split_name IS NULL)
     AND hw.platform_subset = ic.platform_subset
     AND hw.printer_installs > 0
+GROUP BY
+    to_date(cast(ic.month as varchar) + '/' + '01' + '/' + cast(ic.year as varchar), 'mm/dd/yyyy')
+    , ic.region_5
+    , ic.country_alpha2
+    , ic.hps_ops
+    , ic.split_name
+    , ic.platform_subset
+    , ic.ib
 )
 
 SELECT
@@ -327,13 +375,13 @@ SELECT
 FROM ib_11_prelim_output
 """
 
-rtm_ib_02_ce_splits_records = read_redshift_to_df(configs) \
-    .option("query", rtm_ib_02_ce_splits_query) \
+rtm_ib_decayed_records = read_redshift_to_df(configs) \
+    .option("query", rtm_ib_decayed_query) \
     .load()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, rtm_ib_02_ce_splits_records, "stage.rtm_ib_02_ce_splits", "overwrite")
+write_df_to_redshift(configs, rtm_ib_decayed_records, "stage.rtm_ib_decayed", "overwrite")
 
 # COMMAND ----------
 
@@ -350,9 +398,9 @@ SELECT 'IB' AS record
     , pre.split_name
     , pre.platform_subset
     , pre.printer_installs
-    , CASE WHEN pre.ib != 0 AND pre.ib < 1 THEN 1 
+    , CASE WHEN pre.ib < 0 THEN .01 
         ELSE pre.ib END AS ib
-FROM stage.rtm_ib_02_ce_splits AS pre
+FROM stage.rtm_ib_decayed AS pre
 LEFT JOIN mdm.iso_country_code_xref iso ON pre.country_alpha2=iso.country_alpha2
 WHERE 1=1
 
@@ -365,3 +413,7 @@ rtm_ib_staging_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_staging", "overwrite")
+
+# COMMAND ----------
+
+# test
