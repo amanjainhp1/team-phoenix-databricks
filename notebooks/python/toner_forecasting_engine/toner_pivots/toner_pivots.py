@@ -188,7 +188,7 @@ FROM prod.demand AS d
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
-    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'NON_HP_K_PAGES')
+    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'HP_K_NON_PAGES')
     AND d.cal_date BETWEEN '{}' AND '{}'
     AND d.version = (select MAX(version) from prod.demand)
 """.format(pivots_start, pivots_end))
@@ -382,7 +382,7 @@ with pivots_t_06_pages_wo_mktshr as (
     FROM pivots_01_demand
     PIVOT
         ( 
-        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
     )
 )
 SELECT p.record
@@ -476,7 +476,7 @@ with pivots_t_08_pages_w_mktshr as (
     FROM pivots_01_demand
     PIVOT
     (
-        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
     )
 )
 SELECT p.record
