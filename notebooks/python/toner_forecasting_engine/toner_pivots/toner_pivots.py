@@ -119,13 +119,6 @@ spark.sql("""select * from pivots_lib_01_filter_vars""").show()
 
 # COMMAND ----------
 
-spark.sql("""
-select distinct record, version
-from prod.working_forecast
-""").show()
-
-# COMMAND ----------
-
 geo_mapping = spark.sql("""
 SELECT 'CENTRAL EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
 SELECT 'GREATER ASIA' AS market_10, 'AP' AS region_5 UNION ALL
@@ -352,13 +345,13 @@ JOIN mdm.hardware_xref AS hw
 JOIN pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = us.geography
 WHERE 1=1
-    AND us.version = '{}'
+    AND us.version = (select max(version) from scen.toner_03_usage_share)
     AND us.measure IN ('COLOR_USAGE', 'K_USAGE')
     AND us.geography_grain = 'MARKET10'
     AND NOT hw.product_lifecycle_status = 'E'
     AND hw.technology IN ('LASER')
     AND us.cal_date BETWEEN '{}' AND '{}'
-""".format(us_version, pivots_start, pivots_end))
+""".format(pivots_start, pivots_end))
 
 usage.createOrReplaceTempView("pivots_04_usage")
 #write_df_to_redshift(configs, usage, "stage.pivots_04_usage", "overwrite")
