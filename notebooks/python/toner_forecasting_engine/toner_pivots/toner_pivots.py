@@ -374,10 +374,10 @@ with pivots_t_06_pages_wo_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , ISNULL(ISNULL(NON_HP_COLOR_PAGES, 0) + ISNULL(NON_HP_K_PAGES, 0) +
-                            ISNULL(HP_COLOR_PAGES, 0) + ISNULL(HP_K_PAGES, 0), 0) As total_units
-        , ISNULL(ISNULL(NON_HP_K_PAGES, 0) + ISNULL(HP_K_PAGES, 0), 0) As k_units
-        , ISNULL(ISNULL(NON_HP_COLOR_PAGES, 0) + ISNULL(HP_COLOR_PAGES, 0), 0) As color_units
+        , COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(NON_HP_K_PAGES, 0) +
+                            COALESCE(HP_COLOR_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0) As total_units
+        , COALESCE(COALESCE(NON_HP_K_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0) As k_units
+        , COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(HP_COLOR_PAGES, 0), 0) As color_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
@@ -469,9 +469,9 @@ with pivots_t_08_pages_w_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , ISNULL(HP_COLOR_PAGES + HP_K_PAGES, 0) AS total_units
-        , ISNULL(HP_COLOR_PAGES,0) color_units
-        , ISNULL(HP_K_PAGES,0) k_units
+        , COALESCE(HP_COLOR_PAGES + HP_K_PAGES, 0) AS total_units
+        , COALESCE(HP_COLOR_PAGES,0) color_units
+        , COALESCE(HP_K_PAGES,0) k_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
