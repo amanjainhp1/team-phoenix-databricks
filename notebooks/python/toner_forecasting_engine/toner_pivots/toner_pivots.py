@@ -374,8 +374,10 @@ with pivots_t_06_pages_wo_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(HP_K_NON_PAGES , 0) +
-                            COALESCE(HP_COLOR_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0), 0) As units
+        , ISNULL(ISNULL(NON_HP_COLOR_PAGES, 0) + ISNULL(HP_K_NON_PAGES, 0) +
+                            ISNULL(HP_COLOR_PAGES, 0) + ISNULL(HP_K_PAGES, 0), 0) As total_units
+        , ISNULL(ISNULL(HP_K_NON_PAGES, 0) + ISNULL(HP_K_PAGES, 0), 0) As k_units
+        , ISNULL(ISNULL(NON_HP_COLOR_PAGES, 0) + ISNULL(HP_COLOR_PAGES, 0), 0) As color_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
@@ -393,7 +395,7 @@ SELECT p.record
     , crg.base_product_number
     , p.customer_engagement
     , crg.k_color
-    , SUM(p.units * crg.mix_rate) AS units
+    , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_06_pages_wo_mktshr AS p
 JOIN pivots_lib_02_geo_mapping AS geo
@@ -403,7 +405,42 @@ JOIN pivots_02_cartridge_mix AS crg
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
-WHERE 1=1
+WHERE 1=1 and crg.k_color = 'BLACK'
+GROUP BY p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , p.official_flag
+
+UNION
+
+SELECT p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , SUM(p.color_units * crg.mix_rate) AS units
+    , p.official_flag
+FROM pivots_t_06_pages_wo_mktshr AS p
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = p.market10
+JOIN pivots_02_cartridge_mix AS crg
+    ON crg.platform_subset = p.platform_subset
+    AND crg.customer_engagement = p.customer_engagement
+    AND crg.cal_date = p.cal_date
+    AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
     , p.period
     , p.period_dt
@@ -432,7 +469,9 @@ with pivots_t_08_pages_w_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(HP_COLOR_PAGES + HP_K_PAGES, HP_COLOR_PAGES, HP_K_PAGES, 0), 0) AS units
+        , ISNULL(HP_COLOR_PAGES + HP_K_PAGES, 0) AS total_units
+        , ISNULL(HP_COLOR_PAGES,0) color_units
+        , ISNULL(HP_K_PAGES,0) k_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
@@ -450,7 +489,7 @@ SELECT p.record
     , crg.base_product_number
     , p.customer_engagement
     , crg.k_color
-    , SUM(p.units * crg.mix_rate) AS units
+    , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_08_pages_w_mktshr AS p
 JOIN pivots_lib_02_geo_mapping AS geo
@@ -460,6 +499,42 @@ JOIN pivots_02_cartridge_mix AS crg
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'BLACK'
+GROUP BY p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , p.official_flag
+
+UNION
+
+SELECT p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , SUM(p.color_units * crg.mix_rate) AS units
+    , p.official_flag
+FROM pivots_t_08_pages_w_mktshr AS p
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = p.market10
+JOIN pivots_02_cartridge_mix AS crg
+    ON crg.platform_subset = p.platform_subset
+    AND crg.customer_engagement = p.customer_engagement
+    AND crg.cal_date = p.cal_date
+    AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
     , p.period
     , p.period_dt
@@ -2560,7 +2635,7 @@ SELECT
     , supplies_equivalent_units
     , wampv_k_mpv
     , wampv_ib_units
-FROM pivots_18_combined
+FROM pivots_18_combined p 
 """)
 
 write_df_to_redshift(configs, toner_pivots_data_source, "stage.toner_pivots_data_source", "overwrite")
