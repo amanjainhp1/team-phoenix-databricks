@@ -188,7 +188,7 @@ FROM prod.demand AS d
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
-    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'HP_K_NON_PAGES')
+    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'NON_HP_K_PAGES')
     AND d.cal_date BETWEEN '{}' AND '{}'
     AND d.version = (select MAX(version) from prod.demand)
 """.format(pivots_start, pivots_end))
@@ -374,13 +374,15 @@ with pivots_t_06_pages_wo_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(HP_K_NON_PAGES , 0) +
-                            COALESCE(HP_COLOR_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0), 0) As units
+        , COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(NON_HP_K_PAGES, 0) +
+                            COALESCE(HP_COLOR_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0) As total_units
+        , COALESCE(COALESCE(NON_HP_K_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0) As k_units
+        , COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(HP_COLOR_PAGES, 0), 0) As color_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
         ( 
-        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
     )
 )
 SELECT p.record
@@ -393,7 +395,7 @@ SELECT p.record
     , crg.base_product_number
     , p.customer_engagement
     , crg.k_color
-    , SUM(p.units * crg.mix_rate) AS units
+    , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_06_pages_wo_mktshr AS p
 JOIN pivots_lib_02_geo_mapping AS geo
@@ -403,7 +405,42 @@ JOIN pivots_02_cartridge_mix AS crg
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
-WHERE 1=1
+WHERE 1=1 and crg.k_color = 'BLACK'
+GROUP BY p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , p.official_flag
+
+UNION
+
+SELECT p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , SUM(p.color_units * crg.mix_rate) AS units
+    , p.official_flag
+FROM pivots_t_06_pages_wo_mktshr AS p
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = p.market10
+JOIN pivots_02_cartridge_mix AS crg
+    ON crg.platform_subset = p.platform_subset
+    AND crg.customer_engagement = p.customer_engagement
+    AND crg.cal_date = p.cal_date
+    AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
     , p.period
     , p.period_dt
@@ -432,12 +469,14 @@ with pivots_t_08_pages_w_mktshr as (
         , market10
         , platform_subset
         , customer_engagement
-        , IFNULL(COALESCE(HP_COLOR_PAGES + HP_K_PAGES, HP_COLOR_PAGES, HP_K_PAGES, 0), 0) AS units
+        , COALESCE(HP_COLOR_PAGES + HP_K_PAGES, 0) AS total_units
+        , COALESCE(HP_COLOR_PAGES,0) color_units
+        , COALESCE(HP_K_PAGES,0) k_units
         , 'Y' AS official_flag
     FROM pivots_01_demand
     PIVOT
     (
-        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
     )
 )
 SELECT p.record
@@ -450,7 +489,7 @@ SELECT p.record
     , crg.base_product_number
     , p.customer_engagement
     , crg.k_color
-    , SUM(p.units * crg.mix_rate) AS units
+    , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_08_pages_w_mktshr AS p
 JOIN pivots_lib_02_geo_mapping AS geo
@@ -460,6 +499,42 @@ JOIN pivots_02_cartridge_mix AS crg
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'BLACK'
+GROUP BY p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , p.official_flag
+
+UNION
+
+SELECT p.record
+    , p.period
+    , p.period_dt
+    , p.cal_date
+    , p.market10
+    , geo.region_5
+    , p.platform_subset
+    , crg.base_product_number
+    , p.customer_engagement
+    , crg.k_color
+    , SUM(p.color_units * crg.mix_rate) AS units
+    , p.official_flag
+FROM pivots_t_08_pages_w_mktshr AS p
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = p.market10
+JOIN pivots_02_cartridge_mix AS crg
+    ON crg.platform_subset = p.platform_subset
+    AND crg.customer_engagement = p.customer_engagement
+    AND crg.cal_date = p.cal_date
+    AND crg.geography = p.market10
+WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
     , p.period
     , p.period_dt
@@ -1697,9 +1772,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 
 GROUP BY f.date
@@ -1818,9 +1893,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -1940,9 +2015,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -2069,7 +2144,7 @@ JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
     AND NOT p.k_usage IS NULL  -- this filters out base product numbers
@@ -2319,7 +2394,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = c.cal_date
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = c.base_product_number
 
 GROUP BY f.date
@@ -2533,9 +2608,11 @@ SELECT
     , hw_fc_units
     , ib_units
     , trd_units_w
+    , trd_units_w * yield as adjusted_pages 
     , pmf_units
     , pmf_dollars
     , expected_crgs_w
+    , expected_crgs_w * yield as expected_pages 
     , spares_w
     , channel_fill_w
     , equiv_units_w
@@ -2560,7 +2637,7 @@ SELECT
     , supplies_equivalent_units
     , wampv_k_mpv
     , wampv_ib_units
-FROM pivots_18_combined
+FROM pivots_18_combined p 
 """)
 
 write_df_to_redshift(configs, toner_pivots_data_source, "stage.toner_pivots_data_source", "overwrite")
