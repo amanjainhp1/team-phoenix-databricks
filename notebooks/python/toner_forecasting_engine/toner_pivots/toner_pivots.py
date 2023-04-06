@@ -188,7 +188,7 @@ FROM prod.demand AS d
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
-    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'HP_K_NON_PAGES')
+    AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'NON_HP_K_PAGES')
     AND d.cal_date BETWEEN '{}' AND '{}'
     AND d.version = (select MAX(version) from prod.demand)
 """.format(pivots_start, pivots_end))
@@ -382,7 +382,7 @@ with pivots_t_06_pages_wo_mktshr as (
     FROM pivots_01_demand
     PIVOT
         ( 
-        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
     )
 )
 SELECT p.record
@@ -476,7 +476,7 @@ with pivots_t_08_pages_w_mktshr as (
     FROM pivots_01_demand
     PIVOT
     (
-        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'HP_K_NON_PAGES' as HP_K_NON_PAGES)
+        SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
     )
 )
 SELECT p.record
@@ -1772,9 +1772,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 
 GROUP BY f.date
@@ -1893,9 +1893,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -2015,9 +2015,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
 
@@ -2144,7 +2144,7 @@ JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
     AND NOT p.k_usage IS NULL  -- this filters out base product numbers
@@ -2394,7 +2394,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
 FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = c.cal_date
-JOIN pivots_t_18_supplies_xref AS s
+LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = c.base_product_number
 
 GROUP BY f.date
