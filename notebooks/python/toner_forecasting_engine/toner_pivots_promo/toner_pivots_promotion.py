@@ -124,7 +124,9 @@ with pivots_promo_01_filter_vars as (
        vars.load_date,
        vars.version,
        tp.rev_units_nt,
-       tp.equiv_units_nt
+       tp.equiv_units_nt,
+       tp.adjusted_pages,
+       tp.expected_pages
 FROM stage.toner_pivots_data_source AS tp
 CROSS JOIN pivots_promo_01_filter_vars AS vars
 WHERE 1=1
