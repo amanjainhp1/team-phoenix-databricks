@@ -1,5 +1,5 @@
 # Databricks notebook source
-# 2/23/2023 - Brent Merrick
+# 3/23/2023 - Brent Merrick
 # load data from the "IBP Forecast Template.xlsx", "Fcst Data" sheet, make a copy and upload to the s3://dataos-core-prod-team-phoenix/landing/ibp_supplies_fcst/ bucket.
 
 
@@ -123,3 +123,75 @@ df_spark_records_reordered.display()
 # ibp_fcst_stage
 # write the updated dataframe to the stage.ibp_fcst_stage table
 write_df_to_redshift(configs, df_spark_records_reordered, "stage.ibp_fcst_stage", "overwrite")
+
+# COMMAND ----------
+
+# load to stf_landing table
+stf_landing_query = """
+
+with mapping as
+(
+    SELECT 'CENTRAL AND EASTERN EUROPE' as market, 'EU' as region_5
+    UNION ALL
+    SELECT 'GREATER ASIA' as market, 'AP' as region_5
+    UNION ALL
+    SELECT 'GREATER CHINA' as market, 'AP' as region_5
+    UNION ALL
+    SELECT 'INDIA B SL' as market, 'AP' as region_5
+    UNION ALL
+    SELECT 'LATIN AMERICA' as market, 'LA' as region_5
+    UNION ALL
+    SELECT 'NORTH AMERICA' as market, 'NA' as region_5
+    UNION ALL
+    SELECT 'NORTHWEST EUROPE' as market, 'EU' as region_5
+    UNION ALL
+    SELECT 'SOUTHERN EUROPE MIDDLE EAST AND AFRICA' as market, 'EU' as region_5
+),
+
+first_run as
+(
+    SELECT
+        b.region_5 as geography,
+        a.primary_base_product as base_product_number,
+        a.cal_date,
+        sum(a.units) as units,
+        a.load_date,
+        c.pl as pl_code
+    FROM stage.ibp_fcst_stage a
+        left join mapping b on a.market = b.market
+        left join mdm.rdma c on a.primary_base_product=c.base_prod_number
+    GROUP BY
+        b.region_5, a.primary_base_product, a.cal_date, a.load_date, c.pl
+)
+
+SELECT
+    'SUPPLIES_STF' as record,
+    'REGION_5' as geography_grain,
+    geography,
+    base_product_number,
+    cal_date,
+    units,
+    true as official,
+    fr.load_date,
+    'WORKING VERSION' as version,
+    'BRENT.MERRICK@HP.COM' as username,
+    pl_code
+FROM first_run fr left join mdm.product_line_xref xref on fr.pl_code=xref.pl
+WHERE 1=1
+    AND NOT (xref.technology = 'LASER' AND fr.geography IN ('NA','LA'))
+ORDER BY 1,2
+
+"""
+
+
+stf_landing_records = read_redshift_to_df(configs) \
+    .option("query", stf_landing_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, stf_landing_records, "stage.supplies_stf_landing", "append")
+
+# COMMAND ----------
+
+# load over-rides from Natalia Navarro (email), using Shiny tool to load NA and LA data for LASER.
