@@ -1761,6 +1761,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy -- new
+    , SUM(0) AS hp_sell_in_pages_k_only -- new
 
 FROM pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1882,6 +1884,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy -- new
+    , SUM(0) AS hp_sell_in_pages_k_only -- new
 
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -2004,6 +2008,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy -- new
+    , SUM(0) AS hp_sell_in_pages_k_only -- new
 
 FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -2383,6 +2389,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(c.base_quantity * COALESCE(s.equivalents_multiplier, 1)) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy -- new
+    , SUM(0) AS hp_sell_in_pages_k_only -- new
 
 FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -2601,11 +2609,9 @@ SELECT
     , hw_fc_units
     , ib_units
     , trd_units_w
-    , trd_units_w * yield as adjusted_pages 
     , pmf_units
     , pmf_dollars
     , expected_crgs_w
-    , expected_crgs_w * yield as expected_pages 
     , spares_w
     , channel_fill_w
     , equiv_units_w
@@ -2619,8 +2625,9 @@ SELECT
     , hp_crg_sz
     , fiji_usd
     , discount_pcnt
-    , rpp_gross_rev
-    , rpp_net_rev_w
+    , gross_rev_w
+    , net_rev_w
+    , net_rev_trade -- new
     , pgswmktshr
     , pgswomktshr
     -- , fiji_color_mpv
@@ -2630,6 +2637,8 @@ SELECT
     , supplies_equivalent_units
     , wampv_k_mpv
     , wampv_ib_units
+    , hp_sell_in_pages_kcmy -- new
+    , hp_sell_in_pages_k_only -- new
 FROM pivots_18_combined p 
 """)
 
