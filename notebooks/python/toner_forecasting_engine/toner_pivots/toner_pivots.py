@@ -1223,6 +1223,14 @@ JOIN pivots_t_17_fiscal_calendar AS f
 WHERE 1=1
     AND apf.technology = 'LASER'
     AND apf.units <> 0
+GROUP BY apf.cal_date
+    , apf.platform_subset
+    , apf.base_product_number
+    , apf.customer_engagement
+    , apf.base_product_line_code
+    , apf.market10
+    , apf.region_5
+    --, apf.country_alpha2
 )SELECT 'HW - IB' AS record_type
     , 'IB' AS record
     , date_format(current_date(), 'yyyy-MM') AS cycle
