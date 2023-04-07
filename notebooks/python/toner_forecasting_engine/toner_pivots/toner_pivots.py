@@ -198,55 +198,6 @@ demand.createOrReplaceTempView("pivots_01_demand")
 
 # COMMAND ----------
 
-spark.sql("""SELECT hw.platform_subset
-        , hw.pl
-        , hw.format
-        , hw.sf_mf
-        , hw.mono_color
-        , hw.business_feature
-        , hw.product_structure
-        , hw.vc_category
-        --, NULL AS market_function
-        --, NULL AS market_category
-        --, NULL AS market_group
-        , hw.hw_product_family
-        , NULL AS supplies_product_family
-        , hw.supplies_mkt_cat
-        , hw.epa_family
-        , NULL AS crg_pl_category
-        , pl.L6_Description AS crg_pl_name
-        , pl.L5_Description AS crg_category
-        , pl.business_division AS crg_business
-    FROM mdm.hardware_xref AS hw
-    LEFT JOIN mdm.product_line_xref AS pl
-        ON hw.pl = pl.pl
-    WHERE 1=1
-        AND hw.technology = 'LASER'
-        AND platform_subset IN (
-'ANNAPURNA R-ISL'
-, 'BANFF R-ISL'
-, 'BOLTON STND DM'
-, 'BOLTON STND EM'
-, 'BOLTON YET2 DM'
-, 'EVEREST MFP R-ISL'
-, 'KEGON CNIN'
-, 'KEGON DM'
-, 'KEGON EM'
-, 'KEYSTONE R-ISL'
-, 'MIRAGE LS SFP'
-, 'RATCHET LS MFP'
-, 'UNION CNIN'
-, 'UNION DM'
-, 'UNION EM'
-, 'WINDSOR STND DE'
-, 'WINDSOR STND DM'
-, 'WINDSOR STND EM'
-, 'WINDSOR YET2 DE'
-, 'WINDSOR YET2 DM'
-)""").show()
-
-# COMMAND ----------
-
 cartridge_mix = spark.sql("""
 
 with pivots_t_19_hw_xref as (
@@ -1690,7 +1641,7 @@ GROUP BY f.date
 UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
-    , 'WORKING: TRADE UNITS, TRADE REV$, SPARES, CHANNEL FILL, EXPECTED CRGS' AS record
+    , 'WORKING: TRADE UNITS, SPARES, CHANNEL FILL, EXPECTED CRGS' AS record
 
     , date_format(current_date(), 'yyyy-MM') AS cycle
     , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
