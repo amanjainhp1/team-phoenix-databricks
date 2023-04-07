@@ -50,7 +50,7 @@ LLC_AP_Actuals_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-# LLC_AP_Actuals_records.display()
+LLC_AP_Actuals_records.display()
 
 # COMMAND ----------
 
@@ -87,7 +87,7 @@ LLC_EU_LA_NA_Actuals_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-# LLC_EU_LA_NA_Actuals_records.display()
+LLC_EU_LA_NA_Actuals_records.display()
 
 # COMMAND ----------
 
@@ -96,7 +96,7 @@ unionActuals_records = LLC_AP_Actuals_records.union(LLC_EU_LA_NA_Actuals_records
 
 # COMMAND ----------
 
-# unionActuals_records.display()
+unionActuals_records.display()
 
 # COMMAND ----------
 
@@ -120,11 +120,11 @@ unionActuals_records1 = unionActuals_records \
 
 # COMMAND ----------
 
-# unionActuals_records1.display()
+unionActuals_records1.display()
 
 # COMMAND ----------
 
-# unionActuals_records1
+unionActuals_records1.display()
 
 # COMMAND ----------
 
@@ -172,11 +172,7 @@ WD3_LLC_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-# WD3_LLC_records
-
-# COMMAND ----------
-
-# WD3_LLC_records.display()
+WD3_LLC_records.display()
 
 # COMMAND ----------
 
@@ -196,9 +192,52 @@ WD3_LLC_records1 = WD3_LLC_records \
 
 # COMMAND ----------
 
-# WD3_LLC_records1.display()
+WD3_LLC_records1.display()
 
 # COMMAND ----------
 
 # insert into prod
 write_df_to_redshift(configs, WD3_LLC_records1, "prod.wd3_llc", "append")
+
+# COMMAND ----------
+
+# Check Version over version units to make sure there isn't a big spike or drop
+
+WD3_LLC_VoV_check_query = """
+with previous_version as
+(
+    select top 1
+        'LLC' as record,
+        version as prev_version,
+        sum(units) as units
+    from prod.wd3_llc
+    where version <> (select max(version) from prod.wd3_llc)
+    GROUP BY version
+    order by version desc
+),
+
+current_version as
+(
+    select
+        'LLC' as record,
+        version as curr_version,
+        sum(units) as units
+    from prod.wd3_llc
+    where version = (select max(version) from prod.wd3_llc)
+    GROUP BY version
+)
+
+SELECT
+    a.units as prev_units,
+    b.units as curr_units,
+    a.units - b.units as unit_diff,
+    ROUND(((a.units - b.units)/a.units) * 100,2) as pct_diff
+from previous_version a INNER JOIN current_version b on 1=1
+"""
+
+# execute query
+WD3_LLC_VoV_check_records = read_redshift_to_df(configs) \
+    .option("query", WD3_LLC_VoV_check_query) \
+    .load()
+
+WD3_LLC_VoV_check_records.display()
