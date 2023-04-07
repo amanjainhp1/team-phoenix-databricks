@@ -2769,9 +2769,11 @@ SELECT
     , hw_fc_units
     , ib_units
     , trd_units_w
+    , trd_units_w * yield as adjusted_pages 
     , pmf_units
     , pmf_dollars
     , expected_crgs_w
+    , expected_crgs_w * yield as expected_pages
     , spares_w
     , channel_fill_w
     , equiv_units_w
