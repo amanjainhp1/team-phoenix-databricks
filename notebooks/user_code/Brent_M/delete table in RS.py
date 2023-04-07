@@ -1,15 +1,15 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
 RS_source_code = """
 
-drop table stage.norm_shipments
+drop table stage.rtm_ib_staging
 
 """
 
