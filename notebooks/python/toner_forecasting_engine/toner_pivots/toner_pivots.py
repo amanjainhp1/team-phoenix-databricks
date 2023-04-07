@@ -1212,8 +1212,8 @@ SELECT apf.cal_date
     , apf.base_product_line_code
     , apf.market10
     , apf.region_5
-    , apf.country_alpha2
-    , apf.net_revenue * 1.0 / NULLIF(apf.units, 0) AS net_revenue_per_unit
+    --, apf.country_alpha2
+    , SUM(apf.net_revenue * 1.0) / NULLIF(SUM(apf.units), 0) AS net_revenue_per_unit
 FROM fin_prod.actuals_plus_forecast_financials AS apf
 JOIN pivots_lib_01_filter_vars AS fv
     ON fv.record = apf.record_type  -- 2 record categories
@@ -1287,8 +1287,9 @@ WHERE 1=1
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -1298,6 +1299,8 @@ WHERE 1=1
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM prod.ib AS ib
 JOIN pivots_lib_01_filter_vars AS fv
@@ -1400,8 +1403,9 @@ SELECT 'HW SHIPS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -1411,6 +1415,8 @@ SELECT 'HW SHIPS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_t_20_norm_ships AS ns
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1507,8 +1513,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(apf.net_revenue) AS fiji_usd  -- rename fiji field names to better descriptions
     , IFNULL(SUM(apf.contra) * 1.0 / NULLIF(SUM(apf.gross_revenue), 0), 0) AS discount_pcnt  -- not used; candidate to remove
-    , SUM(apf.gross_revenue) AS rpp_gross_rev  -- rename; drop rpp -- review source code
-    , SUM(apf.net_revenue) AS rpp_net_rev_w    -- rename; drop rpp
+    , SUM(apf.gross_revenue) AS gross_rev_w  
+    , SUM(apf.net_revenue) AS net_rev_w    
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -1518,6 +1525,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM fin_prod.actuals_plus_forecast_financials AS apf  -- code review with Priya --> Noelle
 JOIN pivots_lib_01_filter_vars AS fv
@@ -1529,6 +1538,133 @@ JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = apf.base_product_number
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = apf.platform_subset
+
+GROUP BY f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+    , apf.market10
+    , apf.region_5
+    , apf.platform_subset
+    , s.base_prod_name
+    , apf.base_product_number
+    , apf.customer_engagement
+
+    , hw.pl
+    , hw.business_feature
+    , hw.hw_product_family
+    , hw.sf_mf
+    , hw.format
+    , hw.mono_color
+    , hw.product_structure
+    , hw.vc_category
+
+    , s.supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , s.cartridge_alias
+    , s.type
+    , s.size
+    , s.single_multi
+    , s.crg_chrome
+    , s.crg_intro_dt
+
+UNION ALL
+
+SELECT 'SUPPLIES FC/ACTUALS' AS record_type
+    , 'HP SELL IN PAGES' AS record
+
+    , date_format(current_date(), 'yyyy-MM') AS cycle
+    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
+    , CAST(current_date() AS date) AS period_dt
+
+    , f.date AS month
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+
+    , apf.market10 AS market10
+    , apf.region_5 AS region_5
+
+    , apf.platform_subset
+
+    , s.base_prod_name AS base_prod_name
+    , apf.base_product_number AS base_prod_number
+
+    , apf.customer_engagement
+    , 0 as yield
+
+    , hw.pl AS hw_pf
+    , hw.business_feature AS business_feature
+    , hw.hw_product_family
+    , hw.sf_mf AS sf_mf
+    , hw.format AS format
+    , hw.mono_color AS mono_color_devices
+    , hw.product_structure AS product_structure
+    , hw.vc_category
+
+    , s.supplies_pl AS supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , s.cartridge_alias
+    , s.type AS cartridge_type
+    , s.size AS cartridge_size
+    , s.single_multi
+    , s.crg_chrome
+    , s.crg_intro_dt
+    , '' AS trans_vs_contract
+    , '' AS p2j_identifier
+
+    , SUM(0) AS hw_fc_units
+    , SUM(0) AS ib_units
+    , SUM(0) AS trd_units_w
+    , SUM(0) AS pmf_units
+    , SUM(0) AS pmf_dollars
+    , SUM(0) AS expected_crgs_w
+    , SUM(0) AS spares_w
+    , SUM(0) AS channel_fill_w
+    , SUM(0) AS equiv_units_w
+    , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
+    , SUM(0) AS pgswmktshr_blackonly
+    , SUM(0) AS pgswomktshr_blackonly
+    , SUM(0) AS pgswmktshr_color
+    , SUM(0) AS pgswomktshr_color
+    , SUM(0) AS hp_crg_sz
+    , SUM(0) AS fiji_usd
+    , SUM(0) AS discount_pcnt
+    , SUM(0) AS gross_rev_w 
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
+    , SUM(0) AS pgswmktshr
+    , SUM(0) AS pgswomktshr
+    , SUM(0) AS fiji_color_mpv
+    , SUM(0) AS fiji_k_mpv
+    , SUM(0) AS fiji_mkt_shr
+    , SUM(0) AS supplies_base_qty
+    , SUM(0) AS supplies_equivalent_units
+    , SUM(0) AS wampv_k_mpv
+    , SUM(0) AS wampv_ib_units
+    , COALESCE(SUM(yield_x_units), 0) AS hp_sell_in_pages_kcmy
+    , COALESCE(SUM(yield_x_units_black_only), 0) AS hp_sell_in_pages_k_only
+
+FROM fin_prod.actuals_plus_forecast_financials AS apf  -- code review with Priya --> Noelle
+JOIN pivots_lib_01_filter_vars AS fv
+    ON fv.record = apf.record_type  -- 2 record categories
+    AND fv.version = apf.version
+JOIN pivots_t_17_fiscal_calendar AS f
+    ON f.date = apf.cal_date
+JOIN pivots_t_18_supplies_xref AS s
+    ON s.base_product_number = apf.base_product_number
+JOIN pivots_t_19_hw_xref AS hw
+    ON hw.platform_subset = apf.platform_subset
+WHERE 1=1
+    AND apf.record_type = 'ACTUALS'
 
 GROUP BY f.date
     , f.fiscal_year_qtr
@@ -1629,8 +1765,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -1640,6 +1777,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
+    , SUM(0) AS hp_sell_in_pages_kcmy 
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_16_working_forecast AS wf
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1750,8 +1889,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(p.hp_crg_sz) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(p.pgs_w_mktshr) AS pgswmktshr
     , SUM(p.pgs_wo_mktshr) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -1761,8 +1901,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
-    , SUM(0) AS hp_sell_in_pages_kcmy -- new
-    , SUM(0) AS hp_sell_in_pages_k_only -- new
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1873,8 +2013,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -1884,8 +2025,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
-    , SUM(0) AS hp_sell_in_pages_kcmy -- new
-    , SUM(0) AS hp_sell_in_pages_k_only -- new
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1997,8 +2138,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(p.color_usage) AS fiji_color_mpv
@@ -2008,8 +2150,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
-    , SUM(0) AS hp_sell_in_pages_kcmy -- new
-    , SUM(0) AS hp_sell_in_pages_k_only -- new
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -2121,8 +2263,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -2131,7 +2274,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_base_qty
     , SUM(0) AS supplies_equivalent_units
     , SUM(p.k_usage) AS wampv_k_mpv
-    , SUM(w.wampv_ib_units) AS wampv_ib_units
+    , SUM(w.wampv_ib_units) AS wampv_ib_units    
+    , SUM(0) AS hp_sell_in_pages_kcmy 
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_15_units_pivot AS p 
 LEFT JOIN pivots_17_wampv_prep as w
@@ -2250,8 +2395,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(nrpu.net_revenue_per_unit * wf.adjusted_cartridges) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(nrpu.net_revenue_per_unit * wf.adjusted_cartridges) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -2260,7 +2406,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_base_qty
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
-    , SUM(0) AS wampv_ib_units
+    , SUM(0) AS wampv_ib_units    
+    , SUM(0) AS hp_sell_in_pages_kcmy 
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_t_22_net_rev_per_unit AS nrpu
 JOIN pivots_16_working_forecast AS wf 
@@ -2378,8 +2526,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -2389,8 +2538,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(c.base_quantity * COALESCE(s.equivalents_multiplier, 1)) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
-    , SUM(0) AS hp_sell_in_pages_kcmy -- new
-    , SUM(0) AS hp_sell_in_pages_k_only -- new
+    , SUM(0) AS hp_sell_in_pages_kcmy
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -2485,8 +2634,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_crg_sz
     , SUM(0) AS fiji_usd
     , SUM(0) AS discount_pcnt
-    , SUM(0) AS rpp_gross_rev
-    , SUM(0) AS rpp_net_rev_w
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -2495,7 +2645,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS supplies_base_qty
     , SUM(0) AS supplies_equivalent_units
     , SUM(0) AS wampv_k_mpv
-    , SUM(0) AS wampv_ib_units
+    , SUM(0) AS wampv_ib_units    
+    , SUM(0) AS hp_sell_in_pages_kcmy 
+    , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM fin_prod.actuals_supplies_baseprod asb
 JOIN pivots_t_17_fiscal_calendar AS f
