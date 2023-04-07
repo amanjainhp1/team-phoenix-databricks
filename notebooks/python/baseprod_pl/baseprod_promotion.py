@@ -483,7 +483,7 @@ SELECT distinct
 			, actuals_supplies_baseprod.version as financials_version
 		FROM actuals_supplies_baseprod actuals_supplies_baseprod
 		where 1=1
-		and actuals_supplies_baseprod.customer_engagement <> 'EST_INDIRECT_FULFILLMENT'
+		and actuals_supplies_baseprod.customer_engagement <> 'EST_DIRECT_FULFILLMENT'
 ), __dbt__CTE__bpo_20_actuals_sum as (
     
     
