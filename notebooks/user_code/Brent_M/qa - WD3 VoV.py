@@ -28,8 +28,21 @@ import pandas as pd
 
 # COMMAND ----------
 
+prev_version_sql = """
+select max(version) as version 
+from prod.flash_wd3 where record = 'WD3' 
+    and version <> (SELECT MAX(version) from prod.flash_wd3 WHERE record = 'WD3')
+"""
+
+prev_version = read_redshift_to_df(configs) \
+  .option("query", prev_version_sql) \
+  .load() \
+  .select("version").head()[0]
+
+# COMMAND ----------
+
 # FLASH versions
-prev_version = '2023.03.09.1'
+# prev_version = '2023.03.09.1'
 
 # COMMAND ----------
 
