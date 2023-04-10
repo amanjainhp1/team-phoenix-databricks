@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # IB - Feb 15, 2023 - QC/QA
+# MAGIC # IB - Mar 23, 2023 - QC/QA
 # MAGIC 
 # MAGIC Brent Merrick
 # MAGIC 
@@ -46,7 +46,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's versions
-prev_version = '2023.01.18.2'
+prev_version = '2023.03.03.1'
 
 # COMMAND ----------
 
@@ -108,7 +108,10 @@ select ib.*
 from stage.ib_staging as ib
 join mdm.hardware_xref as hw 
     on hw.platform_subset = ib.platform_subset
+left join mdm.iso_country_code_xref as xref
+    on ib.country_alpha2 = xref.country_alpha2
 where hw.technology in ('INK','LASER','PWA')
+    --and xref.embargoed_sanctioned_flag = 'N'
 """
 
 # COMMAND ----------
@@ -402,7 +405,7 @@ WHERE 1=1
     AND ns.version = '{}'
     and ns.cal_date between '2019-03-01' and '2026-10-01'
 GROUP BY ns.cal_date
-ORDER BY 2
+ORDER BY 2,1
 """.format(prev_version)
 
 
@@ -491,6 +494,10 @@ with prod as
         , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
     FROM stage.ib_staging AS ib
+    left join mdm.iso_country_code_xref as xref
+        on ib.country_alpha2 = xref.country_alpha2
+    WHERE 1=1
+        --and xref.embargoed_sanctioned_flag = 'N'
     GROUP BY ib.month_begin
         , ib.country_alpha2
         , ib.platform_subset
@@ -600,6 +607,10 @@ stage as
         , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
     FROM stage.ib_staging AS ib
+    left join mdm.iso_country_code_xref as xref
+        on ib.country_alpha2 = xref.country_alpha2
+    WHERE 1=1
+        --and xref.embargoed_sanctioned_flag = 'N'
     GROUP BY ib.month_begin
         , ib.country_alpha2
         , ib.platform_subset
@@ -712,9 +723,12 @@ stage as
     FROM stage.ib_staging AS ib
     join mdm.hardware_xref as hw
         on hw.platform_subset = ib.platform_subset
+    left join mdm.iso_country_code_xref as xref
+        on ib.country_alpha2 = xref.country_alpha2
     WHERE 1=1
         AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
         and hw.technology = 'INK'
+        --and xref.embargoed_sanctioned_flag = 'N'
     GROUP BY ib.month_begin
 )
 select prod.cal_date
@@ -806,8 +820,11 @@ with prod as
         , cast('ib_staging' as varchar) AS version
         , SUM(ib.ib) AS ib
     FROM stage.ib_staging AS ib
+    left join mdm.iso_country_code_xref as xref
+        on ib.country_alpha2 = xref.country_alpha2
     WHERE 1=1
         AND ib.split_name = 'I-INK'
+        --and xref.embargoed_sanctioned_flag = 'N'
     GROUP BY ib.month_begin
         , ib.split_name
 )
@@ -916,10 +933,13 @@ with prod as
     FROM stage.ib_staging AS ib
     join mdm.hardware_xref as hw
       on hw.platform_subset = ib.platform_subset
+    left join mdm.iso_country_code_xref as xref
+      on ib.country_alpha2 = xref.country_alpha2
     WHERE 1=1
         AND ib.split_name = 'TRAD'
         AND ib.month_begin BETWEEN '2013-11-01' AND '2025-10-01'
         and hw.technology = 'INK'
+        --and xref.embargoed_sanctioned_flag = 'N'
     GROUP BY ib.month_begin
         , ib.split_name
 )

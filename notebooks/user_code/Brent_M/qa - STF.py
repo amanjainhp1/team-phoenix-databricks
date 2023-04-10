@@ -29,7 +29,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions
-prev_version = '2023.01.24.2'
+prev_version = '2023.03.03.1'
 
 # COMMAND ----------
 

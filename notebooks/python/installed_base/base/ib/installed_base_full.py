@@ -521,6 +521,11 @@ query_list.append(["stage.ib_02_ce_splits", ce_splits, "overwrite"])
 
 # COMMAND ----------
 
+# Sending to scen schema for forecasters to be able to see the printer installs:
+query_list.append(["scen.ib_02_ce_splits", ce_splits, "overwrite"])
+
+# COMMAND ----------
+
 iink_complete = """
 
 

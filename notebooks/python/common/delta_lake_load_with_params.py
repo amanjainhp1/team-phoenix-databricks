@@ -28,6 +28,11 @@ for table in tables:
     mode = table[2]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
+
+    # Delete old table
+    #print(f'dropping {table[0]}...')
+    #spark.sql("DROP TABLE IF EXISTS " + table[0])
+    #print(f'{table[0]} dropped')
     
     # Load the data from its source.
     df = table[1]

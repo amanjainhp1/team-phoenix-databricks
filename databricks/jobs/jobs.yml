@@ -25,6 +25,7 @@ Jobs:
   - lf-ltf
   - lf-ltf-splits
   - mdm-nightly-load
+  - ms4-segment-hierarchy-update
   - odw-all-history-actuals-update
   - odw-monthly-actuals-update
   - odw-wd3-load
@@ -35,18 +36,3 @@ Jobs:
   - redshift-resource-creator
   - toner-usage-share
   - wd3-load
-
-DeleteJobs:
-  - table-creator
-  - ink-share
-  - ink-usage-color
-  - ink-usage-total
-  - installed-base-promo
-  - installed-base-scenario
-  - mps-ww-shipped-supplies
-  - norm-ships
-  - odw-document-currency
-  - odw-revenue-unit
-  - toner-share
-  - toner-usage-color
-  - toner-usage-total

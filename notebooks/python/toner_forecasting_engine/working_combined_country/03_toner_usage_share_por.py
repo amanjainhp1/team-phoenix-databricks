@@ -13,22 +13,6 @@
 
 # COMMAND ----------
 
-toner_us = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.toner_03_usage_share") \
-    .load()
-
-# COMMAND ----------
-
-tables = [
-    ["scen.toner_03_usage_share", toner_us, "overwrite"]
-]
-
-# COMMAND ----------
-
-# MAGIC %run "../../finance_etl/delta_lake_load_with_params" $tables=tables
-
-# COMMAND ----------
-
 # redshift working forecast does not include override info, have to find a new way to do por's
 toner_por = spark.sql("""
 
@@ -45,9 +29,9 @@ toner_por = spark.sql("""
         , units
         , us_version
         , ib_version
-        , override
-        , override_timestamp
-        , forecaster_name
+        --, override
+        --, override_timestamp
+        --, forecaster_name
     FROM scen.toner_03_usage_share
 """)
 
@@ -55,8 +39,8 @@ toner_por.createOrReplaceTempView("toner_por")
 
 # COMMAND ----------
 
-spark.sql("""select current_timestamp()""").show()
+write_df_to_redshift(configs, toner_por, "prod.usage_share_por_toner", "overwrite")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, toner_por, "prod.usage_share_por_toner", "overwrite")
+

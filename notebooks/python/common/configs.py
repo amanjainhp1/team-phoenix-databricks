@@ -66,7 +66,7 @@ for tag in custom_tags:
 
 # define constants
 developer_constants = {
-    "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;",
+    "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;trustServerCertificate=true;",
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
     "SFAI_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:prod/sqlserver/team-phoenix/auto_databricks-TuXNHG",
@@ -129,12 +129,12 @@ developer_constants = {
     },
     "STS_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
-        "itg": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
+        "itg": "arn:aws:iam::740156627385:role/dataos-itg-databricks-phoenix-role",
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-role"
     },
     "SESSION_DURATION": {
-        "dev": 3600,
-        "itg": 3600,
+        "dev": 14400,
+        "itg": 14400,
         "prod": 14400
     }
 }

@@ -42,18 +42,16 @@ In general, coders should work on notebooks in the Databricks web workspace in t
 ## Databricks URLs
 
 dataos-dev-internal: https://dataos-dev-internal.cloud.databricks.com/  
-dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/<sup>1</sup>  
+dataos-itg-internal: https://dataos-itg-internal.cloud.databricks.com/  
 dataos-prod-internal: https://dataos-prod-internal.cloud.databricks.com/   
 dataos-dev: https://dataos-dev.cloud.databricks.com/    
 dataos-prod: https://dataos-prod.cloud.databricks.com/    
 
-<sup>1</sup> SSO is currently unavailable -- enter hp.com email and click reset password to set new password
-
 ## Azure DevOps Pipeline URLs
 
-dev: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=8937    
-itg: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373    
-prod: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=10475    
+dev-internal: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=8937    
+itg-internal: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373    
+prod-internal: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=10475    
 
 ## Confluence
 https://rndwiki.inc.hpicorp.net/confluence/display/SuppliesBigData/Team+Phoenix+Databricks  

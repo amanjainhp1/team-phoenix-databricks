@@ -1,13 +1,13 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
+# MAGIC %run ../../python/common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
+# MAGIC %run ../../python/common/s3_utils
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../python/common/database_utils
 
 # COMMAND ----------
 
@@ -24,8 +24,8 @@ SELECT
     ,official
     ,load_date
     ,version
-  FROM ie2_prod.dbo.ib
-  WHERE version = '2022.07.26.3'
+  FROM archive.dbo.ib_archive
+  WHERE version = '2022.01.26.1'
   
 """
 

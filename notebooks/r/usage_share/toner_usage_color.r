@@ -175,8 +175,8 @@ ibtable <- SparkR::collect(SparkR::sql("
                     left join hardware_xref d
                        on (a.platform_subset=d.platform_subset)
                     where a.measure = 'IB'
-                      and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3') 
-                          or a.platform_subset like 'PANTHER%' or a.platform_subset like 'JAGUAR%')))
+                      and (upper(d.technology)='LASER' or (d.technology='PWA' and (upper(d.hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA'))
+                         ))
                     group by a.platform_subset
                           ,a.cal_date
                           ,d.technology
@@ -205,8 +205,7 @@ hwval <- SparkR::collect(SparkR::sql("
                                   ELSE NULL
                               END AS platform_market_code
                     FROM hardware_xref
-                    WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3') 
-                          or platform_subset like 'PANTHER%' or platform_subset like 'JAGUAR%')))
+                    WHERE (upper(technology)='LASER' or (technology='PWA' and (upper(hw_product_family) in ('TIJ_4.XG2 ERNESTA ENTERPRISE A4','TIJ_4.XG2 ERNESTA ENTERPRISE A3', 'TIJ_4.XG2 MORNESTA'))))
                     "))
 
 

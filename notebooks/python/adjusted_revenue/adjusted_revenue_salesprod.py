@@ -11,11 +11,17 @@
 
 # COMMAND ----------
 
+dbutils.widgets.text("accounting_rate", "") #set accounting rate for constant currency revenue restatement
+
+# COMMAND ----------
+
+from pyspark.sql.types import StringType , NullType
+from pyspark.sql.functions import *
+
+# COMMAND ----------
+
 ## Global Variables
 query_list = []
-
-## Supplies History 3
-cur_period = '2023-02-01'  # accounting rate
 
 ## Channel Inventory Prep 1
 cbm_st_month = '2015-10-01'
@@ -32,6 +38,19 @@ inv_curr2 = '2018-08-01'
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+accounting_rate = dbutils.widgets.get("accounting_rate")
+if accounting_rate == "":
+    accounting_rate = read_redshift_to_df(configs) \
+        .option("query", "(SELECT MAX(EffectiveDate) FROM prod.acct_rates)") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0]
+
+# COMMAND ----------
+
+accounting_rate
 
 # COMMAND ----------
 
@@ -225,10 +244,9 @@ supp_hist_3 = spark.sql("""
 				accountingrate
 			from accounting_rates_table
 			where 1=1
-            and effectivedate = (SELECT MAX(EffectiveDate) AS current_period FROM prod.acct_rates)
-            --and effectivedate = (select distinct '{cur_period}' as current_period from prod.acct_rates)
-            --and effectivedate = '2023-01-01'
-""")
+            and effectivedate = '{}'
+""".format(accounting_rate)
+)
 
 supp_hist_3.createOrReplaceTempView("current_accounting_rate")
 

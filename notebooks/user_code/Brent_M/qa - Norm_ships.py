@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Norm shipments review 6-30-2022
+# MAGIC # Norm shipments review 3-23-2023
 
 # COMMAND ----------
 
@@ -29,7 +29,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions
-prev_version = '2023.01.26.1'
+prev_version = '2023.03.10.1'
 
 # COMMAND ----------
 
@@ -72,7 +72,7 @@ ns_agg_1 = ns_agg_prep.drop(drop_list, axis=1)
 
 # aggregate time series
 ns_agg_2 = ns_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
-ns_agg_2['variable'] = 'test.norm_ships'
+ns_agg_2['variable'] = 'stage.norm_ships'
 
 ns_agg_3 = ns_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
 
@@ -117,7 +117,7 @@ ns_agg_4
 
 # COMMAND ----------
 
-ns_agg_5 = pd.concat([ns_agg_3, ns_agg_4], sort=True)
+ns_agg_5 = pd.concat([ns_agg_4, ns_agg_3], sort=True)
 
 # COMMAND ----------
 
