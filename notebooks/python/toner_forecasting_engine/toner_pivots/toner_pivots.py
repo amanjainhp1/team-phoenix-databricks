@@ -252,7 +252,6 @@ JOIN pivots_t_19_hw_xref AS hw
 JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = mr.base_product_number
 WHERE 1=1
-    AND mr.cal_date BETWEEN '{}' AND '{}'
 """.format(pivots_start, pivots_end))
 
 cartridge_mix.createOrReplaceTempView("pivots_02_cartridge_mix")
@@ -445,6 +444,8 @@ GROUP BY p.record
     , p.customer_engagement
     , crg.k_color
     , p.official_flag
+
+
 """)
 
 pages_wo_mktshr.createOrReplaceTempView("pivots_05_pages_wo_mktshr_split")
@@ -2805,7 +2806,3 @@ FROM pivots_18_combined p
 """)
 
 write_df_to_redshift(configs, toner_pivots_data_source, "stage.toner_pivots_data_source", "overwrite")
-
-# COMMAND ----------
-
-

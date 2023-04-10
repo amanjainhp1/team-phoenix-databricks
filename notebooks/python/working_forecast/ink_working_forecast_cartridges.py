@@ -37,7 +37,7 @@ WITH geography_mapping AS
       FROM scen.working_forecast_usage_share AS us_scen
       WHERE 1 = 1
         AND us_scen.upload_type = 'WORKING-FORECAST'
-        AND UPPER(us_scen.user_name) IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
+        AND UPPER(us_scen.user_name) IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_us_prep AS
     (SELECT fv.user_name
@@ -115,7 +115,7 @@ WITH dmd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.01.18.2'
+       AND ib.version = '2023.03.10.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -280,7 +280,7 @@ query_list.append(["scen.ink_02_us_dmd", ink_02_us_dmd, "overwrite"])
 
 # MAGIC %md
 # MAGIC ## sub-routine 2b :: transform u/s to demand measures
-# MAGIC Deprecate after these measures exist in prod.usage_share
+# MAGIC Deprecate after these measures exist in phoenix_spectrum_prod.usage_share 
 
 # COMMAND ----------
 
@@ -298,7 +298,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.01.18.2'
+       AND ib.version = '2023.03.10.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -329,11 +329,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share AS us
+     FROM prod.usage_share_ink  AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = '2023.01.05.1'
+       AND us.version = '2023.03.17.2'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -448,8 +448,8 @@ query_list.append(["scen.ink_demand", ink_demand, "overwrite"])
 
 ink_03_usage_share = """
 WITH override_filters  AS
-    (SELECT '2023.01.18.2'    AS ib_version
-          , '2023.01.05.1' AS us_version
+    (SELECT '2023.03.10.1'    AS ib_version
+          , '2023.03.17.2' AS us_version
 )
 
 
@@ -1423,7 +1423,7 @@ WITH geography_mapping     AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND UPPER(smr.user_name) IN ('ANAA', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAYR', 'SONSEEAHRAYR.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
+       AND UPPER(smr.user_name) IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
 
    , ink_mix_rate_prep   AS
     (SELECT fv.user_name
