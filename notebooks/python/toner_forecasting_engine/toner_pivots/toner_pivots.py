@@ -252,6 +252,7 @@ JOIN pivots_t_19_hw_xref AS hw
 JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = mr.base_product_number
 WHERE 1=1
+    AND mr.cal_date BETWEEN '{}' AND '{}'
 """.format(pivots_start, pivots_end))
 
 cartridge_mix.createOrReplaceTempView("pivots_02_cartridge_mix")
