@@ -41,6 +41,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 product_line_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_xref") \
     .load()
+driver_check_ci_balances = read_redshift_to_df(configs) \
+    .option("dbtable", "scen.driver_check_ci_balances") \
+    .load()    
 
 # COMMAND ----------
 
@@ -49,7 +52,8 @@ tables = [
   ['fin_stage.cbm_st_data', cbm_st_data],
   ['mdm.iso_country_code_xref', iso_country_code_xref],
   ['mdm.calendar', calendar],
-  ['mdm.product_line_xref', product_line_xref]
+  ['mdm.product_line_xref', product_line_xref],
+  ['scen.driver_check_ci_balances', driver_check_ci_balances]
 ]
 
 write_df_to_delta(tables, True)
@@ -113,6 +117,50 @@ cbm_01_pl_list.show()
 
 # COMMAND ----------
 
+cbm_01_pl_list.count()
+
+# COMMAND ----------
+
+phoenix_01_pl_list = """
+SELECT distinct pl
+FROM mdm.product_line_xref
+WHERE 1=1
+    AND pl_category IN ('SUP', 'LLC')
+    AND technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
+ORDER BY 1;
+"""
+
+phoenix_01_pl_list = spark.sql(phoenix_01_pl_list)
+phoenix_01_pl_list.createOrReplaceTempView("phoenix_01_pl_list")
+
+# COMMAND ----------
+
+phoenix_01_pl_list.show()
+
+# COMMAND ----------
+
+phoenix_01_pl_list.count()
+
+# COMMAND ----------
+
+cbm_v_phoenix_pl = """
+SELECT p.pl as phoenix_pl
+    , cbm.pl as cbm_pl
+FROM phoenix_01_pl_list p
+LEFT JOIN cbm_01_pl_list cbm
+    ON p.pl = cbm.pl
+WHERE cbm.pl is null
+"""
+
+cbm_v_phoenix_pl = spark.sql(cbm_v_phoenix_pl)
+cbm_v_phoenix_pl.createOrReplaceTempView("cbm_v_phoenix_pl")
+
+# COMMAND ----------
+
+cbm_v_phoenix_pl.show()
+
+# COMMAND ----------
+
 cbm_02_current_ci = """
 SELECT 'CBM_02_CURRENT_CI' AS record
   , cal_date
@@ -169,9 +217,9 @@ FROM
            , sum(cbm.channel_inventory_usd) as previous_ci_usd
            , sum(cbm.channel_inventory_qty) as previous_ci_qty
            , cbm.load_date as previous_load_date
-        FROM fin_stage.cbm_test_02_ci_summary cbm
+        FROM driver_check_ci_balances cbm
         WHERE 1=1
-        AND load_date = (SELECT MAX(load_date) from fin_stage.cbm_test_02_ci_summary)
+        AND load_date = (SELECT MAX(load_date) from driver_check_ci_balances)
         GROUP BY cbm.fiscal_year_qtr
             , cbm.pl
             , cbm.market8
@@ -212,50 +260,4 @@ cbm_02_ci_coc.show()
 
 # COMMAND ----------
 
-# add latest cbm extract to delta tables
-tables = [
-  ['fin_stage.cbm_test_02_ci_summary', cbm_02_current_ci]
-]
-
-for table in tables:
-        # Define the input and output formats and paths and the table name.
-        schema_name = table[0].split(".")[0]
-        table_name = table[0].split(".")[1]
-        write_format = 'delta'
-        save_path = f'/tmp/delta/{schema_name}/{table_name}'
-        
-        # Load the data from its source.
-        df = table[1]
-        print(f'loading {table[0]}...')
-
-        # Write the data to its target.
-        df.write \
-            .format(write_format) \
-            .mode("append") \
-            .option('overwriteSchema', 'true') \
-            .save(save_path)
-
-        spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
-        
-        # Create the table.
-        spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-        
-        spark.table(table[0]).createOrReplaceTempView(table_name)
-        
-        print(f'{table[0]} loaded')
-
-# COMMAND ----------
-
-# delete Delta tables and underlying Delta files
-tables = [
-  #  ['stage.planet_actuals', planet_actuals],
-  #  ['stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
-]
-
-for table in tables:
-    schema = table[0].split(".")[0]
-    table_name = table[0].split(".")[1]
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    spark.sql(f"DROP TABLE IF EXISTS {schema}.{table_name}")
-    dbutils.fs.rm(save_path, True)
+#write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
