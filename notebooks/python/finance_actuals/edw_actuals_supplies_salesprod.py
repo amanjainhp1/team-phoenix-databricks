@@ -110,7 +110,7 @@ tables = [
     ['mdm.product_line_xref', product_line_xref],
     ['fin_stage.supplies_manual_mcode_jv_detail_landing', supplies_manual_mcode_jv_detail_landing],
     ['fin_stage.country_currency_map_landing', country_currency_map_landing], 
-    #['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping],
+    ['stage.supplies_hw_country_actuals_mapping', supplies_hw_country_actuals_mapping],
     ['mdm.list_price_eu_country_list', list_price_eu_country_list],
     ['fin_stage.cbm_st_data', cbm_st_data],
     ['mdm.exclusion', exclusion],
