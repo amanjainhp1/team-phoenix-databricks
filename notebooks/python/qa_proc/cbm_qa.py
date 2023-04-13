@@ -41,9 +41,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 product_line_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_xref") \
     .load()
-driver_check_ci_balances = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.driver_check_ci_balances") \
-    .load()    
+#driver_check_ci_balances = read_redshift_to_df(configs) \
+#    .option("dbtable", "scen.driver_check_ci_balances") \
+#    .load()    
 
 # COMMAND ----------
 
@@ -200,6 +200,19 @@ cbm_02_current_ci.show()
 
 # COMMAND ----------
 
+#write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
+
+# COMMAND ----------
+
+#grant team access
+query_access_grant = """
+GRANT ALL ON TABLE scen.driver_check_ci_balances TO GROUP auto_glue;
+"""
+
+submit_remote_query(configs, query_access_grant)
+
+# COMMAND ----------
+
 # This test compares cbm channel inventory extracts to previous channel inventory balances and identifies where the CI has changed by 5% or more by fiscal_quarter x product line x market
 cbm_02_ci_coc = """
 SELECT *
@@ -261,3 +274,53 @@ cbm_02_ci_coc.show()
 # COMMAND ----------
 
 #write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
+
+# COMMAND ----------
+
+norm_ships_prod_df = read_redshift_to_df(configs) \
+  .option("query", ns_sql) \
+  .load()
+
+# COMMAND ----------
+
+ns_agg_prod_prep = norm_ships_prod_df.toPandas()
+ns_agg = ns_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+
+# COMMAND ----------
+
+# https://plotly.com/python-api-reference/generated/plotly.express.line
+
+fig = px.line(data_frame=ns_agg,
+              x='cal_date',
+              y='units',
+              line_group='variable',
+              color='variable',
+              title='RS - NS v2v compare')
+
+fig.update_xaxes(
+    rangeslider_visible=True,
+    rangeselector=dict(
+        buttons=list([
+            dict(count=1, label="1m", step="month", stepmode="backward"),
+            dict(count=6, label="6m", step="month", stepmode="backward"),
+            dict(count=1, label="YTD", step="year", stepmode="todate"),
+            dict(count=1, label="1y", step="year", stepmode="backward"),
+            dict(step="all")
+        ])
+    )
+)
+
+fig.update_layout(
+    autosize=False,
+    width=1400,
+    height=500,
+    margin=dict(
+        l=50,
+        r=50,
+        b=100,
+        t=100,
+        pad=4
+    ),
+)
+
+fig.show()
