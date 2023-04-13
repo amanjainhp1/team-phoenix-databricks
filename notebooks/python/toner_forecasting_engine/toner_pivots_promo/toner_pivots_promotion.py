@@ -45,6 +45,13 @@ spark.sql("""select max(version) from prod.version""").show()
 
 # COMMAND ----------
 
+spark.sql("""
+    select count(*)
+    from stage.toner_pivots_data_source
+""").show()
+
+# COMMAND ----------
+
 toner_pivots_promo = spark.sql("""
 
 with pivots_promo_01_filter_vars as (
