@@ -44,8 +44,11 @@ tables = [
 # COMMAND ----------
 
 spark.sql("""
-select distinct record, version
+select distinct record, version, count(*)
 from prod.trade_forecast
+where version = (select max(version) from prod.trade_forecast)
+group by record, version
+order by version desc
 """).show()
 
 # COMMAND ----------

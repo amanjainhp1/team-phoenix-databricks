@@ -17,6 +17,20 @@
 
 # COMMAND ----------
 
+wf_country = read_redshift_to_df(configs) \
+    .option("query", "select * from prod.working_forecast_country where version = '{}'".format(wf_country_version)) \
+    .load()
+    
+tables = [
+    ['prod.working_forecast_country', wf_country, "append"]
+]
+
+# COMMAND ----------
+
+# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
 c2c_02_geography_mapping = spark.sql("""
 SELECT 'CENTRAL EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'GREATER ASIA' AS market_10, 'AP' AS region_5 UNION ALL
@@ -65,6 +79,10 @@ trade_01_common.createOrReplaceTempView("trade_01_filter_vars")
 
 # COMMAND ----------
 
+spark.sql("""select * from trade_01_filter_vars""").show()
+
+# COMMAND ----------
+
 trade_01 = spark.sql("""
 
 with trade_05_supplies_stf_agg as (
@@ -78,6 +96,7 @@ with trade_05_supplies_stf_agg as (
         ON fv.version = stf.version
         AND fv.record = stf.record
     WHERE 1=1
+        AND technology = 'LASER'
     GROUP BY stf.geography
         , stf.cal_date
         , stf.base_product_number
