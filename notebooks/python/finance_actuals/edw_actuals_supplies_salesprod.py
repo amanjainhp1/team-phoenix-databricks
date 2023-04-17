@@ -7673,14 +7673,14 @@ salesprod_preplanet_with_currency_map1.createOrReplaceTempView("salesprod_prepla
 # because of a conflict in requirements (finance at region 5; drivers at market), we need to push "official" targets to country level
 # options for mix
 # EMEA (because financials don't include EMEA data at country grain)
-cbm_country_actuals_mapping_mix = f"""
-SELECT cal.Date AS cal_date,
+cbm_country_actuals_mapping_prep = f"""
+SELECT distinct cal.Date AS cal_date,
     region_5,
     cbm.country_code AS country_alpha2,
     product_line_id AS pl,
     CASE
-       WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id) = 0 THEN NULL
-       ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id)
+       WHEN SUM(ABS(sell_thru_usd)) OVER (PARTITION BY cal.Date, region_5, product_line_id) = 0 THEN NULL
+       ELSE ABS(sell_thru_usd) / SUM(ABS(sell_thru_usd)) OVER (PARTITION BY cal.Date, region_5, product_line_id)
     END AS country_mix
 FROM fin_stage.cbm_st_data cbm
 JOIN mdm.calendar cal
@@ -7690,11 +7690,31 @@ JOIN mdm.iso_country_code_xref iso
 WHERE 1=1
 AND region_5 = 'EU'
 AND sell_thru_usd > 0
+AND channel_inventory_usd > 0
 GROUP BY cal.Date,
     region_5,
     cbm.country_code,
     product_line_id,
-    sell_thru_usd
+    sell_thru_usd,
+    channel_inventory_usd
+"""
+
+cbm_country_actuals_mapping_prep = spark.sql(cbm_country_actuals_mapping_prep)
+cbm_country_actuals_mapping_prep.createOrReplaceTempView("cbm_country_actuals_mapping_prep")
+
+
+cbm_country_actuals_mapping_mix = f"""
+SELECT distinct cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    SUM(country_mix) as country_mix
+FROM cbm_country_actuals_mapping_prep cbm
+WHERE 1=1
+GROUP BY cal_date,
+    region_5,
+    country_alpha2,
+    pl
 """
 
 cbm_country_actuals_mapping_mix = spark.sql(cbm_country_actuals_mapping_mix)
@@ -7739,7 +7759,7 @@ supplies_hw_country_actuals_mapping_countries_x_region5 = spark.sql(supplies_hw_
 supplies_hw_country_actuals_mapping_countries_x_region5.createOrReplaceTempView("supplies_hw_country_actuals_mapping_countries_x_region5")
 
 
-supplies_hw_country_actuals_mapping_mix = f"""
+supplies_hw_country_actuals_mapping_prep = f"""
 SELECT cal_date,
     region_5,
     country_alpha2,
@@ -7756,12 +7776,29 @@ GROUP BY cal_date,
     hp_pages
 """
 
+supplies_hw_country_actuals_mapping_prep = spark.sql(supplies_hw_country_actuals_mapping_prep)
+supplies_hw_country_actuals_mapping_prep.createOrReplaceTempView("supplies_hw_country_actuals_mapping_prep")
+
+
+supplies_hw_country_actuals_mapping_mix = f"""
+SELECT cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    SUM(country_mix) as country_mix
+FROM supplies_hw_country_actuals_mapping_prep
+GROUP BY cal_date,
+    region_5,
+    country_alpha2,
+    pl
+"""
+
 supplies_hw_country_actuals_mapping_mix = spark.sql(supplies_hw_country_actuals_mapping_mix)
 supplies_hw_country_actuals_mapping_mix.createOrReplaceTempView("supplies_hw_country_actuals_mapping_mix")
 
 
 # best source: use ODW detailed data to create country mix (AP, AMS)
-general_ledger_mapping_mix = f"""
+general_ledger_mapping_prep = f"""
 SELECT cal_date,
     region_5,
     fued.country_alpha2,
@@ -7782,6 +7819,23 @@ GROUP BY cal_date,
     fued.country_alpha2,
     pl,
     gross_revenue
+"""
+
+general_ledger_mapping_prep = spark.sql(general_ledger_mapping_prep)
+general_ledger_mapping_prep.createOrReplaceTempView("general_ledger_mapping_prep")
+
+
+general_ledger_mapping_mix = f"""
+SELECT cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    SUM(country_mix) as country_mix
+FROM general_ledger_mapping_prep
+GROUP BY  cal_date,
+    region_5,
+    country_alpha2,
+    pl
 """
 
 general_ledger_mapping_mix = spark.sql(general_ledger_mapping_mix)
@@ -8149,7 +8203,7 @@ SELECT p.cal_date,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
 FROM planet_targets_post_all_restatements_country2a p
-LEFT JOIN supplies_hw_country_actuals_mapping_mix gl
+LEFT JOIN cbm_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
     AND p.pl = gl.pl
@@ -9007,10 +9061,10 @@ SELECT
     cal_date,
     iink.country_alpha2,
     pl,
-    sum(gross_revenue) + sum(net_currency) + sum(contractual_discounts) + sum(discretionary_discounts) as net_revenue,
+    sum(revenue_units) as revenue_units,
     region_5
-FROM edw_supplies_combined_findata_including_iink iink
-LEFT JOIN iso_country_code_xref iso on iink.country_alpha2 = iso.country_alpha2
+FROM salesprod_planet_precurrency iink
+LEFT JOIN mdm.iso_country_code_xref iso on iink.country_alpha2 = iso.country_alpha2
 WHERE 1=1 
 AND pl = 'GD'
 GROUP BY cal_date,
@@ -9030,17 +9084,17 @@ SELECT
     region_5,
     pl,
     CASE
-        WHEN SUM(net_revenue) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
-        ELSE net_revenue / sum(net_revenue) OVER (PARTITION BY cal_date, region_5, pl)
+        WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
+        ELSE revenue_units / sum(revenue_units) OVER (PARTITION BY cal_date, region_5, pl)
     END as country_mix
 FROM edw_country_revenue_for_plgd
 WHERE 1=1 
-AND net_revenue <> 0
+AND revenue_units <> 0
 GROUP BY cal_date,
     country_alpha2,
     pl,
     region_5,
-    net_revenue
+    revenue_units
 """
 
 edw_country_mix_for_plgd = spark.sql(edw_country_mix_for_plgd)
