@@ -2711,6 +2711,7 @@ WHERE 1=1
     AND ib.version = (select max(version) from stage.ib)
     AND measure = 'IB'
     AND customer_engagement = 'I-INK'
+    AND units > 0
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5
 """
 
@@ -2995,6 +2996,7 @@ LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha
 WHERE 1=1
     AND ib.version = (select max(version) from stage.ib)
     AND measure = 'IB'
+    AND units > 0
     AND platform_subset IN (select distinct platform_subset from itp_baseprod_to_printer)
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5, market10, iso.country
 """
@@ -6017,7 +6019,7 @@ SELECT
     cal_date,
     country_alpha2,
     CASE
-        WHEN sales_product_number LIKE 'mps%' THEN 'USD'
+        WHEN sales_product_number LIKE 'MPS%' THEN 'USD'
         ELSE currency
     END AS currency,
     region_5,
@@ -7358,9 +7360,9 @@ SELECT
     cal_date,
     iink.country_alpha2,
     pl,
-    sum(gross_revenue) + sum(net_currency) + sum(contractual_discounts) + sum(discretionary_discounts) as net_revenue,
+    sum(revenue_units) as revenue_units,
     region_5
-FROM edw_supplies_combined_findata_including_iink iink
+FROM salesprod_planet_precurrency iink
 LEFT JOIN mdm.iso_country_code_xref iso on iink.country_alpha2 = iso.country_alpha2
 WHERE 1=1 
 AND pl = 'GD'
@@ -7381,17 +7383,17 @@ SELECT
     region_5,
     pl,
     CASE
-        WHEN SUM(net_revenue) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
-        ELSE net_revenue / sum(net_revenue) OVER (PARTITION BY cal_date, region_5, pl)
+        WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
+        ELSE revenue_units / sum(revenue_units) OVER (PARTITION BY cal_date, region_5, pl)
     END as country_mix
 FROM edw_country_revenue_for_plgd
 WHERE 1=1 
-AND net_revenue <> 0
+AND revenue_units > 0
 GROUP BY cal_date,
     country_alpha2,
     pl,
     region_5,
-    net_revenue
+    revenue_units
 """
 
 edw_country_mix_for_plgd = spark.sql(edw_country_mix_for_plgd)

@@ -3744,6 +3744,7 @@ WHERE 1=1
     AND ib.version = (select max(version) from stage.ib)
     AND measure = 'IB'
     AND customer_engagement = 'I-INK'
+    AND units > 0
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5
 """
 
@@ -4101,6 +4102,7 @@ LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = ib.country_alpha
 WHERE 1=1
     AND ib.version = (select max(version) from stage.ib)
     AND measure = 'IB'
+    AND units > 0
     AND platform_subset IN (select distinct platform_subset from itp_baseprod_to_printer)
 GROUP BY cal_date, ib.country_alpha2, platform_subset, region_5, market10, iso.country
 """
@@ -7370,7 +7372,7 @@ SELECT
     cal_date,
     country_alpha2,
     CASE
-        WHEN sales_product_number LIKE 'mps%' THEN 'USD'
+        WHEN sales_product_number LIKE 'MPS%' THEN 'USD'
         ELSE currency
     END AS currency,
     region_5,
@@ -9089,7 +9091,7 @@ SELECT
     END as country_mix
 FROM edw_country_revenue_for_plgd
 WHERE 1=1 
-AND revenue_units <> 0
+AND revenue_units > 0
 GROUP BY cal_date,
     country_alpha2,
     pl,
