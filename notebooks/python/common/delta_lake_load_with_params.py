@@ -23,6 +23,7 @@ import re
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
+    full_table_name = table[0]
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     mode = table[2]
