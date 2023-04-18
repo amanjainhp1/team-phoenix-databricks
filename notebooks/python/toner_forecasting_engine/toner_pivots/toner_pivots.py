@@ -1463,28 +1463,21 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'GROSS REV, FIJI$, DISCOUNT %, PMF $' AS record
-
     , date_format(current_date(), 'yyyy-MM') AS cycle
     , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
     , CAST(current_date() AS date) AS period_dt
-
     , f.date AS month
     , f.fiscal_year_qtr
     , f.fiscal_yr
     , f.calendar_yr_qtr
     , f.calendar_yr
-
     , apf.market10 AS market10
     , apf.region_5 AS region_5
-
     , apf.platform_subset
-
     , s.base_prod_name AS base_prod_name
     , apf.base_product_number AS base_prod_number
-
     , apf.customer_engagement
     , 0 as yield
-
     , hw.pl AS hw_pf
     , hw.business_feature AS business_feature
     , hw.hw_product_family
@@ -1493,7 +1486,6 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , hw.mono_color AS mono_color_devices
     , hw.product_structure AS product_structure
     , hw.vc_category
-
     , s.supplies_pl AS supplies_pl
     , hw.crg_pl_name
     , hw.crg_category
@@ -1506,7 +1498,6 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , s.crg_intro_dt
     , '' AS trans_vs_contract
     , '' AS p2j_identifier
-
     , SUM(0) AS hw_fc_units
     , SUM(0) AS ib_units
     , SUM(0) AS trd_units_w
@@ -1540,7 +1531,6 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS wampv_ib_units
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
-
 FROM fin_prod.actuals_plus_forecast_financials AS apf  -- code review with Priya --> Noelle
 JOIN pivots_lib_01_filter_vars AS fv
     ON fv.record = apf.record_type  -- 2 record categories
@@ -1551,7 +1541,7 @@ JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = apf.base_product_number
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = apf.platform_subset
-
+WHERE 1=1
 GROUP BY f.date
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -1563,7 +1553,6 @@ GROUP BY f.date
     , s.base_prod_name
     , apf.base_product_number
     , apf.customer_engagement
-
     , hw.pl
     , hw.business_feature
     , hw.hw_product_family
@@ -1572,7 +1561,6 @@ GROUP BY f.date
     , hw.mono_color
     , hw.product_structure
     , hw.vc_category
-
     , s.supplies_pl
     , hw.crg_pl_name
     , hw.crg_category
@@ -2839,7 +2827,7 @@ GROUP BY f.date
 """.format(pivots_start, pivots_end))
 
 combined.createOrReplaceTempView("pivots_18_combined")
-write_df_to_redshift(configs, combined, "stage.pivots_18_combined", "overwrite")
+#write_df_to_redshift(configs, combined, "stage.pivots_18_combined", "overwrite")
 
 
 # COMMAND ----------
@@ -2939,3 +2927,7 @@ FROM pivots_18_combined p
 """)
 
 write_df_to_redshift(configs, toner_pivots_data_source, "stage.toner_pivots_data_source", "overwrite")
+
+# COMMAND ----------
+
+

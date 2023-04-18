@@ -81,7 +81,7 @@ toner_pivots = read_redshift_to_df(configs) \
         , hp_sell_in_pages_kcmy\
         , hp_sell_in_pages_k_only\
         , net_rev_trade\
-      from prod.toner_pivots where version = '2023.04.13.1'")\
+      from prod.toner_pivots where version = (select max(version) from prod.toner_pivots)")\
     .load()
 
 toner_pivots.createOrReplaceTempView("toner_pivots")
@@ -98,5 +98,6 @@ for t_name, df, mode in tables:
     write_df_to_sqlserver(configs, df, t_name, mode)
 
 # COMMAND ----------
+
 
 
