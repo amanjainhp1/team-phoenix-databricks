@@ -41,9 +41,9 @@ iso_country_code_xref = read_redshift_to_df(configs) \
 product_line_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.product_line_xref") \
     .load()
-#driver_check_ci_balances = read_redshift_to_df(configs) \
-#    .option("dbtable", "scen.driver_check_ci_balances") \
-#    .load()    
+driver_check_ci_balances = read_redshift_to_df(configs) \
+    .option("dbtable", "scen.driver_check_ci_balances") \
+    .load()    
 
 # COMMAND ----------
 
@@ -95,7 +95,7 @@ cbm_database.createOrReplaceTempView("cbm_database")
 
 # COMMAND ----------
 
-cbm_database.count()
+#cbm_database.count()
 
 # COMMAND ----------
 
@@ -173,7 +173,7 @@ SELECT 'CBM_02_CURRENT_CI' AS record
   , region_5
   , sum(channel_inventory_usd) as channel_inventory_usd
   , sum(channel_inventory_qty) as channel_inventory_qty
-  , (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') AS adj_rev_sp_version
+  , (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') AS adj_rev_sp_version 
   , current_timestamp() as load_date
 FROM cbm_database cbm
 LEFT JOIN mdm.calendar c
@@ -233,9 +233,9 @@ FROM
            , sum(cbm.channel_inventory_usd) as previous_ci_usd
            , sum(cbm.channel_inventory_qty) as previous_ci_qty
            , cbm.load_date as previous_load_date
-        FROM driver_check_ci_balances cbm
+        FROM scen.driver_check_ci_balances cbm
         WHERE 1=1
-        AND load_date = (SELECT MAX(load_date) from driver_check_ci_balances)
+        AND load_date = (SELECT MAX(load_date) from scen.driver_check_ci_balances)
         GROUP BY cbm.fiscal_year_qtr
             , cbm.pl
             , cbm.market8
@@ -280,18 +280,35 @@ cbm_02_ci_coc.show()
 
 # COMMAND ----------
 
-ci_balances_current_prep = driver_check_ci_balances.toPandas()
-ci_agg = ci_balances_current_prep.reindex(['fiscal_year_qtr', 'variable', 'channel_inventory_usd'], axis=1)
+ci_balances_current_prep = """
+SELECT distinct fiscal_year_qtr
+  , sum(channel_inventory_usd) as channel_inventory_usd
+  , sum(channel_inventory_qty) as channel_inventory_qty
+  , adj_rev_sp_version as version
+FROM scen.driver_check_ci_balances d
+LEFT JOIN mdm.product_line_xref plx ON d.pl = plx.pl
+WHERE 1=1
+GROUP BY fiscal_year_qtr
+  , adj_rev_sp_version
+"""
+
+ci_balances_current_prep = spark.sql(ci_balances_current_prep)
+ci_balances_current_prep.createOrReplaceTempView("ci_balances_current_prep")
+
+# COMMAND ----------
+
+ci_balances_current_prep2 = ci_balances_current_prep.toPandas()
+ci_agg = ci_balances_current_prep2.reindex(['fiscal_year_qtr', 'version', 'channel_inventory_usd'], axis=1)
 
 # COMMAND ----------
 
 # https://plotly.com/python-api-reference/generated/plotly.express.line
 
 fig = px.line(data_frame=ci_agg,
-              x='cal_date',
+              x='fiscal_year_qtr',
               y='channel_inventory_usd',
-              line_group='variable',
-              color='variable',
+              line_group='version',
+              color='version',
               title='CBM CI$ v2v compare')
 
 fig.update_xaxes(
