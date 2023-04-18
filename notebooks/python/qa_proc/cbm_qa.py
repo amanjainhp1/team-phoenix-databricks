@@ -113,7 +113,7 @@ cbm_01_pl_list.createOrReplaceTempView("cbm_01_pl_list")
 
 # COMMAND ----------
 
-cbm_01_pl_list.show()
+#cbm_01_pl_list.show()
 
 # COMMAND ----------
 
@@ -135,7 +135,7 @@ phoenix_01_pl_list.createOrReplaceTempView("phoenix_01_pl_list")
 
 # COMMAND ----------
 
-phoenix_01_pl_list.show()
+#phoenix_01_pl_list.show()
 
 # COMMAND ----------
 
@@ -150,6 +150,7 @@ FROM phoenix_01_pl_list p
 LEFT JOIN cbm_01_pl_list cbm
     ON p.pl = cbm.pl
 WHERE cbm.pl is null
+ORDER BY p.pl
 """
 
 cbm_v_phoenix_pl = spark.sql(cbm_v_phoenix_pl)
@@ -172,6 +173,7 @@ SELECT 'CBM_02_CURRENT_CI' AS record
   , region_5
   , sum(channel_inventory_usd) as channel_inventory_usd
   , sum(channel_inventory_qty) as channel_inventory_qty
+  , (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - ADJUSTED_REVENUE - SALES PRODUCT') AS adj_rev_sp_version
   , current_timestamp() as load_date
 FROM cbm_database cbm
 LEFT JOIN mdm.calendar c
@@ -200,6 +202,7 @@ cbm_02_current_ci.show()
 
 # COMMAND ----------
 
+#DELETE ME AFTER INITIAL TABLE SET UP
 #write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
 
 # COMMAND ----------
@@ -277,25 +280,19 @@ cbm_02_ci_coc.show()
 
 # COMMAND ----------
 
-norm_ships_prod_df = read_redshift_to_df(configs) \
-  .option("query", ns_sql) \
-  .load()
-
-# COMMAND ----------
-
-ns_agg_prod_prep = norm_ships_prod_df.toPandas()
-ns_agg = ns_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+ci_balances_current_prep = driver_check_ci_balances.toPandas()
+ci_agg = ci_balances_current_prep.reindex(['fiscal_year_qtr', 'variable', 'channel_inventory_usd'], axis=1)
 
 # COMMAND ----------
 
 # https://plotly.com/python-api-reference/generated/plotly.express.line
 
-fig = px.line(data_frame=ns_agg,
+fig = px.line(data_frame=ci_agg,
               x='cal_date',
-              y='units',
+              y='channel_inventory_usd',
               line_group='variable',
               color='variable',
-              title='RS - NS v2v compare')
+              title='CBM CI$ v2v compare')
 
 fig.update_xaxes(
     rangeslider_visible=True,
