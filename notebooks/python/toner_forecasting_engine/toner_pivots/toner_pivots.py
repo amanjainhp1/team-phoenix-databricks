@@ -2108,7 +2108,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , p.base_product_number AS base_prod_number
 
     , p.customer_engagement
-    , sum(0) as yield
+    , 0 as yield
 
     , hw.pl AS hw_pl
     , hw.business_feature AS business_feature
@@ -2164,7 +2164,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS wampv_k_mpv
     , SUM(0) AS wampv_ib_units
     , SUM(p.supplies_pmf * p.yield) AS hp_sell_in_pages_kcmy
-    , SUM(p.supplies_pmf * p.yield) AS hp_sell_in_pages_k_only
+    , CASE WHEN s.k_color <> 'BLACK' THEN SUM(0) ELSE SUM(p.supplies_pmf * p.yield) END AS hp_sell_in_pages_k_only
 
 FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -2174,7 +2174,7 @@ LEFT JOIN pivots_t_19_hw_xref AS hw
 LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 LEFT JOIN fin_prod.actuals_plus_forecast_financials apf
-    ON apf.cal_date = f.month
+    ON apf.cal_date = f.date
 WHERE 1=1
     AND apf.record_type <> 'ACTUALS'
 
@@ -2211,6 +2211,7 @@ GROUP BY f.date
     , s.single_multi
     , s.crg_chrome
     , s.crg_intro_dt
+    , s.k_color
 
 UNION ALL
 
