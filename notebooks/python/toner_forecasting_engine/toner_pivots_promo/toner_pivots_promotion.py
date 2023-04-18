@@ -32,7 +32,7 @@ version = read_redshift_to_df(configs) \
 
 tables = [
     ['stage.toner_pivots_data_source', toner_pivots_data_source, "overwrite"],
-    ['prod.version', version, "overwrite"]
+    #['prod.version', version, "overwrite"]
 ]
 
 # COMMAND ----------
@@ -46,8 +46,10 @@ spark.sql("""select max(version) from prod.version""").show()
 # COMMAND ----------
 
 spark.sql("""
-    select count(*)
+    select SUM(equiv_units_w)
+    , SUM(expected_crgs_w)
     from stage.toner_pivots_data_source
+    where hw_product_family = 'TONER LZ MIRAGE/RATCHET LS'
 """).show()
 
 # COMMAND ----------
@@ -134,9 +136,9 @@ with pivots_promo_01_filter_vars as (
         , tp.equiv_units_nt
         , tp.adjusted_pages
         , tp.expected_pages
-        , tp.hp_sell_in_pages_kcmy -- new
-        , tp.hp_sell_in_pages_k_only -- new
-        , tp.net_rev_trade -- new
+        , tp.hp_sell_in_pages_kcmy
+        , tp.hp_sell_in_pages_k_only
+        , tp.net_rev_trade
 FROM stage.toner_pivots_data_source AS tp
 CROSS JOIN pivots_promo_01_filter_vars AS vars
 WHERE 1=1
