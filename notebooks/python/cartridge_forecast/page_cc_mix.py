@@ -205,7 +205,7 @@ FROM prod.actuals_supplies AS acts
               ON cref.country_alpha2 = acts.country_alpha2
                   AND cref.country_scenario = 'MARKET10'
 WHERE 1 = 1
-  AND xref.official = 1
+  AND xref.official = 1 
   AND acts.customer_engagement IN ('EST_INDIRECT_FULFILLMENT', 'I-INK', 'TRAD')
   AND NOT xref.crg_chrome IN ('HEAD', 'UNK')
 GROUP BY acts.cal_date
@@ -242,10 +242,11 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = ('2023.01.18.2')
+       AND ib.version = ('2023.03.23.1')
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
+       
    , dmd_02_ib AS
     (SELECT ib.cal_date
           , ib.platform_subset
@@ -271,16 +272,43 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share AS us
+     FROM prod.usage_share_toner AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = ('2023.01.05.1')
+       AND us.version = ('2023.03.28.1')
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+       AND UPPER(hw.technology) IN ('LASER', 'INK')
+       AND us.cal_date > CAST('2015-10-01' AS DATE)
+       
+       UNION
+       
+       SELECT us.geography
+          , us.cal_date                         AS year_month_start
+          , CASE
+                WHEN hw.technology = 'LASER' AND
+                     us.platform_subset LIKE '%STND%'
+                    THEN 'STD'
+                WHEN hw.technology = 'LASER' AND
+                     us.platform_subset LIKE '%YET2%'
+                    THEN 'HP+'
+                ELSE us.customer_engagement END AS customer_engagement
+          , us.platform_subset
+          , us.measure
+          , us.units
+     FROM prod.usage_share_ink AS us
+              JOIN mdm.hardware_xref AS hw
+                   ON hw.platform_subset = us.platform_subset
+     WHERE 1 = 1
+       AND us.version = ('2023.03.28.1')
+       AND UPPER(us.measure) IN
+           ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
+       AND UPPER(us.geography_grain) = 'MARKET10'
+       AND NOT UPPER(hw.product_lifecycle_status) = 'E'
+       AND UPPER(hw.technology) IN ('INK', 'PWA')
        AND us.cal_date > CAST('2015-10-01' AS DATE))
    , dmd_04_us_agg AS
     (SELECT us.geography

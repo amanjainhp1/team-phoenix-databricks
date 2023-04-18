@@ -16,8 +16,6 @@ query_list = []
 ib_staging_inputs = """
 
 with ib_01_filter_vars as (
-
-
 SELECT record
 	, MAX(version) AS version
 FROM "prod"."ce_splits"
@@ -87,7 +85,9 @@ UNION ALL
 
 SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
-)SELECT 'ib_staging_temp' AS tbl_name
+)
+
+SELECT 'ib_staging_temp' AS tbl_name
     , record
     , version AS version
     , GETDATE() AS execute_time
@@ -184,8 +184,9 @@ UNION ALL
 
 SELECT 'BUILD_NORM_SHIPS' AS record
     , '1.1' AS version
-), ib_03_norm_shipments_agg as (
+)
 
+, ib_03_norm_shipments_agg as (
 SELECT ns.region_5
     , cc.market10
     , ns.record
@@ -204,9 +205,9 @@ JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = ns.country_alpha2
 WHERE 1=1
     AND hw.technology IN ('LASER','INK','PWA','LF')
+)
 
-), iso as (
-
+, iso as (
 SELECT DISTINCT 
     iso.country_alpha2,
     iso.region_5,
@@ -518,11 +519,6 @@ FROM ib_12_ce_splits_post
 """
 
 query_list.append(["stage.ib_02_ce_splits", ce_splits, "overwrite"])
-
-# COMMAND ----------
-
-# Sending to scen schema for forecasters to be able to see the printer installs:
-query_list.append(["scen.ib_02_ce_splits", ce_splits, "overwrite"])
 
 # COMMAND ----------
 

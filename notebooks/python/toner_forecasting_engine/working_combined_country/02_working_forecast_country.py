@@ -45,6 +45,13 @@ tables = [
 
 # COMMAND ----------
 
+spark.sql("""
+    select count(*)
+    from scen.working_forecast_combined
+""").show()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Country Forecast

@@ -37,7 +37,7 @@ location 's3://dataos-core-prod-team-phoenix/spectrum/demand/'
 # COMMAND ----------
 
 reporting_query = """
-create external table phoenix_spectrum_reporting.usage_share_m8
+create external table phoenix_spectrum_reporting.usage_share_country
 (
 record varchar(255),
 cal_date date,
@@ -53,7 +53,7 @@ version varchar(255),
 load_date timestamp
 )
 stored as parquet 
-location 's3://dataos-core-prod-team-phoenix/spectrum/usage_share_m8/'
+location 's3://dataos-core-prod-team-phoenix/spectrum/demand/'
 """
 
 # COMMAND ----------

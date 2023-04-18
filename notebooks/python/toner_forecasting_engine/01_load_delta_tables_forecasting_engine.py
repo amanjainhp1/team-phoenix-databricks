@@ -156,7 +156,32 @@ tables = [
 
 # COMMAND ----------
 
+for table in tables:
+    spark.sql("DROP TABLE IF EXISTS " + table[0])
+
+# COMMAND ----------
+
 # MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
+spark.sql("""select count(*) from prod.ib where version = '2023.03.23.1'""").show()
+
+# COMMAND ----------
+
+spark.sql("""select count(*) from prod.working_forecast where version = '2023.04.11.1'""").show()
+
+# COMMAND ----------
+
+spark.sql("""select count(*) from prod.working_forecast where version = '2023.02.09.1' and record = 'WORKING_FORECAST_INK'""").show()
+
+# COMMAND ----------
+
+# spark.sql("""
+#     delete from prod.working_forecast
+#     where version = '2023.02.09.1' 
+#     and record = 'WORKING_FORECAST_INK'
+# """)
 
 # COMMAND ----------
 

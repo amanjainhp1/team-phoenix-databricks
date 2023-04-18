@@ -41,7 +41,7 @@ WITH geography_mapping AS
       FROM scen.working_forecast_usage_share AS us_scen
       WHERE 1 = 1
         AND us_scen.upload_type = 'WORKING-FORECAST'
-        AND UPPER(us_scen.user_name) IN ('GRETCHENB', 'GRETCHEN.BRUNNER@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
+        AND UPPER(us_scen.user_name) IN ('JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
 
    , toner_us_prep AS
     (SELECT fv.user_name
@@ -119,7 +119,7 @@ WITH dmd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.01.26.1'
+       AND ib.version = '2023.03.23.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -245,6 +245,8 @@ WITH dmd_01_ib_load AS
                 ib)                            AS NON_HP_COLOR_PAGES
           , SUM(color_usage * ib)              AS TOTAL_COLOR_PAGES
           , SUM(k_usage * ib)                  AS TOTAL_K_PAGES
+          , SUM(color_usage) AS COLOR_USAGE
+          , SUM(k_usage) AS K_USAGE
      FROM dmd_06_us_ib
      GROUP BY cal_date
             , geography
@@ -261,7 +263,7 @@ WITH dmd_01_ib_load AS
           , units
           , version
      FROM dmd_07_calcs UNPIVOT (
-                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_COLOR_PAGES, TOTAL_K_PAGES)
+                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_COLOR_PAGES, TOTAL_K_PAGES,COLOR_USAGE,K_USAGE)
          ) AS final_unpivot)
 
 SELECT 'DEMAND'           AS record
@@ -302,7 +304,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.01.26.1'
+       AND ib.version = '2023.03.23.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -333,11 +335,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share AS us
+     FROM prod.usage_share_toner AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = '2023.01.30.2'
+       AND us.version = '2023.03.28.1'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -415,6 +417,8 @@ WITH dbd_01_ib_load AS
                 ib)                            AS NON_HP_COLOR_PAGES
           , SUM(color_usage * ib)              AS TOTAL_COLOR_PAGES
           , SUM(k_usage * ib)                  AS TOTAL_K_PAGES
+          , SUM(color_usage) AS COLOR_USAGE
+          , SUM(k_usage) AS K_USAGE
      FROM dmd_06_us_ib
      GROUP BY cal_date
             , geography
@@ -429,7 +433,7 @@ WITH dbd_01_ib_load AS
           , measure
           , units
      FROM dmd_07_calcs UNPIVOT (
-                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_COLOR_PAGES, TOTAL_K_PAGES)
+                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_COLOR_PAGES, TOTAL_K_PAGES,COLOR_USAGE,K_USAGE)
          ) AS final_unpivot)
 
 SELECT dmd.cal_date
@@ -452,8 +456,8 @@ query_list.append(["scen.toner_demand", toner_demand, "overwrite"])
 
 toner_03_usage_share = """
 WITH override_filters  AS
-    (SELECT '2023.01.26.1'    AS ib_version
-          , '2023.01.30.2' AS us_version
+    (SELECT '2023.03.23.1'    AS ib_version
+          , '2023.03.28.1' AS us_version
      )
 
    , toner_usage_share AS
@@ -1606,7 +1610,7 @@ WITH geography_mapping     AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND UPPER(smr.user_name) IN ('GRETCHENB', 'GRETCHEN.BRUNNER@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
+       AND UPPER(smr.user_name) IN ('JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
 
    , toner_mix_rate_prep   AS
     (SELECT fv.user_name

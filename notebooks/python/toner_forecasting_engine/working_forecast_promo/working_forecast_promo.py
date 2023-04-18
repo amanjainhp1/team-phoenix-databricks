@@ -13,6 +13,10 @@
 
 # COMMAND ----------
 
+# MAGIC %run ../config_forecasting_engine
+
+# COMMAND ----------
+
 add_version_inputs = [
     #['WORKING_FORECAST_TONER', 'WORKING FORECAST TONER'],
     #['WORKING_FORECAST_INK', 'WORKING FORECAST INK'],
@@ -24,9 +28,9 @@ for input in add_version_inputs:
 
 # COMMAND ----------
 
-c2c_country = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.c2c_adj_country_pf_split")\
-    .load()
+# c2c_country = read_redshift_to_df(configs) \
+#     .option("dbtable", "scen.c2c_adj_country_pf_split")\
+#     .load()
 
 version = read_redshift_to_df(configs) \
     .option("dbtable", "prod.version") \
@@ -38,7 +42,7 @@ wf_country = read_redshift_to_df(configs) \
 
 tables = [
     ['prod.version', version, "overwrite"],
-    ['scen.c2c_adj_country_pf_split', c2c_country, "overwrite"],
+    #['scen.c2c_adj_country_pf_split', c2c_country, "overwrite"],
     ['scen.working_forecast_country', wf_country, "overwrite"]
 ]
 
