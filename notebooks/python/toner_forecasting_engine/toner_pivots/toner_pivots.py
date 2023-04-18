@@ -2108,7 +2108,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , p.base_product_number AS base_prod_number
 
     , p.customer_engagement
-    , sum(p.yield) as yield
+    , sum(0) as yield
 
     , hw.pl AS hw_pl
     , hw.business_feature AS business_feature
@@ -2173,8 +2173,10 @@ LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
 LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
+LEFT JOIN fin_prod.actuals_plus_forecast_financials apf
+    ON apf.cal_date = f.month
 WHERE 1=1
-    AND 
+    AND apf.record_type <> 'ACTUALS'
 
 GROUP BY f.date
     , f.fiscal_year_qtr
