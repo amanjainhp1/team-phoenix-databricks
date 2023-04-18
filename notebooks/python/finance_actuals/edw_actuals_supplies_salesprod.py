@@ -8205,7 +8205,7 @@ SELECT p.cal_date,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
 FROM planet_targets_post_all_restatements_country2a p
-LEFT JOIN cbm_country_actuals_mapping_mix gl
+LEFT JOIN supplies_hw_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
     AND p.pl = gl.pl

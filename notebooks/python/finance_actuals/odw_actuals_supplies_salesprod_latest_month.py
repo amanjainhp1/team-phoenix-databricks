@@ -7149,7 +7149,7 @@ SELECT
     pl,
     CASE
         WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, region_5, pl) = 0 THEN NULL
-        ELSE revenue_units / sum(netrevenue_units_revenue) OVER (PARTITION BY cal_date, region_5, pl)
+        ELSE revenue_units / sum(revenue_units) OVER (PARTITION BY cal_date, region_5, pl)
     END as country_mix
 FROM edw_country_revenue_for_plgd
 WHERE 1=1 
