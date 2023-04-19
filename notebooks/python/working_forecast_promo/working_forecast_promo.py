@@ -33,9 +33,11 @@ SELECT record, CAST(cal_date AS DATE) cal_date, geography_grain, geography, plat
 channel_fill, supplies_spares_cartridges, 0 host_cartridges, expected_cartridges, vtc, adjusted_cartridges, CAST(NULL AS DATE) load_date, 
 CAST(NULL AS varchar(64)) version
 FROM scen.toner_working_fcst
+
 UNION
+
 SELECT record, CAST(cal_date AS DATE) cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, 
-channel_fill, supplies_spares_cartridges, 0 host_cartridges, expected_cartridges, vtc, adjusted_cartridges, CAST(NULL AS DATE) load_date, 
+channel_fill, supplies_spares_cartridges, host_cartridges, welcome_kits, expected_cartridges, vtc, adjusted_cartridges, CAST(NULL AS DATE) load_date, 
 CAST(NULL as varchar(64)) version
 FROM scen.ink_working_fcst
 """

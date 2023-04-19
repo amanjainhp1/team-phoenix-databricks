@@ -23,11 +23,17 @@ import re
 
 for table in tables:
     # Define the input and output formats and paths and the table name.
+    full_table_name = table[0]
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     mode = table[2]
     write_format = 'delta'
     save_path = f'/tmp/delta/{schema}/{table_name}'
+
+    # Delete old table
+    #print(f'dropping {table[0]}...')
+    #spark.sql("DROP TABLE IF EXISTS " + table[0])
+    #print(f'{table[0]} dropped')
     
     # Load the data from its source.
     df = table[1]

@@ -5,6 +5,12 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Library Scripts
+
+# COMMAND ----------
+
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -14,6 +20,44 @@
 # COMMAND ----------
 
 # MAGIC %run ./config_forecasting_engine
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ## Data Check Function
+
+# COMMAND ----------
+
+def check_against_redshift(test_tables):
+    tables = []
+    for table in test_tables:
+        table_name = table[0]
+        df = table[1]
+        mode = table[2]
+        is_version = table[3]
+
+        if is_version == "false":
+            row_count = spark.read.table(table_name)
+            if row_count.count() == df.count():
+                print(table_name + " row counts match.")
+            else:
+                spark.sql("DROP TABLE IF EXISTS " + table[0])
+                print(table_name + " row counts do not match. Table dropped.")
+                tables.append([table_name, df, mode, is_version])
+        else:
+            version = table[4]
+            version_df = spark.read.table(table_name)
+            version_list = version_df.select('version').rdd.map(lambda row : row[0]).collect()
+            if version in version_list:
+                print(table_name + " version exists.")
+            else:
+                print(table_name + " version does not exist.")
+                tables.append([table_name, df, mode, is_version, version])
+    
+    return tables
+
+
 
 # COMMAND ----------
 
@@ -135,28 +179,41 @@ ms4_v_canon_units_prelim = read_redshift_to_df(configs)\
 
 # COMMAND ----------
 
-tables = [
-    ["fin_prod.actuals_plus_forecast_financials", actuals_plus_forecast_financials, "overwrite"],
-    ["fin_prod.stf_dollarization", stf_dollarization_df, "overwrite"],
-    ["mdm.calendar", calendar_df, "overwrite"],
-    ["mdm.iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite"],
-    ["mdm.hardware_xref", hw_xref_df, "overwrite"],
-    ["mdm.supplies_xref", supplies_xref, "overwrite"],
-    ["prod.actuals_supplies", actuals_supplies, "overwrite"],
-    ["prod.demand", demand, "overwrite"],
-    ["prod.ib", installed_base, "append"],
-    ["prod.norm_shipments", norm_shipments, "append"],
-    ["prod.working_forecast", ink_working_fcst, "append"],
-    ["prod.working_forecast", toner_working_fcst, "append"],
-    ["scen.toner_03_usage_share", toner_us, "overwrite"],
-    ["scen.toner_06_mix_rate_final", toner_06_mix_rate_final, "overwrite"],
-    ["stage.shm_base_helper", shm_base_helper, "overwrite"],
-    ["supplies_fcst.ms4_v_canon_units_prelim", ms4_v_canon_units_prelim, "overwrite"],
+test_tables = [
+    ["fin_prod.actuals_plus_forecast_financials", actuals_plus_forecast_financials, "overwrite", "false"],
+    ["fin_prod.stf_dollarization", stf_dollarization_df, "overwrite", "false"],
+    ["mdm.calendar", calendar_df, "overwrite", "false"],
+    ["mdm.iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite", "false"],
+    ["mdm.hardware_xref", hw_xref_df, "overwrite", "false"],
+    ["mdm.supplies_xref", supplies_xref, "overwrite", "false"],
+    ["prod.actuals_supplies", actuals_supplies, "overwrite", "false"],
+    ["prod.demand", demand, "overwrite", "false"],
+    ["prod.ib", installed_base, "append", "true", ib_version],
+    ["prod.norm_shipments", norm_shipments, "append", "true", ib_version],
+    ["prod.working_forecast", ink_working_fcst, "append", "true", ink_wf_version],
+    ["prod.working_forecast", toner_working_fcst, "append", "true", toner_wf_version],
+    ["scen.toner_03_usage_share", toner_us, "overwrite", "false"],
+    ["scen.toner_06_mix_rate_final", toner_06_mix_rate_final, "overwrite", "false"],
+    ["stage.shm_base_helper", shm_base_helper, "overwrite", "false"],
+    ["supplies_fcst.ms4_v_canon_units_prelim", ms4_v_canon_units_prelim, "overwrite", "false"],
 ]
 
 # COMMAND ----------
 
+tables = check_against_redshift(test_tables)
+
+# COMMAND ----------
+
+for table in tables:
+    print(table[0] + " ")
+
+# COMMAND ----------
+
 # MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
+
+# COMMAND ----------
+
+end_table_check = check_against_redshift(tables)
 
 # COMMAND ----------
 

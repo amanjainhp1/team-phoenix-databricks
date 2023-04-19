@@ -166,6 +166,32 @@ if redshift_sales_actuals_row_count > 0:
 
 # COMMAND ----------
 
+## copy back to SFAI
+
+query = """
+SELECT fiscal_year_period as "Fiscal Year/Period"
+    , profit_center_hier_desc_level4 as "Profit Center Hier Desc Level4"
+    , segment_hier_desc_level4 as "Segment Hier Desc Level4"
+    , segment_code as "Segment Code"
+    , segment_name as "Segment Name"
+    , profit_center_code as "Profit Center Code"
+    , material_number as "Material Number"
+    , revenue_unit_quantity as "Unit Quantity (Sign-Flip)"
+    , load_date
+    , unit_reporting_code as "Unit Reporting Code"
+    , unit_reporting_description as "Unit Reporting Description"
+FROM fin_prod.odw_revenue_units_sales_actuals
+"""
+
+
+odw_revenue_units_sales_actuals_landing = read_redshift_to_df(configs) \
+    .option("query", query) \
+    .load()
+
+write_df_to_sqlserver(configs, odw_revenue_units_sales_actuals_landing, "IE2_Landing.ms4.odw_revenue_units_sales_actuals_landing", "overwrite")
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC Revenue_unit_base_landing
 

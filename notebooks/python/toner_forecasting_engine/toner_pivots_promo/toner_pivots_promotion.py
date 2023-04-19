@@ -32,7 +32,7 @@ version = read_redshift_to_df(configs) \
 
 tables = [
     ['stage.toner_pivots_data_source', toner_pivots_data_source, "overwrite"],
-    ['prod.version', version, "overwrite"]
+    #['prod.version', version, "overwrite"]
 ]
 
 # COMMAND ----------
@@ -42,6 +42,15 @@ tables = [
 # COMMAND ----------
 
 spark.sql("""select max(version) from prod.version""").show()
+
+# COMMAND ----------
+
+spark.sql("""
+    select SUM(equiv_units_w)
+    , SUM(expected_crgs_w)
+    from stage.toner_pivots_data_source
+    where hw_product_family = 'TONER LZ MIRAGE/RATCHET LS'
+""").show()
 
 # COMMAND ----------
 
@@ -57,89 +66,79 @@ with pivots_promo_01_filter_vars as (
     WHERE record in ('TONER_PIVOTS')
         AND version = (SELECT MAX(version) FROM prod.version WHERE record IN ('TONER_PIVOTS'))
 )SELECT vars.record AS version_record
-    -- filters
-    , record_type
-    , tp.record
-    , cycle
-    , begin_cycle_date
-    , period_dt
-
-    -- dates
-    , month
-    , fiscal_year_qtr
-    , fiscal_yr
-    , calendar_yr_qtr
-    , calendar_yr
-
-    -- geography
-    , market10
-    , region_5
-
-    -- product
-    , platform_subset
-    , base_prod_name
-    , base_prod_number
-    , customer_engagement
-    , yield
-
-    -- hardware dimensions
-    , hw_pl
-    , business_feature
-    , hw_product_family
-    , sf_mf
-    , format
-    , mono_color_devices
-    , product_structure
-    , vc_category
-
-    -- supplies dimensions
-    , supplies_pl
-    , crg_pl_name
-    , crg_category
-    , crg_business
-    , cartridge_alias
-    , cartridge_type
-    , cartridge_size
-    , single_multi
-    , crg_chrome
-    , crg_intro_dt
-    , trans_vs_contract
-    , p2j_identifier
-
-    -- calculations
-    , hw_fc_units
-    , ib_units
-    , trd_units_w
-    , pmf_units
-    , pmf_dollars
-    , expected_crgs_w
-    , spares_w
-    , channel_fill_w
-    , equiv_units_w
-    , vtc_w
-    , tp.rev_units_nt
-    , tp.equiv_units_nt
-    , pgswmktshr_blackonly
-    , pgswomktshr_blackonly
-    , pgswmktshr_color
-    , pgswomktshr_color
-    , hp_crg_sz
-    , fiji_usd
-    , discount_pcnt
-    , rpp_gross_rev
-    , rpp_net_rev_w
-    , pgswmktshr
-    , pgswomktshr
-    , fiji_k_mpv
-    , fiji_mkt_shr
-    , supplies_base_qty
-    , supplies_equivalent_units
-    , wampv_k_mpv
-    , wampv_ib_units
-
-    , vars.load_date
-    , vars.version
-
+        , tp.record_type
+        , tp.record
+        , tp.cycle
+        , tp.begin_cycle_date
+        , tp.period_dt
+        , tp.month
+        , tp.fiscal_year_qtr
+        , tp.fiscal_yr
+        , tp.calendar_yr_qtr
+        , tp.calendar_yr
+        , tp.market10
+        , tp.region_5
+        , tp.platform_subset
+        , tp.base_prod_name
+        , tp.base_prod_number
+        , tp.customer_engagement
+        , tp.yield
+        , tp.hw_pl
+        , tp.business_feature
+        , tp.hw_product_family
+        , tp.sf_mf
+        , tp.format
+        , tp.mono_color_devices
+        , tp.product_structure
+        , tp.vc_category
+        , tp.supplies_pl
+        , tp.crg_pl_name
+        , tp.crg_category
+        , tp.crg_business
+        , tp.cartridge_alias
+        , tp.cartridge_type
+        , tp.cartridge_size
+        , tp.single_multi
+        , tp.crg_chrome
+        , tp.crg_intro_dt
+        , tp.trans_vs_contract
+        , tp.p2j_identifier
+        , tp.hw_fc_units
+        , tp.ib_units
+        , tp.trd_units_w
+        , tp.pmf_units
+        , tp.pmf_dollars
+        , tp.expected_crgs_w
+        , tp.spares_w
+        , tp.channel_fill_w
+        , tp.equiv_units_w
+        , tp.vtc_w
+        , tp.pgswmktshr_blackonly
+        , tp.pgswomktshr_blackonly
+        , tp.pgswmktshr_color
+        , tp.pgswomktshr_color
+        , tp.hp_crg_sz
+        , tp.fiji_usd
+        , tp.discount_pcnt
+        , tp.gross_rev_w
+        , tp.net_rev_w
+        , tp.pgswmktshr
+        , tp.pgswomktshr
+        , tp.fiji_k_mpv
+        , tp.fiji_mkt_shr
+        , tp.supplies_base_qty
+        , tp.supplies_equivalent_units
+        , tp.wampv_k_mpv
+        , tp.wampv_ib_units
+        , vars.load_date
+        , vars.version
+        , tp.rev_units_nt
+        , tp.equiv_units_nt
+        , tp.adjusted_pages
+        , tp.expected_pages
+        , tp.hp_sell_in_pages_kcmy
+        , tp.hp_sell_in_pages_k_only
+        , tp.net_rev_trade
 FROM stage.toner_pivots_data_source AS tp
 CROSS JOIN pivots_promo_01_filter_vars AS vars
 WHERE 1=1

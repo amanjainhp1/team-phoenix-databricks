@@ -19,16 +19,12 @@
 
 # COMMAND ----------
 
-ib_version = '2023.03.03.1'
-us_version = '2023.03.04.1'
+ib_version = '2023.03.23.1'
+us_version = '2023.03.28.1'
 
-toner_wf_version = '2023.03.09.1'
+toner_wf_version = '2023.04.11.1'
 ink_wf_version = '2023.02.09.1'
-
-# COMMAND ----------
-
-wf_country_version_df = spark.sql("""select max(version) as version from prod.working_forecast_country""")
-wf_country_version = wf_country_version_df.first()['version']
+wf_country_version = '2023.04.11.1'
 
 # COMMAND ----------
 
@@ -38,7 +34,7 @@ print('us_version: ' + us_version)
 print('toner_wf_version: ' + toner_wf_version)
 print('ink_wf_version: ' + ink_wf_version)
 
-print('working_forecast_country: ' + wf_country_version)
+print('wf_country_version: ' + wf_country_version)
 
 # COMMAND ----------
 
