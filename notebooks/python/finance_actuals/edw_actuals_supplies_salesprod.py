@@ -7681,8 +7681,8 @@ SELECT distinct cal.Date AS cal_date,
     cbm.country_code AS country_alpha2,
     product_line_id AS pl,
     CASE
-       WHEN SUM(ABS(sell_thru_usd)) OVER (PARTITION BY cal.Date, region_5, product_line_id) = 0 THEN NULL
-       ELSE ABS(sell_thru_usd) / SUM(ABS(sell_thru_usd)) OVER (PARTITION BY cal.Date, region_5, product_line_id)
+       WHEN SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id) = 0 THEN NULL
+       ELSE sell_thru_usd / SUM(sell_thru_usd) OVER (PARTITION BY cal.Date, region_5, product_line_id)
     END AS country_mix
 FROM fin_stage.cbm_st_data cbm
 JOIN mdm.calendar cal
@@ -7692,7 +7692,6 @@ JOIN mdm.iso_country_code_xref iso
 WHERE 1=1
 AND region_5 = 'EU'
 AND sell_thru_usd > 0
-AND channel_inventory_usd > 0
 GROUP BY cal.Date,
     region_5,
     cbm.country_code,
@@ -8205,7 +8204,7 @@ SELECT p.cal_date,
     SUM(p_warranty) AS p_warranty,
     SUM(p_total_cos) AS p_total_cos
 FROM planet_targets_post_all_restatements_country2a p
-LEFT JOIN supplies_hw_country_actuals_mapping_mix gl
+LEFT JOIN cbm_country_actuals_mapping_mix gl
     ON p.cal_date = gl.cal_date
     AND p.region_5 = gl.region_5
     AND p.pl = gl.pl
@@ -8286,6 +8285,7 @@ GROUP BY cal_date,
     pl
 
 UNION ALL
+
  SELECT cal_date,
     Fiscal_Yr,
     country_alpha2,
