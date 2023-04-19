@@ -1006,7 +1006,7 @@ exclusion_list1 = f"""
 SELECT item_number
 FROM mdm.exclusion
 WHERE 1=1
--- We will come back to the MPS / clicks later -- these next four are associated with PPU/MPS
+-- We will come back to the MPS / clicks later -- these next six are associated with PPU/MPS
 AND exclusion_reason = 'MPS TONER FEE' 
 OR exclusion_reason = 'MPS SUPPLIES RECONCILIATION'
 OR exclusion_reason = 'IPGS PPU SUPPLIES (TONER CLICKS)'
@@ -3277,7 +3277,7 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM supplies_final_findata2
 WHERE 1=1
-    AND sales_product_number IN ('H7503A', 'H7509A', 'U1001AC', 'H7523A') -- from RDMA and confirmed by MPS
+    AND sales_product_number IN ('H7503A', 'H7509A', 'U1001AC', 'H7523A', 'U07LCA', 'UE266_001') -- from RDMA and confirmed by MPS
 GROUP BY cal_date,
     country_alpha2,
     pl
