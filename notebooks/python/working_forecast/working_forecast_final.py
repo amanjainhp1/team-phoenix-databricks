@@ -420,7 +420,7 @@ WITH crg_months AS
           , c2c.cartridges
           , c2c.actuals_flag
           , c2c.running_count
-     FROM scen.ink_08_analytic AS c2c
+     FROM scen.{technology_label}_08_analytic AS c2c
      WHERE 1 = 1
        AND NOT (c2c.base_product_number IN
                 ('W9014MC', 'W9040MC', 'W9041MC', 'W9042MC', 'W9043MC') AND
@@ -1844,7 +1844,7 @@ WITH geography_mapping   AS
           , 'SYSTEM'      AS user_name
           , NULL          AS load_date
           , '{usage_share_version}'  AS version
-     FROM prod.usage_share_ink
+     FROM prod.usage_share_{technology_label}
 
      UNION ALL
 
