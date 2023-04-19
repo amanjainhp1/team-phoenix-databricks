@@ -1839,7 +1839,7 @@ exclusion_list1 = f"""
 SELECT item_number
 FROM exclusion
 WHERE 1=1
--- We will come back to the MPS / clicks later -- these next four are associated with PPU/MPS
+-- We will come back to the MPS / clicks later -- these next six are associated with PPU/MPS
 AND exclusion_reason = 'MPS TONER FEE' 
 OR exclusion_reason = 'MPS SUPPLIES RECONCILIATION'
 OR exclusion_reason = 'IPGS PPU SUPPLIES (TONER CLICKS)'
@@ -4371,7 +4371,7 @@ JOIN profit_center_code_xref AS pcx ON pcx.profit_center_code = edw.profit_cente
 JOIN iso_country_code_xref AS geo ON pcx.country_alpha2 = geo.country_alpha2
 JOIN product_line_xref AS pl ON business_area_code = plxx
 WHERE Day_of_Month = 1
-    AND product_base_identifier IN ('H7503A', 'H7509A', 'U1001AC', 'H7523A') -- from RDMA and confirmed by MPS
+    AND product_base_identifier IN ('H7503A', 'H7509A', 'U1001AC', 'H7523A', 'U07LCA', 'UE266_001') -- from RDMA and confirmed by MPS
     AND functional_area_level_11_name = 'GROSS_REVENUE'
     AND Date < '2021-11-01'
 GROUP BY Date, geo.country_alpha2, pl 
