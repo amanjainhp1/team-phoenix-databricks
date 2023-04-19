@@ -1,14 +1,42 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../common/database_utils
+# create empty widgets for interactive sessions
+dbutils.widgets.text('technology', '') # technology i.e. ink, laser/toner, large format (lf)
+dbutils.widgets.text('ib_version', '') # installed base version
+dbutils.widgets.text('usage_share_version', '') # usage-share version
+dbutils.widgets.text('norm_shipments_version', '') # normalized shipments version
 
 # COMMAND ----------
 
 # Global Variables
-query_list = []
+# retrieve widget values and assign to variables
+technology = dbutils.widgets.get('technology').lower() if dbutils.widgets.get('technology').lower() != 'toner' else 'laser'
+ib_version = dbutils.widgets.get('ib_version')
+usage_share_version = dbutils.widgets.get('usage_share_version')
+norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
+
+# for labelling tables, laser/toner = toner, ink = ink
+technology_label = ''
+if technology == 'ink':
+    technology_label = 'ink'
+elif technology == 'laser':
+    technology_label = 'toner'
+
+user_list = {}
+user_list["ink"] = ['ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM']
+user_list["laser"] = ['GRETCHENB', 'GRETCHEN.BRUNNER@HP.COM', 'JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM']
+
+technologies_list = {}
+technologies_list["ink"] = ['INK', 'PWA']
+technologies_list["laser"] = ['LASER']
+
+# COMMAND ----------
+
+# join lists used in SQL queries to comma and single quote separated strings 
+def join_list(list_to_join: list) -> str:
+    return '\'' + '\',\''.join(list_to_join) + '\''
+
+users = join_list(user_list[technology])
+technologies_list = join_list(technologies_list[technology])
 
 # COMMAND ----------
 
@@ -22,7 +50,7 @@ query_list = []
 
 # COMMAND ----------
 
-ink_08_analytic = """
+wf_08_analytic = f"""
 WITH date_helper           AS
     (SELECT date_key
           , date AS cal_date
@@ -46,14 +74,14 @@ WITH date_helper           AS
             OVER (PARTITION BY c2c.geography, c2c.platform_subset, c2c.base_product_number, c2c.customer_engagement) AS min_cal_date
           , MAX(c2c.cal_date)
             OVER (PARTITION BY c2c.geography, c2c.platform_subset, c2c.base_product_number, c2c.customer_engagement) AS max_cal_date
-     FROM scen.ink_07_page_cc_cartridges AS c2c
+     FROM scen.{technology_label}_07_page_cc_cartridges AS c2c
      JOIN mdm.hardware_xref AS hw
          ON UPPER(hw.platform_subset) = UPPER(c2c.platform_subset)
      JOIN mdm.supplies_xref AS sup
          ON UPPER(sup.base_product_number) =
             UPPER(c2c.base_product_number)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ('INK', 'PWA'))
+       AND UPPER(hw.technology) IN ({technologies_list}))
 
    , ana_03_c2c_fill_gap_1 AS
     (SELECT DISTINCT d.cal_date AS cal_date
@@ -136,8 +164,6 @@ SELECT cal_date
 FROM ana_05_c2c_fill_gap_3
 """
 
-query_list.append(["scen.ink_08_analytic", ink_08_analytic, "overwrite"])
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -145,7 +171,7 @@ query_list.append(["scen.ink_08_analytic", ink_08_analytic, "overwrite"])
 
 # COMMAND ----------
 
-ink_09_channel_fill = """
+wf_09_channel_fill = f"""
 WITH cfadj_01_c2c                AS
     (SELECT c2c.cal_date
           , hw.intro_date                                                                                            AS hw_intro_date
@@ -157,11 +183,11 @@ WITH cfadj_01_c2c                AS
           , c2c.base_product_number
           , c2c.customer_engagement
           , c2c.cartridges
-     FROM scen.ink_08_analytic AS c2c
+     FROM scen.{technology_label}_08_analytic AS c2c
      JOIN mdm.hardware_xref AS hw
          ON UPPER(hw.platform_subset) = UPPER(c2c.platform_subset)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ('INK', 'PWA'))
+       AND UPPER(hw.technology) IN ({technologies_list}))
 
    , cfadj_04_c2c_avg_ship       AS
     (SELECT c2c.geography_grain
@@ -191,7 +217,7 @@ WITH cfadj_01_c2c                AS
          ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -303,13 +329,31 @@ SELECT c2c.geography_grain
      , c2c.avg_shipments
      , c2c.cal_date
      , c2c.power_arg
+     , 0 channel_fill
+FROM cfadj_08_channel_fill_setup AS c2c
+WHERE 1 = 1
+  AND c2c.channel_fill > 0 -- filter out negative records
+  AND c2c.cal_date < (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
+  
+  UNION
+  
+SELECT c2c.geography_grain
+     , c2c.geography
+     , c2c.platform_subset
+     , c2c.base_product_number
+     , c2c.customer_engagement
+     , c2c.sys_crg_intro_date
+     , c2c.sys_hw_intro_date
+     , c2c.month_offset
+     , c2c.avg_shipments
+     , c2c.cal_date
+     , c2c.power_arg
      , c2c.channel_fill
 FROM cfadj_08_channel_fill_setup AS c2c
 WHERE 1 = 1
-  AND c2c.channel_fill > 0
+  AND c2c.channel_fill > 0 -- filter out negative records
+  AND c2c.cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
 """
-
-query_list.append(["scen.ink_09_channel_fill", ink_09_channel_fill, "overwrite"])
 
 # COMMAND ----------
 
@@ -318,7 +362,7 @@ query_list.append(["scen.ink_09_channel_fill", ink_09_channel_fill, "overwrite"]
 
 # COMMAND ----------
 
-ink_10_supplies_spares = """
+wf_10_supplies_spares = f"""
 WITH crg_months AS
     (SELECT date_key
           , [date] AS cal_date
@@ -415,7 +459,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '2023.03.10.1'
+        AND ns.version = '{norm_shipments_version}'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -442,7 +486,7 @@ WITH crg_months AS
         , c2c.customer_engagement
         , c2c.pl
         , c2c.hw_product_family
-        , c2c.Crg_Chrome
+        , c2c.crg_chrome
         , c2c.cartridges
         , c2c.yield
         , CASE WHEN UPPER(c2c.geography) IN ('GREATER ASIA', 'GREATER CHINA', 'INDIA SL & BL') AND UPPER(c2c.pl) = 'G8' THEN
@@ -451,16 +495,16 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2019-04-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date BETWEEN CAST('2019-04-01' AS DATE) AND CAST('2020-06-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                                     * hw.hw_ratio
                                      ELSE 0 END
 
@@ -472,24 +516,24 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2019-04-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date BETWEEN CAST('2019-04-01' AS DATE) AND CAST('2022-03-01' AS DATE) THEN  -- first day of previous month
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                                     * hw.hw_ratio
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date >= CAST('2022-04-01' AS DATE) THEN -- 1st day of current month
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome
                                                                                             ORDER BY c2c.cal_date ROWS BETWEEN 5 PRECEDING AND CURRENT ROW), 0)
                                                    * hw.hw_ratio
                                      ELSE 0 END
@@ -500,16 +544,16 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2019-05-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date BETWEEN CAST('2019-05-01' AS DATE) AND CAST('2020-06-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                                     * hw.hw_ratio
                                      ELSE 0 END
 
@@ -521,24 +565,24 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2019-05-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date BETWEEN CAST('2019-05-01' AS DATE) AND CAST('2022-03-01' AS DATE) THEN  -- first day of previous month
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                                     * hw.hw_ratio
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date >= CAST('2022-04-01' AS DATE) THEN -- 1st day of current month
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome
                                                                                             ORDER BY c2c.cal_date ROWS BETWEEN 5 PRECEDING AND CURRENT ROW), 0)
                                                     * hw.hw_ratio
                                      ELSE 0 END
@@ -549,9 +593,9 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2022-04-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date >= CAST('2020-09-01' AS DATE) THEN 0
@@ -562,9 +606,9 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2022-04-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date >= CAST('2021-01-01' AS DATE) THEN 0
@@ -575,16 +619,16 @@ WITH crg_months AS
 
                             CASE WHEN c2c.cal_date < CAST('2022-04-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                               NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                                      ELSE 0 END
 
                                  WHEN c2c.cal_date >= CAST('2022-04-01' AS DATE) THEN
 
-                                     CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                                     CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                           THEN (c2c.cartridges * c2c.yield) /
-                                                NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome
+                                                NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome
                                                                                              ORDER BY c2c.cal_date ROWS BETWEEN 5 PRECEDING AND CURRENT ROW), 0)
                                      ELSE 0 END
 
@@ -592,7 +636,7 @@ WITH crg_months AS
 
                         WHEN UPPER(c2c.hw_product_family) IN ('TONER LJ MOONSTONE', 'TONER LJ PEARL', 'TONER LJ MORGANITE', 'TONER CLJ JASPER', 'TONER CLJ CITRINE', 'TONER CLJ AMMOLITE') THEN
                             -- nothing added with this block of code
-                            CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL') THEN 0
+                            CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL') THEN 0
                             ELSE 0 END
 
                    ELSE 0 END
@@ -601,7 +645,7 @@ WITH crg_months AS
 
                 CASE WHEN UPPER(c2c.hw_product_family) IN ('TONER LJ MOONSTONE', 'TONER LJ PEARL', 'TONER LJ MORGANITE', 'TONER CLJ JASPER', 'TONER CLJ CITRINE', 'TONER CLJ AMMOLITE') THEN
                             -- nothing added with this block of code
-                            CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL') THEN 0
+                            CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL') THEN 0
                             ELSE 0 END
 
                 ELSE 0 END
@@ -610,15 +654,15 @@ WITH crg_months AS
 
                  CASE WHEN c2c.cal_date < CAST('2022-04-01' AS DATE) THEN
 
-                          CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                          CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
                                THEN (c2c.cartridges * c2c.yield) /
-                                     NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                                     NULLIF(SUM(c2c.cartridges * c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                           ELSE 0 END
 
                       WHEN c2c.cal_date >= CAST('2022-04-01' AS DATE) THEN
 
-                          CASE WHEN UPPER(c2c.Crg_Chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
-                               THEN c2c.yield / NULLIF(SUM(c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.Crg_Chrome), 0)
+                          CASE WHEN UPPER(c2c.crg_chrome) IN ('K', 'C', 'M', 'Y', 'BLK', 'CYN', 'MAG', 'YEL')
+                               THEN c2c.yield / NULLIF(SUM(c2c.yield) OVER (PARTITION BY c2c.cal_date, c2c.geography, c2c.platform_subset, c2c.customer_engagement, c2c.crg_chrome), 0)
                           ELSE 0 END
 
                  ELSE 0 END
@@ -637,14 +681,29 @@ SELECT cal_date
     , customer_engagement
     , pl
     , hw_product_family
-    , Crg_Chrome
+    , crg_chrome
+    , cartridges
+    , yield
+    , 0 AS supplies_spares
+FROM case_statement
+WHERE cal_date < (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
+
+UNION
+
+SELECT cal_date
+    , geography
+    , platform_subset
+    , base_product_number
+    , customer_engagement
+    , pl
+    , hw_product_family
+    , crg_chrome
     , cartridges
     , yield
     , CAST(supplies_spares AS FLOAT) AS supplies_spares
-FROM case_statement
+FROM case_statement 
+WHERE cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
 """
-
-query_list.append(["scen.ink_10_supplies_spares", ink_10_supplies_spares, "overwrite"])
 
 # COMMAND ----------
 
@@ -653,7 +712,7 @@ query_list.append(["scen.ink_10_supplies_spares", ink_10_supplies_spares, "overw
 
 # COMMAND ----------
 
-ink_11_host = """
+wf_11_host = f"""
 WITH shm_07_geo_1_host           AS
     (SELECT DISTINCT shm.platform_subset
                    , shm.base_product_number
@@ -720,7 +779,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -754,7 +813,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -796,7 +855,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -875,8 +934,6 @@ GROUP BY cal_date
        , composite_key
 """
 
-query_list.append(["scen.ink_11_host", ink_11_host, "overwrite"])
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -884,7 +941,7 @@ query_list.append(["scen.ink_11_host", ink_11_host, "overwrite"])
 
 # COMMAND ----------
 
-ink_12_welcome_kits = """
+wf_12_welcome_kits = f"""
 WITH wel_01_stf_enroll    AS
     (SELECT iiel.platform_subset
           , CAST('I-INK' AS VARCHAR(25))       AS customer_engagement
@@ -919,7 +976,7 @@ WITH wel_01_stf_enroll    AS
      LEFT JOIN mdm.iso_country_code_xref AS iso
          ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = '2023.03.10.1'
+       AND ib.version = '{ib_version}'
        AND ib.cal_date > CAST('2023-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -958,7 +1015,7 @@ SELECT c2c.cal_date
      , c2c.base_product_number
      , c2c.customer_engagement
      , ROUND(stf.all_enrollments_customer, 0) AS welcome_kits
-FROM scen.ink_08_analytic AS c2c
+FROM scen.{technology_label}_08_analytic AS c2c
 JOIN wel_01_stf_enroll AS stf
     ON stf.cal_date = c2c.cal_date
     AND UPPER(stf.geography) = UPPER(c2c.geography)
@@ -975,7 +1032,7 @@ SELECT c2c.cal_date
      , c2c.base_product_number
      , c2c.customer_engagement
      , ROUND(ltf.welcome_kits, 0) AS welcome_kits
-FROM scen.ink_08_analytic AS c2c
+FROM scen.{technology_label}_08_analytic AS c2c
 JOIN wel_04_ltf_ib_step_3 AS ltf
     ON ltf.cal_date = c2c.cal_date
     AND UPPER(ltf.geography) = UPPER(c2c.geography)
@@ -984,8 +1041,6 @@ JOIN wel_04_ltf_ib_step_3 AS ltf
        UPPER(ltf.customer_engagement) = UPPER(c2c.customer_engagement)
 """
 
-query_list.append(["scen.ink_12_welcome_kits", ink_12_welcome_kits, "overwrite"])
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -993,7 +1048,7 @@ query_list.append(["scen.ink_12_welcome_kits", ink_12_welcome_kits, "overwrite"]
 
 # COMMAND ----------
 
-ink_13_ink_crgs_w_vtc = """
+wf_13_crgs_w_vtc = f"""
 WITH vtc_01_analytic_cartridges AS
     (SELECT cal_date
           , geography
@@ -1002,7 +1057,7 @@ WITH vtc_01_analytic_cartridges AS
           , customer_engagement
           , SUM(cartridges)               AS cartridges
           , SUM(imp_corrected_cartridges) AS imp_corrected_cartridges
-     FROM scen.ink_08_analytic
+     FROM scen.{technology_label}_08_analytic
      GROUP BY cal_date
             , geography
             , platform_subset
@@ -1017,9 +1072,9 @@ WITH vtc_01_analytic_cartridges AS
      FROM prod.norm_shipments AS ns
      JOIN mdm.iso_cc_rollup_xref AS cref
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
-         AND UPPER(cref.country_scenario) = 'Market10'
+         AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1044,13 +1099,13 @@ WITH vtc_01_analytic_cartridges AS
             COALESCE(cf.channel_fill, 0) +
             COALESCE(ns.units * ss.supplies_spares, 0)                   AS expected_crgs
      FROM vtc_01_analytic_cartridges AS cr
-     LEFT JOIN scen.ink_10_supplies_spares AS ss
+     LEFT JOIN scen.{technology_label}_10_supplies_spares AS ss
          ON cr.cal_date = ss.cal_date
          AND UPPER(cr.geography) = UPPER(ss.geography)
          AND UPPER(cr.base_product_number) = UPPER(ss.base_product_number)
          AND UPPER(cr.platform_subset) = UPPER(ss.platform_subset)
          AND UPPER(cr.customer_engagement) = UPPER(ss.customer_engagement)
-     LEFT JOIN scen.ink_09_channel_fill AS cf
+     LEFT JOIN scen.{technology_label}_09_channel_fill AS cf
          ON cr.cal_date = cf.cal_date
          AND UPPER(cr.geography) = UPPER(cf.geography)
          AND UPPER(cr.base_product_number) = UPPER(cf.base_product_number)
@@ -1060,13 +1115,13 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(ns.geography) = UPPER(cr.geography)
          AND UPPER(ns.platform_subset) = UPPER(cr.platform_subset)
          AND ns.cal_date = cr.cal_date
-     LEFT JOIN scen.ink_11_host AS h
+     LEFT JOIN scen.{technology_label}_11_host AS h
          ON cr.cal_date = h.cal_date
          AND UPPER(cr.geography) = UPPER(h.geography)
          AND UPPER(cr.base_product_number) = UPPER(h.base_product_number)
          AND UPPER(cr.platform_subset) = UPPER(h.platform_subset)
          AND UPPER(cr.customer_engagement) = UPPER(h.customer_engagement)
-     LEFT JOIN scen.ink_12_welcome_kits AS w
+     LEFT JOIN scen.{technology_label}_12_welcome_kits AS w
          ON cr.cal_date = w.cal_date
          AND UPPER(cr.geography) = UPPER(w.geography)
          AND UPPER(cr.base_product_number) = UPPER(w.base_product_number)
@@ -1107,7 +1162,7 @@ WITH vtc_01_analytic_cartridges AS
                    AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = '2023.03.10.1')
+       AND hw.version = '{norm_shipments_version}')
 
    , c2c_vtc_06_vol_count       AS
     (SELECT DISTINCT geography
@@ -1319,7 +1374,7 @@ SELECT 'CONVERT_TO_CARTRIDGE'    AS record
      , 0.0                       AS ma_exp
      , NULL                      AS load_date
      , NULL                      AS version
-FROM scen.ink_11_host AS h
+FROM scen.{technology_label}_11_host AS h
 LEFT OUTER JOIN c2c_vtc AS vtc
     ON vtc.cal_date = h.cal_date
     AND UPPER(vtc.geography) = UPPER(h.geography)
@@ -1334,364 +1389,203 @@ WHERE 1 = 1
   AND vtc.customer_engagement IS NULL
 """
 
-query_list.append(["scen.ink_13_ink_crgs_w_vtc", ink_13_ink_crgs_w_vtc, "overwrite"])
-
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## sub-routine 9: ink_working_forecast
+# MAGIC ## sub-routine 9: wf_working_forecast
 
 # COMMAND ----------
 
-ink_working_fcst = """
-WITH geography_mapping   AS
-    (SELECT DISTINCT market10 AS market_10
-                   , region_5
-     FROM mdm.iso_country_code_xref
+toner_wf_cte = f"""
+   , toner_working_fcst  AS
+    (SELECT 'IE2-WORKING-FORECAST'                                 AS record
+          , GETDATE()                                              AS build_time
+          , vtc.cal_date
+          , vtc.geography_grain
+          , vtc.geography
+          , vtc.platform_subset
+          , vtc.base_product_number
+          , vtc.customer_engagement
+          , vtc.cartridges
+          , vtc.channel_fill   AS channel_fill
+          , vtc.supplies_spares_crgs  AS supplies_spares_cartridges
+          , vtc.expected_crgs AS expected_cartridges
+          , vtc.mvtc              AS vtc
+          , vtc.mvtc_adjusted_crgs                     AS adjusted_cartridges
+          , enr.supplies_product_family
+          , enr.supplies_family
+          , enr.supplies_mkt_cat
+          , enr.epa_family
+          , hw.pl                                                  AS hw_pl
+          , cc.region_3
+          , cc.region_4
+          , cc.region_5
+          , cc.market10
+          , cal.fiscal_year_qtr
+          , cal.fiscal_yr
+          , CAST(vtc.cal_date AS VARCHAR(25)) || '-' || vtc.platform_subset ||
+            '-' || vtc.base_product_number || '-' || vtc.geography || '-' ||
+            vtc.customer_engagement                                AS composite_key
+          , NULL                                                   AS cartridge_type
+          , pf.yield
+     FROM scen.{technology_label}_13_{technology_label}_crgs_w_vtc AS vtc
+     LEFT JOIN supplies_enrichment AS enr
+         ON enr.platform_subset = vtc.platform_subset
+     JOIN mdm.calendar AS cal
+         ON vtc.cal_date = cal.date
+     JOIN mdm.hardware_xref AS hw
+         ON vtc.platform_subset = hw.platform_subset
+     JOIN country_code_xref AS cc
+         ON vtc.geography = cc.market10
+     LEFT JOIN toner_supplies_xref AS supp
+         ON supp.base_product_number = vtc.base_product_number
+     LEFT JOIN pen_fills AS pf
+         ON pf.market_10 = cc.market10
+         AND pf.cal_date = vtc.cal_date
+         AND pf.base_product_number = vtc.base_product_number
      WHERE 1 = 1
-       AND NOT market10 IS NULL
-       AND NOT region_5 IS NULL
-       AND NOT region_5 = 'JP'
-       AND NOT region_5 LIKE 'X%')
-
-   , crg_months          AS
-    (SELECT date_key
-          , [date] AS cal_date
-     FROM mdm.calendar
-     WHERE 1 = 1
-       AND day_of_month = 1)
-
-   , vtc_03_norm_ships   AS
-    (SELECT cref.country_level_2 AS geography
-          , ns.cal_date
-          , ns.platform_subset
-          , SUM(ns.units)        AS units
-     FROM prod.norm_shipments AS ns
-     JOIN mdm.iso_cc_rollup_xref AS cref
-         ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
-         AND UPPER(cref.country_scenario) = 'Market10'
-     WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
-     GROUP BY cref.country_level_2
-            , ns.cal_date
-            , ns.platform_subset)
-
-   , supplies_enrichment AS
-    (SELECT DISTINCT xref.platform_subset   AS platform_subset
-                   , xref.hw_product_family AS supplies_product_family
-                   , xref.brand             AS supplies_family
-                   , xref.supplies_mkt_cat  AS supplies_mkt_cat
-                   , xref.epa_family        AS epa_family
-     FROM mdm.hardware_xref AS xref
-     WHERE 1 = 1
-       AND xref.technology IN ('INK', 'PWA'))
-
-   , ink_supplies_xref AS
-    (SELECT DISTINCT s.base_product_number
-                   , CASE WHEN s.crg_chrome = 'DRUM'                THEN 'DRUM'
-                          WHEN s.base_product_number IN
-                               ('W8004A', 'W8004J', 'W8006J', 'W8007J',
-                                'W8007X', 'W8009A', 'W8009J', 'W8000J',
-                                'W8001J',
-                                'W8002J', 'W8003J', 'CRTGCHERRYITPJ',
-                                'EYRIEMLKJDMITP', 'EYRIEMLKXDMITP')
-                                                                    THEN 'INSTANT TONER'
-                          WHEN s.base_product_number LIKE '%A'      THEN 'A'
-                          WHEN s.base_product_number LIKE '%AC'     THEN 'AC'
-                          WHEN s.base_product_number LIKE '%MC'     THEN 'MC'
-                          WHEN s.base_product_number LIKE '%X'      THEN 'X'
-                          WHEN s.base_product_number LIKE '%XC'     THEN 'XC'
-                          WHEN s.base_product_number LIKE '%YC' OR
-                               s.base_product_number LIKE '%JC'     THEN 'YC/JC'
-                                                                    ELSE NULL
-            END AS cartridge_type
-     FROM mdm.supplies_xref AS s
-     WHERE 1 = 1
-       AND s.technology IN ('INK', 'PWA'))
-
-   , country_code_xref   AS
-    (SELECT DISTINCT market10
-                   , region_3
-                   , region_4
-                   , region_5
-     FROM mdm.iso_country_code_xref
-     WHERE NOT market10 IS NULL
-       AND NOT region_3 IS NULL
-       AND NOT region_4 IS NULL
-       AND NOT region_5 IS NULL
-       AND NOT market10 = 'World Wide'
-       AND NOT region_4 = 'JP'
-       AND NOT region_5 = 'XU')
-
-   , yield               AS
-    (SELECT y.base_product_number
-          , map.market_10
-          -- note: assumes effective_date is in yyyymm format. multiplying by 100 and adding 1 to get to yyyymmdd
-          , y.effective_date
-          , COALESCE(LEAD(effective_date)
-                     OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
-            , CAST('2119-08-30' AS date)) AS next_effective_date
-          , y.value                       AS yield
-     FROM mdm.yield AS y
-     JOIN geography_mapping AS map
-         ON map.region_5 = y.geography
-     WHERE 1 = 1
-       AND y.official = 1
-       AND UPPER(y.geography_grain) = 'REGION_5')
-
-   , pen_fills           AS
-    (SELECT y.base_product_number
-          , m.cal_date
-          , y.market_10
-          , y.yield
-     FROM yield AS y
-     JOIN crg_months AS m
-         ON y.effective_date <= m.cal_date
-         AND y.next_effective_date > m.cal_date)
-
-   , override_filters    AS
-    (SELECT 'IB'         AS record
-          , 'SYSTEM'     AS user_name
-          , NULL         AS load_date
-          , '2023.03.10.1' AS version
-     FROM prod.ib
+       AND vtc.cal_date <= (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
+       AND hw.technology IN ({technologies_list}) 
+       
+       UNION 
+    
+    SELECT 'IE2-WORKING-FORECAST'                                 AS record
+          , GETDATE()                                              AS build_time
+          , vtc.cal_date
+          , vtc.geography_grain
+          , vtc.geography
+          , vtc.platform_subset
+          , vtc.base_product_number
+          , vtc.customer_engagement
+          , vtc.cartridges
+          , COALESCE(cf.channel_fill, vtc.channel_fill)            AS channel_fill
+          , COALESCE(ss.supplies_spares,
+                     vtc.supplies_spares_crgs)                     AS supplies_spares_cartridges
+          , vtc.cartridges + COALESCE(cf.channel_fill, vtc.channel_fill) +
+            COALESCE(ss.supplies_spares,
+                     vtc.supplies_spares_crgs)                     AS expected_cartridges
+          , COALESCE(p.mvtc, vtc.mvtc)                             AS vtc
+          , COALESCE(COALESCE(p.mvtc, vtc.mvtc) * (vtc.cartridges +
+                                                   COALESCE(cf.channel_fill, vtc.channel_fill) +
+                                                   COALESCE(ss.supplies_spares,
+                                                            vtc.supplies_spares_crgs)),
+                     vtc.mvtc_adjusted_crgs)                       AS adjusted_cartridges
+          , enr.supplies_product_family
+          , enr.supplies_family
+          , enr.supplies_mkt_cat
+          , enr.epa_family
+          , hw.pl                                                  AS hw_pl
+          , cc.region_3
+          , cc.region_4
+          , cc.region_5
+          , cc.market10
+          , cal.fiscal_year_qtr
+          , cal.fiscal_yr
+          , CAST(vtc.cal_date AS VARCHAR(25)) || '-' || vtc.platform_subset ||
+            '-' || vtc.base_product_number || '-' || vtc.geography || '-' ||
+            vtc.customer_engagement                                AS composite_key
+          , NULL                                                   AS cartridge_type
+          , pf.yield
+     FROM scen.{technology_label}_13_{technology_label}_crgs_w_vtc AS vtc
+     LEFT JOIN wf_cf AS cf
+         ON cf.geography = vtc.geography
+         AND cf.cal_date = vtc.cal_date
+         AND cf.platform_subset = vtc.platform_subset
+         AND cf.base_product_number = vtc.base_product_number
+         AND cf.customer_engagement = vtc.customer_engagement
+     LEFT JOIN wf_ss AS ss
+         ON ss.geography = vtc.geography
+         AND ss.cal_date = vtc.cal_date
+         AND ss.platform_subset = vtc.platform_subset
+         AND ss.base_product_number = vtc.base_product_number
+         AND ss.customer_engagement = vtc.customer_engagement
+     LEFT JOIN wf_vtc AS p
+         ON p.geography = vtc.geography
+         AND p.cal_date = vtc.cal_date
+         AND p.base_product_number = vtc.base_product_number
+     LEFT JOIN supplies_enrichment AS enr
+         ON enr.platform_subset = vtc.platform_subset
+     JOIN mdm.calendar AS cal
+         ON vtc.cal_date = cal.date
+     JOIN mdm.hardware_xref AS hw
+         ON vtc.platform_subset = hw.platform_subset
+     JOIN country_code_xref AS cc
+         ON vtc.geography = cc.market10
+     LEFT JOIN toner_supplies_xref AS supp
+         ON supp.base_product_number = vtc.base_product_number
+     LEFT JOIN pen_fills AS pf
+         ON pf.market_10 = cc.market10
+         AND pf.cal_date = vtc.cal_date
+         AND pf.base_product_number = vtc.base_product_number
+     WHERE 1 = 1 
+       AND vtc.cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
+       AND hw.technology IN ({technologies_list})
 
      UNION ALL
 
-     SELECT 'USAGE_SHARE' AS record
-          , 'SYSTEM'      AS user_name
-          , NULL          AS load_date
-          , '2023.03.17.2'  AS version
-     FROM prod.usage_share_ink
-
-     UNION ALL
-
-     SELECT DISTINCT 'SCENARIO_USAGE_SHARE'                 AS record
-                   , us_scen.user_name                      AS user_name
-                   , us_scen.load_date                      AS load_date
-                   , CAST(us_scen.load_date AS VARCHAR(50)) AS version
-     FROM scen.working_forecast_usage_share AS us_scen
+     SELECT 'IE2-WORKING-FORECAST'         AS record
+          , GETDATE()                      AS build_time
+          , cf.cal_date
+          , 'MARKET10'                     AS geography_grain
+          , cf.geography
+          , cf.platform_subset
+          , cf.base_product_number
+          , cf.customer_engagement
+          , 0.0                            AS cartridges
+          , COALESCE(cf.channel_fill, 0.0) AS channel_fill
+          , 0.0                            AS supplies_spares_cartridges
+          , COALESCE(cf.channel_fill, 0.0) AS expected_cartridges
+          , 1.0                            AS vtc
+          , COALESCE(cf.channel_fill, 0.0) AS adjusted_cartridges
+          , enr.supplies_product_family
+          , enr.supplies_family
+          , enr.supplies_mkt_cat
+          , enr.epa_family
+          , hw.pl                          AS hw_pl
+          , cc.region_3
+          , cc.region_4
+          , cc.region_5
+          , cc.market10
+          , cal.fiscal_year_qtr
+          , cal.fiscal_yr
+          , CAST(cf.cal_date AS VARCHAR(25)) + '-' + cf.platform_subset + '-' +
+            cf.base_product_number + '-' + cf.geography + '-' +
+            cf.customer_engagement         AS composite_key
+          , NULL                           AS cartridge_type
+          , pf.yield
+     FROM wf_cf AS cf -- allows forecasters to upload records not in system for cf
+     LEFT OUTER JOIN scen.{technology_label}_13_{technology_label}_crgs_w_vtc AS vtc
+         ON cf.geography = vtc.geography
+         AND cf.cal_date = vtc.cal_date
+         AND cf.platform_subset = vtc.platform_subset
+         AND cf.base_product_number = vtc.base_product_number
+         AND cf.customer_engagement = vtc.customer_engagement
+     LEFT JOIN supplies_enrichment AS enr
+         ON enr.platform_subset = cf.platform_subset
+     JOIN mdm.calendar AS cal
+         ON cf.cal_date = cal.date
+     JOIN mdm.hardware_xref AS hw
+         ON cf.platform_subset = hw.platform_subset
+     JOIN country_code_xref AS cc
+         ON cf.geography = cc.market10
+     LEFT JOIN toner_supplies_xref AS supp
+         ON supp.base_product_number = cf.base_product_number
+     LEFT JOIN pen_fills AS pf
+         ON pf.market_10 = cc.market10
+         AND pf.cal_date = cf.cal_date
+         AND pf.base_product_number = cf.base_product_number
      WHERE 1 = 1
-       AND us_scen.upload_type = 'WORKING-FORECAST'
-       AND us_scen.user_name IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
+       AND hw.technology IN ({technologies_list}')
+       AND cf.channel_fill > 0
+       AND vtc.geography IS NULL
+       AND vtc.cal_date IS NULL
+       AND vtc.platform_subset IS NULL
+       AND vtc.base_product_number IS NULL
+       AND vtc.customer_engagement IS NULL)
+"""
 
-     UNION ALL
-
-     SELECT DISTINCT 'SCENARIO_MIX_RATE'                AS record
-                   , smr.user_name                      AS user_name
-                   , smr.load_date                      AS load_date
-                   , CAST(smr.load_date AS VARCHAR(50)) AS version
-     FROM scen.working_forecast_mix_rate AS smr
-     WHERE 1 = 1
-       AND smr.upload_type = 'WORKING-FORECAST'
-       AND smr.user_name IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
-
-     UNION ALL
-
-     SELECT DISTINCT 'SCENARIO_YIELD'                      AS record
-                   , scen_y.user_name                      AS user_name
-                   , scen_y.load_date                      AS load_date
-                   , CAST(scen_y.load_date AS VARCHAR(50)) AS version
-     FROM scen.working_forecast_yield AS scen_y
-     WHERE 1 = 1
-       AND scen_y.upload_type = 'WORKING-FORECAST'
-       AND scen_y.user_name IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
-
-     UNION ALL
-
-     SELECT DISTINCT 'SCENARIO_CHANNEL_FILL'           AS record
-                   , cf.user_name                      AS user_name
-                   , cf.load_date                      AS load_date
-                   , CAST(cf.load_date AS VARCHAR(50)) AS version
-     FROM scen.working_forecast_channel_fill AS cf
-     WHERE 1 = 1
-       AND cf.upload_type = 'WORKING-FORECAST'
-       AND cf.user_name IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
-
-     UNION ALL
-
-     SELECT DISTINCT 'SCENARIO_SUPPLIES_SPARES'         AS record
-                   , ssp.user_name                      AS user_name
-                   , ssp.load_date                      AS load_date
-                   , CAST(ssp.load_date AS VARCHAR(50)) AS version
-     FROM scen.working_forecast_supplies_spares AS ssp
-     WHERE 1 = 1
-       AND ssp.upload_type = 'WORKING-FORECAST'
-       AND UPPER(ssp.user_name) IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
-
-     UNION ALL
-
-     SELECT DISTINCT 'SCENARIO_VTC_OVERRIDE'          AS record
-                   , v.user_name                      AS user_name
-                   , v.load_date                      AS load_date
-                   , CAST(v.load_date AS VARCHAR(50)) AS version
-     FROM scen.working_forecast_vtc_override AS v
-     WHERE 1 = 1
-       AND v.upload_type = 'WORKING-FORECAST'
-       AND UPPER(v.user_name) IN
-           ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM'))
-
-   , ink_cf_prep       AS
-    (SELECT fv.user_name
-          , MAX(fv.load_date) AS max_load_date
-     FROM override_filters AS fv
-     WHERE 1 = 1
-       AND fv.record = 'SCENARIO_CHANNEL_FILL'
-     GROUP BY fv.user_name)
-
-   , ink_cf_subset     AS
-    (SELECT DISTINCT DATEADD(MONTH, cf.month_num, cf.min_sys_date) AS cal_date
-                   , cf.geography
-                   , cf.platform_subset
-                   , cf.base_product_number
-                   , cf.customer_engagement
-                   , cf.value                                      AS channel_fill
-     FROM scen.working_forecast_channel_fill AS cf
-     JOIN ink_cf_prep AS cfp
-         ON cfp.user_name = cf.user_name
-         AND cfp.max_load_date = cf.load_date
-     WHERE 1 = 1
-       AND cf.upload_type = 'WORKING-FORECAST'
-       AND cf.geography_grain = 'MARKET10'
-
-     UNION ALL
-
-     SELECT DISTINCT DATEADD(MONTH, cf.month_num, cf.min_sys_date)         AS cal_date
-                   , geo.market_10                                         AS geography
-                   , cf.platform_subset
-                   , cf.base_product_number
-                   , cf.customer_engagement
-                   , CASE WHEN cf.geography = 'AP' THEN cf.value / 3.0
-                          WHEN cf.geography = 'EU' THEN cf.value / 5.0
-                          WHEN cf.geography = 'LA' THEN cf.value / 1.0
-                          WHEN cf.geography = 'NA'
-                                                   THEN cf.value / 1.0 END AS channel_fill
-     FROM scen.working_forecast_channel_fill AS cf
-     JOIN ink_cf_prep AS cfp
-         ON cfp.user_name = cf.user_name
-         AND cfp.max_load_date = cf.load_date
-     JOIN geography_mapping AS geo
-         ON geo.region_5 = cf.geography
-     WHERE 1 = 1
-       AND cf.upload_type = 'WORKING-FORECAST'
-       AND cf.geography_grain = 'REGION_5')
-
-   , ink_cf            AS
-    (SELECT DISTINCT cfs.cal_date
-                   , cfs.geography
-                   , cfs.platform_subset
-                   , cfs.base_product_number
-                   , cfs.customer_engagement
-                   , ROUND(cfs.channel_fill, 0) AS channel_fill
-     FROM ink_cf_subset AS cfs
-     WHERE 1 = 1)
-
-   , ink_ss_prep       AS
-    (SELECT fv.user_name
-          , MAX(fv.load_date) AS max_load_date
-     FROM override_filters AS fv
-     WHERE 1 = 1
-       AND fv.record = 'SCENARIO_SUPPLIES_SPARES'
-     GROUP BY fv.user_name)
-
-   , ink_ss_subset     AS
-    (SELECT ssp.geography
-          , ssp.platform_subset
-          , ssp.base_product_number
-          , ssp.customer_engagement
-          , ssp.min_sys_date
-          , ssp.month_num
-          , ssp.value
-     FROM scen.working_forecast_supplies_spares AS ssp
-     JOIN ink_ss_prep AS sspr
-         ON sspr.user_name = ssp.user_name
-         AND sspr.max_load_date = ssp.load_date
-     WHERE 1 = 1
-       AND ssp.upload_type = 'WORKING-FORECAST'
-       AND ssp.geography_grain = 'MARKET10'
-
-     UNION ALL
-
-     SELECT geo.market_10                                     AS geography
-          , ssp.platform_subset
-          , ssp.base_product_number
-          , ssp.customer_engagement
-          , ssp.min_sys_date
-          , ssp.month_num
-          , CASE WHEN ssp.geography = 'EU' THEN ssp.value / 4.0
-                                           ELSE ssp.value END AS value
-     FROM scen.working_forecast_supplies_spares AS ssp
-     JOIN ink_ss_prep AS sspr
-         ON sspr.user_name = ssp.user_name
-         AND sspr.max_load_date = ssp.load_date
-     JOIN geography_mapping AS geo
-         ON geo.region_5 = ssp.geography
-     WHERE 1 = 1
-       AND ssp.upload_type = 'WORKING-FORECAST'
-       AND ssp.geography_grain = 'REGION_5')
-
-   , ink_ss            AS
-    (SELECT DISTINCT DATEADD(MONTH, ssp.month_num, ssp.min_sys_date) AS cal_date
-                   , ssp.geography
-                   , ssp.platform_subset
-                   , ssp.base_product_number
-                   , ssp.customer_engagement
-                   , ROUND(ssp.value, 0)                             AS supplies_spares -- treat value as units
-     FROM ink_ss_subset AS ssp
-     LEFT JOIN vtc_03_norm_ships AS c2c
-         ON ssp.geography = c2c.geography
-         AND DATEADD(MONTH, ssp.month_num, ssp.min_sys_date) = c2c.cal_date
-         AND ssp.platform_subset = c2c.platform_subset
-     WHERE 1 = 1)
-
-   , ink_vtc_prep      AS
-    (SELECT fv.user_name
-          , MAX(fv.load_date) AS max_load_date
-     FROM override_filters AS fv
-     WHERE 1 = 1
-       AND fv.record = 'SCENARIO_VTC_OVERRIDE'
-     GROUP BY fv.user_name)
-
-   , ink_vtc_subset    AS
-    (SELECT v.geography
-          , v.base_product_number
-          , v.min_sys_date
-          , v.month_num
-          , v.value
-     FROM scen.working_forecast_vtc_override AS v
-     JOIN ink_vtc_prep AS vp
-         ON vp.user_name = v.user_name
-         AND vp.max_load_date = v.load_date
-     WHERE 1 = 1
-       AND v.upload_type = 'WORKING-FORECAST'
-       AND v.geography_grain = 'MARKET10'
-
-     UNION ALL
-
-     SELECT geo.market_10 AS geography
-          , v.base_product_number
-          , v.min_sys_date
-          , v.month_num
-          , v.value
-     FROM scen.working_forecast_vtc_override AS v
-     JOIN ink_vtc_prep AS vp
-         ON vp.user_name = v.user_name
-         AND vp.max_load_date = v.load_date
-     JOIN geography_mapping AS geo
-         ON geo.region_5 = v.geography
-     WHERE 1 = 1
-       AND v.upload_type = 'WORKING-FORECAST'
-       AND v.geography_grain = 'REGION_5')
-
-   , ink_vtc           AS
-    (SELECT DISTINCT DATEADD(MONTH, v.month_num, v.min_sys_date) AS cal_date
-                   , v.geography
-                   , v.base_product_number
-                   , v.value                                     AS mvtc
-     FROM ink_vtc_subset AS v
-     WHERE 1 = 1)
-
-   , ink_working_fcst  AS
+ink_wf_cte = f"""
+   , wf_working_fcst  AS
     (SELECT 'IE2-WORKING-FORECAST'                                 AS record
           , GETDATE()                                              AS build_time
           , vtc.cal_date
@@ -1726,25 +1620,25 @@ WITH geography_mapping   AS
           , cc.market10
           , cal.fiscal_year_qtr
           , cal.fiscal_yr
-          , CAST(vtc.cal_date AS VARCHAR(25)) + '-' + vtc.platform_subset +
-            '-' + vtc.base_product_number + '-' + vtc.geography + '-' +
+          , CAST(vtc.cal_date AS VARCHAR(25)) || '-' || vtc.platform_subset ||
+            '-' || vtc.base_product_number || '-' || vtc.geography || '-' ||
             vtc.customer_engagement                                AS composite_key
           , NULL                                                   AS cartridge_type
           , pf.yield
-     FROM scen.ink_13_ink_crgs_w_vtc AS vtc
-     LEFT JOIN ink_cf AS cf
+     FROM scen.{technology_label}_13_{technology_label}_crgs_w_vtc AS vtc
+     LEFT JOIN wf_cf AS cf
          ON cf.geography = vtc.geography
          AND cf.cal_date = vtc.cal_date
          AND cf.platform_subset = vtc.platform_subset
          AND cf.base_product_number = vtc.base_product_number
          AND cf.customer_engagement = vtc.customer_engagement
-     LEFT JOIN ink_ss AS ss
+     LEFT JOIN wf_ss AS ss
          ON ss.geography = vtc.geography
          AND ss.cal_date = vtc.cal_date
          AND ss.platform_subset = vtc.platform_subset
          AND ss.base_product_number = vtc.base_product_number
          AND ss.customer_engagement = vtc.customer_engagement
-     LEFT JOIN ink_vtc AS p
+     LEFT JOIN wf_vtc AS p
          ON p.geography = vtc.geography
          AND p.cal_date = vtc.cal_date
          AND p.base_product_number = vtc.base_product_number
@@ -1756,14 +1650,14 @@ WITH geography_mapping   AS
          ON vtc.platform_subset = hw.platform_subset
      JOIN country_code_xref AS cc
          ON vtc.geography = cc.market10
-     LEFT JOIN ink_supplies_xref AS supp
+     LEFT JOIN wf_supplies_xref AS supp
          ON supp.base_product_number = vtc.base_product_number
      LEFT JOIN pen_fills AS pf
          ON pf.market_10 = cc.market10
          AND pf.cal_date = vtc.cal_date
          AND pf.base_product_number = vtc.base_product_number
      WHERE 1 = 1
-       AND hw.technology IN ('INK', 'PWA')
+       AND hw.technology IN ({technologies_list})
 
      UNION ALL
 
@@ -1794,13 +1688,13 @@ WITH geography_mapping   AS
           , cc.market10
           , cal.fiscal_year_qtr
           , cal.fiscal_yr
-          , CAST(cf.cal_date AS VARCHAR(25)) + '-' + cf.platform_subset + '-' +
-            cf.base_product_number + '-' + cf.geography + '-' +
+          , CAST(cf.cal_date AS VARCHAR(25)) || '-' || cf.platform_subset || '-' ||
+            cf.base_product_number || '-' || cf.geography || '-' ||
             cf.customer_engagement         AS composite_key
           , NULL                           AS cartridge_type
           , pf.yield
-     FROM ink_cf AS cf -- allows forecasters to upload records not in system for cf
-     LEFT OUTER JOIN scen.ink_13_ink_crgs_w_vtc AS vtc
+     FROM wf_cf AS cf -- allows forecasters to upload records not in system for cf
+     LEFT OUTER JOIN scen.{technology_label}_13_{technology_label}_crgs_w_vtc AS vtc
          ON cf.geography = vtc.geography
          AND cf.cal_date = vtc.cal_date
          AND cf.platform_subset = vtc.platform_subset
@@ -1814,31 +1708,395 @@ WITH geography_mapping   AS
          ON cf.platform_subset = hw.platform_subset
      JOIN country_code_xref AS cc
          ON cf.geography = cc.market10
-     LEFT JOIN ink_supplies_xref AS supp
+     LEFT JOIN wf_supplies_xref AS supp
          ON supp.base_product_number = cf.base_product_number
      LEFT JOIN pen_fills AS pf
          ON pf.market_10 = cc.market10
          AND pf.cal_date = cf.cal_date
          AND pf.base_product_number = cf.base_product_number
      WHERE 1 = 1
-       AND hw.technology IN ('INK', 'PWA')
+       AND hw.technology IN ({technologies_list})
        AND cf.channel_fill > 0
        AND vtc.geography IS NULL
        AND vtc.cal_date IS NULL
        AND vtc.platform_subset IS NULL
        AND vtc.base_product_number IS NULL
        AND vtc.customer_engagement IS NULL)
- 
-SELECT *
-FROM ink_working_fcst
 """
 
-query_list.append(["scen.ink_working_fcst", ink_working_fcst, "overwrite"])
+
+wf_working_fcst = f"""
+WITH geography_mapping   AS
+    (SELECT DISTINCT market10 AS market_10
+                   , region_5
+     FROM mdm.iso_country_code_xref
+     WHERE 1 = 1
+       AND NOT market10 IS NULL
+       AND NOT region_5 IS NULL
+       AND NOT region_5 = 'JP'
+       AND NOT region_5 LIKE 'X%')
+
+   , crg_months          AS
+    (SELECT date_key
+          , [date] AS cal_date
+     FROM mdm.calendar
+     WHERE 1 = 1
+       AND day_of_month = 1)
+
+   , vtc_03_norm_ships   AS
+    (SELECT cref.country_level_2 AS geography
+          , ns.cal_date
+          , ns.platform_subset
+          , SUM(ns.units)        AS units
+     FROM prod.norm_shipments AS ns
+     JOIN mdm.iso_cc_rollup_xref AS cref
+         ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
+         AND UPPER(cref.country_scenario) = 'Market10'
+     WHERE 1 = 1
+       AND ns.version = '{norm_shipments_version}'
+     GROUP BY cref.country_level_2
+            , ns.cal_date
+            , ns.platform_subset)
+
+   , supplies_enrichment AS
+    (SELECT DISTINCT xref.platform_subset   AS platform_subset
+                   , xref.hw_product_family AS supplies_product_family
+                   , xref.brand             AS supplies_family
+                   , xref.supplies_mkt_cat  AS supplies_mkt_cat
+                   , xref.epa_family        AS epa_family
+     FROM mdm.hardware_xref AS xref
+     WHERE 1 = 1
+       AND xref.technology IN ({technologies_list}))
+
+   , wf_supplies_xref AS
+    (SELECT DISTINCT s.base_product_number
+                   , CASE WHEN s.crg_chrome = 'DRUM'                THEN 'DRUM'
+                          WHEN s.base_product_number IN
+                               ('W8004A', 'W8004J', 'W8006J', 'W8007J',
+                                'W8007X', 'W8009A', 'W8009J', 'W8000J',
+                                'W8001J',
+                                'W8002J', 'W8003J', 'CRTGCHERRYITPJ',
+                                'EYRIEMLKJDMITP', 'EYRIEMLKXDMITP')
+                                                                    THEN 'INSTANT TONER'
+                          WHEN s.base_product_number LIKE '%A'      THEN 'A'
+                          WHEN s.base_product_number LIKE '%AC'     THEN 'AC'
+                          WHEN s.base_product_number LIKE '%MC'     THEN 'MC'
+                          WHEN s.base_product_number LIKE '%X'      THEN 'X'
+                          WHEN s.base_product_number LIKE '%XC'     THEN 'XC'
+                          WHEN s.base_product_number LIKE '%YC' OR
+                               s.base_product_number LIKE '%JC'     THEN 'YC/JC'
+                                                                    ELSE NULL
+            END AS cartridge_type
+     FROM mdm.supplies_xref AS s
+     WHERE 1 = 1
+       AND s.technology IN ({technologies_list}))
+
+   , country_code_xref   AS
+    (SELECT DISTINCT market10
+                   , region_3
+                   , region_4
+                   , region_5
+     FROM mdm.iso_country_code_xref
+     WHERE NOT market10 IS NULL
+       AND NOT region_3 IS NULL
+       AND NOT region_4 IS NULL
+       AND NOT region_5 IS NULL
+       AND NOT market10 = 'WORLD WIDE'
+       AND NOT region_4 = 'JP'
+       AND NOT region_5 = 'XU')
+
+   , yield               AS
+    (SELECT y.base_product_number
+          , map.market_10
+          -- note: assumes effective_date is in yyyymm format. multiplying by 100 and adding 1 to get to yyyymmdd
+          , y.effective_date
+          , COALESCE(LEAD(effective_date)
+                     OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
+            , CAST('2119-08-30' AS date)) AS next_effective_date
+          , y.value                       AS yield
+     FROM mdm.yield AS y
+     JOIN geography_mapping AS map
+         ON map.region_5 = y.geography
+     WHERE 1 = 1
+       AND y.official = 1
+       AND UPPER(y.geography_grain) = 'REGION_5')
+
+   , pen_fills           AS
+    (SELECT y.base_product_number
+          , m.cal_date
+          , y.market_10
+          , y.yield
+     FROM yield AS y
+     JOIN crg_months AS m
+         ON y.effective_date <= m.cal_date
+         AND y.next_effective_date > m.cal_date)
+
+   , override_filters    AS
+    (SELECT 'IB'         AS record
+          , 'SYSTEM'     AS user_name
+          , NULL         AS load_date
+          , '{ib_version}' AS version
+     FROM prod.ib
+
+     UNION ALL
+
+     SELECT 'USAGE_SHARE' AS record
+          , 'SYSTEM'      AS user_name
+          , NULL          AS load_date
+          , '{usage_share_version}'  AS version
+     FROM prod.usage_share_ink
+
+     UNION ALL
+
+     SELECT DISTINCT 'SCENARIO_USAGE_SHARE'                 AS record
+                   , us_scen.user_name                      AS user_name
+                   , us_scen.load_date                      AS load_date
+                   , CAST(us_scen.load_date AS VARCHAR(50)) AS version
+     FROM scen.working_forecast_usage_share AS us_scen
+     WHERE 1 = 1
+       AND us_scen.upload_type = 'WORKING-FORECAST'
+       AND us_scen.user_name IN ({users})
+
+     UNION ALL
+
+     SELECT DISTINCT 'SCENARIO_MIX_RATE'                AS record
+                   , smr.user_name                      AS user_name
+                   , smr.load_date                      AS load_date
+                   , CAST(smr.load_date AS VARCHAR(50)) AS version
+     FROM scen.working_forecast_mix_rate AS smr
+     WHERE 1 = 1
+       AND smr.upload_type = 'WORKING-FORECAST'
+       AND smr.user_name IN ({users})
+
+     UNION ALL
+
+     SELECT DISTINCT 'SCENARIO_YIELD'                      AS record
+                   , scen_y.user_name                      AS user_name
+                   , scen_y.load_date                      AS load_date
+                   , CAST(scen_y.load_date AS VARCHAR(50)) AS version
+     FROM scen.working_forecast_yield AS scen_y
+     WHERE 1 = 1
+       AND scen_y.upload_type = 'WORKING-FORECAST'
+       AND scen_y.user_name IN ({users})
+
+     UNION ALL
+
+     SELECT DISTINCT 'SCENARIO_CHANNEL_FILL'           AS record
+                   , cf.user_name                      AS user_name
+                   , cf.load_date                      AS load_date
+                   , CAST(cf.load_date AS VARCHAR(50)) AS version
+     FROM scen.working_forecast_channel_fill AS cf
+     WHERE 1 = 1
+       AND cf.upload_type = 'WORKING-FORECAST'
+       AND cf.user_name IN ({users})
+
+     UNION ALL
+
+     SELECT DISTINCT 'SCENARIO_SUPPLIES_SPARES'         AS record
+                   , ssp.user_name                      AS user_name
+                   , ssp.load_date                      AS load_date
+                   , CAST(ssp.load_date AS VARCHAR(50)) AS version
+     FROM scen.working_forecast_supplies_spares AS ssp
+     WHERE 1 = 1
+       AND ssp.upload_type = 'WORKING-FORECAST'
+       AND UPPER(ssp.user_name) IN ({users})
+
+     UNION ALL
+
+     SELECT DISTINCT 'SCENARIO_VTC_OVERRIDE'          AS record
+                   , v.user_name                      AS user_name
+                   , v.load_date                      AS load_date
+                   , CAST(v.load_date AS VARCHAR(50)) AS version
+     FROM scen.working_forecast_vtc_override AS v
+     WHERE 1 = 1
+       AND v.upload_type = 'WORKING-FORECAST'
+       AND UPPER(v.user_name) IN
+           ({users}))
+
+   , wf_cf_prep       AS
+    (SELECT fv.user_name
+          , MAX(fv.load_date) AS max_load_date
+     FROM override_filters AS fv
+     WHERE 1 = 1
+       AND fv.record = 'SCENARIO_CHANNEL_FILL'
+     GROUP BY fv.user_name)
+
+   , wf_cf_subset     AS
+    (SELECT DISTINCT DATEADD(MONTH, cf.month_num, cf.min_sys_date) AS cal_date
+                   , cf.geography
+                   , cf.platform_subset
+                   , cf.base_product_number
+                   , cf.customer_engagement
+                   , cf.value                                      AS channel_fill
+     FROM scen.working_forecast_channel_fill AS cf
+     JOIN wf_cf_prep AS cfp
+         ON cfp.user_name = cf.user_name
+         AND cfp.max_load_date = cf.load_date
+     WHERE 1 = 1
+       AND cf.upload_type = 'WORKING-FORECAST'
+       AND cf.geography_grain = 'MARKET10'
+
+     UNION ALL
+
+     SELECT DISTINCT DATEADD(MONTH, cf.month_num, cf.min_sys_date)         AS cal_date
+                   , geo.market_10                                         AS geography
+                   , cf.platform_subset
+                   , cf.base_product_number
+                   , cf.customer_engagement
+                   , CASE WHEN cf.geography = 'AP' THEN cf.value / 3.0
+                          WHEN cf.geography = 'EU' THEN cf.value / 5.0
+                          WHEN cf.geography = 'LA' THEN cf.value / 1.0
+                          WHEN cf.geography = 'NA'
+                                                   THEN cf.value / 1.0 END AS channel_fill
+     FROM scen.working_forecast_channel_fill AS cf
+     JOIN wf_cf_prep AS cfp
+         ON cfp.user_name = cf.user_name
+         AND cfp.max_load_date = cf.load_date
+     JOIN geography_mapping AS geo
+         ON geo.region_5 = cf.geography
+     WHERE 1 = 1
+       AND cf.upload_type = 'WORKING-FORECAST'
+       AND cf.geography_grain = 'REGION_5')
+
+   , wf_cf            AS
+    (SELECT DISTINCT cfs.cal_date
+                   , cfs.geography
+                   , cfs.platform_subset
+                   , cfs.base_product_number
+                   , cfs.customer_engagement
+                   , ROUND(cfs.channel_fill, 0) AS channel_fill
+     FROM wf_cf_subset AS cfs
+     WHERE 1 = 1)
+
+   , wf_ss_prep       AS
+    (SELECT fv.user_name
+          , MAX(fv.load_date) AS max_load_date
+     FROM override_filters AS fv
+     WHERE 1 = 1
+       AND fv.record = 'SCENARIO_SUPPLIES_SPARES'
+     GROUP BY fv.user_name)
+
+   , wf_ss_subset     AS
+    (SELECT ssp.geography
+          , ssp.platform_subset
+          , ssp.base_product_number
+          , ssp.customer_engagement
+          , ssp.min_sys_date
+          , ssp.month_num
+          , ssp.value
+     FROM scen.working_forecast_supplies_spares AS ssp
+     JOIN wf_ss_prep AS sspr
+         ON sspr.user_name = ssp.user_name
+         AND sspr.max_load_date = ssp.load_date
+     WHERE 1 = 1
+       AND ssp.upload_type = 'WORKING-FORECAST'
+       AND ssp.geography_grain = 'MARKET10'
+
+     UNION ALL
+
+     SELECT geo.market_10                                     AS geography
+          , ssp.platform_subset
+          , ssp.base_product_number
+          , ssp.customer_engagement
+          , ssp.min_sys_date
+          , ssp.month_num
+          , CASE WHEN ssp.geography = 'EU' THEN ssp.value / 4.0
+                                           ELSE ssp.value END AS value
+     FROM scen.working_forecast_supplies_spares AS ssp
+     JOIN wf_ss_prep AS sspr
+         ON sspr.user_name = ssp.user_name
+         AND sspr.max_load_date = ssp.load_date
+     JOIN geography_mapping AS geo
+         ON geo.region_5 = ssp.geography
+     WHERE 1 = 1
+       AND ssp.upload_type = 'WORKING-FORECAST'
+       AND ssp.geography_grain = 'REGION_5')
+
+   , wf_ss            AS
+    (SELECT DISTINCT DATEADD(MONTH, ssp.month_num, ssp.min_sys_date) AS cal_date
+                   , ssp.geography
+                   , ssp.platform_subset
+                   , ssp.base_product_number
+                   , ssp.customer_engagement
+                   , ROUND(ssp.value, 0)                             AS supplies_spares -- treat value as units
+     FROM wf_ss_subset AS ssp
+     LEFT JOIN vtc_03_norm_ships AS c2c
+         ON ssp.geography = c2c.geography
+         AND DATEADD(MONTH, ssp.month_num, ssp.min_sys_date) = c2c.cal_date
+         AND ssp.platform_subset = c2c.platform_subset
+     WHERE 1 = 1)
+
+   , wf_vtc_prep      AS
+    (SELECT fv.user_name
+          , MAX(fv.load_date) AS max_load_date
+     FROM override_filters AS fv
+     WHERE 1 = 1
+       AND fv.record = 'SCENARIO_VTC_OVERRIDE'
+     GROUP BY fv.user_name)
+
+   , wf_vtc_subset    AS
+    (SELECT v.geography
+          , v.base_product_number
+          , v.min_sys_date
+          , v.month_num
+          , v.value
+     FROM scen.working_forecast_vtc_override AS v
+     JOIN wf_vtc_prep AS vp
+         ON vp.user_name = v.user_name
+         AND vp.max_load_date = v.load_date
+     WHERE 1 = 1
+       AND v.upload_type = 'WORKING-FORECAST'
+       AND v.geography_grain = 'MARKET10'
+
+     UNION ALL
+
+     SELECT geo.market_10 AS geography
+          , v.base_product_number
+          , v.min_sys_date
+          , v.month_num
+          , v.value
+     FROM scen.working_forecast_vtc_override AS v
+     JOIN wf_vtc_prep AS vp
+         ON vp.user_name = v.user_name
+         AND vp.max_load_date = v.load_date
+     JOIN geography_mapping AS geo
+         ON geo.region_5 = v.geography
+     WHERE 1 = 1
+       AND v.upload_type = 'WORKING-FORECAST'
+       AND v.geography_grain = 'REGION_5')
+
+   , wf_vtc           AS
+    (SELECT DISTINCT DATEADD(MONTH, v.month_num, v.min_sys_date) AS cal_date
+                   , v.geography
+                   , v.base_product_number
+                   , v.value                                     AS mvtc
+     FROM wf_vtc_subset AS v
+     WHERE 1 = 1)
+
+{eval(f"{technology_label}_wf_cte")}
+ 
+SELECT *
+FROM wf_working_fcst
+"""
+
+something = read_Redshift
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Create tables in Redshift
+
+# COMMAND ----------
+
+query_list = []
+
+query_list.append([f"scen.{technology_label}_08_analytic", wf_08_analytic, "overwrite"])
+query_list.append([f"scen.{technology_label}_09_channel_fill", wf_09_channel_fill, "overwrite"])
+query_list.append([f"scen.{technology_label}_10_supplies_spares", wf_10_supplies_spares, "overwrite"])
+query_list.append([f"scen.{technology_label}_11_host", wf_11_host, "overwrite"])
+query_list.append([f"scen.{technology_label}_12_welcome_kits", wf_12_welcome_kits, "overwrite"])
+query_list.append([f"scen.{technology_label}_13_{technology_label}_crgs_w_vtc", wf_13_crgs_w_vtc, "overwrite"])
+query_list.append([f"scen.{technology_label}_working_fcst", wf_working_fcst, "overwrite"])
 
 # COMMAND ----------
 
