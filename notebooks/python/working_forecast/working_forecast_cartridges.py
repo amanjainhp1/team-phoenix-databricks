@@ -179,7 +179,7 @@ WITH dmd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM scen.ink_01_us_uploads AS us
+     FROM scen.{technology_label}_01_us_uploads AS us
      JOIN mdm.hardware_xref AS hw
          ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
@@ -358,7 +358,7 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_ink  AS us
+     FROM prod.usage_share_{technology_label}  AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
@@ -511,7 +511,7 @@ WITH override_filters  AS
      CROSS JOIN override_filters AS fv
      JOIN mdm.hardware_xref AS hw
          ON us.platform_subset = hw.platform_subset
-     LEFT OUTER JOIN scen.ink_02_us_dmd AS us_scen
+     LEFT OUTER JOIN scen.{technology_label}_02_us_dmd AS us_scen
          ON us.geography = us_scen.geography
          AND us.cal_date = us_scen.cal_date
          AND
@@ -679,7 +679,7 @@ WITH pcm_02_hp_demand AS
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END)     AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_C_PAGES' THEN units END * 3) AS cmy_demand
-     FROM scen.ink_03_usage_share AS d
+     FROM scen.{technology_label}_03_usage_share AS d
      JOIN mdm.hardware_xref AS hw
         ON hw.platform_subset = d.platform_subset
      WHERE 1 = 1
@@ -708,7 +708,7 @@ WITH pcm_02_hp_demand AS
                    , v.consumable_type
                    , v.cartridge_volume
      FROM scen.{technology_label}_cartridge_units AS v
-              JOIN scen.ink_shm_base_helper AS shm
+              JOIN scen.{technology_label}_shm_base_helper AS shm
                    ON shm.base_product_number = v.base_product_number
                        AND shm.geography = v.geography
      WHERE 1 = 1
@@ -793,7 +793,7 @@ WITH pcm_02_hp_demand AS
                    ON pf.base_product_number = v.base_product_number
                        AND pf.cal_date = v.cal_date
                        AND pf.market_10 = v.geography
-              JOIN scen.ink_shm_base_helper AS shm
+              JOIN scen.{technology_label}_shm_base_helper AS shm
                    ON shm.base_product_number = v.base_product_number
                        AND shm.platform_subset = v.platform_subset
                        AND shm.customer_engagement = dmd.customer_engagement
