@@ -2788,7 +2788,7 @@ JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = asb.base_product_number
 JOIN pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = asb.market10
-
+WHERE customer_engagement = 'EST_DIRECT_FULFILLMENT'
 GROUP BY f.date
     , f.fiscal_year_qtr
     , f.fiscal_yr
