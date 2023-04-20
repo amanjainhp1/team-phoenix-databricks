@@ -49,10 +49,10 @@ driver_check_ci_balances = read_redshift_to_df(configs) \
 
 # update delta tables
 tables = [
-  ['fin_stage.cbm_st_data', cbm_st_data],
-  ['mdm.iso_country_code_xref', iso_country_code_xref],
-  ['mdm.calendar', calendar],
-  ['mdm.product_line_xref', product_line_xref],
+  #['fin_stage.cbm_st_data', cbm_st_data], # with cbm_qa at end of adjusted revenue salesprod job, this will pick up the cbm_st_data used for that adjusted revenue salesprod run, as intended
+  #['mdm.iso_country_code_xref', iso_country_code_xref],
+  #['mdm.calendar', calendar],
+  #['mdm.product_line_xref', product_line_xref],
   ['scen.driver_check_ci_balances', driver_check_ci_balances]
 ]
 
@@ -202,20 +202,6 @@ cbm_02_current_ci.show()
 
 # COMMAND ----------
 
-#DELETE ME AFTER INITIAL TABLE SET UP
-#write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
-
-# COMMAND ----------
-
-#grant team access
-query_access_grant = """
-GRANT ALL ON TABLE scen.driver_check_ci_balances TO GROUP auto_glue;
-"""
-
-submit_remote_query(configs, query_access_grant)
-
-# COMMAND ----------
-
 # This test compares cbm channel inventory extracts to previous channel inventory balances and identifies where the CI has changed by 5% or more by fiscal_quarter x product line x market
 cbm_02_ci_coc = """
 SELECT *
@@ -276,7 +262,7 @@ cbm_02_ci_coc.show()
 
 # COMMAND ----------
 
-#write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
+write_df_to_redshift(configs, cbm_02_current_ci, "scen.driver_check_ci_balances", "append")
 
 # COMMAND ----------
 
