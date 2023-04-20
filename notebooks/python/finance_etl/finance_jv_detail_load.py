@@ -119,7 +119,8 @@ jv_detail_latest_file_df.createOrReplaceTempView("jv_detail_latest_file_df")
 # MAGIC     jvCountry = ifelse(jvCountry == "Sri Lanka Sales", "Sri Lanka", jvCountry),
 # MAGIC     jvCountry = ifelse(jvCountry == "Taiwan Sales", "Taiwan", jvCountry),
 # MAGIC     jvCountry = ifelse(jvCountry == "Thailand Sales", "Thailand", jvCountry),
-# MAGIC     jvCountry = ifelse(jvCountry == "Vietnam Sales", "Vietnam", jvCountry)
+# MAGIC     jvCountry = ifelse(jvCountry == "Vietnam Sales", "Vietnam", jvCountry),
+# MAGIC     jvCountry = ifelse(jvCountry == "WW Carve Out", "UNKNOWN WORLDWIDE", jvCountry)
 # MAGIC   )
 
 # COMMAND ----------
@@ -147,7 +148,8 @@ jv_detail_latest_file_df.createOrReplaceTempView("jv_detail_latest_file_df")
 # MAGIC     region_5 = ifelse(region_3 == "AMS", "LA", region_3),
 # MAGIC     region_5 = ifelse(country == "United States of America" | country == "Canada", "NA", region_5),
 # MAGIC     region_5 = ifelse(region_5 == "APJ", "AP", region_5),
-# MAGIC     region_5 = ifelse(region_5 == "EMEA", "EU", region_5)
+# MAGIC     region_5 = ifelse(region_5 == "EMEA", "EU", region_5),
+# MAGIC     region_5 = ifelse(region_5 == "WW", "XW", region_5)
 # MAGIC   ) %>%
 # MAGIC   dplyr::select(yearmon, sales_product_number, PL, region_3, region_5, country,
 # MAGIC                 gross_revenue, contractual_discounts, total_COS) 
