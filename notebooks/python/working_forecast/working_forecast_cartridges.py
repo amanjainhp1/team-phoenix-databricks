@@ -13,7 +13,7 @@ dbutils.widgets.text('usage_share_version', '') # usage-share version
 
 # Global Variables
 # retrieve widget values and assign to variables
-technology = dbutils.widgets.get('technology').lower() if dbutils.widgets.get('technology').lower() != 'toner' else 'laser'
+technology = dbutils.widgets.get('technology').lower()
 ib_version = dbutils.widgets.get('ib_version')
 usage_share_version = dbutils.widgets.get('usage_share_version')
 

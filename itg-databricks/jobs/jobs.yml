@@ -18,6 +18,7 @@ Jobs:
   - hardware-stf
   - ib-ns-set-official
   - ink-usage-share
+  - ink-working-forecast-run
   - installed-base
   - lf-decay
   - lf-ltf
@@ -33,4 +34,5 @@ Jobs:
   - rdma-full-load
   - redshift-resource-creator
   - toner-usage-share
+  - toner-working-forecast-run
   - wd3-load

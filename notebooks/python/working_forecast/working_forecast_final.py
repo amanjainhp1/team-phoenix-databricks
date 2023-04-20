@@ -9,7 +9,7 @@ dbutils.widgets.text('norm_shipments_version', '') # normalized shipments versio
 
 # Global Variables
 # retrieve widget values and assign to variables
-technology = dbutils.widgets.get('technology').lower() if dbutils.widgets.get('technology').lower() != 'toner' else 'laser'
+technology = dbutils.widgets.get('technology').lower()
 ib_version = dbutils.widgets.get('ib_version')
 usage_share_version = dbutils.widgets.get('usage_share_version')
 norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
@@ -1397,7 +1397,7 @@ WHERE 1 = 1
 # COMMAND ----------
 
 toner_wf_cte = f"""
-   , toner_working_fcst  AS
+   , wf_working_fcst  AS
     (SELECT 'IE2-WORKING-FORECAST'                                 AS record
           , GETDATE()                                              AS build_time
           , vtc.cal_date
@@ -1437,7 +1437,7 @@ toner_wf_cte = f"""
          ON vtc.platform_subset = hw.platform_subset
      JOIN country_code_xref AS cc
          ON vtc.geography = cc.market10
-     LEFT JOIN toner_supplies_xref AS supp
+     LEFT JOIN wf_supplies_xref AS supp
          ON supp.base_product_number = vtc.base_product_number
      LEFT JOIN pen_fills AS pf
          ON pf.market_10 = cc.market10
@@ -1511,7 +1511,7 @@ toner_wf_cte = f"""
          ON vtc.platform_subset = hw.platform_subset
      JOIN country_code_xref AS cc
          ON vtc.geography = cc.market10
-     LEFT JOIN toner_supplies_xref AS supp
+     LEFT JOIN wf_supplies_xref AS supp
          ON supp.base_product_number = vtc.base_product_number
      LEFT JOIN pen_fills AS pf
          ON pf.market_10 = cc.market10
@@ -1568,14 +1568,14 @@ toner_wf_cte = f"""
          ON cf.platform_subset = hw.platform_subset
      JOIN country_code_xref AS cc
          ON cf.geography = cc.market10
-     LEFT JOIN toner_supplies_xref AS supp
+     LEFT JOIN wf_supplies_xref AS supp
          ON supp.base_product_number = cf.base_product_number
      LEFT JOIN pen_fills AS pf
          ON pf.market_10 = cc.market10
          AND pf.cal_date = cf.cal_date
          AND pf.base_product_number = cf.base_product_number
      WHERE 1 = 1
-       AND hw.technology IN ({technologies_list}')
+       AND hw.technology IN ({technologies_list})
        AND cf.channel_fill > 0
        AND vtc.geography IS NULL
        AND vtc.cal_date IS NULL
@@ -2078,8 +2078,6 @@ WITH geography_mapping   AS
 SELECT *
 FROM wf_working_fcst
 """
-
-something = read_Redshift
 
 # COMMAND ----------
 
