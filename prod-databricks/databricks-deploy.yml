@@ -18,19 +18,7 @@ variables:
 - name: stack
   value: prod
 
-trigger: 
-  branches:
-    include:
-    - master
-  paths:
-    exclude:
-      - databricks/internal/dev-springboard.yml
-      - itg-databricks/internal/itg-springboard.yml
-      - prod-databricks/internal/prod-springboard.yml
-      - databricks/internal/dev-jobs.yml
-      - itg-databricks/internal/itg-jobs.yml
-      - prod-databricks/internal/prod-jobs.yml
-      - README.md
+trigger: none
 
 pr: none
 
