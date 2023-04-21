@@ -2527,7 +2527,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS discount_pcnt
     , SUM(0) AS gross_rev_w
     , SUM(0) AS net_rev_w
-    , SUM(nrpu.net_revenue_per_unit * wf.adjusted_cartridges) AS net_rev_trade
+    , SUM(nrpu.net_revenue_per_unit * wf.pmf_units) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
@@ -2541,7 +2541,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM pivots_t_22_net_rev_per_unit AS nrpu
-JOIN pivots_16_working_forecast AS wf 
+JOIN pivots_15_units_pivot AS wf 
     ON nrpu.base_product_number = wf.base_product_number
     AND nrpu.platform_subset = wf.platform_subset
     AND nrpu.cal_date = wf.cal_date
