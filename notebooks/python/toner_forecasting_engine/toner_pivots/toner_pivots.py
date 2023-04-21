@@ -2527,7 +2527,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS discount_pcnt
     , SUM(0) AS gross_rev_w
     , SUM(0) AS net_rev_w
-    , SUM(nrpu.net_revenue_per_unit * wf.pmf_units) AS net_rev_trade
+    , SUM(nrpu.net_revenue_per_unit * wf.supplies_pmf) AS net_rev_trade
     , SUM(0) AS pgswmktshr
     , SUM(0) AS pgswomktshr
     , SUM(0) AS fiji_color_mpv
