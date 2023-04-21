@@ -532,7 +532,7 @@ SELECT distinct
 			, COALESCE(adjusted_revenue.cc_inventory_impact, 0) as cc_inventory_impact
 			, COALESCE(adjusted_revenue.adjusted_revenue, 0) as adjusted_revenue
 		FROM adjusted_revenue_epa adjusted_revenue
-        where adjusted_revenue.customer_engagement <> 'EST_INDIRECT_FULFILLMENT'
+        where adjusted_revenue.customer_engagement <> 'EST_DIRECT_FULFILLMENT'
 		and adjusted_revenue.version = (select max(version) from adjusted_revenue_epa)
 ),  __dbt__CTE__bpo_22_adjusted_rev_sum as (
 
