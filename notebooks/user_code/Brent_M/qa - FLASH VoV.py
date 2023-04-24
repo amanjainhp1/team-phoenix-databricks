@@ -29,7 +29,7 @@ import pandas as pd
 # COMMAND ----------
 
 # FLASH versions
-prev_version = '2023.01.18.1'
+prev_version = '2023.03.17.1'
 
 # COMMAND ----------
 
