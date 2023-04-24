@@ -28,7 +28,7 @@ from stage.f_report_units a
     left join mdm.rdma b on a.base_prod_number=b.base_prod_number
     left join mdm.hardware_xref c on b.platform_subset=c.platform_subset
 where 1=1
-    and c.technology in ('INK','LASER','PWA')
+    and c.technology in ('LASER')
     and calendar_month > (select max(date) from stage.rtm_historical_actuals)
 group by
     record,
@@ -42,7 +42,7 @@ UNION ALL
 
 --Actuals
 select
-   'actuals_hw' as record,
+   'rtm_actuals' as record,
    date as cal_date,
    geo as country_alpha2,
    b.platform_subset,
@@ -54,8 +54,8 @@ from stage.rtm_historical_actuals a
     left join mdm.rdma b on a.base_prod_number=b.base_prod_number
     left join mdm.hardware_xref c on b.platform_subset=c.platform_subset
 where 1=1
-    and c.technology in ('INK','LASER','PWA')
-    and (a.date > '2015-10-01' or a.rtm IN ('PMPS','DMPS'))
+    and c.technology in ('LASER')
+    and (a.date > '2017-09-01' or a.rtm IN ('PMPS','DMPS'))
     and c.pl NOT IN ('GW','LX')
 group by
     date,
