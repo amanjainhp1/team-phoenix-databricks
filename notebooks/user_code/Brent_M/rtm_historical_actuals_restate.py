@@ -15,7 +15,7 @@ archer_rtm_historical_min_date_query = """
 SELECT MIN(date) AS min_date
 FROM Archer_Prod.dbo.rtm_actuals_country_speedlic_vw
 WHERE 1=1
-    AND UPPER(RTM) IN ('CMPS','DMPS')
+    AND UPPER(RTM) IN ('PMPS','DMPS')
 
 """
 
@@ -55,7 +55,7 @@ select
     getdate() as load_date,
     version
 from Archer_Prod.dbo.rtm_actuals_country_speedlic_vw
-WHERE UPPER(RTM) in ('CMPS','DMPS')
+WHERE UPPER(RTM) in ('PMPS','DMPS')
 
 """
 
