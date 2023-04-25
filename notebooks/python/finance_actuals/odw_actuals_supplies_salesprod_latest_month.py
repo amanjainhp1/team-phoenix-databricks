@@ -3090,6 +3090,7 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_with_ce_splits2a
+WHERE country_alpha2 <> 'XW'
 GROUP BY cal_date, pl, country_alpha2, sales_product_number, ce_split
 
 UNION ALL
@@ -3170,7 +3171,6 @@ SELECT
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
 FROM salesprod_add_mcodes
-WHERE country_alpha2 <> 'XW'
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
 """    
 
@@ -3909,8 +3909,8 @@ currency.createOrReplaceTempView("currency")
 
 # COMMAND ----------
 
-#prepare data for x-code (financial system HQ, i.e., non-ISO) elimination
-edw_restated_data2 = f"""
+#prepare data for x-code (financial system HQ, i.e., non-ISO) elimination; no worldwide except for CISS, CTSS JV
+edw_restated_data2_screen_xw = f"""
 SELECT
     cal_date,
     country_alpha2,
@@ -3928,6 +3928,52 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM edw_data_with_updated_rdma_pl2 redw
 WHERE country_alpha2 <> 'XW'
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM edw_data_with_updated_rdma_pl2 redw
+WHERE country_alpha2 = 'XW'
+AND sales_product_number IN ('CISS', 'CTSS')
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+"""
+
+edw_restated_data2_screen_xw = spark.sql(edw_restated_data2_screen_xw)
+edw_restated_data2_screen_xw.createOrReplaceTempView("edw_restated_data2_screen_xw")
+
+
+edw_restated_data2 = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM edw_restated_data2_screen_xw redw
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
 """
 
@@ -4179,11 +4225,39 @@ FROM accounting_items cx
 WHERE 1=1
     AND sales_product_number = 'CISS'
     AND country_alpha2 LIKE 'X%'
+    AND country_alpha2 <> 'XW'
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split
 """
 
 cissx = spark.sql(cissx)
 cissx.createOrReplaceTempView("cissx")    
+
+
+cissxw = f"""
+SELECT
+    cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM accounting_items cx
+WHERE 1=1
+    AND sales_product_number = 'CISS'
+    AND country_alpha2 = 'XW'
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+cissxw = spark.sql(cissxw)
+cissxw.createOrReplaceTempView("cissxw") 
 
 
 cissx_fix = f"""
@@ -4228,6 +4302,26 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM ciss c
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM cissxw c
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
 
 UNION ALL
@@ -4327,11 +4421,39 @@ FROM accounting_items cx
 WHERE 1=1
     AND sales_product_number = 'CTSS'
     AND country_alpha2 LIKE 'X%'
+    AND country_alpha2 <> 'XW'
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split
 """
 
 ctssx = spark.sql(ctssx)
-ctssx.createOrReplaceTempView("ctssx")    
+ctssx.createOrReplaceTempView("ctssx")
+
+ctssxw = f"""
+SELECT
+    cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM accounting_items cx
+WHERE 1=1
+    AND sales_product_number = 'CTSS'
+    AND country_alpha2 = 'XW'
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+ctssxw = spark.sql(ctssxw)
+ctssxw.createOrReplaceTempView("ctssxw")  
+
 
 
 ctssx_fix = f"""
@@ -4377,6 +4499,26 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM ctss c
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM ctssxw c
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
 
 UNION ALL
