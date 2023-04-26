@@ -2332,6 +2332,122 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'NET REVENUE WORKING' AS record
+    , date_format(current_date(), 'yyyy-MM') AS cycle
+    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
+    , CAST(current_date() AS date) AS period_dt
+    , f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+    , nrpu.market10 AS market_10
+    , nrpu.region_5 AS region_5
+    , nrpu.platform_subset
+    , s.base_prod_name AS base_prod_name
+    , nrpu.base_product_number AS base_prod_number
+    , nrpu.customer_engagement
+    , 0 as yield
+    , hw.pl AS hw_pl
+    , hw.business_feature AS business_feature
+    , hw.hw_product_family
+    , hw.sf_mf AS sf_mf
+    , hw.format AS format
+    , hw.mono_color AS mono_color_devices
+    , hw.product_structure AS product_structure
+    , hw.vc_category
+    , s.supplies_pl AS supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , s.cartridge_alias
+    , s.type AS cartridge_type
+    , s.size AS cartridge_size
+    , s.single_multi
+    , s.crg_chrome
+    , s.crg_intro_dt
+    , '' AS trans_vs_contract
+    , '' AS p2j_identifier
+    , SUM(0) AS hw_fc_units
+    , SUM(0) AS ib_units
+    , SUM(0) AS trd_units_w
+    , SUM(0) AS pmf_units
+    , SUM(0) AS pmf_dollars
+    , SUM(0) AS expected_crgs_w
+    , SUM(0) AS spares_w
+    , SUM(0) AS channel_fill_w
+    , SUM(0) AS equiv_units_w
+    , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
+    , SUM(0) AS pgswmktshr_blackonly
+    , SUM(0) AS pgswomktshr_blackonly
+    , SUM(0) AS pgswmktshr_color
+    , SUM(0) AS pgswomktshr_color
+    , SUM(0) AS hp_crg_sz
+    , SUM(0) AS fiji_usd
+    , SUM(0) AS discount_pcnt
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(nrpu.net_revenue_per_unit * t.supplies_pmf) AS net_rev_trade
+    , SUM(0) AS pgswmktshr
+    , SUM(0) AS pgswomktshr
+    , SUM(0) AS fiji_color_mpv
+    , SUM(0) AS fiji_k_mpv
+    , SUM(0) AS fiji_mkt_shr
+    , SUM(0) AS supplies_base_qty
+    , SUM(0) AS supplies_equivalent_units
+    , SUM(0) AS wampv_k_mpv
+    , SUM(0) AS wampv_ib_units    
+    , SUM(0) AS hp_sell_in_pages_kcmy 
+    , SUM(0) AS hp_sell_in_pages_k_only
+FROM pivots_t_22_net_rev_per_unit AS nrpu
+JOIN pivots_15_units_pivot AS t 
+    ON nrpu.base_product_number = t.base_product_number
+    AND nrpu.platform_subset = t.platform_subset
+    AND nrpu.cal_date = t.cal_date
+    AND nrpu.market10 = t.market10
+    AND nrpu.customer_engagement = t.customer_engagement
+JOIN pivots_t_17_fiscal_calendar AS f
+    ON f.date = nrpu.cal_date
+JOIN pivots_t_19_hw_xref AS hw
+    ON hw.platform_subset = nrpu.platform_subset
+JOIN pivots_t_18_supplies_xref AS s
+    ON s.base_product_number = nrpu.base_product_number
+GROUP BY f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+    , nrpu.market10
+    , nrpu.region_5
+    , nrpu.platform_subset
+    , s.base_prod_name
+    , nrpu.base_product_number
+    , nrpu.customer_engagement
+    , hw.pl
+    , hw.business_feature
+    , hw.hw_product_family
+    , hw.sf_mf
+    , hw.format
+    , hw.mono_color
+    , hw.product_structure
+    , hw.vc_category
+    , s.supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , s.cartridge_alias
+    , s.type
+    , s.size
+    , s.single_multi
+    , s.crg_chrome
+    , s.crg_intro_dt
+    
+UNION ALL
+
+
+SELECT 'SUPPLIES FC/ACTUALS' AS record_type
+    , 'NET REVENUE WORKING' AS record
 
     , date_format(current_date(), 'yyyy-MM') AS cycle
     , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
