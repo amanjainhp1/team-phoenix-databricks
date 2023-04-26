@@ -29,7 +29,7 @@ elif technology == 'laser':
 
 user_list = {}
 user_list["ink"] = ['ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM']
-user_list["laser"] = ['GRETCHENB', 'GRETCHEN.BRUNNER@HP.COM', 'JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM']
+user_list["laser"] = ['JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM']
 
 technologies_list = {}
 technologies_list["ink"] = ['INK', 'PWA']
@@ -266,12 +266,14 @@ WITH dmd_01_ib_load AS
           , SUM(ib)                            AS IB
           , SUM(k_usage * hp_share * ib)       AS HP_K_PAGES
           , SUM(k_usage * (1 - hp_share) * ib) AS NON_HP_K_PAGES
-          , SUM(color_usage * hp_share * ib)   AS HP_C_PAGES
+          , SUM(color_usage * hp_share * ib)   AS HP_COLOR_PAGES
           , SUM(color_usage *
                 (1 - hp_share) *
-                ib)                            AS NON_HP_C_PAGES
-          , SUM(color_usage * ib)              AS TOTAL_C_PAGES
+                ib)                            AS NON_HP_COLOR_PAGES
+          , SUM(color_usage * ib)              AS TOTAL_HP_COLOR_PAGES
           , SUM(k_usage * ib)                  AS TOTAL_K_PAGES
+          , SUM(color_usage)                   AS COLOR_USAGE
+          , SUM(k_usage)                       AS K_USAGE
      FROM dmd_06_us_ib
      GROUP BY cal_date
             , geography
@@ -288,7 +290,7 @@ WITH dmd_01_ib_load AS
           , units
           , version
      FROM dmd_07_calcs UNPIVOT (
-                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_C_PAGES, NON_HP_C_PAGES, TOTAL_C_PAGES, TOTAL_K_PAGES)
+                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_HP_COLOR_PAGES, TOTAL_K_PAGES, COLOR_USAGE, K_USAGE)
          ) AS final_unpivot)
 
 SELECT 'DEMAND'           AS record
@@ -434,12 +436,14 @@ WITH dbd_01_ib_load AS
           , SUM(ib)                            AS IB
           , SUM(k_usage * hp_share * ib)       AS HP_K_PAGES
           , SUM(k_usage * (1 - hp_share) * ib) AS NON_HP_K_PAGES
-          , SUM(color_usage * hp_share * ib)   AS HP_C_PAGES
+          , SUM(color_usage * hp_share * ib)   AS HP_COLOR_PAGES
           , SUM(color_usage *
                 (1 - hp_share) *
-                ib)                            AS NON_HP_C_PAGES
-          , SUM(color_usage * ib)              AS TOTAL_C_PAGES
+                ib)                            AS NON_HP_COLOR_PAGES
+          , SUM(color_usage * ib)              AS TOTAL_COLOR_PAGES
           , SUM(k_usage * ib)                  AS TOTAL_K_PAGES
+          , SUM(color_usage)                   AS COLOR_USAGE
+          , SUM(k_usage)                       AS K_USAGE
      FROM dmd_06_us_ib
      GROUP BY cal_date
             , geography
@@ -454,7 +458,7 @@ WITH dbd_01_ib_load AS
           , measure
           , units
      FROM dmd_07_calcs UNPIVOT (
-                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_C_PAGES, NON_HP_C_PAGES, TOTAL_C_PAGES, TOTAL_K_PAGES)
+                                units FOR measure IN (IB, HP_K_PAGES, NON_HP_K_PAGES, HP_COLOR_PAGES, NON_HP_COLOR_PAGES, TOTAL_COLOR_PAGES, TOTAL_K_PAGES, COLOR_USAGE, K_USAGE)
          ) AS final_unpivot)
 
 SELECT dmd.cal_date
@@ -1039,7 +1043,7 @@ WITH pcm_02_hp_demand                                AS
                 THEN units END) AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)              AS cmy_demand
-     FROM scen.toner_03_usage_share AS d
+     FROM scen.{technology_label}_03_usage_share AS d
      JOIN mdm.hardware_xref AS hw
          ON hw.platform_subset = d.platform_subset
      WHERE 1 = 1
@@ -1148,7 +1152,7 @@ WITH pcm_02_hp_demand                                AS
          ON pf.base_product_number = v.base_product_number
          AND pf.cal_date = v.cal_date
          AND pf.market_10 = v.geography
-     JOIN scen.toner_shm_base_helper AS shm
+     JOIN scen.{technology_label}_shm_base_helper AS shm
          ON shm.base_product_number = v.base_product_number
          AND shm.platform_subset = v.platform_subset
          AND shm.customer_engagement = dmd.customer_engagement
@@ -1922,7 +1926,7 @@ SELECT m28.type
      , CAST(m28.cal_date AS VARCHAR) || ' ' || m28.geography || ' ' || m28.platform_subset || ' ' ||
        m28.base_product_number || ' ' || m28.customer_engagement AS composite_key
 FROM pcm_28_pages_ccs_mix_filter AS m28
-         JOIN scen.ink_shm_base_helper AS shm
+         JOIN scen.{technology_label}_shm_base_helper AS shm
               ON UPPER(shm.geography) = UPPER(m28.geography)
                   AND UPPER(shm.platform_subset) = UPPER(m28.platform_subset)
                   AND UPPER(shm.base_product_number) = UPPER(m28.base_product_number)
@@ -2148,7 +2152,7 @@ WITH crg_months               AS
                          THEN units END)                                      AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)                                                            AS cmy_demand
-     FROM scen.ink_03_usage_share AS d
+     FROM scen.{technology_label}_03_usage_share AS d
      JOIN mdm.hardware_xref AS hw
          ON UPPER(hw.platform_subset) = UPPER(d.platform_subset)
      WHERE 1 = 1
@@ -2696,7 +2700,7 @@ act_m10 AS (
 
 # COMMAND ----------
 
-update_page_cc_cartridges_table_query1 =  f"""
+update_page_cc_cartridges_table_query1 = f"""
 {update_page_cc_cartridges_table_ctes}
 
 UPDATE scen.{technology_label}_07_page_cc_cartridges
