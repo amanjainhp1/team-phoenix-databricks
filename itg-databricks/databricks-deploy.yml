@@ -8,7 +8,7 @@ resources:
     - repository: jobs
       type: githubenterprise
       name: supplies-bd/team-phoenix-databricks-jobs-config
-      endpoint: aul_migration
+      endpoint: ghe
 
 variables:
 - group: databricks-itg
