@@ -21,14 +21,14 @@ ref_segmentation.createOrReplaceTempView('ref_segmentation')
 
 # COMMAND ----------
 
-missing_platform_subsets = spark.sql("SELECT * FROM ref_segmentation rs LEFT JOIN hardware_xref hx ON UPPER(rs.platform_subset)=UPPER(hx.platform_subset) where hx.platform_subset IS NULL")
+missing_platform_subsets = spark.sql("SELECT * FROM ref_segmentation rs LEFT JOIN hardware_xref hx ON TRIM(UPPER(rs.platform_subset)) = TRIM(UPPER(hx.platform_subset)) where hx.platform_subset IS NULL")
 
 
 
 
 # COMMAND ----------
 
-# missing_platform_subsets.display()
+missing_platform_subsets.display()
 
 # COMMAND ----------
 
@@ -67,7 +67,7 @@ missing_platform_subsets = spark.sql("SELECT * FROM ref_segmentation rs LEFT JOI
 # MAGIC     TRUE as official,
 # MAGIC     now() as last_modified_date,
 # MAGIC     now() as load_date
-# MAGIC FROM ref_segmentation rs LEFT JOIN hardware_xref hx ON UPPER(rs.platform_subset)=UPPER(hx.platform_subset) where hx.platform_subset IS NULL
+# MAGIC FROM ref_segmentation rs LEFT JOIN hardware_xref hx ON TRIM(UPPER(rs.platform_subset)) = TRIM(UPPER(hx.platform_subset)) WHERE hx.platform_subset IS NULL
 # MAGIC                          
 
 # COMMAND ----------
@@ -86,4 +86,26 @@ write_df_to_redshift(configs, missing_platforms2, "mdm.hardware_xref", "append")
 
 submit_remote_query(configs, f"UPDATE mdm.hardware_xref SET technology = b.technology from mdm.product_line_xref b WHERE mdm.hardware_xref.pl = b.pl and mdm.hardware_xref.technology IS NULL")
 
+
+
+# COMMAND ----------
+
+# check that we didn't load any duplicates into Redshift
+hardware_xref_qa_query = """
+
+SELECT 
+    platform_subset, 
+    COUNT(platform_subset)
+FROM mdm.hardware_xref
+GROUP BY platform_subset
+HAVING COUNT(platform_subset) > 1
+
+"""
+
+
+hardware_xref_qa_records = read_redshift_to_df(configs) \
+    .option("query", hardware_xref_qa_query) \
+    .load()
+
+hardware_xref_qa_records.display()
 
