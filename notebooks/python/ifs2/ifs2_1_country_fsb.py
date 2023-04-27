@@ -107,7 +107,7 @@ norm_shipments = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.norm_shipments WHERE version = (select max(version) from prod.norm_shipments)") \
     .load()
 usage_share1 = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM prod.usage_share WHERE version = '{usage_share_version}'") \
+    .option("query", f"SELECT * FROM phoenix_spectrum_prod.usage_share WHERE version = '{usage_share_version}'") \
     .load()
 hardware_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.hardware_xref") \
@@ -122,7 +122,7 @@ yield_ = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.yield") \
     .load()
 forecast_supplies_baseprod = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM ifs2.forecast_supplies_baseprod WHERE version = '{forecast_supplies_baseprod_version}'") \
+    .option("query", f"SELECT * FROM fin_prod.forecast_supplies_baseprod WHERE version = '{forecast_supplies_baseprod_version}'") \
     .load()
 page_cc_mix = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.page_cc_mix WHERE version = '{page_cc_mix_version}'") \
@@ -153,20 +153,20 @@ calendar = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
- ['prod.usage_share1' , usage_share1],
- ['mdm.hardware_xref' , hardware_xref],
- ['mdm.supplies_xref' , supplies_xref],
- ['prod.decay_m13' , decay_m13],
- ['mdm.yield' , yield_],
+#  ['prod.usage_share1' , usage_share1],
+#  ['mdm.hardware_xref' , hardware_xref],
+#  ['mdm.supplies_xref' , supplies_xref],
+#  ['prod.decay_m13' , decay_m13],
+#  ['mdm.yield' , yield_],
  ['ifs2.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ['prod.page_cc_mix' , page_cc_mix],
- ['mdm.iso_country_code_xref' , iso_country_code_xref],
-# ['scen.working_forecast_country' , working_forecast_country],
-# ['prod.working_forecast_country' , working_forecast_country],
- ['prod.working_forecast' , working_forecast],
- ['mdm.supplies_hw_mapping', supplies_hw_mapping],
- ['prod.norm_shipments' , norm_shipments],
- ['ifs2.toner_host_yield' , toner_host_yield],
+#  ['prod.page_cc_mix' , page_cc_mix],
+#  ['mdm.iso_country_code_xref' , iso_country_code_xref],
+# # ['scen.working_forecast_country' , working_forecast_country],
+# # ['prod.working_forecast_country' , working_forecast_country],
+#  ['prod.working_forecast' , working_forecast],
+#  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
+#  ['prod.norm_shipments' , norm_shipments],
+#  ['ifs2.toner_host_yield' , toner_host_yield],
   ['mdm.calendar' , calendar]
 ]
 
@@ -181,12 +181,12 @@ for table in tables:
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
-#     df.write \
-#         .format(write_format) \
-#         .mode("overwrite") \
-#         .option("mergeSchema", "true") \
-#         .option("overwriteSchema", "true") \
-#         .save(save_path)
+    df.write \
+        .format(write_format) \
+        .mode("overwrite") \
+        .option("mergeSchema", "true") \
+        .option("overwriteSchema", "true") \
+        .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     
@@ -470,9 +470,9 @@ select usiut.record
                 , usiut.platform_subset
                 , shm.base_product_number
                 , crg_chrome
-                , case when (usiut.record = 'TONER' and crg_chrome = 'BLK') then 'BLACK'
-         when (usiut.record = 'TONER' and crg_chrome in ('CYN','MAG','YEL')) then 'COLOR'  -- work on MUL
-         when (usiut.record = 'TONER' and crg_chrome in ('DRUM')) then 'DRUM'
+                , case when (crg_chrome = 'BLK') then 'BLACK'
+         when (crg_chrome in ('CYN','MAG','YEL')) then 'COLOR'  -- work on MUL
+         when (crg_chrome in ('DRUM')) then 'DRUM'
         else 'NONE' end as crg_chrome_type
                 , usiut.customer_engagement
                 , hw_product_family
@@ -508,7 +508,7 @@ usage_share.createOrReplaceTempView("usage_share")
 
 # COMMAND ----------
 
-
+write_df_to_redshift(configs, usage_share, "ifs2.usage_share", "overwrite")
 
 # COMMAND ----------
 
@@ -863,15 +863,15 @@ select distinct fsb.record
 		, fsb.cal_date
 		, fsb.insights_base_units
 		, fsb.baseprod_gru
-		, fsb.baseprod_contra_perunit as baseprod_contra_per_unit 
-		, fsb.baseprod_variablecost_perunit as baseprod_variable_cost_per_unit
-		, fsb.baseprod_fixedcost_perunit as baseprod_fixed_cost_per_unit
+		, fsb.baseprod_contra_per_unit as baseprod_contra_per_unit 
+		, fsb.baseprod_variable_cost_per_unit as baseprod_variable_cost_per_unit
+		, fsb.baseprod_fixed_cost_per_unit as baseprod_fixed_cost_per_unit
 		, fsb.load_date
 		, fsb.version
 		, fsb.sales_gru_version
 		, fsb.contra_version
-		, fsb.variablecost_version as variable_cost_version
-		, fsb.fixedcost_version as fixed_cost_version
+		, fsb.variable_cost_version as variable_cost_version
+		, fsb.fixed_cost_version as fixed_cost_version
 from forecast_supplies_baseprod fsb
 left join mdm.supplies_hw_mapping shm
 on fsb.base_product_number = shm.base_product_number
@@ -1236,7 +1236,7 @@ ifs2.filter((col('platform_subset') == 'RUBY LITE 60 MANAGED') & (col('market10'
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ifs2, "ifs2.ifs2_country_fsb", "overwrite")
+write_df_to_redshift(configs, ifs2, "ifs2.ifs2_country_fsb_04_24", "overwrite")
 
 # COMMAND ----------
 

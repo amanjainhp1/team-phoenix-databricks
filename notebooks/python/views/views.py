@@ -652,7 +652,7 @@ query = """
 
 CREATE OR REPLACE VIEW financials.v_finance_forecast_PL AS
 
-       WITH Base_PL as
+  /*    WITH Base_PL as
        (
              SELECT 
                     'BASE_PRODUCT' record_type
@@ -714,6 +714,130 @@ CREATE OR REPLACE VIEW financials.v_finance_forecast_PL AS
                     END AS cartridge_printer_mix 
              FROM prod.working_forecast sup
              WHERE version = (select max(version) from prod.working_forecast)
+             AND sup.cal_date >= (SELECT MIN(cal_date) FROM fin_prod.forecast_supplies_baseprod) 
+             AND adjusted_cartridges <> 0
+             AND geography_grain = 'MARKET10'
+             GROUP BY sup.cal_date, geography, sup.platform_subset, base_product_number, adjusted_cartridges
+       )
+       
+             SELECT 
+                    record_type
+                    ,  product_number
+                    ,  product_line_code
+                    , base_pl.Technology
+                    , is_canon
+                    , mix.platform_subset
+                    , hw_product_family
+                    , supplies_family
+                    , region_5
+                    , country_alpha2
+                    , base_pl.market10
+                    , base_pl.cal_date
+                    , fiscal_year_qtr
+                    , fiscal_year_half
+                    , fiscal_yr
+                    , coalesce(units, 0) * coalesce(cartridge_printer_mix, 0) units
+                    , coalesce(gross_revenue, 0) * coalesce(cartridge_printer_mix, 0) gross_revenue
+                    , coalesce(contra, 0) * coalesce(cartridge_printer_mix, 0) contra
+                    , coalesce(revenue_currency, 0) * coalesce(cartridge_printer_mix, 0) revenue_currency
+                    , coalesce(net_revenue, 0) * coalesce(cartridge_printer_mix, 0) net_revenue
+                    , coalesce(variable_cost, 0) * coalesce(cartridge_printer_mix, 0) variable_cost
+                    , coalesce(contribution_margin, 0) * coalesce(cartridge_printer_mix, 0) contribution_margin
+                    , coalesce(fixed_cost, 0) * coalesce(cartridge_printer_mix, 0) fixed_cost
+                    , coalesce(gross_profit, 0) * coalesce(cartridge_printer_mix, 0) gross_profit
+                    , contra_version
+                    , variable_cost_version
+                    , acct_rates_version
+                    , lp_gpsy_version
+             FROM Base_PL base_pl
+             inner join cartridge_printer_mix mix
+                    on base_pl.cal_date = mix.cal_date
+                    and base_pl.market10 = mix.market10
+                    and product_number = base_product_number
+             inner join mdm.hardware_xref hw 
+                    on mix.platform_subset = hw.platform_subset;
+*/
+
+
+
+       WITH Base_PL as
+       (
+             SELECT 
+                    'BASE_PRODUCT' record_type
+                    , forecast_supplies_baseprod.base_product_number product_number
+                    , base_product_line_code product_line_code
+                    , supplies_xref.technology
+                    , supplies_xref.supplies_family
+                    , CASE 
+                           WHEN (base_product_line_code in ('5T', 'GJ', 'GK', 'GP', 'IU', 'LS')) THEN 1
+                           ELSE 0
+                      END AS is_canon
+                    , iso_country_code_xref.region_5
+                    , iso_country_code_xref.country_alpha2
+                    , iso_country_code_xref.market10
+                    , cal_date
+                    , calendar.fiscal_year_qtr
+                    , calendar.fiscal_year_half
+                    , calendar.fiscal_yr
+                    , insights_base_units units
+                    , coalesce(baseprod_gru, 0) * coalesce(insights_base_units, 0) gross_revenue
+                    , coalesce(baseprod_contra_per_unit, 0) * coalesce(insights_base_units, 0) contra
+                    , coalesce(baseprod_revenue_currency_hedge_unit, 0) * coalesce(insights_base_units, 0) revenue_currency
+                    , ((coalesce(baseprod_gru, 0) - coalesce(baseprod_contra_per_unit, 0) + coalesce(baseprod_revenue_currency_hedge_unit, 0))*coalesce(insights_base_units, 0)) net_revenue
+                    , coalesce(baseprod_variable_cost_per_unit, 0) * coalesce(insights_base_units, 0) variable_cost
+                    , ((coalesce(baseprod_gru, 0) - coalesce(baseprod_contra_per_unit, 0) + coalesce(baseprod_revenue_currency_hedge_unit, 0) - coalesce(baseprod_variable_cost_per_unit, 0))*coalesce(insights_base_units, 0)) contribution_margin
+                    , coalesce(baseprod_fixed_cost_per_unit, 0) * coalesce(insights_base_units, 0) fixed_cost
+                    , ((coalesce(baseprod_gru, 0) - coalesce(baseprod_contra_per_unit, 0) + coalesce(baseprod_revenue_currency_hedge_unit, 0) - coalesce(baseprod_variable_cost_per_unit, 0) - coalesce(baseprod_fixed_cost_per_unit, 0))*coalesce(insights_base_units, 0)) gross_profit
+                    , forecast_supplies_baseprod.contra_version
+                    , forecast_supplies_baseprod.variable_cost_version
+                    , lpv.acct_rates_version
+                    , lpv.lp_gpsy_version
+             FROM fin_prod.forecast_supplies_baseprod forecast_supplies_baseprod
+             inner join
+             mdm.iso_country_code_xref iso_country_code_xref
+             on forecast_supplies_baseprod.country_alpha2 = iso_country_code_xref.country_alpha2
+             and forecast_supplies_baseprod.version = (select max(version) from fin_prod.forecast_supplies_baseprod)
+             inner join
+             mdm.calendar calendar
+             on calendar.Date = forecast_supplies_baseprod.cal_date
+             inner join
+             mdm.supplies_xref supplies_xref
+             on supplies_xref.base_product_number = forecast_supplies_baseprod.base_product_number
+             inner join
+             fin_prod.list_price_version lpv
+             on lpv.version = forecast_supplies_baseprod.sales_gru_version
+                    
+       ) 
+       ,
+       cartridge_printer_mix AS
+       (
+             SELECT 
+                    sup.cal_date,
+                    geography AS market10,
+                    sup.platform_subset,
+                    base_product_number,
+                    CASE
+                           WHEN SUM(adjusted_cartridges) OVER (PARTITION BY cal_date, geography, base_product_number) = 0 THEN NULL
+                           ELSE adjusted_cartridges / SUM(adjusted_cartridges) OVER (PARTITION BY cal_date, geography, base_product_number)
+                    END AS cartridge_printer_mix 
+             FROM prod.working_forecast sup
+             inner join mdm.hardware_xref hx
+             on sup.platform_subset = hx.platform_subset
+             WHERE (hx.technology = 'LASER' 
+             and version = 
+             (	select max(version) from prod.working_forecast wf inner join mdm.hardware_xref hxf
+             	on wf.platform_subset = hxf.platform_subset
+             	WHERE hxf.technology = 'LASER'
+             )
+             ) or
+             (
+             hx.technology in ('INK','PWA') 
+             and version = 
+             (	select max(version) from prod.working_forecast wf inner join mdm.hardware_xref hxf
+             	on wf.platform_subset = hxf.platform_subset
+             	WHERE hxf.technology in ('INK','PWA')
+             )
+             )
              AND sup.cal_date >= (SELECT MIN(cal_date) FROM fin_prod.forecast_supplies_baseprod) 
              AND adjusted_cartridges <> 0
              AND geography_grain = 'MARKET10'
@@ -998,8 +1122,116 @@ submit_remote_query(configs, query)
 # COMMAND ----------
 
 query = '''
-Drop view financials.act_plus_fcst_financials_modified_vw
+Drop view financials.v_finance_forecast_PL
 '''
+
+submit_remote_query(configs, query)
+
+# COMMAND ----------
+
+query = """
+CREATE OR REPLACE VIEW ifs2.host_yield_usage_vw AS 
+(
+--host yield for ink
+
+with y1 as (
+SELECT distinct 
+	y.record
+    ,geography
+      ,y.base_product_number
+  ,sup.cartridge_alias
+  ,sup.type
+  ,sup.crg_chrome
+  ,sup.k_color
+  ,sup.size
+  ,sup.supplies_family
+  ,sup.supplies_group
+  ,value
+  ,effective_date
+  ,version as yield_version
+  ,ROW_NUMBER() over( partition by y.base_product_number, y.geography order by y.effective_date desc) as rn
+  FROM mdm.yield as y
+  left join mdm.supplies_xref as sup on sup.base_product_number = y.base_product_number 
+  where sup.official = 1
+  and geography_grain = 'REGION_5'
+  --where effective_date < (add_months(current_date ,-1)) 
+ )
+ ,  yield_region as (
+  select distinct y.*
+  from y1 y
+  where y.rn = 1
+  order by y.base_product_number
+  	, y.effective_date
+  	) 
+ , yield_ps as 
+ (
+	select distinct yr.geography 
+		, yr.base_product_number
+		, crg_chrome
+		, yr.cartridge_alias
+		, yr.type
+		, shm.host_multiplier 
+		, shm.platform_subset
+		,k_color
+		, shm.customer_engagement 
+		, value as value
+		, yr.effective_date
+		, yr.yield_version
+	from yield_region yr
+	left join mdm.supplies_hw_mapping shm 
+		on yr.base_product_number = shm.base_product_number 
+        and yr.geography = shm.geography
+	where shm.official = 1
+)
+, host_yield as 
+(
+	select cartridge_alias as host_cartridge_alias ,geography, platform_subset, crg_chrome, customer_engagement ,value as host_yield 
+	from yield_ps
+	where host_multiplier > 0
+	and crg_chrome not in ('HEAD','NA')
+)
+, all_ps as
+(
+select distinct  ns.platform_subset 
+from prod.norm_shipments ns
+inner join mdm.hardware_xref hx
+on ns.platform_subset = hx.platform_subset
+where ns.cal_date between '2022-11-01' and '2023-10-31'
+and version = (select max(version) from prod.norm_shipments)
+and hx.technology in ('INK')
+and hx.product_lifecycle_status in ('C','N')
+and hx.official = 1
+)
+select 'INK' as record
+    ,hy.*
+    ,SUM(hy.host_yield) over (partition by geography, hy.platform_subset, hy.customer_engagement, crg_chrome_type) as sum_host_yield
+    ,sx.base_product_number
+    ,us.usage
+    ,SUM(us.usage) over (partition by geography, hy.platform_subset, hy.customer_engagement, crg_chrome_type) as sum_usage
+    ,(SUM(hy.host_yield) over (partition by geography, hy.platform_subset, hy.customer_engagement, crg_chrome_type)/SUM(us.usage) over (partition by geography, hy.platform_subset, hy.customer_engagement, crg_chrome_type)) as host
+    ,us.crg_chrome_type
+    from host_yield hy
+inner join all_ps ps
+on hy.platform_subset = ps.platform_subset
+--and hy.base_product_number =  us.base_product_number
+--and hy.customer_engagement = us.customer_engagement
+--and hy.geography = us.region_5
+inner join mdm.supplies_xref sx
+on hy.host_cartridge_alias = sx.cartridge_alias
+inner join 
+(
+select record, region_5, platform_subset, base_product_number, crg_chrome, crg_chrome_type, customer_engagement, max(usage) as usage from ifs2.usage_share
+group by record, region_5, platform_subset, base_product_number, crg_chrome, crg_chrome_type, customer_engagement
+) us
+on sx.base_product_number = us.base_product_number
+and hy.geography = us.region_5
+and hy.platform_subset = us.platform_subset
+and hy.customer_engagement = us.customer_engagement
+
+);
+
+GRANT ALL ON TABLE ifs2.host_yield_usage_vw TO GROUP phoenix_dev;
+"""
 
 submit_remote_query(configs, query)
 
