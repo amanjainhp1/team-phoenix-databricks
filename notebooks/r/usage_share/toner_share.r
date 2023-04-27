@@ -460,6 +460,7 @@ product_ib2 <- sqldf("
               , pib.cal_date
               , pib.month_begin
               , pib.fyearmo
+              , pib.RTM
               , CASE WHEN SUBSTR(pib.fyearmo,5,2) IN ('01','02','03') THEN SUBSTR(pib.fyearmo,1,4)||'Q1'
                       WHEN SUBSTR(pib.fyearmo,5,2) IN ('04','05','06') THEN SUBSTR(pib.fyearmo,1,4)||'Q2'
                       WHEN SUBSTR(pib.fyearmo,5,2) IN ('07','08','09') THEN SUBSTR(pib.fyearmo,1,4)||'Q3'
@@ -1905,6 +1906,7 @@ final_list2 <- SparkR::sql("
                       , b.market10
                       , b.FYearQtr AS Fiscal_Quarter
                       , c.tot_ib AS IB
+                      , c.RTM as customer_engagement
                       , b.FYearMo
                       , b.rFyearQtr
                       , b.FYear
