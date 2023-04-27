@@ -360,7 +360,7 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_{technology_label}  AS us
+     FROM prod.usage_share  AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
