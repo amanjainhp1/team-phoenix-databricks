@@ -1,12 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Toner Pivots
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Common Libraries
 
 # COMMAND ----------
@@ -24,7 +24,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Load Delta Lake Tables
 
 # COMMAND ----------
@@ -43,18 +43,8 @@ tables = [
 
 # COMMAND ----------
 
-spark.sql("""
-select distinct record, version, count(*)
-from prod.trade_forecast
-where version = (select max(version) from prod.trade_forecast)
-group by record, version
-order by version desc
-""").show()
-
-# COMMAND ----------
-
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Toner Pivots Library/Common Models
 
 # COMMAND ----------
@@ -118,10 +108,6 @@ filter_vars.createOrReplaceTempView("pivots_lib_01_filter_vars")
 
 # COMMAND ----------
 
-spark.sql("""select * from pivots_lib_01_filter_vars""").show()
-
-# COMMAND ----------
-
 geo_mapping = spark.sql("""
 SELECT 'CENTRAL EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
 SELECT 'GREATER ASIA' AS market_10, 'AP' AS region_5 UNION ALL
@@ -140,7 +126,7 @@ geo_mapping.createOrReplaceTempView("pivots_lib_02_geo_mapping")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Toner Pivots Models
 
 # COMMAND ----------
@@ -1293,6 +1279,7 @@ GROUP BY apf.cal_date
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1409,6 +1396,7 @@ SELECT 'HW SHIPS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1510,6 +1498,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1632,6 +1621,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1759,6 +1749,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(wf.vtc) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1883,6 +1874,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(p.pgs_w_mktshr_blk) AS pgswmktshr_blackonly
     , SUM(p.pgs_wo_mktshr_blk) AS pgswomktshr_blackonly
     , SUM(p.pgs_w_mktshr_kcmy) AS pgswmktshr_color
@@ -2007,6 +1999,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2133,6 +2126,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2256,6 +2250,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2381,6 +2376,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2509,6 +2505,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2635,6 +2632,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2741,8 +2739,9 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS channel_fill_w
     , SUM(0) AS equiv_units_w
     , SUM(0) AS vtc_w
-    , asb.revenue_units AS rev_units_nt
-    , asb.equivalent_units AS equiv_units_nt
+    , SUM(asb.revenue_units) AS rev_units_nt
+    , SUM(asb.equivalent_units) AS equiv_units_nt
+	, SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2810,6 +2809,112 @@ GROUP BY f.date
     , s.crg_intro_dt
     , asb.revenue_units
     , asb.equivalent_units
+
+UNION 
+
+SELECT 'SUPPLIES FC/ACTUALS' AS record_type
+    , 'NON-TRADE REVENUE' AS record
+    , date_format(current_date(), 'yyyy-MM') AS cycle
+    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
+    , CAST(current_date() AS DATE) AS period_dt
+    , f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+    , asb.market10 AS market_10
+    , geo.region_5
+    , asb.platform_subset
+    , null AS base_prod_name
+    , asb.base_product_number AS base_prod_number
+    , asb.customer_engagement
+    , 0 as yield
+    , hw.pl AS hw_pl
+    , hw.business_feature AS business_feature
+    , hw.hw_product_family
+    , hw.sf_mf AS sf_mf
+    , hw.format AS format
+    , hw.mono_color AS mono_color_devices
+    , hw.product_structure AS product_structure
+    , hw.vc_category
+    , asb.pl AS supplies_pl
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , null as cartridge_alias
+    , null AS cartridge_type
+    , null AS cartridge_size
+    , null as single_multi
+    , null as crg_chrome
+    , null as crg_intro_dt
+    , '' AS trans_vs_contract
+    , '' AS p2j_identifier
+    , SUM(0) AS hw_fc_units
+    , SUM(0) AS ib_units
+    , SUM(0) AS trd_units_w
+    , SUM(0) AS pmf_units
+    , SUM(0) AS pmf_dollars
+    , SUM(0) AS expected_crgs_w
+    , SUM(0) AS spares_w
+    , SUM(0) AS channel_fill_w
+    , SUM(0) AS equiv_units_w
+    , SUM(0) AS vtc_w
+    , SUM(0) AS rev_units_nt
+    , SUM(0) AS equiv_units_nt
+    , SUM(asb.net_revenue) as revenue_nt
+    , SUM(0) AS pgswmktshr_blackonly
+    , SUM(0) AS pgswomktshr_blackonly
+    , SUM(0) AS pgswmktshr_color
+    , SUM(0) AS pgswomktshr_color
+    , SUM(0) AS hp_crg_sz
+    , SUM(0) AS fiji_usd
+    , SUM(0) AS discount_pcnt
+    , SUM(0) AS gross_rev_w
+    , SUM(0) AS net_rev_w
+    , SUM(0) AS net_rev_trade
+    , SUM(0) AS pgswmktshr
+    , SUM(0) AS pgswomktshr
+    , SUM(0) AS fiji_color_mpv
+    , SUM(0) AS fiji_k_mpv
+    , SUM(0) AS fiji_mkt_shr
+    , SUM(0) AS supplies_base_qty
+    , SUM(0) AS supplies_equivalent_units
+    , SUM(0) AS wampv_k_mpv
+    , SUM(0) AS wampv_ib_units    
+    , SUM(0) AS hp_sell_in_pages_kcmy 
+    , SUM(0) AS hp_sell_in_pages_k_only
+FROM fin_prod.actuals_supplies_baseprod asb
+JOIN pivots_t_17_fiscal_calendar AS f
+    ON f.date = asb.cal_date
+LEFT JOIN pivots_t_19_hw_xref AS hw
+    ON hw.platform_subset = asb.platform_subset
+JOIN pivots_lib_02_geo_mapping AS geo
+    ON geo.market_10 = asb.market10
+WHERE asb.base_product_number = 'EST_MPS_REVENUE_JV'
+GROUP BY f.date
+    , f.fiscal_year_qtr
+    , f.fiscal_yr
+    , f.calendar_yr_qtr
+    , f.calendar_yr
+    , asb.market10
+    , geo.region_5
+    , asb.platform_subset
+    , asb.base_product_number
+    , asb.customer_engagement
+    , hw.pl
+    , hw.business_feature
+    , hw.hw_product_family
+    , hw.sf_mf
+    , hw.format
+    , hw.mono_color
+    , hw.product_structure
+    , hw.vc_category
+    , hw.crg_pl_name
+    , hw.crg_category
+    , hw.crg_business
+    , asb.revenue_units
+    , asb.equivalent_units
+    , asb.pl
 """.format(pivots_start, pivots_end))
 
 combined.createOrReplaceTempView("pivots_18_combined")
