@@ -2463,7 +2463,7 @@ mdm_tbl_share <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Share_Source_PS as data_source
@@ -2483,7 +2483,7 @@ mdm_tbl_usage <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2504,7 +2504,7 @@ mdm_tbl_usagen <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , 'n' as data_source
@@ -2525,7 +2525,7 @@ mdm_tbl_sharen <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , 'n' as data_source
@@ -2546,7 +2546,7 @@ mdm_tbl_kusage <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2567,7 +2567,7 @@ mdm_tbl_cusage <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2588,7 +2588,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2609,7 +2609,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2630,7 +2630,7 @@ mdm_tbl_pages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2651,7 +2651,7 @@ mdm_tbl_hppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2672,7 +2672,7 @@ mdm_tbl_khppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2693,7 +2693,7 @@ mdm_tbl_chppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2714,7 +2714,7 @@ mdm_tbl_knhppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2735,7 +2735,7 @@ mdm_tbl_cnhppages <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
@@ -2756,7 +2756,7 @@ mdm_tbl_ib <- SparkR::sql(paste0("select distinct
                 , '",geog1,"' as geography_grain
                 , Country_Cd as geography
                 , Platform_Subset_Nm as platform_subset
-                , 'Trad' as customer_engagement
+                , customer_engagement
                 , '' as forecast_process_note
                 , '",today,"' as forecast_created_date
                 , Usage_Source as data_source
