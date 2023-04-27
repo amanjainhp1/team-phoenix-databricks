@@ -1279,7 +1279,7 @@ GROUP BY apf.cal_date
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1396,7 +1396,7 @@ SELECT 'HW SHIPS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1498,7 +1498,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1621,7 +1621,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1749,7 +1749,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(wf.vtc) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -1874,7 +1874,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(p.pgs_w_mktshr_blk) AS pgswmktshr_blackonly
     , SUM(p.pgs_wo_mktshr_blk) AS pgswomktshr_blackonly
     , SUM(p.pgs_w_mktshr_kcmy) AS pgswmktshr_color
@@ -1999,7 +1999,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2126,7 +2126,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2250,7 +2250,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2376,7 +2376,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2505,7 +2505,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2632,7 +2632,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(0) AS rev_units_nt
     , SUM(0) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
@@ -2741,7 +2741,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS vtc_w
     , SUM(asb.revenue_units) AS rev_units_nt
     , SUM(asb.equivalent_units) AS equiv_units_nt
-	, SUM(0) as revenue_nt
+    , SUM(0) as revenue_nt
     , SUM(0) AS pgswmktshr_blackonly
     , SUM(0) AS pgswomktshr_blackonly
     , SUM(0) AS pgswmktshr_color
