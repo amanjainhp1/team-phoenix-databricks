@@ -42,7 +42,7 @@ def join_list(list_to_join: list) -> str:
     return '\'' + '\',\''.join(list_to_join) + '\''
 
 users = join_list(user_list[technology])
-technologies_list = join_list(technologies_list[technology])
+technologies = join_list(technologies_list[technology])
 
 # COMMAND ----------
 
@@ -148,7 +148,7 @@ WITH dmd_01_ib_load AS
      WHERE 1 = 1
        AND ib.version = '{ib_version}'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
 
    , dmd_02_ib AS
@@ -187,7 +187,7 @@ WITH dmd_01_ib_load AS
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
        AND us.cal_date > CAST('2015-10-01' AS DATE))
 
    , dmd_04_us_agg AS
@@ -331,7 +331,7 @@ WITH dbd_01_ib_load AS
      WHERE 1 = 1
        AND ib.version = '{ib_version}'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
 
    , dmd_02_ib AS
@@ -369,7 +369,7 @@ WITH dbd_01_ib_load AS
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
        AND us.cal_date > CAST('2015-10-01' AS DATE))
 
    , dmd_04_us_agg AS
@@ -524,7 +524,7 @@ WITH override_filters  AS
              us_scen.customer_engagement
          AND us.measure = us_scen.measure
      WHERE 1 = 1
-       AND hw.technology IN ({technologies_list})
+       AND hw.technology IN ({technologies})
        AND us_scen.platform_subset IS NULL
        AND us_scen.geography IS NULL
        AND us_scen.customer_engagement IS NULL
@@ -1682,7 +1682,7 @@ WITH crg_months            AS
        AND UPPER(cmo.geography_grain) = 'REGION_5'
        AND NOT UPPER(sup.crg_chrome) IN ('HEAD', 'UNK')
        AND UPPER(hw.product_lifecycle_status) = 'N'
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
        AND CAST(cmo.load_date AS DATE) > '2021-11-15')
 
    , prod_crg_mix_market10 AS
@@ -1725,7 +1725,7 @@ WITH crg_months            AS
        AND UPPER(cmo.geography_grain) = 'MARKET10'
        AND NOT UPPER(sup.crg_chrome) IN ('HEAD', 'UNK')
        AND UPPER(hw.product_lifecycle_status) = 'N'
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
        AND CAST(cmo.load_date AS DATE) > '2021-11-15')
 
    , prod_crg_mix          AS
@@ -1864,7 +1864,7 @@ WITH pcm_27_pages_ccs_mix_prep AS
         JOIN mdm.hardware_xref AS hw
             ON hw.platform_subset = m26.platform_subset
         WHERE 1=1
-        AND hw.technology IN ({technologies_list})
+        AND hw.technology IN ({technologies})
     )
 
    , pcm_28_pages_ccs_mix_filter AS
@@ -2156,7 +2156,7 @@ WITH crg_months               AS
      JOIN mdm.hardware_xref AS hw
          ON UPPER(hw.platform_subset) = UPPER(d.platform_subset)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
      GROUP BY d.cal_date
             , d.geography
             , d.platform_subset
@@ -2213,7 +2213,7 @@ WITH crg_months               AS
          AND UPPER(shm.platform_subset) = UPPER(v.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(dmd.customer_engagement)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ({technologies_list})
+       AND UPPER(hw.technology) IN ({technologies})
     )
 
    , pcrg_01_k_acts           AS
