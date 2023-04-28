@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_mix
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. shm_base_helper
 # MAGIC   2. cartridge_units
@@ -18,7 +18,7 @@
 # MAGIC   6. page_mix_complete
 # MAGIC   7. cc_mix_complete
 # MAGIC   8. page_cc_mix
-# MAGIC 
+# MAGIC
 # MAGIC Detail:
 # MAGIC + shm_base_helper 
 # MAGIC   + scrubbed data from supplies_hw_mapping
@@ -87,8 +87,20 @@
 
 # COMMAND ----------
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('ib_version', '') # installed base version
+dbutils.widgets.text('usage_share_toner_version', '') # usage-share toner version
+dbutils.widgets.text('usage_share_ink_version', '') # usage-share ink version
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
+
+# retrieve widget values and assign to variables
+ib_version = dbutils.widgets.get('ib_version')
+usage_share_toner_version = dbutils.widgets.get('usage_share_toner_version')
+usage_share_ink_version = dbutils.widgets.get('usage_share_ink_version')
 
 # COMMAND ----------
 
@@ -228,7 +240,7 @@ query_list.append(["stage.cartridge_units", cartridge_units, "overwrite"])
 
 # COMMAND ----------
 
-demand = """
+demand = f"""
 WITH dbd_01_ib_load AS
     (SELECT ib.cal_date
           , ib.platform_subset
@@ -242,7 +254,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = ('2023.03.23.1')
+       AND ib.version = ({ib_version})
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -272,11 +284,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_toner AS us
+     FROM prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = ('2023.03.28.1')
+       AND us.version = ({usage_share_toner_version})
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -299,11 +311,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_ink AS us
+     FROM prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = ('2023.03.28.1')
+       AND us.version = ({usage_share_ink_version })
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'

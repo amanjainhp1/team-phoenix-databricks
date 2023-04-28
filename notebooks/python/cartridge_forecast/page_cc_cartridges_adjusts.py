@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_cartridges_adjusts
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. analytic
 # MAGIC   2. channel_fill
@@ -19,13 +19,25 @@
 
 # COMMAND ----------
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('ib_version', '') # installed base version
+dbutils.widgets.text('norm_shipments_version', '') # norm_shipments version
+dbutils.widgets.text('norm_shipments_ce_version', '') # norm_shipments_ce version
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
+
+# retrieve widget values and assign to variables
+ib_version = dbutils.widgets.get('ib_version')
+norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
+norm_shipments_ce_versio = dbutils.widgets.get('norm_shipments_ce_version')
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## analytic
 
 # COMMAND ----------
@@ -152,7 +164,7 @@ query_list.append(["stage.analytic", analytic, "overwrite"])
 
 # COMMAND ----------
 
-channel_fill = """
+channel_fill = f"""
 WITH cfadj_01_c2c AS
     (SELECT c2c.cal_date
           , hw.intro_date                                                                                            AS hw_intro_date
@@ -198,7 +210,7 @@ WITH cfadj_01_c2c AS
                    ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = {norm_shipments_version}
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -340,7 +352,7 @@ query_list.append(["stage.channel_fill", channel_fill, "overwrite"])
 
 # COMMAND ----------
 
-supplies_spares = """
+supplies_spares = f"""
 WITH crg_months AS
     (SELECT date_key
           , [date] AS cal_date
@@ -437,7 +449,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '2023.03.23.1'
+        AND ns.version = {norm_shipments_version}
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -688,12 +700,12 @@ query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## host_cartridges
 
 # COMMAND ----------
 
-host_cartridges = """
+host_cartridges = f"""
 WITH shm_07_geo_1_host AS
     (SELECT DISTINCT shm.platform_subset
                    , shm.base_product_number
@@ -760,7 +772,7 @@ WITH shm_07_geo_1_host AS
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
                        AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = {norm_shipments_ce_version}
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -919,12 +931,12 @@ query_list.append(["stage.host_cartridges", host_cartridges, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## welcome_kits
 
 # COMMAND ----------
 
-welcome_kits = """ 
+welcome_kits = f""" 
 WITH wel_01_stf_enroll AS
     (SELECT iiel.platform_subset
           , CAST('I-INK' AS VARCHAR(25))       AS customer_engagement
@@ -959,7 +971,7 @@ WITH wel_01_stf_enroll AS
               LEFT JOIN mdm.iso_country_code_xref AS iso
                         ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = '2023.03.23.1'
+       AND ib.version = {ib_version}
        AND ib.cal_date > CAST('2023-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -1029,12 +1041,12 @@ query_list.append(["stage.welcome_kits", welcome_kits, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## vtc
 
 # COMMAND ----------
 
-vtc = """
+vtc = f"""
 WITH vtc_01_analytic_cartridges AS
     (SELECT cal_date
           , geography
@@ -1060,7 +1072,7 @@ WITH vtc_01_analytic_cartridges AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = {norm_shipments_version}
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
