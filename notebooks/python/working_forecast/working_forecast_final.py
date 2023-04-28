@@ -36,7 +36,7 @@ def join_list(list_to_join: list) -> str:
     return '\'' + '\',\''.join(list_to_join) + '\''
 
 users = join_list(user_list[technology])
-technologies_list = join_list(technologies_list[technology])
+technologies = join_list(technologies_list[technology])
 
 # COMMAND ----------
 
@@ -81,7 +81,7 @@ WITH date_helper           AS
          ON UPPER(sup.base_product_number) =
             UPPER(c2c.base_product_number)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ({technologies_list}))
+       AND UPPER(hw.technology) IN ({technologies}))
 
    , ana_03_c2c_fill_gap_1 AS
     (SELECT DISTINCT d.cal_date AS cal_date
@@ -187,7 +187,7 @@ WITH cfadj_01_c2c                AS
      JOIN mdm.hardware_xref AS hw
          ON UPPER(hw.platform_subset) = UPPER(c2c.platform_subset)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ({technologies_list}))
+       AND UPPER(hw.technology) IN ({technologies}))
 
    , cfadj_04_c2c_avg_ship       AS
     (SELECT c2c.geography_grain
@@ -1445,7 +1445,7 @@ toner_wf_cte = f"""
          AND pf.base_product_number = vtc.base_product_number
      WHERE 1 = 1
        AND vtc.cal_date <= (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
-       AND hw.technology IN ({technologies_list}) 
+       AND hw.technology IN ({technologies}) 
        
        UNION 
     
@@ -1519,7 +1519,7 @@ toner_wf_cte = f"""
          AND pf.base_product_number = vtc.base_product_number
      WHERE 1 = 1 
        AND vtc.cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
-       AND hw.technology IN ({technologies_list})
+       AND hw.technology IN ({technologies})
 
      UNION ALL
 
@@ -1575,7 +1575,7 @@ toner_wf_cte = f"""
          AND pf.cal_date = cf.cal_date
          AND pf.base_product_number = cf.base_product_number
      WHERE 1 = 1
-       AND hw.technology IN ({technologies_list})
+       AND hw.technology IN ({technologies})
        AND cf.channel_fill > 0
        AND vtc.geography IS NULL
        AND vtc.cal_date IS NULL
@@ -1657,7 +1657,7 @@ ink_wf_cte = f"""
          AND pf.cal_date = vtc.cal_date
          AND pf.base_product_number = vtc.base_product_number
      WHERE 1 = 1
-       AND hw.technology IN ({technologies_list})
+       AND hw.technology IN ({technologies})
 
      UNION ALL
 
@@ -1715,7 +1715,7 @@ ink_wf_cte = f"""
          AND pf.cal_date = cf.cal_date
          AND pf.base_product_number = cf.base_product_number
      WHERE 1 = 1
-       AND hw.technology IN ({technologies_list})
+       AND hw.technology IN ({technologies})
        AND cf.channel_fill > 0
        AND vtc.geography IS NULL
        AND vtc.cal_date IS NULL
@@ -1766,7 +1766,7 @@ WITH geography_mapping   AS
                    , xref.epa_family        AS epa_family
      FROM mdm.hardware_xref AS xref
      WHERE 1 = 1
-       AND xref.technology IN ({technologies_list}))
+       AND xref.technology IN ({technologies}))
 
    , wf_supplies_xref AS
     (SELECT DISTINCT s.base_product_number
@@ -1789,7 +1789,7 @@ WITH geography_mapping   AS
             END AS cartridge_type
      FROM mdm.supplies_xref AS s
      WHERE 1 = 1
-       AND s.technology IN ({technologies_list}))
+       AND s.technology IN ({technologies}))
 
    , country_code_xref   AS
     (SELECT DISTINCT market10
