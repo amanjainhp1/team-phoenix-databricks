@@ -2446,7 +2446,7 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 final_list8$dm_version <- dm_version
-today <- datestamp
+today <- as.character(datestamp)
 vsn <- '2022.01.19.1'  #for DUPSM
 rec1 <- 'usage_share'
 geog1 <- 'country'
