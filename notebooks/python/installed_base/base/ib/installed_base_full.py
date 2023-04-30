@@ -536,28 +536,26 @@ SELECT iiel.platform_subset
     , cast('I-INK' as char(50)) AS split_name
     , cast('IINK_ENROLLEES' as char(50)) AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
-    , iiel.year_fiscal
-    , iiel.year_month AS month_begin
-    , iiel.data_source
+    , iiel.fiscal_yr year_fiscal
+    , iiel.cal_date AS month_begin
     , iiel.country AS country_alpha2
     , cc.region_5
     , cc.market10
-    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_mod
-    , SUM(iiel.cum_enrollees_month) AS cum_enrollees_month
-FROM "prod"."instant_ink_enrollees" AS iiel
+    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_unmod
+    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_mod
+    , SUM(iiel.cumulative_enrollees) AS cum_enrollees_month
+FROM "prod"."instant_ink_enrollees_stf" AS iiel
 JOIN "mdm"."calendar" AS c
-        on c.Date = iiel.year_month
+        on c.Date = iiel.cal_date
 JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iiel.country
 WHERE 1=1
     AND iiel.official = 1
-   -- AND (iiel.p2_kitless_enrollments +  iiel.printer_sell_out_units + iiel.cum_enrollees_month) != 0
+   -- AND (iiel.p2_net_enrollees +  iiel.printer_replacements + iiel.cumulative_enrollees) != 0
 GROUP BY iiel.platform_subset
     , c.Fiscal_Year_Qtr
-    , iiel.year_fiscal
-    , iiel.year_month
-    , iiel.data_source
+    , iiel.fiscal_yr
+    , iiel.cal_date
     , iiel.country
     , cc.region_5
     , cc.market10
@@ -569,7 +567,6 @@ SELECT iink.platform_subset
     , iink.fiscal_year_qtr
     , iink.year_fiscal
     , cast(iink.month_begin as date)
-    , iink.data_source
     , iink.country_alpha2
     , iink.region_5
     , iink.market10
@@ -755,45 +752,41 @@ SELECT iiel.platform_subset
     , cast('I-INK' as char(50)) AS split_name
     , cast('IINK_ENROLLEES' as char(50)) AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
-    , iiel.year_fiscal
-    , iiel.year_month AS month_begin
-    , iiel.data_source
+    , iiel.fiscal_yr year_fiscal
+    , iiel.cal_date AS month_begin
     , iiel.country AS country_alpha2
     , cc.region_5
     , cc.market10
-    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_kitless_enrollments) AS p2_kitless_enroll_mod
-    , SUM(iiel.cum_enrollees_month) AS cum_enrollees_month
-FROM "prod"."instant_ink_enrollees" AS iiel
+    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_unmod
+    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_mod
+    , SUM(iiel.cumulative_enrollees) AS cum_enrollees_month
+FROM "prod"."instant_ink_enrollees_stf" AS iiel
 JOIN "mdm"."calendar" AS c
-        on c.Date = iiel.year_month
+        on c.Date = iiel.cal_date
 JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iiel.country
 WHERE 1=1
     AND iiel.official = 1
- --   AND (iiel.p2_kitless_enrollments +  iiel.printer_sell_out_units + iiel.cum_enrollees_month) != 0
+ --   AND (iiel.p2_net_enrollees +  iiel.printer_replacements + iiel.cumulative_enrollees) != 0
 GROUP BY iiel.platform_subset
     , c.Fiscal_Year_Qtr
-    , iiel.year_fiscal
-    , iiel.year_month
-    , iiel.data_source
+    , iiel.fiscal_yr
+    , iiel.cal_date
     , iiel.country
     , cc.region_5
     , cc.market10
 ),  ib_23_iink_ltf_prep as (
 
 
-SELECT ltf.record, CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
-            WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
-            WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
-                                  'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHERN EUROPE','UK&I') THEN 'MARKET10'
-            ELSE 'ERROR' END AS geography_grain
-    , ltf.region_5 AS geography
+SELECT ltf.platform_subset
+    , 'COUNTRY' AS geography_grain
+    , ltf.country AS geography
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
-    , MAX(CASE WHEN ltf.metric = 'P2 ENROLLEES' THEN ltf.value END) AS p2_enrollees
-    , MAX(CASE WHEN ltf.metric = 'P2 CUMULATIVE' THEN ltf.value END) AS p2_cumulative
-    , MAX(CASE WHEN ltf.metric = 'CUMULATIVE' THEN ltf.value END) AS cumulative
+    , SUM(ltf.p2_net_enrollees) AS p2_enrollees
+    , SUM(ltf.p2_net_enrollees) OVER (PARTITION BY ltf.platform_subset, ltf.country
+                                            ORDER BY ltf.cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS p2_cumulative
+    , ltf.cumulative_enrollees AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
 JOIN "stage"."ib_staging_inputs" AS fv
     ON fv.version = ltf.version
@@ -801,106 +794,25 @@ JOIN "stage"."ib_staging_inputs" AS fv
 JOIN "mdm"."calendar" AS c
         on c.Date = ltf.cal_date
 WHERE 1=1
-    AND ltf.region_5 <> 'WW'
-    AND ltf.metric IN ('CUMULATIVE', 'P2 ENROLLEES', 'P2 CUMULATIVE')
-    AND ltf.value <> 0
-    AND NOT ltf.value IS NULL
+    AND ltf.value IS NOT NULL
     AND ltf.cal_date > ( SELECT CAST(MAX(month_begin) AS DATE) FROM ib_14_iink_act_stf )
-GROUP BY CASE WHEN ltf.region_5 IN ('AP', 'EU', 'NA') AND ltf.version = '2020.10.05.01' THEN 'region_5'
-              WHEN ltf.region_5 IN ('APJ', 'EMEA', 'NA') AND ltf.version = '2020.12.07.1' THEN 'region_3'
-              WHEN ltf.region_5 IN ('CENTRAL EUROPE','GREATER ASIA','GREATER CHINA','INDIA','ISE',
-                                    'LATIN AMERICA','NORTH AMERICA','NORTHERN EUROPE','SOUTHERN EUROPE','UK&I') THEN 'MARKET10'
-              ELSE 'ERROR' END
-    , ltf.region_5
-    , c.Fiscal_Year_Qtr
-    , ltf.cal_date
-    , ltf.record 
+GROUP BY 
+      ltf.platform_subset
+    , ltf.country 
+    , c.Fiscal_Year_Qtr 
+    , ltf.cal_date 
 ), 
 
-dates as (
-select distinct date cal_date
-from mdm.calendar c 
-where day_of_month  = 1 
-),
-
-norm_ships as 
-(
-select distinct n.platform_subset,d.cal_date,n.country_alpha2,0 units
-from stage.norm_ships n
-cross join dates d 
-where platform_subset LIKE '%PAAS%'
-and not exists 
-(select 1 from stage.norm_ships ns where ns.platform_subset = n.platform_subset and ns.country_alpha2 = n.country_alpha2 
-and ns.version = n.version 
-and ns.cal_date = d.cal_date)
-
-union 
-
-select distinct n.platform_subset,n.cal_date,n.country_alpha2,n.units 
-from stage.norm_ships n
-where platform_subset LIKE '%PAAS%'
-),
-
-ns_country_cum AS 
-(
-SELECT cal_date,platform_subset ,ns.country_alpha2 ,c.market10 ,ns.units
-,SUM(ns.units) OVER (partition BY ns.platform_subset,ns.country_alpha2,c.market10 order by ns.cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_country
-FROM norm_ships ns
-LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
-),
-
-ns_m10 as (
-SELECT cal_date ,c.market10,sum(ns.units) units
-FROM norm_ships ns
-LEFT JOIN mdm.iso_country_code_xref c ON c.country_alpha2 = ns.country_alpha2 
-GROUP BY ns.cal_date ,c.market10  
-),
-
-ns_m10_cum as (
-SELECT cal_date,market10
-,SUM(units) OVER (partition BY market10 order by cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) cum_total_m10
-FROM ns_m10
-),
-
-norm_ships_paas as (
-select co.cal_date,co.platform_subset,co.country_alpha2,m10.market10,co.cum_total_country/NULLIF(m10.cum_total_m10,0) ps_mix
-from ns_country_cum co
-left join mdm.iso_country_code_xref iccx on iccx.country_alpha2 = co.country_alpha2 
-left join ns_m10_cum m10 on co.cal_date = m10.cal_date and m10.market10 = iccx.market10 
-),
-
 ib_24_iink_ltf as (
-SELECT sp.month_begin
-    , sp.country_alpha2
-    , sp.platform_subset
-    , sp.split_name
-    , ltf.p2_cumulative *
-        SUM(sp.p2_attach) OVER (PARTITION BY sp.month_begin, sp.country_alpha2, sp.platform_subset) * 1.0 /
-            NULLIF(SUM(sp.p2_attach) OVER (PARTITION BY sp.month_begin, sp.geography), 0) AS p2_cumulative
-    , ltf.cumulative *
-        SUM(sp.ib) OVER (PARTITION BY sp.month_begin, sp.country_alpha2, sp.platform_subset) * 1.0 /
-            NULLIF(SUM(sp.ib) OVER (PARTITION BY sp.month_begin, sp.geography), 0) AS cum_enrollees_month
-FROM ib_22_iink_ltf_to_split AS sp
-JOIN ib_23_iink_ltf_prep AS ltf
-    ON ltf.geography = sp.geography
-    AND ltf.month_begin = sp.month_begin
-WHERE 1=1 
-    AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
-    and platform_subset not like '%PAAS%' and ltf.record = 'I_INK_CORE'
-    
-UNION 
-
-SELECT sp.cal_date 
-    , sp.country_alpha2
-    , sp.platform_subset
+SELECT ltf.month_begin
+    , ltf.geography country_alpha2
+    , ltf.platform_subset
     , 'I-INK' split_name
-    , 0  AS p2_cumulative
-    , ltf.cumulative * sp.ps_mix AS cum_enrollees_month
+    , ltf.p2_cumulative 
+    , ltf.cumulative 
 FROM ib_23_iink_ltf_prep AS ltf
-JOIN norm_ships_paas  sp on sp.cal_date  = ltf.month_begin  and sp.market10  = ltf.geography 
 WHERE 1=1
     AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
-    and sp.platform_subset  like '%PAAS%' and ltf.record = 'I_INK_PAAS'
     
 ),  ib_25_sys_delta as (
 
@@ -1001,7 +913,8 @@ JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iink.country_alpha2
 WHERE 1=1
     AND hw.technology IN ('LASER','INK','PWA','LF')
-)SELECT 'IB' AS record
+)
+SELECT 'IB' AS record
     , 1 AS version  -- used for scenarios
     , pre.load_date
     , pre.month_begin
