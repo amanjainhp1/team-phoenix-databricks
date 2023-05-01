@@ -628,6 +628,7 @@ SELECT c.record
       ,c.forecast_process_note
       ,CASE WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN 'TELEMETRY'
             WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN 'TELEMETRY'
+	    WHEN c.measure like '%USAGE%' AND c.data_source = 'TELEMETRY' THEN 'TELEMETRY'
             WHEN c.data_source = 'NPI' THEN 'NPI'
             WHEN m.source is null then c.data_source
             ELSE m.source
@@ -636,6 +637,7 @@ SELECT c.record
       ,c.measure
       ,CASE WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
             WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN c.units
+	    WHEN c.measure like '%USAGE%' AND c.data_source = 'TELEMETRY' THEN c.units
             WHEN c.data_source = 'NPI' THEN c.units
             WHEN m.source is null then c.units
             ELSE m.units
