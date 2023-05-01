@@ -3257,12 +3257,20 @@ SELECT
     SUM(total_cos) * -1 AS total_cos,
     0 AS revenue_units
 FROM format_mcodes
+<<<<<<< HEAD
 WHERE 1=1
   AND cal_date < '2022-11-01'
 GROUP BY cal_date, pl, country_alpha2, sales_product_number    
 
 UNION ALL
 
+=======
+GROUP BY cal_date, pl, country_alpha2, sales_product_number        
+WHERE 1=1
+  AND cal_date < '2022-11-01'
+GROUP BY cal_date, pl, country_alpha2, sales_product_number    
+UNION ALL
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 SELECT
     cal_date,
     pl,
@@ -3281,7 +3289,11 @@ FROM format_mcodes
 WHERE 1=1
   AND cal_date >= '2022-11-01'
   AND sales_product_number NOT IN ('CISS', 'CTSS')
+<<<<<<< HEAD
 GROUP BY cal_date, pl, country_alpha2, sales_product_number
+=======
+GROUP BY cal_date, pl, country_alpha2, sales_product_number        
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 """
 
 mcodes_offset = spark.sql(mcodes_offset)
@@ -3358,7 +3370,11 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_with_ce_splits2a
+<<<<<<< HEAD
 WHERE country_alpha2 <> 'XW'
+=======
+WHERE country_alpha2 <> 'WX'
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 GROUP BY cal_date, pl, country_alpha2, sales_product_number, ce_split
 
 UNION ALL
@@ -4195,9 +4211,13 @@ SELECT
 FROM edw_data_with_updated_rdma_pl3 redw
 WHERE country_alpha2 <> 'XW'
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+<<<<<<< HEAD
 
 UNION ALL
 
+=======
+UNION ALL
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 SELECT
     cal_date,
     country_alpha2,
@@ -4360,6 +4380,31 @@ GROUP BY cal_date, country_alpha2, region_5, gross_revenue
 
 mix_GP = spark.sql(mix_GP)
 mix_GP.createOrReplaceTempView("mix_GP")  
+
+mix_UK = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    CASE
+        WHEN SUM(gross_revenue) OVER (PARTITION BY cal_date, region_5) = 0 THEN NULL
+        ELSE gross_revenue / SUM(gross_revenue) OVER (PARTITION BY cal_date, region_5)
+    END AS country_gross_mix
+FROM edw_restated_data2
+WHERE pl = 'UK'
+    AND country_alpha2 NOT IN (
+                                SELECT country_alpha2
+                                FROM mdm.iso_country_code_xref
+                                WHERE country_alpha2 LIKE 'X%'
+                                AND country_alpha2 != 'XK'
+                            )
+GROUP BY cal_date, country_alpha2, region_5, gross_revenue
+"""
+
+mix_UK = spark.sql(mix_UK)
+mix_UK.createOrReplaceTempView("mix_UK") 
+
+
 
 mix_UK = f"""
 SELECT
@@ -4626,6 +4671,34 @@ cissxw = spark.sql(cissxw)
 cissxw.createOrReplaceTempView("cissxw") 
 
 
+
+cissxw = f"""
+SELECT
+    cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM accounting_items cx
+WHERE 1=1
+    AND sales_product_number = 'CISS'
+    AND country_alpha2 = 'XW'
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+cissxw = spark.sql(cissxw)
+cissxw.createOrReplaceTempView("cissxw") 
+
+
 cissx_fix = f"""
 SELECT
     cx.cal_date,
@@ -4761,11 +4834,39 @@ FROM accounting_items c
 WHERE 1=1
     AND sales_product_number = 'CTSS'
     AND country_alpha2 NOT LIKE 'X%'
+    AND country_alpha2 <> 'XW'
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
 """
 
 ctss = spark.sql(ctss)
 ctss.createOrReplaceTempView("ctss")    
+
+
+ctssxw = f"""
+SELECT
+    cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM accounting_items cx
+WHERE 1=1
+    AND sales_product_number = 'CTSS'
+    AND country_alpha2 = 'XW'
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+ctssxw = spark.sql(ctssxw)
+ctssxw.createOrReplaceTempView("ctssxw")  
 
 
 ctssx = f"""

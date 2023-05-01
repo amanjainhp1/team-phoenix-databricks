@@ -3018,7 +3018,11 @@ SELECT
     0 AS revenue_units
 FROM format_mcodes
 WHERE 1=1 
+<<<<<<< HEAD
   AND sales_product_number NOT IN ('CISS', 'CTSS')
+=======
+AND sales_product_number NOT IN ('CISS', 'CTSS')
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 GROUP BY cal_date, pl, country_alpha2, sales_product_number        
 """
 
@@ -3933,9 +3937,13 @@ SELECT
 FROM edw_data_with_updated_rdma_pl3 redw
 WHERE country_alpha2 <> 'XW'
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
+<<<<<<< HEAD
 
 UNION ALL
 
+=======
+UNION ALL
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 SELECT
     cal_date,
     country_alpha2,
@@ -4125,6 +4133,34 @@ mix_UK.createOrReplaceTempView("mix_UK")
 
 
 
+
+mix_UK = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    CASE
+        WHEN SUM(gross_revenue) OVER (PARTITION BY cal_date, region_5) = 0 THEN NULL
+        ELSE gross_revenue / SUM(gross_revenue) OVER (PARTITION BY cal_date, region_5)
+    END AS country_gross_mix
+FROM edw_restated_data2
+WHERE pl = 'UK'
+    AND country_alpha2 NOT IN (
+                                SELECT country_alpha2
+                                FROM mdm.iso_country_code_xref
+                                WHERE country_alpha2 LIKE 'X%'
+                                AND country_alpha2 != 'XK'
+                            )
+GROUP BY cal_date, country_alpha2, region_5, gross_revenue
+"""
+
+mix_UK = spark.sql(mix_UK)
+mix_UK.createOrReplaceTempView("mix_UK") 
+
+
+
+
+
 mix_1NLU = f"""
 SELECT
     cal_date,
@@ -4285,6 +4321,85 @@ xcode_adjusted_lfmps2 = spark.sql(xcode_adjusted_lfmps2)
 xcode_adjusted_lfmps2.createOrReplaceTempView("xcode_adjusted_lfmps2") 
 
 
+#lfmps is only in XA in EMEA as of 4/26/2023
+lfmps_acct = f"""
+SELECT
+    cal_date,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM accounting_items c
+WHERE 1=1
+    AND sales_product_number = 'LFMPS'
+    AND country_alpha2 = 'XA'
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split
+"""
+
+lfmps_acct = spark.sql(lfmps_acct)
+lfmps_acct.createOrReplaceTempView("lfmps_acct")    
+
+
+lfmps_fix = f"""
+SELECT
+    cx.cal_date,
+    country_alpha2,
+    cx.region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue * country_gross_mix) AS gross_revenue,
+    SUM(net_currency * country_gross_mix) AS net_currency,
+    SUM(contractual_discounts * country_gross_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * country_gross_mix) AS discretionary_discounts,
+    SUM(warranty * country_gross_mix) AS warranty,
+    SUM(other_cos * country_gross_mix) AS other_cos,
+    SUM(total_cos * country_gross_mix) AS total_cos,
+    SUM(revenue_units * country_gross_mix) AS revenue_units
+FROM lfmps_acct cx
+LEFT JOIN mix_UK n ON cx.cal_date = n.cal_Date AND cx.region_5 = n.region_5
+GROUP BY cx.cal_date, cx.region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+lfmps_fix = spark.sql(lfmps_fix)
+lfmps_fix.createOrReplaceTempView("lfmps_fix")    
+
+
+xcode_adjusted_lfmps2 = f"""
+-- addback
+SELECT
+    cal_date,
+    country_alpha2,
+    'USD' AS currency,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,                
+    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
+    COALESCE(SUM(net_currency), 0) AS net_currency,
+    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
+    COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
+    COALESCE(SUM(warranty), 0) AS warranty,
+    COALESCE(SUM(other_cos), 0) AS other_cos,
+    COALESCE(SUM(total_cos), 0) AS total_cos,
+    COALESCE(SUM(revenue_units), 0) AS revenue_units
+FROM lfmps_fix c
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+xcode_adjusted_lfmps2 = spark.sql(xcode_adjusted_lfmps2)
+xcode_adjusted_lfmps2.createOrReplaceTempView("xcode_adjusted_lfmps2") 
+
+
+
 ciss = f"""
 SELECT
     cal_date,
@@ -4339,6 +4454,10 @@ cissx = spark.sql(cissx)
 cissx.createOrReplaceTempView("cissx")    
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 cissxw = f"""
 SELECT
     cal_date,
@@ -4366,6 +4485,10 @@ cissxw = spark.sql(cissxw)
 cissxw.createOrReplaceTempView("cissxw") 
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4147f58ad20eda5ce81887403d568b4443ae746b
 cissx_fix = f"""
 SELECT
     cx.cal_date,
@@ -4559,6 +4682,34 @@ GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
 
 ctssxw = spark.sql(ctssxw)
 ctssxw.createOrReplaceTempView("ctssxw")  
+
+
+ctssxw = f"""
+SELECT
+    cal_date,
+    region_5,
+    country_alpha2,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM accounting_items cx
+WHERE 1=1
+    AND sales_product_number = 'CTSS'
+    AND country_alpha2 = 'XW'
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, country_alpha2
+"""
+
+ctssxw = spark.sql(ctssxw)
+ctssxw.createOrReplaceTempView("ctssxw") 
+
 
 
 
