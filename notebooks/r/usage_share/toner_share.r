@@ -1,6 +1,6 @@
 # Databricks notebook source
 # ---
-# #Version 2021.01.19.1#
+# #Version 2021.05.01.1#
 # title: "100% IB Toner Share (country level)"
 # output:
 #   html_notebook: default
@@ -1218,7 +1218,9 @@ predlist_iter3 <- sqldf("
                   , a.Predecessor
                   , a.Source
                   , CASE 
-                      WHEN b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name like '%MANAGED' and b.printer_platform_name like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name like '%MANAGED' THEN 'N'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name  not like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
                     ELSE 'N'
                     END AS curve_exists
                   , b.printer_platform_name as pred_iter
@@ -1265,7 +1267,9 @@ predlist_iter3 <- sqldf("
                   , a.Predecessor
                   , a.Source
                   , CASE
-                      WHEN b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name like '%MANAGED' and b.printer_platform_name like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name like '%MANAGED' THEN 'N'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name  not like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
                     ELSE 'N'
                     END AS curve_exists
                   , b.printer_platform_name as pred_iter
@@ -1307,7 +1311,9 @@ predlist_iter2 <- sqldf("
                   , a.Predecessor
                   , a.source
                   , CASE 
-                      WHEN b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name like '%MANAGED' and b.printer_platform_name like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name like '%MANAGED' THEN 'N'
+                      WHEN a.printer_platform_name not like '%MANAGED' and b.printer_platform_name  not like '%MANAGED' and b.curve_exists='Y' THEN 'Y'
                     ELSE 'N'
                     END AS curve_exists
                   , b.Predecessor as pred_iter
@@ -2088,7 +2094,7 @@ final_list2 <- SparkR::sql("
                           when a.BD_Usage_Flag is NULL then a.MPV_TD
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TD
                           when a.MPV_DASH is NULL then a.MPV_TD
-                          when a.usage_n < 75 then a.MPV_TD
+                          --when a.usage_n < 75 then a.MPV_TD
                             else a.MPV_DASH
                             end
                         when a.technology='PWA' then
@@ -2096,7 +2102,7 @@ final_list2 <- SparkR::sql("
                           when a.BD_Usage_Flag is NULL then a.MPV_TS
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TS
                           when a.MPV_Dash is NULL then a.MPV_TS
-                          when a.usage_n < 75 then a.MPV_TS
+                          --when a.usage_n < 75 then a.MPV_TS
                             else a.MPV_Dash
                             end
                           end as Usage
@@ -2106,7 +2112,7 @@ final_list2 <- SparkR::sql("
                           when a.BD_Usage_Flag is NULL then a.MPV_TD*a.color_pct
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TD*a.color_pct
                           when (a.MPV_DashC is NULL or a.MPV_DashC < 0 or a.color_pct >1) then a.MPV_TD*a.color_pct
-                          when a.usage_n < 75 then a.MPV_TD*a.color_pct
+                          --when a.usage_n < 75 then a.MPV_TD*a.color_pct
                             else a.MPV_DashC
                             end
                             when a.technology='PWA' then
@@ -2114,7 +2120,7 @@ final_list2 <- SparkR::sql("
                           when a.BD_Usage_Flag is NULL then a.MPV_TS*a.color_pct
                           when a.BD_Share_Flag_PS = 0 then a.MPV_TS*a.color_pct
                           when (a.MPV_DashC is NULL or a.MPV_DashC < 0 or a.color_pct >1) then a.MPV_TS*a.color_pct
-                          when a.usage_n < 75 then a.MPV_TS*a.color_pct
+                          --when a.usage_n < 75 then a.MPV_TS*a.color_pct
                             else a.MPV_DashC
                             end
                           end as Usage_c
@@ -2184,9 +2190,9 @@ final_list7$hd_mchange_psb <- ifelse(final_list7$Share_Source_PS=="HAVE DATA",if
 final_list7$hd_mchange_ps_j <- ifelse(!isNull(final_list7$hd_mchange_psb),final_list7$index1,NA)
 #final_list7$hd_mchange_cu <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse(final_list7$lagShare_Source_CU=="Have Data",final_list7$Crg_Unit_Share-final_list7$lagShare_CU, NA ),NA)
 #final_list7$hd_mchange_cu_i <- ifelse(!is.na(final_list7$hd_mchange_cu),final_list7$index1,NA)
-final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD" | upper(final_list7$lagUsage_Source)=="UPM SAMPLE SIZE",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 #final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
-final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD"| upper(final_list7$Usage_Source)=="UPM SAMPLE SIZE",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
 final_list7$hd_mchange_use_j <- ifelse(!isNull(final_list7$hd_mchange_used),final_list7$index1,NA)
 
@@ -2446,10 +2452,11 @@ final_list8$model_group <- concat(final_list8$CM, final_list8$SM ,final_list8$Mk
 #Change from Fiscal Date to Calendar Date
 final_list8$year_month_float <- to_date(final_list8$fiscal_date, "yyyy-MM-dd")
 final_list8$dm_version <- as.character(dm_version)
+final_list8$Usage_Source <- ifelse(upper(final_list8$Usage_Source)=="UPM SAMPLE SIZE","DASHBOARD",final_list8$Usage_Source)
 today <- datestamp
-vsn <- '2022.01.19.1'  #for DUPSM
-rec1 <- 'usage_share'
-geog1 <- 'country'
+vsn <- '2023.05.01.1'  #for DUPSM
+rec1 <- 'USAGE_SHARE'
+geog1 <- 'COUNTRY'
 tempdir(check=TRUE)
 
 gc()
