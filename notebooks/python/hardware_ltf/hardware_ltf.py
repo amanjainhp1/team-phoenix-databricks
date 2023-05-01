@@ -16,7 +16,7 @@
 f_report_units_query = """
 SELECT *
 FROM Archer_Prod.dbo.f_report_units('LTF-IE2')
-
+--WHERE record like 'LTF%'
 """
 
 f_report_units = read_sql_server_to_df(configs) \
@@ -25,7 +25,7 @@ f_report_units = read_sql_server_to_df(configs) \
 
 write_df_to_redshift(configs, f_report_units, "stage.f_report_units", "overwrite")
 
-# f_report_units.createOrReplaceTempView("f_report_units")
+f_report_units.createOrReplaceTempView("f_report_units")
 
 # COMMAND ----------
 
@@ -37,6 +37,10 @@ SELECT DISTINCT
 	, UPPER(RIGHT(record, 16)) as record_name
 FROM f_report_units
 """)
+
+# COMMAND ----------
+
+# forecast_name.display()
 
 # COMMAND ----------
 
@@ -92,6 +96,7 @@ SELECT  a.record
       , SUM(a.units) AS units
 FROM stage.f_report_units a --this table would be the first table that we land the data to, from Archer
 WHERE 1=1
+    AND a.record like 'LTF%'
 GROUP BY
 	  a.record
 	, a.geo

@@ -114,7 +114,7 @@ tables = [
   ['fin_prod.currency_hedge' ,currency_hedge],
   ['prod.working_forecast_country' ,working_forecast_country],
   ['prod.version' ,version],
-  ['prod.trade_forecast' ,trade_forecast]  
+  ['prod.trade_forecast' ,trade_forecast] 
 ]
 
 
@@ -532,7 +532,7 @@ SELECT distinct
 			, COALESCE(adjusted_revenue.cc_inventory_impact, 0) as cc_inventory_impact
 			, COALESCE(adjusted_revenue.adjusted_revenue, 0) as adjusted_revenue
 		FROM adjusted_revenue_epa adjusted_revenue
-        where adjusted_revenue.customer_engagement <> 'EST_INDIRECT_FULFILLMENT'
+        where adjusted_revenue.customer_engagement <> 'EST_DIRECT_FULFILLMENT'
 		and adjusted_revenue.version = (select max(version) from adjusted_revenue_epa)
 ),  __dbt__CTE__bpo_22_adjusted_rev_sum as (
 
@@ -813,7 +813,9 @@ SELECT
 			, financials_version
 			, '{}' as version
 			, '{}' as load_date
-		FROM __dbt__CTE__bpo_27_supplies_baseprod_forecast
+		FROM __dbt__CTE__bpo_27_supplies_baseprod_forecast		
+		WHERE 1=1
+			AND cal_date NOT IN (SELECT distinct cal_date from __dbt__CTE__bpo_23_supplies_baseprod_actuals)
 """.format(forecast_fin_version , forecast_fin_version , forecast_fin_version , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date , actuals_plus_forecast_financials_version , actuals_plus_forecast_financials_load_date)
 
 actuals_plus_forecast_financials = spark.sql(actuals_plus_forecast_financials)

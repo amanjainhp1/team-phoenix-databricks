@@ -11,6 +11,245 @@
 
 # COMMAND ----------
 
+# create an allocated temp table for RTM historical actuals
+# CREATE RTM RAW Norm_shipments dataset
+rtm_ns_raw_temp_query = """
+with rtm_actuals_denom as
+(
+    select
+        b.platform_subset,
+        a.geo,
+        a.date,
+        sum(a.units) as units
+    from stage.rtm_historical_actuals a
+        left join mdm.rdma b on a.base_prod_number=b.base_prod_number
+        left join mdm.product_line_xref c on b.pl=c.pl
+    where 1=1
+        and a.rtm in ('DMPS','PMPS')
+        and c.technology = 'LASER'
+    GROUP BY b.platform_subset, a.geo, a.date
+),
+
+rtm_actuals_numerator as
+(
+    select
+        b.platform_subset,
+        a.geo,
+        a.date,
+        a.rtm,
+        sum(a.units) as units
+    from stage.rtm_historical_actuals a
+        left join mdm.rdma b on a.base_prod_number=b.base_prod_number
+        left join mdm.product_line_xref c on b.pl=c.pl
+    where 1=1
+        and a.rtm in ('DMPS','PMPS')
+        and c.technology = 'LASER'
+    GROUP BY b.platform_subset, a.geo, a.date, a.rtm
+),
+
+--used for when MPS > TRAD, later
+rtm_split_pct as
+(
+    select
+        a.platform_subset,
+        a.geo,
+        a.date,
+        a.rtm,
+        a.units,
+        (a.units / sum(a.units) OVER (PARTITION BY a.platform_subset, a.geo, a.date)) AS pct
+    from rtm_actuals_numerator a
+        left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
+    where 1=1
+        and a.rtm in ('DMPS','PMPS')
+        and b.technology = 'LASER'
+        and a.units > 0
+    order by 1,2,3,4
+),
+
+phoenix_actuals as
+(
+    select
+        a.platform_subset,
+        a.country_alpha2,
+        a.cal_date,
+        sum(a.base_quantity) as units
+    from prod.actuals_hw a left join mdm.hardware_xref b on a.platform_subset = b.platform_subset
+    where 1=1
+        and record = 'ACTUALS - HW'
+        and b.technology = 'LASER'
+        --and a.cal_date < '2023-02-01'
+    GROUP BY a.platform_subset, a.country_alpha2, a.cal_date
+    ORDER BY 1
+),
+
+mps_larger as
+(
+    --identify where MPS units > Phoenix total units
+    select
+        a.platform_subset,
+        a.geo,
+        a.date,
+        a.units as rtm_units,
+        b.units as phoenix_units,
+        a.units - b.units as diff_units
+    from rtm_actuals_denom a
+        INNER JOIN phoenix_actuals b on a.platform_subset=b.platform_subset
+            and a.geo=b.country_alpha2
+            and a.date = b.cal_date
+    where 1=1
+        and a.units - b.units > 0
+),
+
+allocated_units as
+(
+    Select
+        a.platform_subset,
+        a.geo,
+        a.date,
+        b.rtm,
+        a.phoenix_units,
+        b.pct,
+        (a.phoenix_units * b.pct) as allocated_units
+    from mps_larger a
+        left join rtm_split_pct b on a.platform_subset=b.platform_subset
+            and a.geo = b.geo
+            and a.date=b.date
+    where 1=1
+            and b.rtm IS NOT NULL
+),
+allocated_cleaned as
+(
+    --this is allocated and scaled mps units for products where the mps total > phoenix actuals
+    select distinct
+        platform_subset,
+        geo,
+        date,
+        rtm,
+        allocated_units
+    from allocated_units
+),
+
+allocated_plus_trad as
+(
+    select
+        platform_subset,
+        geo,
+        date,
+        rtm,
+        allocated_units
+    from allocated_cleaned
+    UNION ALL
+    select
+        platform_subset,
+        geo,
+        date,
+        'TRAD' as rtm,
+        1.0 as allocated_units
+    from allocated_cleaned
+),
+
+mps_smaller as
+(
+    --identify where MPS units <= Phoenix total units (normal units)
+    select
+        a.platform_subset,
+        a.geo,
+        a.date,
+        a.units as rtm_units,
+        b.units as phoenix_units,
+        a.units - b.units as diff_units,
+        CASE WHEN b.units - a.units <= 1 THEN 1
+            ELSE b.units - a.units
+            END as trad_units
+    from rtm_actuals_denom a
+        INNER JOIN phoenix_actuals b on a.platform_subset=b.platform_subset
+            and a.geo=b.country_alpha2
+            and a.date = b.cal_date
+    where 1=1
+        and a.units - b.units < 0
+),
+
+trad_cleaned as
+(
+    select
+        platform_subset,
+        geo,
+        date,
+        'TRAD' as rtm,
+        trad_units as units
+    from mps_smaller
+),
+
+consolidated_mps as
+(
+    select
+        platform_subset,
+        geo as country_alpha2,
+        date as cal_date,
+        rtm,
+        units
+    from trad_cleaned  --these records have trad subtracted from MPS
+    UNION ALL
+    select
+        a.platform_subset,
+        a.geo as country_alpha2,
+        a.date as cal_date,
+        a.rtm,
+        a.units
+    from rtm_actuals_numerator a INNER JOIN trad_cleaned b  --these are mps actuals without the cleaned up trad records
+        on a.platform_subset=b.platform_subset
+        and a.geo=b.geo
+        and a.date=b.date
+    UNION ALL
+    select
+        platform_subset,
+        geo as country_alpha2,
+        date as cal_date,
+        rtm,
+        allocated_units as units
+    from allocated_plus_trad -- these are records where the mps units have been scaled to align to phoenix actuals
+)
+--pull phoenix actuals that do not have a match on the MPS combinations
+select
+    'rtm_actuals' as record,
+    a.cal_date,
+    a.country_alpha2,
+    a.platform_subset,
+    c.technology,
+    a.units,
+    'TRAD' as rtm,
+    getdate() as load_date
+from phoenix_actuals a
+    LEFT JOIN consolidated_mps b on a.platform_subset=b.platform_subset
+        and a.country_alpha2 = b.country_alpha2
+        and a.cal_date = b.cal_date
+    LEFT JOIN mdm.hardware_xref c on a.platform_subset=c.platform_subset
+WHERE b.platform_subset IS NULL
+UNION ALL
+--add back in the mps combinations
+Select
+    'rtm_actuals' as record,
+    cal_date,
+    country_alpha2,
+    a.platform_subset,
+    b.technology,
+    units,
+    rtm,
+    getdate() as load_date
+from consolidated_mps a LEFT JOIN mdm.hardware_xref b on a.platform_subset=b.platform_subset
+"""
+
+
+redshift_rtm_ns_raw_temp_records = read_redshift_to_df(configs) \
+    .option("query", rtm_ns_raw_temp_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, redshift_rtm_ns_raw_temp_records, "stage.rtm_historical_actuals_temp", "overwrite")
+
+# COMMAND ----------
+
 # CREATE RTM RAW Norm_shipments dataset
 rtm_ns_raw_query = """
 
@@ -28,8 +267,8 @@ from stage.f_report_units a
     left join mdm.rdma b on a.base_prod_number=b.base_prod_number
     left join mdm.hardware_xref c on b.platform_subset=c.platform_subset
 where 1=1
-    and c.technology in ('INK','LASER','PWA')
-    and calendar_month > (select max(date) from stage.rtm_historical_actuals)
+    and c.technology in ('LASER')
+    and calendar_month > (select max(cal_date) from stage.rtm_historical_actuals_temp)
 group by
     record,
     calendar_month,
@@ -42,28 +281,26 @@ UNION ALL
 
 --Actuals
 select
-   'actuals_hw' as record,
-   date as cal_date,
-   geo as country_alpha2,
-   b.platform_subset,
-   c.technology,
+   record,
+   cal_date,
+   country_alpha2,
+   a.platform_subset,
+   a.technology,
    sum(units) as units,
    rtm,
    getdate() as load_date
-from stage.rtm_historical_actuals a
-    left join mdm.rdma b on a.base_prod_number=b.base_prod_number
-    left join mdm.hardware_xref c on b.platform_subset=c.platform_subset
+from stage.rtm_historical_actuals_temp a
+LEFT JOIN mdm.hardware_xref b on a.platform_subset = b.platform_subset
 where 1=1
-    and c.technology in ('INK','LASER','PWA')
-    and (a.date > '2015-10-01' or a.rtm IN ('PMPS','DMPS'))
-    and c.pl NOT IN ('GW','LX')
+    and a.technology in ('LASER')
+    and b.pl NOT IN ('GW','LX')
 group by
-    date,
-    geo,
-    b.platform_subset,
-    c.technology,
+    record,
+    cal_date,
+    country_alpha2,
+    a.platform_subset,
+    a.technology,
     rtm
-order by 2
 """
 
 
@@ -74,43 +311,6 @@ redshift_rtm_ns_raw_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_redshift(configs, redshift_rtm_ns_raw_records, "stage.rtm_ns_raw_stage", "overwrite")
-
-# COMMAND ----------
-
-# APPEND actuals_hw data where date < '2015-11-01'
-actuals_hw_append_query = """
-
---Actuals
-SELECT
-   'actuals_hw' as record,
-   cal_date,
-   country_alpha2,
-   a.platform_subset,
-   c.technology,
-   sum(base_quantity) as units,
-   'TRANSACTIONAL' as rtm,
-   getdate() as load_date
-FROM prod.actuals_hw a
-    left join mdm.hardware_xref c on a.platform_subset=c.platform_subset
-WHERE 1=1
-    and c.technology in ('LASER')
-    and cal_date < '2015-11-01'
-    and c.pl NOT IN ('GW','LX')
-GROUP BY
-    cal_date,
-    country_alpha2,
-    a.platform_subset,
-    c.technology
-"""
-
-
-actuals_hw_append_records = read_redshift_to_df(configs) \
-    .option("query", actuals_hw_append_query) \
-    .load()
-
-# COMMAND ----------
-
-write_df_to_redshift(configs, actuals_hw_append_records, "stage.rtm_ns_raw_stage", "append")
 
 # COMMAND ----------
 

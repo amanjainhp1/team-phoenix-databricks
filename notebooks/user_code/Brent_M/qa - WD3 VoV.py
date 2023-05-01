@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # HW FLASH review 02-21-2023
+# MAGIC # HW WD3 review 04-10-2023
 
 # COMMAND ----------
 
@@ -28,13 +28,26 @@ import pandas as pd
 
 # COMMAND ----------
 
+prev_version_sql = """
+select max(version) as version 
+from prod.flash_wd3 where record = 'WD3' 
+    and version <> (SELECT MAX(version) from prod.flash_wd3 WHERE record = 'WD3')
+"""
+
+prev_version = read_redshift_to_df(configs) \
+  .option("query", prev_version_sql) \
+  .load() \
+  .select("version").head()[0]
+
+# COMMAND ----------
+
 # FLASH versions
-prev_version = '2023.03.17.1'
+# prev_version = '2023.03.09.1'
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## hardware FLASH v2v compare
+# MAGIC ## hardware WD3 v2v compare
 # MAGIC 
 # MAGIC Synopsis: compare
 
@@ -42,96 +55,100 @@ prev_version = '2023.03.17.1'
 
 # not a permanent solution as source SQL could change
 
-flash_sql = """
-select flash.*
-from prod.flash_wd3 as flash
-left join mdm.rdma rdma on flash.base_product_number = rdma.base_prod_number
+wd3_sql = """
+select wd3.*
+from prod.flash_wd3 as wd3
+left join mdm.rdma rdma on wd3.base_product_number = rdma.base_prod_number
 left join mdm.hardware_xref AS hw
     on upper(hw.platform_subset) = upper(rdma.platform_subset)
 where 1=1
     and hw.technology in ('INK', 'LASER', 'PWA')
-    and flash.version = (select max(version) from prod.flash_wd3 WHERE record = 'FLASH')
+    and wd3.version = (select max(version) from prod.flash_wd3 WHERE record = 'WD3')
 """
 
 # COMMAND ----------
 
-flash_df = read_redshift_to_df(configs) \
-  .option("query", flash_sql) \
+wd3_df = read_redshift_to_df(configs) \
+  .option("query", wd3_sql) \
   .load()
 
 # COMMAND ----------
 
-flash_df.show()
+wd3_df.show()
 
 # COMMAND ----------
 
 # prep for visualization
-flash_agg_prep = flash_df.toPandas()
+wd3_agg_prep = wd3_df.toPandas()
 
 # drop unwanted columns
 drop_list = ['record', 'source_name', 'country_alpha2', 'base_product_number', 'load_date','version']
-flash_agg_1 = flash_agg_prep.drop(drop_list, axis=1)
+wd3_agg_1 = wd3_agg_prep.drop(drop_list, axis=1)
 
 # aggregate time series
-flash_agg_2 = flash_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
-flash_agg_2['variable'] = 'current.flash'
+wd3_agg_2 = wd3_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
+wd3_agg_2['variable'] = 'current.wd3'
 
-flash_agg_3 = flash_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
-
-# COMMAND ----------
-
-flash_agg_3
+wd3_agg_3 = wd3_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
 
 # COMMAND ----------
 
-flash_prod_sql = """
-SELECT 'previous.flash' AS variable
-    , prev_flash.cal_date
-    , SUM(prev_flash.units) AS units
-FROM prod.flash_wd3 AS prev_flash
-left join mdm.rdma rdma on prev_flash.base_product_number = rdma.base_prod_number
+wd3_agg_3
+
+# COMMAND ----------
+
+wd3_prod_sql = """
+SELECT 'previous.wd3' AS variable
+    , prev_wd3.cal_date
+    , SUM(prev_wd3.units) AS units
+FROM prod.flash_wd3 AS prev_wd3
+left join mdm.rdma rdma on prev_wd3.base_product_number = rdma.base_prod_number
 LEFT JOIN mdm.hardware_xref AS hw
     ON hw.platform_subset = rdma.platform_subset
 WHERE 1=1
     AND hw.technology IN ('INK', 'LASER', 'PWA')
-    AND prev_flash.version = '{}'
-    AND prev_flash.record = 'FLASH'
-GROUP BY prev_flash.cal_date
-ORDER BY prev_flash.cal_date
+    AND prev_wd3.version = '{}'
+    AND prev_wd3.record = 'WD3'
+GROUP BY prev_wd3.cal_date
+ORDER BY prev_wd3.cal_date
 """.format(prev_version)
 
 # COMMAND ----------
 
-flash_prod_df = read_redshift_to_df(configs) \
-  .option("query", flash_prod_sql) \
+wd3_prod_df = read_redshift_to_df(configs) \
+  .option("query", wd3_prod_sql) \
   .load()
 
 # COMMAND ----------
 
-flash_agg_prod_prep = flash_prod_df.toPandas()
+wd3_prod_df.display()
 
 # COMMAND ----------
 
-flash_agg_4 = flash_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+wd3_agg_prod_prep = wd3_prod_df.toPandas()
 
 # COMMAND ----------
 
-flash_agg_4
+wd3_agg_4 = wd3_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
 
 # COMMAND ----------
 
-flash_agg_5 = pd.concat([flash_agg_3, flash_agg_4], sort=True)
+wd3_agg_4
+
+# COMMAND ----------
+
+wd3_agg_5 = pd.concat([wd3_agg_3, wd3_agg_4], sort=True)
 
 # COMMAND ----------
 
 # https://plotly.com/python-api-reference/generated/plotly.express.line
 
-fig = px.line(data_frame=flash_agg_5,
+fig = px.line(data_frame=wd3_agg_5,
               x='cal_date',
               y='units',
               line_group='variable',
               color='variable',
-              title='RS - FLASH v2v compare')
+              title='RS - WD3 v2v compare')
 
 fig.update_xaxes(
     rangeslider_visible=True,
@@ -168,20 +185,20 @@ fig.show()
 
 # COMMAND ----------
 
-flash_generics_sql = """
+wd3_generics_sql = """
 
 select distinct b.platform_subset
 from prod.flash_wd3 a left join mdm.rdma b on a.base_product_number = b.base_prod_number
 where 1=1
-	and record = 'FLASH'
-    and version = (SELECT MAX(version) from prod.flash_wd3 WHERE record = 'FLASH')
+	and record = 'WD3'
+    and version = (SELECT MAX(version) from prod.flash_wd3 WHERE record = 'WD3')
 	and platform_subset like '%GENERIC%'
 """
 
 # COMMAND ----------
 
-flash_generics_df = read_redshift_to_df(configs) \
-  .option("query", flash_generics_sql) \
+wd3_generics_df = read_redshift_to_df(configs) \
+  .option("query", wd3_generics_sql) \
   .load()
 
-flash_generics_df.show()
+wd3_generics_df.show()

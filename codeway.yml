@@ -1,0 +1,17 @@
+resources:
+  repositories:
+    - repository: templates
+      type: githubenterprise
+      name: codeway/templates
+      endpoint: ghe
+
+variables:
+  - group: Defaults
+
+trigger: none
+
+pr: none
+
+stages:
+  # this templates only tags this repo with proper version
+  - template: projects/dataos/stages/notebook_build-v2.yml@templates

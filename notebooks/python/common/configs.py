@@ -182,7 +182,7 @@ analyst_constants = {
         "prod": "arn:aws:iam::828361281741:role/dataos-prod-databricks-phoenix-analyst-role"
     },
     "SESSION_DURATION": {
-        "dev": 3600,
+        "dev": 14400,
         "itg": 3600,
         "prod": 3600
     }
