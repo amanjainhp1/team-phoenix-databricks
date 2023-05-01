@@ -72,9 +72,9 @@ mature_helper_1 ="""
       ,upper(mat.customer_engagement) as customer_engagement
       ,upper(mat.forecast_process_note) as forecast_process_note
       ,upper(mat.post_processing_note) as post_processing_note
-      ,upper(mat.data_source) as data_source
+      ,'MATURE' as data_source
       ,mat.version
-      ,'MATURES' as measure
+      ,mat.measure
       ,mat.units
       ,mat.proxy_used
       ,mat.ib_version
