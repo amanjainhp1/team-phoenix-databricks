@@ -131,7 +131,7 @@ FROM matures_table c
 LEFT JOIN hardware_info h
     ON c.platform_subset=h.platform_subset
 WHERE c.units >0 
-    AND h.product_lifecycle_status != 'E'
+    --AND h.product_lifecycle_status != 'E'
 """
 
 mature_1=spark.sql(mature_1)

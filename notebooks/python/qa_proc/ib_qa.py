@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # IB - Mar 23, 2023 - QC/QA
+# MAGIC # IB - Apr 18, 2023 - QC/QA
 # MAGIC 
 # MAGIC Brent Merrick
 # MAGIC 
@@ -46,7 +46,7 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's versions
-prev_version = '2023.03.03.1'
+prev_version = '2023.03.23.1'
 
 # COMMAND ----------
 
@@ -508,7 +508,7 @@ select cal_date
     , sum(units) as units
 from prod
 where 1=1
-    and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+    and cal_date BETWEEN '2013-11-01' AND '2030-10-01'
 group by cal_date
     , version
 
@@ -519,7 +519,7 @@ select cal_date
     , sum(ib) as units
 from stage
 where 1=1
-    and cal_date BETWEEN '2013-11-01' AND '2025-10-01'
+    and cal_date BETWEEN '2013-11-01' AND '2030-10-01'
 group by cal_date
     , version
 order by 1,2

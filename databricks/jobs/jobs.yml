@@ -21,6 +21,7 @@ Jobs:
   - ib-ns-set-official
   - ink-usage-share
   - ink-working-forecast-promo
+  - ink-working-forecast-run
   - installed-base
   - lf-decay
   - lf-ltf
@@ -37,4 +38,5 @@ Jobs:
   - redshift-resource-creator
   - toner-usage-share
   - toner-working-forecast-promo
+  - toner-working-forecast-run
   - wd3-load
