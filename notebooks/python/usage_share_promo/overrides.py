@@ -41,7 +41,6 @@ override_in = read_redshift_to_df(configs) \
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
     FROM scen.working_forecast_usage_share
     WHERE 1=1 
-        AND user_name != 'BRENTT' AND user_name != 'GRETCHENE'
         AND upper(upload_type) = 'WORKING-FORECAST'
     """) \
   .load()
@@ -342,13 +341,12 @@ override_table_a2.createOrReplaceTempView("override_table_a2")
 
 # COMMAND ----------
 
-override_ine = read_sql_server_to_df(configs) \
+override_ine = read_redshift_to_df(configs) \
   .option("query","""
     SELECT upper(geography_grain) as geography_grain, upper(geography) as geography, upper(platform_subset) as platform_subset
     , upper(customer_engagement) as customer_engagement, upper(measure) as measure, min_sys_date,month_num, value, load_date
-    FROM ie2_landing.dbo.scenario_usage_share_landing
+    FROM scen.working_forecast_usage_share
     WHERE 1=1 
-        AND upper(user_name) != 'BRENTT'
         AND upper(upload_type) = 'EPA_DRIVERS'
     """) \
   .load()
@@ -618,7 +616,49 @@ override_table_c.createOrReplaceTempView("override_table_c")
 # MAGIC #Update usage & Share
 
 # COMMAND ----------
+overlap_1 = """
 
+---Find overlap between current and mature
+SELECT c.record
+      ,c.cal_date
+      ,c.geography_grain
+      ,c.geography
+      ,c.platform_subset
+      ,c.customer_engagement
+      ,c.forecast_process_note
+      ,CASE WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN 'TELEMETRY'
+            WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN 'TELEMETRY'
+            WHEN c.data_source = 'NPI' THEN 'NPI'
+            WHEN m.source is null then c.data_source
+            ELSE m.source
+            END AS data_source
+      ,c.version
+      ,c.measure
+      ,CASE WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
+            WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN c.units
+            WHEN c.data_source = 'NPI' THEN c.units
+            WHEN m.source is null then c.units
+            ELSE m.units
+            END AS units
+      ,c.proxy_used
+      ,c.ib_version
+      ,c.load_date
+FROM us_table c
+LEFT JOIN override_table_c m
+    ON 1=1
+    AND c.platform_subset=m.platform_subset
+    AND c.customer_engagement=m.customer_engagement
+    AND c.geography=m.geography
+    AND c.measure=m.measure
+    AND c.cal_date=m.cal_date
+"""
+overlap_1=spark.sql(overlap_1)
+overlap_1=overlap_1.distinct().cache()
+overlap_1.createOrReplaceTempView("overlap_1")
+
+overlap_1.count()
+
+# COMMAND ----------
 update_table = """
 WITH base as (
     SELECT record
@@ -633,7 +673,7 @@ WITH base as (
            ,data_source as source
            ,load_date
            ,CONCAT(platform_subset,customer_engagement,geography,cal_date,measure) AS grp
-           FROM us_table
+           FROM overlap_1
 ),
 new as (
     SELECT record
@@ -661,20 +701,23 @@ new as (
            ,ib_version
            ,source
            ,load_date
-  FROM base WHERE grp not in (select grp from new)
-  UNION ALL
-  SELECT record
-           ,cal_date
-           ,geography_grain
-           ,geography
-           ,platform_subset
-           ,customer_engagement
-           ,measure
-           ,units
-           ,ib_version
-           ,source
-           ,load_date
-   FROM new
+  FROM base 
+  UNION
+  SELECT new.record
+           ,new.cal_date
+           ,new.geography_grain
+           ,new.geography
+           ,new.platform_subset
+           ,new.customer_engagement
+           ,new.measure
+           ,new.units
+           ,new.ib_version
+           ,new.source
+           ,new.load_date
+   FROM new 
+   left join base on new.grp = base.grp
+   where base.grp is null
+   --WHERE grp not in (select distinct grp from base)
     
 """
 
