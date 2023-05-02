@@ -1059,7 +1059,7 @@ SELECT
     CAST(Month AS DATE) AS cal_date,  
     CASE
         WHEN Country_Code = '0A' THEN 'XB'
-        WHEN Country_Code = '0M' THEN 'XH'
+        WHEN Country_Code IN ('0M', '0B', '0C') THEN 'XH'
         WHEN Country_Code = 'CS' THEN 'XA'
         WHEN Country_Code = 'KV' THEN 'XA'
     ELSE Country_Code
