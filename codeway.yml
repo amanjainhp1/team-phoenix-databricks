@@ -8,7 +8,10 @@ resources:
 variables:
   - group: Defaults
 
-trigger: none
+trigger: 
+  branches:
+      include:
+        - hotfix/*
 
 pr: none
 
