@@ -1,12 +1,13 @@
 # Databricks notebook source
-# MAGIC %md
-# MAGIC Import libraries
+# MAGIC %md # Import libraries
 
 # COMMAND ----------
 
 from pyspark.sql.functions import *
 from pyspark.sql import functions as func
 from pyspark.sql.types import *
+import numpy as np
+import pandas
 
 # COMMAND ----------
 
@@ -15,6 +16,10 @@ from pyspark.sql.types import *
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
+
+# COMMAND ----------
+
+# MAGIC %md # Widgets
 
 # COMMAND ----------
 
@@ -155,6 +160,8 @@ pen_agg.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == '
 
 q4 = '''
 select *
+, power(1+'{}',year_num) as denom
+, power(1+'{}',year_num-1) as denom_minus_one
 , (net_usage_cc_per_year/yield) as pens_per_year
 , ((net_usage_cc_per_year/yield) * net_revenue_per_pen) as net_revenue
 , ((net_revenue_per_pen - pen_vcos) * (net_usage_cc_per_year/yield)) as vpm
@@ -163,13 +170,129 @@ select *
 , (((((net_revenue_per_pen - pen_tcos) * (net_usage_cc_per_year/yield)) - ((net_usage_cc_per_year/yield) * net_revenue_per_pen) * '{}')) * (1 - '{}')) as pen_net_profit
 from pen_agg
 
-'''.format(op_ex_rate,op_ex_rate,tax_rate)
+'''.format(discounting_factor,discounting_factor,op_ex_rate,op_ex_rate,tax_rate)
 pen_inputs = spark.sql(q4)
 pen_inputs.createOrReplaceTempView("pen_inputs")
 
 # COMMAND ----------
 
 pen_inputs.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
+
+# COMMAND ----------
+
+q = '''
+select record
+, region_5
+, platform_subset
+, customer_engagement
+, base_product_number
+, crg_chrome
+, customer_engagement
+, year
+, net_revenue/denom as pv_net_revenue
+, net_revenue/denom_minus_one as pv_net_revenue_x
+, vpm/denom as pv_vpm
+, vpm/denom_minus_one as pv_vpm_x
+, gm/denom as pv_gm
+, gm/denom_minus_one as pv_gm_x
+, operating_profit/denom as pv_operating_profit
+, operating_profit/denom_minus_one as pv_operating_profit_x
+, pen_net_profit/denom as pv_pen_net_profit
+, pen_net_profit/denom_minus_one as pv_pen_net_profit_x
+from pen_inputs
+'''
+pen_pv_cf = spark.sql(q)
+pen_pv_cf.createOrReplaceTempView("pen_pv_cf")
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+pen_pv_cf.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
+
+# COMMAND ----------
+
+q6 = '''
+select record
+, region_5
+, platform_subset
+, customer_engagement
+, base_product_number
+, (sum(pv_net_revenue) + sum(pv_net_revenue_x))/2 as supplies_net_revenue
+, (sum(pv_vpm) + sum(pv_vpm_x))/2 as supplies_vpm
+, (sum(pv_gm) + sum(pv_gm_x))/2 as supplies_gm
+, (sum(pv_operating_profit) + sum(pv_operating_profit_x))/2 as supplies_operating_profit
+, (sum(pv_pen_net_profit) + sum(pv_pen_net_profit_x))/2 as pen_net_profit
+from pen_pv_cf
+group by
+record
+, region_5
+, platform_subset
+, customer_engagement
+, base_product_number
+'''
+pen_pv_agg = spark.sql(q6)
+pen_pv_agg.createOrReplaceTempView("pen_pv_agg")
+
+# COMMAND ----------
+
+pen_pv_agg.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') ).display()
+
+# COMMAND ----------
+
+q7 = '''
+select record
+, region_5
+, platform_subset
+, customer_engagement
+, sum(supplies_net_revenue)
+, sum(supplies_vpm)
+, sum(supplies_gm)
+, sum(supplies_operating_profit)
+, sum(pen_net_profit)
+from pen_pv_agg
+group by
+record
+, region_5
+, platform_subset
+, customer_engagement
+'''
+platform_subset_region = spark.sql(q7)
+platform_subset_region.createOrReplaceTempView("platform_subset_region")
+
+# COMMAND ----------
+
+platform_subset_region.filter((col('platform_subset') == 'RUBY MOBILE') & (col('region_5') == 'NA') ).display()
+
+# COMMAND ----------
+
+q5 = '''
+select record
+, region_5
+, platform_subset
+, customer_engagement
+, year
+, sum(net_revenue) as supplies_net_revenue
+, sum(vpm) as supplies_vpm
+, sum(gm) as supplies_gm
+, sum(operating_profit) as supplies_operating_profit
+, sum(pen_net_profit) as pen_net_profit
+from pen_inputs
+group by
+record
+, region_5
+, platform_subset
+, customer_engagement
+, year
+'''
+pen_agg_year = spark.sql(q5)
+pen_agg_year.createOrReplaceTempView("pen_agg_year")
+
+# COMMAND ----------
+
+pen_agg_year.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA')).display()
 
 # COMMAND ----------
 
