@@ -3,8 +3,8 @@ Jobs:
   - actuals-hw
   - adjusted-rev-finance-update
   - adjusted-rev-flash-update
-  - base-usage-share
   - base-forecast
+  - base-usage-share
   - ce-split
   - create-demand-file
   - decay-curves
