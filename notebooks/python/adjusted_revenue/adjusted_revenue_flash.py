@@ -1,8 +1,8 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Adjusted Revenue Flash
-# MAGIC 
+# MAGIC
 # MAGIC Tables Needed in Delta Lake:
 # MAGIC - fin_prod.adjusted_revenue_salesprod
 # MAGIC - fin_prod.supplies_finance_flash
@@ -18,7 +18,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Add Version
 
 # COMMAND ----------
@@ -338,7 +338,7 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                  cast(month as date)                                            as cal_date,
                  case
                      when country_code = '0A' then 'XB'
-                     when country_code = '0M' then 'XH'
+                     when country_code in ('0M', '0B', '0C') THEN 'XH'
                      when country_code = 'CS' then 'XA'
                      when country_code = 'KV' then 'XA'
                      else country_code
