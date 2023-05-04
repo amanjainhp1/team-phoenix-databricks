@@ -4,10 +4,6 @@
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 # Global Variables
 query_list = []
 
@@ -42,9 +38,9 @@ FROM "mdm"."printer_lag"
 
 UNION ALL
 
-SELECT DISTINCT record
-    , version
-FROM "prod"."instant_ink_enrollees"
+SELECT 'IINK_IB_STF' record
+    , max(version) as version 
+FROM "prod"."instant_ink_enrollees_stf"
 WHERE 1=1
     AND official = 1
 
@@ -139,9 +135,9 @@ FROM "mdm"."printer_lag"
 
 UNION ALL
 
-SELECT DISTINCT record
-    , version
-FROM "prod"."instant_ink_enrollees"
+SELECT 'IINK_IB_STF' record
+    , max(version) as version 
+FROM "prod"."instant_ink_enrollees_stf"
 WHERE 1=1
     AND official = 1
 
@@ -521,16 +517,8 @@ query_list.append(["stage.ib_02_ce_splits", ce_splits, "overwrite"])
 
 # COMMAND ----------
 
-# Sending to scen schema for forecasters to be able to see the printer installs:
-query_list.append(["scen.ib_02_ce_splits", ce_splits, "overwrite"])
-
-# COMMAND ----------
-
 iink_complete = """
-
-
 with ib_14_iink_act_stf as (
-
 
 SELECT iiel.platform_subset
     , cast('I-INK' as char(50)) AS split_name
@@ -541,8 +529,8 @@ SELECT iiel.platform_subset
     , iiel.country AS country_alpha2
     , cc.region_5
     , cc.market10
-    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_mod
+    , SUM(iiel.net_p2_enrollees) AS p2_kitless_enroll_unmod
+    , SUM(iiel.net_p2_enrollees) AS p2_kitless_enroll_mod
     , SUM(iiel.cumulative_enrollees) AS cum_enrollees_month
 FROM "prod"."instant_ink_enrollees_stf" AS iiel
 JOIN "mdm"."calendar" AS c
@@ -561,12 +549,11 @@ GROUP BY iiel.platform_subset
     , cc.market10
 ),  ib_15_iink_p2_cumulative as (
 
-
 SELECT iink.platform_subset
     , iink.split_name
     , iink.fiscal_year_qtr
     , iink.year_fiscal
-    , cast(iink.month_begin as date)
+    , iink.month_begin
     , iink.country_alpha2
     , iink.region_5
     , iink.market10
@@ -744,21 +731,23 @@ SELECT month_begin
     , ib
 FROM "stage"."ib_03_iink_complete"
 WHERE 1=1
-    AND CAST(month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
-),  ib_14_iink_act_stf as (
+    AND month_begin > (SELECT MAX(cal_date) FROM prod.instant_ink_enrollees_stf WHERE official = 1)
+    
+),
 
+ib_14_iink_act_stf as (
 
 SELECT iiel.platform_subset
-    , cast('I-INK' as char(50)) AS split_name
-    , cast('IINK_ENROLLEES' as char(50)) AS type
+    , cast('I-INK' as varchar(50)) AS split_name
+    , cast('IINK_ENROLLEES' as varchar(50)) AS type
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , iiel.fiscal_yr year_fiscal
     , iiel.cal_date AS month_begin
     , iiel.country AS country_alpha2
     , cc.region_5
     , cc.market10
-    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_unmod
-    , SUM(iiel.p2_net_enrollees) AS p2_kitless_enroll_mod
+    , SUM(iiel.net_p2_enrollees) AS p2_kitless_enroll_unmod
+    , SUM(iiel.net_p2_enrollees) AS p2_kitless_enroll_mod
     , SUM(iiel.cumulative_enrollees) AS cum_enrollees_month
 FROM "prod"."instant_ink_enrollees_stf" AS iiel
 JOIN "mdm"."calendar" AS c
@@ -767,7 +756,7 @@ JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = iiel.country
 WHERE 1=1
     AND iiel.official = 1
- --   AND (iiel.p2_net_enrollees +  iiel.printer_replacements + iiel.cumulative_enrollees) != 0
+ --   AND (iiel.net_p2_enrollees +  iiel.enroll_replacement + iiel.cumulative_enrollees) != 0
 GROUP BY iiel.platform_subset
     , c.Fiscal_Year_Qtr
     , iiel.fiscal_yr
@@ -775,17 +764,16 @@ GROUP BY iiel.platform_subset
     , iiel.country
     , cc.region_5
     , cc.market10
-),  ib_23_iink_ltf_prep as (
+),
 
-
+ib_23_iink_ltf_prep as (
 SELECT ltf.platform_subset
     , 'COUNTRY' AS geography_grain
     , ltf.country AS geography
     , c.Fiscal_Year_Qtr AS fiscal_year_qtr
     , ltf.cal_date AS month_begin
-    , SUM(ltf.p2_net_enrollees) AS p2_enrollees
-    , SUM(ltf.p2_net_enrollees) OVER (PARTITION BY ltf.platform_subset, ltf.country
-                                            ORDER BY ltf.cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS p2_cumulative
+    , ltf.net_p2_enrollees AS p2_enrollees
+    , ltf.cumulative_p2_enrollees  AS p2_cumulative
     , ltf.cumulative_enrollees AS cumulative
 FROM "prod"."instant_ink_enrollees_ltf" AS ltf
 JOIN "stage"."ib_staging_inputs" AS fv
@@ -794,17 +782,11 @@ JOIN "stage"."ib_staging_inputs" AS fv
 JOIN "mdm"."calendar" AS c
         on c.Date = ltf.cal_date
 WHERE 1=1
-    AND ltf.value IS NOT NULL
-    AND ltf.cal_date > ( SELECT CAST(MAX(month_begin) AS DATE) FROM ib_14_iink_act_stf )
-GROUP BY 
-      ltf.platform_subset
-    , ltf.country 
-    , c.Fiscal_Year_Qtr 
-    , ltf.cal_date 
-), 
+    AND ltf.cal_date > (SELECT MAX(cal_date) FROM prod.instant_ink_enrollees_stf WHERE official = 1)
+),
 
 ib_24_iink_ltf as (
-SELECT ltf.month_begin
+SELECT ltf.month_begin 
     , ltf.geography country_alpha2
     , ltf.platform_subset
     , 'I-INK' split_name
@@ -812,11 +794,11 @@ SELECT ltf.month_begin
     , ltf.cumulative 
 FROM ib_23_iink_ltf_prep AS ltf
 WHERE 1=1
-    AND CAST(ltf.month_begin AS DATE) > (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
+    and ltf.month_begin > (SELECT MAX(cal_date) FROM prod.instant_ink_enrollees_stf WHERE official = 1)
     
-),  ib_25_sys_delta as (
+),
 
-
+ib_25_sys_delta as (
 SELECT comb.month_begin
     , comb.country_alpha2
     , comb.platform_subset
@@ -825,7 +807,7 @@ FROM "stage"."ib_03_iink_complete" AS comb
 WHERE 1=1
     AND comb.p2_attach > 0
     AND NOT comb.p2_attach IS NULL
-    AND CAST(comb.month_begin AS DATE) <= (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
+    AND comb.month_begin  <= (SELECT MAX(cal_date) FROM prod.instant_ink_enrollees_stf WHERE official = 1)
 
 UNION ALL
 
@@ -837,13 +819,15 @@ FROM ib_24_iink_ltf AS comb
 WHERE 1=1
     AND comb.p2_cumulative > 0
     AND NOT comb.p2_cumulative IS NULL
-),  ib_staging_temp_pre as (
+),
+
+ib_staging_temp_pre as (
 
 
 -- TRAD
 SELECT 'IB_TRAD' AS record
-    , NULL AS version
-    , NULL as load_date
+    , cast(null as varchar(64)) AS version
+    , cast(null as date) as load_date
     , ib.month_begin
     , 'MARKET10' AS geography_grain
     , cc.market10 AS geography
@@ -871,8 +855,8 @@ UNION ALL
 
 -- I-INK; acts, stf
 SELECT 'IB_IINK' AS record
-    , NULL AS version
-    , NULL as load_date
+    , cast(null as varchar(64)) AS version
+    , cast(null as date) as load_date
     , iink.month_begin
     , iink.geography_grain
     , iink.geography
@@ -887,25 +871,25 @@ FROM "stage"."ib_03_iink_complete" AS iink
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
 WHERE 1=1
-    AND CAST(iink.month_begin AS DATE) <= (SELECT MAX(year_month) FROM prod.instant_ink_enrollees WHERE official = 1)
+    AND iink.month_begin <= (SELECT MAX(cal_date) FROM prod.instant_ink_enrollees_stf WHERE official = 1)
     AND hw.technology IN ('LASER','INK','PWA','LF')
 
 UNION ALL
 
 -- I-INK; ltf
 SELECT 'IB_IINK' AS record
-    , NULL AS version
-    , NULL as load_date
+    , cast(null as varchar(64)) AS version
+    , cast(null as date) as load_date
     , iink.month_begin
     , 'MARKET10' AS geography_grain
     , cc.market10 AS geography
     , iink.country_alpha2
     , CASE WHEN hw.business_feature IS NULL THEN 'other' ELSE hw.business_feature END AS hps_ops
     , hw.technology
-    , UPPER(iink.split_name) AS split_name
+    , iink.split_name AS split_name
     , iink.platform_subset
     , 0 AS printer_installs
-    , iink.cum_enrollees_month AS ib
+    , iink.cumulative AS ib
 FROM ib_24_iink_ltf AS iink
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = iink.platform_subset
@@ -928,8 +912,7 @@ SELECT 'IB' AS record
     , CASE WHEN pre.ib != 0 AND pre.ib < 1 THEN 1 ELSE pre.ib END AS ib
 FROM ib_staging_temp_pre AS pre
 WHERE 1=1
-    AND pre.record IN ('IB_TRAD', 'IB_IINK')
-    
+    AND pre.record IN ('IB_TRAD', 'IB_IINK')      
 """
 
 query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
@@ -942,20 +925,3 @@ query_list.append(["stage.ib_staging", ib_staging, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../../../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-# MAGIC %run "../../../common/configs"
-
-# COMMAND ----------
-
-# MAGIC %run ../../../common/database_utils
-
-# COMMAND ----------
-
-# copy from stage to scen
-submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_ib; CREATE TABLE scen.prelim_ib AS SELECT * FROM stage.ib_staging;")
-
-# COMMAND ----------
-
-

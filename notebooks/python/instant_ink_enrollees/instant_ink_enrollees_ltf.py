@@ -9,7 +9,9 @@
 
 df_iink_ltf = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/ib/instant_ink_enrollees/instant_ink_enrollees_ltf/i_ink_ltf.csv'.format(constants['S3_BASE_BUCKET'][stack]))
 
-df_iink_ltf.createOrReplaceTempView("instant_ink_enrollees_ltf")
+# COMMAND ----------
+
+write_df_to_redshift(configs, df_iink_ltf, "stage.instant_ink_enrollees_ltf", "overwrite")
 
 # COMMAND ----------
 
@@ -36,7 +38,7 @@ submit_remote_query(configs, query_add_version)
 
 final_iink_enrollees_ltf = """
 SELECT
- LEFT(calendar_month,4) || '-' || RIGHT(calendar_month,2) || '-01' cal_date
+ cast(calendar_month_date as date) cal_date
 ,fiscal_qtr
 ,fiscal_yr
 ,country
@@ -46,32 +48,41 @@ SELECT
 ,program_type2
 ,sub_brand
 ,series_name
-,series_number
+,cast(series_number as int) series_number
 ,vol_val
 ,mono_color
 ,platform_subset
 ,hp_plus_eligible_printer
+,ink_platform
 ,hw_sellto
 ,p1_enrollees
 ,p2_enrollees
-,p1_net_enrollees
-,p2_net_enrollees
-,cancellations
-,printer_replacements
+,partial_enrollees
+,enroll_customer
+,enroll_replacement
 ,gross_new_enrollees
+,p1_cancels
+,p2_cancels
+,partial_cancels
+,cancel_customer
+,cancel_replacement
+,gross_cancels
 ,net_enrollees
+,net_p1_enrollees
+,net_p2_enrollees
 ,cumulative_enrollees
+,cumulative_p1_enrollees
+,cumulative_p2_enrollees
 ,prior_cum
+,qtr_cumulative_enrollees
 ,fcst_type
 ,data_type
 ,fcst_cycle
-,build_date
-,cum_enrollee_qtr
-,churn_rate
+,cast(build_date as date) build_date
 ,NULL load_date
 ,NULL version
 ,1 official
-FROM instant_ink_enrollees_ltf
+FROM stage.instant_ink_enrollees_ltf
 """
 
 df_final_iink_enrollees_ltf = read_redshift_to_df(configs).option("query", final_iink_enrollees_ltf).load()
@@ -82,8 +93,7 @@ write_df_to_redshift(configs, df_final_iink_enrollees_ltf, "prod.instant_ink_enr
 
 # COMMAND ----------
 
- query_update_latest_version = 
- """
+ query_update_latest_version =  """
  UPDATE prod.instant_ink_enrollees_ltf
  SET version  = (SELECT MAX(version) FROM prod.version WHERE record = 'IINK_ENROLLEES_LTF'),
      load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'IINK_ENROLLEES_LTF')
