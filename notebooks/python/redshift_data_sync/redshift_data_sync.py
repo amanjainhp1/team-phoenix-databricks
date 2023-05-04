@@ -88,7 +88,9 @@ def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, sch
 # COMMAND ----------
 
 # Unload data from prod
-def redshift_data_sync(datestamp: str, table: str, credentials: dict[str, str]) -> None:
+def redshift_data_sync(datestamp: str, table: str, credentials: dict[str, str], destination_envs: str) -> None:
+    REDSHIFT_DATA_SYNC_BUCKET = f"{constants['S3_BASE_BUCKET']['itg']}redshift_data_sync".replace("s3a://", "s3://")
+    
     schema_name = table.split(".")[0]
     table_name = table.split(".")[1]
     
@@ -137,9 +139,6 @@ def redshift_data_sync(datestamp: str, table: str, credentials: dict[str, str]) 
 # COMMAND ----------
 
 def main():
-    # constants
-    REDSHIFT_DATA_SYNC_BUCKET = f"{constants['S3_BASE_BUCKET']['itg']}redshift_data_sync".replace("s3a://", "s3://")
-    
     # parameters
     # datestamp (YYYY-MM-DD)
     datestamp = datestamp_get()
@@ -158,7 +157,7 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         future_to_table = {}
         for table in tables:
-            future = executor.submit(redshift_data_sync, datestamp, table, credentials)
+            future = executor.submit(redshift_data_sync, datestamp, table, credentials, destination_envs)
             future_to_table[future] = table
         
         for future in concurrent.futures.as_completed(future_to_table):
