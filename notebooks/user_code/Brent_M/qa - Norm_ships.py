@@ -35,7 +35,7 @@ prev_version = '2023.03.23.1'
 
 # MAGIC %md
 # MAGIC ## Norm shipments v2v compare
-# MAGIC 
+# MAGIC
 # MAGIC Synopsis: compare
 
 # COMMAND ----------
@@ -59,6 +59,40 @@ norm_ships_df = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+norm_ships_laser_sql = """
+select ns.*
+from stage.norm_ships as ns
+join mdm.hardware_xref AS hw
+    on upper(hw.platform_subset) = upper(ns.platform_subset)
+where 1=1
+    and hw.technology in ('LASER')
+"""
+
+# COMMAND ----------
+
+norm_ships_laser_df = read_redshift_to_df(configs) \
+  .option("query", norm_ships_laser_sql) \
+  .load()
+
+# COMMAND ----------
+
+norm_ships_ink_sql = """
+select ns.*
+from stage.norm_ships as ns
+join mdm.hardware_xref AS hw
+    on upper(hw.platform_subset) = upper(ns.platform_subset)
+where 1=1
+    and hw.technology in ('INK')
+"""
+
+# COMMAND ----------
+
+norm_ships_ink_df = read_redshift_to_df(configs) \
+  .option("query", norm_ships_ink_sql) \
+  .load()
+
+# COMMAND ----------
+
 norm_ships_df.show()
 
 # COMMAND ----------
@@ -75,6 +109,36 @@ ns_agg_2 = ns_agg_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal
 ns_agg_2['variable'] = 'stage.norm_ships'
 
 ns_agg_3 = ns_agg_2.reindex(['cal_date', 'variable', 'units'], axis=1)
+
+# COMMAND ----------
+
+# prep for visualization
+ns_agg_laser_prep = norm_ships_laser_df.toPandas()
+
+# drop unwanted columns
+drop_list_laser = ['region_5', 'record', 'country_alpha2', 'platform_subset', 'version']
+ns_agg_laser_1 = ns_agg_laser_prep.drop(drop_list_laser, axis=1)
+
+# aggregate time series
+ns_agg_laser_2 = ns_agg_laser_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
+ns_agg_laser_2['variable'] = 'stage.norm_ships'
+
+ns_agg_laser_3 = ns_agg_laser_2.reindex(['cal_date', 'variable', 'units'], axis=1)
+
+# COMMAND ----------
+
+# prep for visualization
+ns_agg_ink_prep = norm_ships_ink_df.toPandas()
+
+# drop unwanted columns
+drop_list_ink = ['region_5', 'record', 'country_alpha2', 'platform_subset', 'version']
+ns_agg_ink_1 = ns_agg_ink_prep.drop(drop_list_ink, axis=1)
+
+# aggregate time series
+ns_agg_ink_2 = ns_agg_ink_1.groupby(['cal_date'], as_index=False).sum().sort_values('cal_date')
+ns_agg_ink_2['variable'] = 'stage.norm_ships'
+
+ns_agg_ink_3 = ns_agg_ink_2.reindex(['cal_date', 'variable', 'units'], axis=1)
 
 # COMMAND ----------
 
@@ -99,17 +163,68 @@ ORDER BY ns.cal_date
 
 # COMMAND ----------
 
+ns_prod_laser_sql = """
+SELECT 'prod.norm_ships' AS variable
+    , ns.cal_date
+    , SUM(ns.units) AS units
+FROM prod.norm_shipments AS ns
+LEFT JOIN mdm.hardware_xref AS hw
+    ON hw.platform_subset = ns.platform_subset
+WHERE 1=1
+    AND hw.technology IN ('LASER')
+    AND ns.version = '{}'
+    -- and ns.cal_date between '2019-03-01' and '2026-10-01'
+GROUP BY ns.cal_date
+ORDER BY ns.cal_date
+""".format(prev_version)
+
+# COMMAND ----------
+
+ns_prod_ink_sql = """
+SELECT 'prod.norm_ships' AS variable
+    , ns.cal_date
+    , SUM(ns.units) AS units
+FROM prod.norm_shipments AS ns
+LEFT JOIN mdm.hardware_xref AS hw
+    ON hw.platform_subset = ns.platform_subset
+WHERE 1=1
+    AND hw.technology IN ('INK')
+    AND ns.version = '{}'
+    -- and ns.cal_date between '2019-03-01' and '2026-10-01'
+GROUP BY ns.cal_date
+ORDER BY ns.cal_date
+""".format(prev_version)
+
+# COMMAND ----------
+
 norm_ships_prod_df = read_redshift_to_df(configs) \
   .option("query", ns_prod_sql) \
   .load()
 
 # COMMAND ----------
 
+norm_ships_prod_laser_df = read_redshift_to_df(configs) \
+  .option("query", ns_prod_laser_sql) \
+  .load()
+
+# COMMAND ----------
+
+norm_ships_prod_ink_df = read_redshift_to_df(configs) \
+  .option("query", ns_prod_ink_sql) \
+  .load()
+
+# COMMAND ----------
+
 ns_agg_prod_prep = norm_ships_prod_df.toPandas()
+ns_agg_prod_laser_prep = norm_ships_prod_laser_df.toPandas()
+ns_agg_prod_ink_prep = norm_ships_prod_ink_df.toPandas()
 
 # COMMAND ----------
 
 ns_agg_4 = ns_agg_prod_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+ns_agg_laser_4 = ns_agg_prod_laser_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+ns_agg_ink_4 = ns_agg_prod_ink_prep.reindex(['cal_date', 'variable', 'units'], axis=1)
+
 
 # COMMAND ----------
 
@@ -118,6 +233,8 @@ ns_agg_4
 # COMMAND ----------
 
 ns_agg_5 = pd.concat([ns_agg_4, ns_agg_3], sort=True)
+ns_agg_laser_5 = pd.concat([ns_agg_laser_4, ns_agg_laser_3], sort=True)
+ns_agg_ink_5 = pd.concat([ns_agg_ink_4, ns_agg_ink_3], sort=True)
 
 # COMMAND ----------
 
@@ -160,9 +277,89 @@ fig.show()
 
 # COMMAND ----------
 
+# NS - LASER
+# https://plotly.com/python-api-reference/generated/plotly.express.line
+
+fig = px.line(data_frame=ns_agg_laser_5,
+              x='cal_date',
+              y='units',
+              line_group='variable',
+              color='variable',
+              title='RS - NS LASER v2v compare')
+
+fig.update_xaxes(
+    rangeslider_visible=True,
+    rangeselector=dict(
+        buttons=list([
+            dict(count=1, label="1m", step="month", stepmode="backward"),
+            dict(count=6, label="6m", step="month", stepmode="backward"),
+            dict(count=1, label="YTD", step="year", stepmode="todate"),
+            dict(count=1, label="1y", step="year", stepmode="backward"),
+            dict(step="all")
+        ])
+    )
+)
+
+fig.update_layout(
+    autosize=False,
+    width=1400,
+    height=500,
+    margin=dict(
+        l=50,
+        r=50,
+        b=100,
+        t=100,
+        pad=4
+    ),
+)
+
+fig.show()
+
+# COMMAND ----------
+
+# NS -INK
+# https://plotly.com/python-api-reference/generated/plotly.express.line
+
+fig = px.line(data_frame=ns_agg_ink_5,
+              x='cal_date',
+              y='units',
+              line_group='variable',
+              color='variable',
+              title='RS - NS INK v2v compare')
+
+fig.update_xaxes(
+    rangeslider_visible=True,
+    rangeselector=dict(
+        buttons=list([
+            dict(count=1, label="1m", step="month", stepmode="backward"),
+            dict(count=6, label="6m", step="month", stepmode="backward"),
+            dict(count=1, label="YTD", step="year", stepmode="todate"),
+            dict(count=1, label="1y", step="year", stepmode="backward"),
+            dict(step="all")
+        ])
+    )
+)
+
+fig.update_layout(
+    autosize=False,
+    width=1400,
+    height=500,
+    margin=dict(
+        l=50,
+        r=50,
+        b=100,
+        t=100,
+        pad=4
+    ),
+)
+
+fig.show()
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Tests - Actuals to MDM
-# MAGIC 
+# MAGIC
 # MAGIC List:
 # MAGIC + actuals to hardware_xref
 # MAGIC + actuals to decay
@@ -262,7 +459,7 @@ acts_to_decay_df.show()
 
 # MAGIC %md
 # MAGIC ## Tests - Forecast to MDM
-# MAGIC 
+# MAGIC
 # MAGIC List:
 # MAGIC + forecast to hardware_xref
 # MAGIC + forecast to decay
