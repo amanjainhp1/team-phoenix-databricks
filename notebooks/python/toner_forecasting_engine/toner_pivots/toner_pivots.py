@@ -1222,6 +1222,34 @@ GROUP BY apf.cal_date
     , apf.market10
     , apf.region_5
     --, apf.country_alpha2
+),  pivots_t_22a_net_rev_per_unit_trade as (
+
+SELECT apf.cal_date
+    , apf.platform_subset
+    , apf.base_product_number
+    --, apf.customer_engagement
+    , apf.base_product_line_code
+    , apf.market10
+    , apf.region_5
+    --, apf.country_alpha2
+    , SUM(apf.net_revenue * 1.0) / NULLIF(SUM(apf.units), 0) AS net_revenue_per_unit
+FROM fin_prod.actuals_plus_forecast_financials AS apf
+JOIN pivots_lib_01_filter_vars AS fv
+    ON fv.record = apf.record_type  -- 2 record categories
+    AND fv.version = apf.version
+JOIN pivots_t_17_fiscal_calendar AS f
+    ON f.Date = apf.cal_date
+WHERE 1=1
+    AND apf.technology = 'LASER'
+    AND apf.units <> 0
+GROUP BY apf.cal_date
+    , apf.platform_subset
+    , apf.base_product_number
+    --, apf.customer_engagement
+    , apf.base_product_line_code
+    , apf.market10
+    , apf.region_5
+    --, apf.country_alpha2
 )SELECT 'HW - IB' AS record_type
     , 'IB' AS record
     , date_format(current_date(), 'yyyy-MM') AS cycle
@@ -2148,7 +2176,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS wampv_ib_units
     , SUM(p.supplies_pmf * p.yield) AS hp_sell_in_pages_kcmy
     , CASE WHEN s.k_color <> 'BLACK' THEN SUM(0) ELSE SUM(p.supplies_pmf * p.yield) END AS hp_sell_in_pages_k_only
-FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
+FROM pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 LEFT JOIN pivots_t_19_hw_xref AS hw
@@ -2462,12 +2490,12 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , f.calendar_yr_qtr
     , f.calendar_yr
 
-    , nrpu.market10 AS market_10
-    , nrpu.region_5 AS region_5
-    , nrpu.platform_subset
+    , t.market10 AS market_10
+    , t.region_5 AS region_5
+    , t.platform_subset
     , s.base_prod_name AS base_prod_name
-    , nrpu.base_product_number AS base_prod_number
-    , nrpu.customer_engagement    
+    , t.base_product_number AS base_prod_number
+    , t.customer_engagement    
     , 0 as yield
 
     , hw.pl AS hw_pl
@@ -2527,18 +2555,17 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS wampv_ib_units    
     , SUM(0) AS hp_sell_in_pages_kcmy 
     , SUM(0) AS hp_sell_in_pages_k_only
-FROM pivots_t_22_net_rev_per_unit AS nrpu
-JOIN pivots_15_units_pivot AS t 
+FROM pivots_15_units_pivot AS t 
+INNER JOIN pivots_t_22a_net_rev_per_unit_trade AS nrpu 
     ON nrpu.base_product_number = t.base_product_number
     AND nrpu.platform_subset = t.platform_subset
     AND nrpu.cal_date = t.cal_date
     AND nrpu.market10 = t.market10
-    AND nrpu.customer_engagement = t.customer_engagement
-JOIN pivots_t_17_fiscal_calendar AS f
+INNER JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = nrpu.cal_date
-JOIN pivots_t_19_hw_xref AS hw
+INNER JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = nrpu.platform_subset
-JOIN pivots_t_18_supplies_xref AS s
+INNER JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = nrpu.base_product_number
 GROUP BY f.date
     , f.fiscal_year_qtr
