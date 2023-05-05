@@ -16,11 +16,9 @@ from datetime import datetime
 
 # COMMAND ----------
 
-# Datestamp
-def datestamp_get():
-    date = datetime.today()
-    datestamp = date.strftime("%Y-%m-%d")
-    return datestamp
+# MAGIC %run ../common/datetime_utils
+
+# COMMAND ----------
 
 # Retrieve credentials
 def retrieve_credentials(env: str) -> dict[str, str]:
@@ -50,6 +48,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         .format(dbname, port, user, password, host)
     con = psycopg2.connect(conn_string)
     cur = con.cursor()
+    # Retrieve all columns except those with identity type
     cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_schema='{schema}' AND table_name='{table}' AND (column_default NOT LIKE '%identity%' OR column_default IS NULL) ORDER BY ordinal_position asc")
     data = cur.fetchall()
     col_list = [row[0] for row in data]
@@ -57,6 +56,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
     cur.close()
 
     unload_query = f"UNLOAD ('{select_statement}') TO '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET ALLOWOVERWRITE;"
+
     submit_remote_query(dbname, port, user, password, host, unload_query)
     function_duration = round(time.time()-start_time, 2)
     print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
@@ -79,7 +79,7 @@ def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, sch
     print(f'{destination_env}|Started copying {schema}.{table}')
     start_time = time.time()
     copy_query = f"COPY {schema}.{table} FROM '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET;"
-    # update permissions
+    # Update permissions
     permissions_query = f"GRANT ALL ON {schema}.{table} TO GROUP dev_arch_eng;"
     submit_remote_query(dbname, port, user, password, host, copy_query + permissions_query)
     function_duration = round(time.time()-start_time, 2)
@@ -88,9 +88,10 @@ def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, sch
 # COMMAND ----------
 
 # Unload data from prod
-def redshift_data_sync(datestamp: str, table: str, credentials: dict[str, str], destination_envs: str) -> None:
+def redshift_data_sync(datestamp: str, timestamp:str, table: str, credentials: dict[str, str], destination_envs: str) -> None:
+    # Unload location for both dev and itg is itg S3 bucket 
     REDSHIFT_DATA_SYNC_BUCKET = f"{constants['S3_BASE_BUCKET']['itg']}redshift_data_sync".replace("s3a://", "s3://")
-    
+
     schema_name = table.split(".")[0]
     table_name = table.split(".")[1]
     
@@ -101,7 +102,7 @@ def redshift_data_sync(datestamp: str, table: str, credentials: dict[str, str], 
                     host=configs["redshift_url"],
                     schema=schema_name,
                     table=table_name,
-                    s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{schema_name}/{table_name}/",
+                    s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{timestamp}/{schema_name}/{table_name}/",
                     iam_role=f"{configs['aws_iam_role']},{constants['REDSHIFT_IAM_ROLE']['dev']}")
 
     # Build query to drop and rebuild table in lower environment/s
@@ -131,22 +132,25 @@ def redshift_data_sync(datestamp: str, table: str, credentials: dict[str, str], 
                         host=constants['REDSHIFT_URL'][destination_env],
                         schema=schema_name,
                         table=table_name,
-                        s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{schema_name}/{table_name}/",
+                        s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{timestamp}/{schema_name}/{table_name}/",
                         iam_role=constants['REDSHIFT_IAM_ROLE'][destination_env],
                         destination_env=destination_env)
-    return None 
+    return None
 
 # COMMAND ----------
 
 def main():
     # parameters
+    date = Date()
     # datestamp (YYYY-MM-DD)
-    datestamp = datestamp_get()
+    datestamp = date.getDatestamp("%Y-%m-%d")
+    # UNIX timestamp
+    timestamp = date.getTimestamp()
 
     # Define destination envs
     destination_envs = ['itg', 'dev']
     
-    # # Define tables to copy
+    # Define tables to copy
     tables = []
     for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
         tables += get_redshift_table_names(configs, schema)
@@ -157,7 +161,7 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         future_to_table = {}
         for table in tables:
-            future = executor.submit(redshift_data_sync, datestamp, table, credentials, destination_envs)
+            future = executor.submit(redshift_data_sync, datestamp, timestamp, table, credentials, destination_envs)
             future_to_table[future] = table
         
         for future in concurrent.futures.as_completed(future_to_table):
