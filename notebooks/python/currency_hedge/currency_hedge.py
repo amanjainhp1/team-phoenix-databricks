@@ -191,24 +191,6 @@ write_df_to_s3(unpivotDF_records, s3_output_bucket, "parquet", "overwrite")
 
 # COMMAND ----------
 
-# NO LONGER NEED TO COPY TO SFAI
-
-# COMMAND ----------
-
-# # Rename the columns to match SFAI
-unpivotDF_records = unpivotDF_records \
-    .withColumnRenamed("product_category","Product_Category") \
-    .withColumnRenamed("currency","Currency") \
-    .withColumnRenamed("month","Month") \
-    .withColumnRenamed("revenue_currency_hedge","Revenue_Currency_Hedge")
-
-# COMMAND ----------
-
-# # Write to SFAI
-write_df_to_sqlserver(configs, unpivotDF_records, "IE2_Prod.dbo.currency_hedge", "overwrite")
-
-# COMMAND ----------
-
 # copy the file from the landing bucket to an archive bucket, then delete from the landing bucket
 
 working_file = latest_file.split("/")[len(latest_file.split("/"))-1]
