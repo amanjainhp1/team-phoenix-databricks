@@ -502,7 +502,7 @@ SELECT
     base_product_amount_percent
 FROM rdma_salesprod_to_baseprod_map_correction2
 WHERE sales_product_line_code IN ('AU', 'UR')
-AND base_product_line_code NOT IN ('AU', 'UR')
+AND base_product_line_code NOT IN ('AU', 'UR', 'TX', 'UK')
 """        
 
 media_only_rdma_map = spark.sql(media_only_rdma_map)
