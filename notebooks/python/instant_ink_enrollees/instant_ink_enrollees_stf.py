@@ -7,16 +7,16 @@
 
 # COMMAND ----------
 
-df_iink_ltf = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/ib/instant_ink_enrollees/instant_ink_enrollees_ltf/i_ink_ltf.csv'.format(constants['S3_BASE_BUCKET'][stack]))
+df_iink_stf = spark.read.format('csv').options(header='true', inferSchema='true').load('{}product/ib/instant_ink_enrollees/instant_ink_enrollees_stf/i_ink_stf.csv'.format(constants['S3_BASE_BUCKET'][stack]))
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, df_iink_ltf, "stage.instant_ink_enrollees_ltf", "overwrite")
+write_df_to_redshift(configs, df_iink_stf, "stage.instant_ink_enrollees_stf", "overwrite")
 
 # COMMAND ----------
 
  query_set_previous_official_zero = """
- UPDATE prod.instant_ink_enrollees_ltf
+ UPDATE prod.instant_ink_enrollees_stf 
  SET official  = 0 
  """
 
@@ -27,7 +27,7 @@ submit_remote_query(configs, query_set_previous_official_zero)
 # COMMAND ----------
 
 query_add_version = """
-CALL prod.addversion_sproc('IINK_ENROLLEES_LTF', 'FORECASTER INPUT');  
+CALL prod.addversion_sproc('IINK_ENROLLEES_STF', 'FORECASTER INPUT');  
 """
 
 # COMMAND ----------
@@ -36,7 +36,7 @@ submit_remote_query(configs, query_add_version)
 
 # COMMAND ----------
 
-final_iink_enrollees_ltf = """
+final_iink_enrollees_stf = """
 SELECT
  cast(calendar_month_date as date) cal_date
 ,fiscal_qtr
@@ -82,21 +82,21 @@ SELECT
 ,NULL load_date
 ,NULL version
 ,1 official
-FROM stage.instant_ink_enrollees_ltf
+FROM stage.instant_ink_enrollees_stf
 """
 
-df_final_iink_enrollees_ltf = read_redshift_to_df(configs).option("query", final_iink_enrollees_ltf).load()
+df_final_iink_enrollees_stf = read_redshift_to_df(configs).option("query", final_iink_enrollees_stf).load()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, df_final_iink_enrollees_ltf, "prod.instant_ink_enrollees_ltf", "append")
+write_df_to_redshift(configs, df_final_iink_enrollees_stf, "prod.instant_ink_enrollees_stf", "append")
 
 # COMMAND ----------
 
- query_update_latest_version =  """
- UPDATE prod.instant_ink_enrollees_ltf
- SET version  = (SELECT MAX(version) FROM prod.version WHERE record = 'IINK_ENROLLEES_LTF'),
-     load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'IINK_ENROLLEES_LTF')
+ query_update_latest_version = """
+ UPDATE prod.instant_ink_enrollees_stf
+ SET version  = (SELECT MAX(version) FROM prod.version WHERE record = 'IINK_ENROLLEES_STF'),
+     load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'IINK_ENROLLEES_STF')
  WHERE version IS NULL
  """
 
