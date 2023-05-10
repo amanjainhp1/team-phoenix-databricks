@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # POR TONER
+# MAGIC # POR INK
 
 # COMMAND ----------
 
@@ -30,13 +30,13 @@ select
 	acts.version,
 	acts.source,
 	current_date as por_date,
-	'LASER' technology 
+	'INK' technology 
 from prod.actuals_hw as acts
 join mdm.hardware_xref as hw
     on hw.platform_subset = acts.platform_subset
 where 1=1
     and acts.official = 1
-    and hw.technology in ('LASER')
+    and hw.technology in ('INK', 'PWA')
 """
 
 query_list.append(["por.por_actuals_hw", por_actuals_hw, "append"])
@@ -60,13 +60,13 @@ select
 	ac.load_date,
 	ac.version,
 	current_date as por_date,
-	'LASER'
+	'INK'
 from prod.actuals_supplies ac
 join mdm.hardware_xref as hw
     on hw.platform_subset = ac.platform_subset
 where 1=1
     and ac.official = 1
-    and hw.technology in ('LASER')
+    and hw.technology in ('INK', 'PWA')
 """
 
 query_list.append(["por.por_actuals_supplies", por_actuals_supplies, "append"])
@@ -89,13 +89,13 @@ select
 	ce.version,
 	ce.official,
 	current_date as por_date,
-    'LASER'
+    'INK'
 from prod.ce_splits as ce
 join mdm.hardware_xref as hw
     on hw.platform_subset = ce.platform_subset
 where 1=1
     and ce.official = 1
-    and hw.technology in ('LASER')
+    and hw.technology in ('INK', 'PWA')
 """
 
 query_list.append(["por.por_ce_splits", por_ce_splits, "append"])
@@ -116,13 +116,13 @@ select
 	d.official,
 	d.geography_grain,
 	current_date as por_date,
-	'LASER'
+	'INK'
 from prod.decay as d
 join mdm.hardware_xref as hw
     on hw.platform_subset = d.platform_subset
 where 1=1
     and d.official = 1
-    and hw.technology in ('LASER')
+    and hw.technology in ('INK', 'PWA')
 """
 query_list.append(["por.por_decay", por_decay, "append"])
 
@@ -164,7 +164,7 @@ select
 	current_date as por_date
 from mdm.hardware_xref
 where 1=1
-    and technology in ('LASER')
+    and technology in ('INK', 'PWA')
 """
 query_list.append(["por.por_hardware_xref", por_hardware_xref, "append"])
 
@@ -184,12 +184,12 @@ select
 	shm.eol_date,
 	shm.host_multiplier,
     current_date as por_date,
-    'LASER'
+    'INK'
 from mdm.supplies_hw_mapping as shm
 join mdm.hardware_xref as hw
     on hw.platform_subset = shm.platform_subset
 where 1=1
-    and hw.technology in ('LASER')
+    and hw.technology in ('INK', 'PWA')
 """
 query_list.append(["por.por_supplies_hw_mapping", por_supplies_hw_mapping, "append"])
 
@@ -219,7 +219,7 @@ select
 	current_date as por_date
 from mdm.supplies_xref
 where 1=1
-and technology = 'LASER'
+and technology in ('INK', 'PWA')
 """
 query_list.append(["por.por_supplies_xref", por_supplies_xref, "append"])
 
@@ -236,8 +236,8 @@ select
 	version,
 	official,
 	geography_grain,
-	'2023-04-15' as por_date,
-    'LASER'
+	current_date as por_date,
+    'INK'
 from mdm.yield
 where 1=1
     and official = 1
@@ -256,9 +256,9 @@ SELECT usi.geography_grain
     , usi.units
     , usi.version version
     , usi.ib_version,
-		current_date as por_date,
-    'LASER'
-FROM scen.toner_03_usage_share AS usi
+	, current_date as por_date
+    , 'INK'
+FROM scen.ink_03_usage_share AS usi
 """
 query_list.append(["por.por_usage_share", por_usage_share, "append"])
 
@@ -276,12 +276,12 @@ select
 	mix_rate ,
 	composite_key,
 		current_date as por_date,
-    'LASER'
+    'INK'
 from stage.page_cc_mix p
 join mdm.hardware_xref as hw
     on hw.platform_subset = p.platform_subset
 where 1=1
-    and hw.technology in ('LASER')
+    and hw.technology in ('INK', 'PWA')
 """
 query_list.append(["por.por_pages_ccs_mix_base", por_pages_ccs_mix_base, "append"])
 
@@ -298,16 +298,16 @@ select
 	mix_rate,
 	"type",
 	single_multi,
-		current_date as por_date,
-    'LASER'
-from scen.toner_06_mix_rate_final
+	current_date as por_date,
+    'INK'
+from scen.ink_06_mix_rate_final
 """
 query_list.append(["por.por_pages_ccs_mix_working", por_pages_ccs_mix_working, "append"])
 
 # COMMAND ----------
 
 por_channel_fill = """
-with __dbt__CTE__s_toner_01_filter_vars as (
+with __dbt__CTE__s_ink_01_filter_vars as (
     SELECT DISTINCT 'SCENARIO_CHANNEL_FILL' AS record
         , cf.user_name AS user_name
         , cf.load_date AS load_date
@@ -316,13 +316,13 @@ with __dbt__CTE__s_toner_01_filter_vars as (
     WHERE 1=1
         AND cf.upload_type = 'WORKING-FORECAST'
         AND CAST(cf.load_date AS DATE) > CAST('2021-05-01' AS DATE)
-        AND cf.user_name IN ('JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM')
+        AND cf.user_name IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 )
 
-,  __dbt__CTE__s_toner_11_channel_fill_prep as (
+,  __dbt__CTE__s_ink_11_channel_fill_prep as (
     SELECT fv.user_name
         , MAX(fv.load_date) AS max_load_date
-    FROM __dbt__CTE__s_toner_01_filter_vars AS fv
+    FROM __dbt__CTE__s_ink_01_filter_vars AS fv
     WHERE 1=1
         AND fv.user_name <> 'SYSTEM'
         AND fv.record = 'SCENARIO_CHANNEL_FILL'
@@ -351,7 +351,7 @@ with __dbt__CTE__s_toner_01_filter_vars as (
     SELECT 'GREATER CHINA' AS market_10, 'AP' AS region_5
 )
 
-,  __dbt__CTE__s_toner_12_channel_fill_subset as (
+,  __dbt__CTE__s_ink_12_channel_fill_subset as (
     SELECT DISTINCT DATEADD(month, cf.month_num, cf.min_sys_date) AS cal_date
         , cf.geography
         , cf.platform_subset
@@ -361,7 +361,7 @@ with __dbt__CTE__s_toner_01_filter_vars as (
         , cf.user_name
         , cf.load_date
     FROM scen.working_forecast_channel_fill AS cf
-    JOIN __dbt__CTE__s_toner_11_channel_fill_prep AS cfp
+    JOIN __dbt__CTE__s_ink_11_channel_fill_prep AS cfp
         ON cfp.user_name = cf.user_name
         AND cfp.max_load_date = cf.load_date
     JOIN __dbt__CTE__shm_mapping AS shm
@@ -383,7 +383,7 @@ with __dbt__CTE__s_toner_01_filter_vars as (
         , cf.user_name
         , cf.load_date
     FROM scen.working_forecast_channel_fill AS cf
-    JOIN __dbt__CTE__s_toner_11_channel_fill_prep AS cfp
+    JOIN __dbt__CTE__s_ink_11_channel_fill_prep AS cfp
         ON cfp.user_name = cf.user_name
         AND cfp.max_load_date = cf.load_date
     JOIN __dbt__CTE__shm_mapping AS shm
@@ -406,18 +406,17 @@ SELECT DISTINCT cfs.cal_date
     , cfs.channel_fill
     , cfs.user_name
     , cfs.load_date
-	,current_date as por_date
-    ,'LASER' technology 
-FROM __dbt__CTE__s_toner_12_channel_fill_subset AS cfs
+	, current_date as por_date,
+    , 'INK'
+FROM __dbt__CTE__s_ink_12_channel_fill_subset AS cfs
 WHERE 1=1
-
 """
 query_list.append(["por.por_channel_fill", por_channel_fill, "append"])
 
 # COMMAND ----------
 
 por_vtc = """
-with __dbt__CTE__s_toner_01_filter_vars as (
+with __dbt__CTE__s_ink_01_filter_vars as (
     SELECT DISTINCT 'SCENARIO_VTC_OVERRIDE' AS record
         , v.user_name AS user_name
         , v.load_date AS load_date
@@ -426,13 +425,13 @@ with __dbt__CTE__s_toner_01_filter_vars as (
     WHERE 1=1
         AND v.upload_type = 'WORKING-FORECAST'
         AND CAST(v.load_date AS DATE) > CAST('2021-05-01' AS DATE)
-        AND v.user_name IN ('JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM')
+        AND v.user_name IN ('ANAA','ANA.ANAYA@HP.COM', 'SAIMANK', 'SAIMAN.KUSIN@HP.COM', 'SONSEEAHRAY', 'SONSEEAHRAY.RUCKER@HP.COM', 'ZACP', 'ZACHARY.PEAKE@HP.COM')
 )
 
-,  __dbt__CTE__s_toner_17_vtc_prep as (
+,  __dbt__CTE__s_ink_17_vtc_prep as (
     SELECT fv.user_name
         , MAX(fv.load_date) AS max_load_date
-    FROM __dbt__CTE__s_toner_01_filter_vars AS fv
+    FROM __dbt__CTE__s_ink_01_filter_vars AS fv
     WHERE 1=1
         AND fv.user_name <> 'SYSTEM'
         AND fv.record = 'SCENARIO_VTC_OVERRIDE'
@@ -452,7 +451,7 @@ with __dbt__CTE__s_toner_01_filter_vars as (
     SELECT 'GREATER CHINA' AS market_10, 'AP' AS region_5
 )
 
-,  __dbt__CTE__s_toner_18_vtc_subset as (
+,  __dbt__CTE__s_ink_18_vtc_subset as (
     SELECT v.geography
         , v.base_product_number
         , v.min_sys_date
@@ -461,7 +460,7 @@ with __dbt__CTE__s_toner_01_filter_vars as (
         , v.user_name
         , v.load_date
     FROM scen.working_forecast_vtc_override AS v
-    JOIN __dbt__CTE__s_toner_17_vtc_prep AS vp
+    JOIN __dbt__CTE__s_ink_17_vtc_prep AS vp
         ON vp.user_name = v.user_name
         AND vp.max_load_date = v.load_date
     WHERE 1=1
@@ -478,7 +477,7 @@ with __dbt__CTE__s_toner_01_filter_vars as (
         , v.user_name
         , v.load_date
     FROM scen.working_forecast_vtc_override AS v
-    JOIN __dbt__CTE__s_toner_17_vtc_prep AS vp
+    JOIN __dbt__CTE__s_ink_17_vtc_prep AS vp
         ON vp.user_name = v.user_name
         AND vp.max_load_date = v.load_date
     JOIN __dbt__CTE__c2c_02_geography_mapping AS geo
@@ -497,11 +496,16 @@ SELECT DISTINCT DATEADD(month, v.month_num, v.min_sys_date) AS cal_date
     , v.user_name
     , v.load_date
 	, current_date as por_date
-    , 'LASER' technology 
-FROM __dbt__CTE__s_toner_18_vtc_subset AS v
+    , 'INK'
+FROM __dbt__CTE__s_ink_18_vtc_subset AS v
 WHERE 1=1
 """
 query_list.append(["por.por_vtc", por_vtc, "append"])
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create Redshift Tables
 
 # COMMAND ----------
 
