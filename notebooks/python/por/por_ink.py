@@ -345,7 +345,7 @@ with __dbt__CTE__s_ink_01_filter_vars as (
     SELECT 'ISE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'LATIN AMERICA' AS market_10, 'LA' AS region_5 UNION ALL
     SELECT 'NORTH AMERICA' AS market_10, 'NA' AS region_5 UNION ALL
-    SELECT 'Northern Europe' AS market_10, 'EU' AS region_5 UNION ALL
+    SELECT 'NORTHERN EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'SOUTHERN EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'UK&I' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'GREATER CHINA' AS market_10, 'AP' AS region_5
@@ -445,7 +445,7 @@ with __dbt__CTE__s_ink_01_filter_vars as (
     SELECT 'ISE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'LATIN AMERICA' AS market_10, 'LA' AS region_5 UNION ALL
     SELECT 'NORTH AMERICA' AS market_10, 'NA' AS region_5 UNION ALL
-    SELECT 'Northern Europe' AS market_10, 'EU' AS region_5 UNION ALL
+    SELECT 'NORTHERN EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'SOUTHERN EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'UK&I' AS market_10, 'EU' AS region_5 UNION ALL
     SELECT 'GREATER CHINA' AS market_10, 'AP' AS region_5
