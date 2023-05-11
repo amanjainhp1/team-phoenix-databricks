@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Trade Forecast Promotion
 
 # COMMAND ----------
@@ -13,48 +13,17 @@
 
 # COMMAND ----------
 
-add_version_inputs = [
-    ['TONER_PIVOTS', 'TONER PIVOTS']
-]
-
-for input in add_version_inputs:
-    call_redshift_addversion_sproc(configs, input[0], input[1])
+query_add_version = """
+CALL prod.addversion_sproc('TONER_PIVOTS', 'SYSTEM BUILD')
+"""
 
 # COMMAND ----------
 
-toner_pivots_data_source = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.toner_pivots_data_source") \
-    .load()
-
-version = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.version") \
-    .load()
-
-tables = [
-    ['stage.toner_pivots_data_source', toner_pivots_data_source, "overwrite"],
-    #['prod.version', version, "overwrite"]
-]
+submit_remote_query(configs, query_add_version)
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
-
-# COMMAND ----------
-
-spark.sql("""select max(version) from prod.version""").show()
-
-# COMMAND ----------
-
-spark.sql("""
-    select SUM(equiv_units_w)
-    , SUM(expected_crgs_w)
-    from stage.toner_pivots_data_source
-    where hw_product_family = 'TONER LZ MIRAGE/RATCHET LS'
-""").show()
-
-# COMMAND ----------
-
-toner_pivots_promo = spark.sql("""
+toner_pivots_promo """
 
 with pivots_promo_01_filter_vars as (
     SELECT record
@@ -139,14 +108,15 @@ with pivots_promo_01_filter_vars as (
         , tp.hp_sell_in_pages_kcmy
         , tp.hp_sell_in_pages_k_only
         , tp.net_rev_trade
+        , tp.revenue_nt
 FROM stage.toner_pivots_data_source AS tp
 CROSS JOIN pivots_promo_01_filter_vars AS vars
 WHERE 1=1
     AND vars.record = 'TONER_PIVOTS'
 """)
 
-write_df_to_redshift(configs, toner_pivots_promo, "prod.toner_pivots", "append")
+df_toner_pivots_promo = read_redshift_to_df(configs).option("query", toner_pivots_promo).load()
 
 # COMMAND ----------
 
-
+write_df_to_redshift(configs, df_toner_pivots_promo, "prod.toner_pivots", "append")
