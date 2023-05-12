@@ -2,6 +2,7 @@
 import boto3
 import json
 import os
+from typing import Dict
 
 # COMMAND ----------
 
@@ -41,7 +42,7 @@ def create_session(role_arn: str, session_duration: int = 3600, set_env_vars: bo
 
 # Retrieve username and password from AWS Secrets Manager
 
-def secrets_get(secret_name: str, region_name: str = "us-west-2", session: boto3.session.Session = None) -> dict[str, str]:
+def secrets_get(secret_name: str, region_name: str = "us-west-2", session: boto3.session.Session = None) -> Dict[str, str]:
     # Create a new session object if one has not been provided
     if not session:
         session = boto3.session.Session()
