@@ -40,6 +40,12 @@ read_testcases_data = read_redshift_to_df(configs).option("query", "SELECT * FRO
 
 # COMMAND ----------
 
+read_testrun_data = read_redshift_to_df(configs).option("query", "SELECT coalesce(max(test_run_id),0) test_run_id FROM stage.test_results").load()
+test_run_id=read_testrun_data.first()['test_run_id']+1
+print(test_run_id)
+
+# COMMAND ----------
+
 read_testcases_data.show()
 
 # COMMAND ----------
@@ -172,9 +178,9 @@ for row in data_collect:
     test_result_detail=test_result_detail_df.count()
     #test_result=''
     insert_test_result= f""" INSERT INTO stage.test_results
-    (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result)
+    (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id)
     VALUES
-    ('{testcase_id}','',getdate(),'admin','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end);"""
+    ('{testcase_id}','',getdate(),'admin','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
     submit_remote_query(configs,insert_test_result ) # insert into test result table
     if test_result_detail_df.count()>1:
         insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
@@ -186,7 +192,9 @@ for row in data_collect:
 
 # COMMAND ----------
 
-critical_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Critical' and test_rundate::date=(select max(test_rundate::date) from stage.test_results ) and test_result='Fail'").load()
+critical_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Critical' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
+medium_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Medium' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
+low_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Very Low' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
 
 # COMMAND ----------
 
@@ -212,10 +220,27 @@ def send_email(email_from, email_to, subject, message):
 
 # COMMAND ----------
 
+critical_cases_df.display()
+
+# COMMAND ----------
+
 import pandas as pd
 from IPython.display import HTML
-if critical_cases_df.count()>1:
-    subject='QA Framework - Critical cases Failed'
-    #critical_cases_df.display()
-    message=critical_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com','brent.merrick@hp.com'], subject, message)
+if low_cases_df.count()>=1:
+    subject='QA Framework - Low Severity cases Failed'
+    message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+low_cases_df.toPandas().to_html()
+    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+if medium_cases_df.count()>=1:
+    subject='QA Framework - Medium Severity cases Failed'
+    message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+medium_cases_df.toPandas().to_html()
+    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+
+# COMMAND ----------
+
+import pandas as pd
+from IPython.display import HTML
+if critical_cases_df.count()>=1:
+    subject='QA Framework - Critical Severity cases Failed'
+    message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'The notebook will exit. Please investigate the issues'+'\n'+ critical_cases_df.toPandas().to_html()
+    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    dbutils.notebook.exit(json.dumps(subject))

@@ -25,7 +25,8 @@ version_id VARCHAR (200),
 test_rundate DATETIME,
 test_run_by VARCHAR (200),
 test_result_detail VARCHAR (200),
-test_result VARCHAR (200)
+test_result VARCHAR (200),
+test_run_id int null
 );GRANT ALL ON TABLE stage.test_results TO group dev_arch_eng"""
 
 # COMMAND ----------
