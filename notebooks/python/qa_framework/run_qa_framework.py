@@ -15,8 +15,8 @@ from IPython.display import HTML
 
 # COMMAND ----------
 
-#%run ../qa_framework/execute_testcases_testresults
+# MAGIC %run ../qa_framework/execute_testcases_testresults
 
 # COMMAND ----------
 
-# MAGIC %run ../qa_framework/execute_testcases_testresults $module_name_multiselect_filter="HARDWARE LTF"
+#%run ../qa_framework/execute_testcases_testresults $module_name_multiselect_filter="IB"
