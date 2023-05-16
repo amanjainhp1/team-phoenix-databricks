@@ -35,7 +35,7 @@ submit_remote_query(configs,testresults_create_query ) # create test results tab
 
 # COMMAND ----------
 
-read_testresults_data = read_redshift_to_df(configs).option("query", "SELECT * FROM stage.testresults").load()
+read_testresults_data = read_redshift_to_df(configs).option("query", "SELECT * FROM stage.test_results").load()
 
 # COMMAND ----------
 
