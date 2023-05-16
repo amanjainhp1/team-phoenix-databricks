@@ -122,7 +122,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases_test
+INSERT INTO stage.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','ITG','STGVSPROD Check','IB','IB Stage vs PROD','prod','prod.ib','ib','','QA Framework/ib_stgvsprod.sql','1','1',getdate(),'admin',1,'Medium')
