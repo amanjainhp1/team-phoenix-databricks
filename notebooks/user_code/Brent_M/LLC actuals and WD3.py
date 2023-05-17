@@ -124,10 +124,6 @@ unionActuals_records1.display()
 
 # COMMAND ----------
 
-unionActuals_records1.display()
-
-# COMMAND ----------
-
 # insert into prod
 write_df_to_redshift(configs, unionActuals_records1, "prod.actuals_llc", "append")
 

@@ -31,8 +31,8 @@ password = configs["redshift_password"]
 redshift_url = configs["redshift_url"]
 
 cur_date = date.today().strftime("%Y.%m.%d")
-ns_source = 'NS - DBT build - ' + cur_date
-ib_source = 'IB - DBT build - ' + cur_date
+ns_source = 'NS - DBT BUILD - ' + cur_date
+ib_source = 'IB - DBT BUILD - ' + cur_date
 ns_record = 'NORM_SHIPMENTS'
 ib_record = 'IB'
 

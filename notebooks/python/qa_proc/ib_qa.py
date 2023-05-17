@@ -1,11 +1,11 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # IB - Apr 18, 2023 - QC/QA
-# MAGIC 
+# MAGIC
 # MAGIC Brent Merrick
-# MAGIC 
+# MAGIC
 # MAGIC Phoenix | Installed Base
-# MAGIC 
+# MAGIC
 # MAGIC **Notebook sections:**
 # MAGIC + Basic tests
 # MAGIC   + stage.norm_ships
@@ -21,7 +21,7 @@
 # MAGIC %md
 # MAGIC ---
 # MAGIC ## Notebook setup
-# MAGIC 
+# MAGIC
 # MAGIC ---
 
 # COMMAND ----------
@@ -46,13 +46,13 @@ import pandas as pd
 # COMMAND ----------
 
 # ns/ib versions - used to filter to the previous build's versions
-prev_version = '2023.03.23.1'
+prev_version = '2023.04.19.1'
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Basic tests
-# MAGIC 
+# MAGIC
 # MAGIC By dataset (norm shipments, ib):
 # MAGIC + null units
 # MAGIC + multiple CKs
@@ -193,7 +193,7 @@ missing_combos_records.display()
 
 # MAGIC %md
 # MAGIC ## Advanced tests on IB
-# MAGIC 
+# MAGIC
 # MAGIC List:
 # MAGIC + base_013
 # MAGIC + base_014
@@ -330,7 +330,7 @@ date_mismatches_records.show()
 
 enrollee_mismatches_query = """
 WITH ib_units as
-     (SELECT 
+     (SELECT
         month_begin,
         SUM(ib) AS units
       FROM stage.ib_staging
@@ -339,22 +339,33 @@ WITH ib_units as
         AND month_begin BETWEEN '2022-11-01' AND '2028-10-01'
       GROUP BY month_begin),
 enrollee_units as
-    (SELECT 
+    (SELECT
        cal_date,
-       SUM(value) AS ltf_enrollees
+       SUM(cumulative_enrollees) AS ltf_enrollees
      FROM prod.instant_ink_enrollees_ltf
      WHERE 1 = 1
        AND official = 1
-       AND metric = 'CUMULATIVE'
        AND cal_date BETWEEN '2022-11-01' AND '2028-10-01'
-     GROUP BY cal_date)
+     GROUP BY cal_date
+     UNION ALL
+     SELECT
+       cal_date,
+       SUM(cumulative_enrollees) AS ltf_enrollees
+     FROM prod.instant_ink_enrollees_stf
+     WHERE 1 = 1
+       AND official = 1
+       --AND metric = 'CUMULATIVE'
+       AND cal_date BETWEEN '2022-11-01' AND '2028-10-01'
+     GROUP BY cal_date
+     )
+
 SELECT
     a.month_begin as cal_date,
     a.units as ib_units,
     b.ltf_enrollees as enrollee_units,
     a.units - b.ltf_enrollees as diff_units
 FROM ib_units a left join enrollee_units b on a.month_begin = b.cal_date
-ORDER BY 4 desc
+ORDER BY 1
 """
 
 enrollee_mismatches_records = read_redshift_to_df(configs) \
