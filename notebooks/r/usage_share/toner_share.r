@@ -303,7 +303,7 @@ country_info <- sqldf("SELECT * from country_info where country_alpha2 in (selec
 country_info$region_5 <- ifelse(country_info$market10=='Latin America','LA',country_info$region_5)
 
 table_month <- sqldf("
-                    with sub0 as (select a.platform_name, c.region_5 as printer_region_code, c.market10, c.developed_emerging, c.country_alpha2
+                    with sub0 as (select a.platform_name, c.region_5 as printer_region_code, c.market10, c.developed_emerging, c.country_alpha2, a.calendar_year_month as FYearMo
                     , a.fiscal_year_quarter
                 , hw.platform_chrome_code AS CM
                 , hw.platform_business_code AS EP
@@ -340,6 +340,7 @@ table_month <- sqldf("
                     , market10
                     , developed_emerging
                     , country_alpha2
+                    , FYearMo
                     , fiscal_year_quarter
                     , CM
                     , EP
@@ -367,7 +368,8 @@ table_month <- sqldf("
                       platform_name  
                     , printer_region_code 
                     , market10
-                    , fiscal_year_quarter        
+                    , fiscal_year_quarter  
+                    , FYearMo
                     , developed_emerging
                     , country_alpha2
                     , CM
