@@ -771,7 +771,7 @@ SELECT
     country_alpha2,
     market10,
     sales_product_number,
-    ('UNKN' + pl) AS base_product_number,
+    CONCAT('UNKN', pl) AS base_product_number,
     pl,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -787,7 +787,7 @@ SELECT
     official,
     version 
 FROM sp_missing_bp
-GROUP BY record, cal_date, country_alpha2, sales_product_number, ('UNKN' + pl), pl, customer_engagement, official, version, market10
+GROUP BY record, cal_date, country_alpha2, sales_product_number, pl, customer_engagement, official, version, market10
 """
     
 baseprod_unknown = spark.sql(baseprod_unknown)

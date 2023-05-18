@@ -782,7 +782,7 @@ SELECT
     official,
     version 
 FROM sp_missing_bp
-GROUP BY record, cal_date, country_alpha2, sales_product_number, ('UNKN' + pl), pl, customer_engagement, official, version, market10
+GROUP BY record, cal_date, country_alpha2, sales_product_number, pl, customer_engagement, official, version, market10
 """
     
 baseprod_unknown = spark.sql(baseprod_unknown)
