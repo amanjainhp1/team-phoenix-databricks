@@ -755,7 +755,7 @@ SELECT distinct cal_date,
     platform_subset,
     base_product_number,
     m.market10,
-    printers_per_baseprod AS printers_per_baseprod,
+    printers_per_baseprod,
     1 / printers_per_baseprod AS hw_mix
 FROM hw_supplies_map3 m
 LEFT JOIN iso_country_code_xref iso ON m.market10 = iso.market10
