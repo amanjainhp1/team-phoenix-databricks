@@ -751,11 +751,10 @@ SELECT distinct cal_date,
     platform_subset,
     base_product_number,
     m.market10,
-    SUM(printers_per_baseprod) AS printers_per_baseprod,
-    1 / SUM(printers_per_baseprod) AS hw_mix
+    printers_per_baseprod
+    1 / printers_per_baseprod AS hw_mix
 FROM hw_supplies_map3 m
 LEFT JOIN iso_country_code_xref iso ON m.market10 = iso.market10
-GROUP BY platform_subset, base_product_number, m.market10, cal_date
 """
 
 supplies_hw_map_mix = spark.sql(supplies_hw_map_mix)
