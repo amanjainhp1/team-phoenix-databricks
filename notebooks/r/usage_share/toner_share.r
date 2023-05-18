@@ -368,9 +368,10 @@ table_month <- sqldf("
                       platform_name  
                     , printer_region_code 
                     , market10
+                    , fiscal_year_quarter  
+                    , FYearMo
                     , developed_emerging
                     , country_alpha2
-                    , FYearMo
                     , CM
                     , EP
                     , share_region_incl_flag
@@ -384,7 +385,7 @@ table_month <- sqldf("
                     ORDER BY
                       platform_name  
                     , printer_region_code 
-                    , FYearMo
+                    , fiscal_year_quarter
                     , CM
                     , EP)
                     select * from sub_1
