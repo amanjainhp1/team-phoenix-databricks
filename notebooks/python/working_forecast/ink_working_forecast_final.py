@@ -7,6 +7,19 @@
 
 # COMMAND ----------
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('norm_shipments_version', '') # norm shipments version
+dbutils.widgets.text('installed_base_version', '') # installed-base version
+
+# COMMAND ----------
+
+# Global Variables
+# retrieve widget values and assign to variables
+norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
+installed_base_version = dbutils.widgets.get('installed_base_version')
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
 
@@ -145,7 +158,7 @@ query_list.append(["scen.ink_08_analytic", ink_08_analytic, "overwrite"])
 
 # COMMAND ----------
 
-ink_09_channel_fill = """
+ink_09_channel_fill = f"""
 WITH cfadj_01_c2c                AS
     (SELECT c2c.cal_date
           , hw.intro_date                                                                                            AS hw_intro_date
@@ -191,7 +204,7 @@ WITH cfadj_01_c2c                AS
          ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -318,7 +331,7 @@ query_list.append(["scen.ink_09_channel_fill", ink_09_channel_fill, "overwrite"]
 
 # COMMAND ----------
 
-ink_10_supplies_spares = """
+ink_10_supplies_spares = f"""
 WITH crg_months AS
     (SELECT date_key
           , [date] AS cal_date
@@ -415,7 +428,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '2023.03.10.1'
+        AND ns.version = '{norm_shipments_version}'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -653,7 +666,7 @@ query_list.append(["scen.ink_10_supplies_spares", ink_10_supplies_spares, "overw
 
 # COMMAND ----------
 
-ink_11_host = """
+ink_11_host = f"""
 WITH shm_07_geo_1_host           AS
     (SELECT DISTINCT shm.platform_subset
                    , shm.base_product_number
@@ -720,7 +733,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -754,7 +767,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -796,7 +809,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -884,7 +897,7 @@ query_list.append(["scen.ink_11_host", ink_11_host, "overwrite"])
 
 # COMMAND ----------
 
-ink_12_welcome_kits = """
+ink_12_welcome_kits = f"""
 WITH wel_01_stf_enroll    AS
     (SELECT iiel.platform_subset
           , CAST('I-INK' AS VARCHAR(25))       AS customer_engagement
@@ -919,7 +932,7 @@ WITH wel_01_stf_enroll    AS
      LEFT JOIN mdm.iso_country_code_xref AS iso
          ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = '2023.03.10.1'
+       AND ib.version = '{installed_base_version}'
        AND ib.cal_date > CAST('2023-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -993,7 +1006,7 @@ query_list.append(["scen.ink_12_welcome_kits", ink_12_welcome_kits, "overwrite"]
 
 # COMMAND ----------
 
-ink_13_ink_crgs_w_vtc = """
+ink_13_ink_crgs_w_vtc = f"""
 WITH vtc_01_analytic_cartridges AS
     (SELECT cal_date
           , geography
@@ -1019,7 +1032,7 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1107,7 +1120,7 @@ WITH vtc_01_analytic_cartridges AS
                    AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = '2023.03.10.1')
+       AND hw.version = '{norm_shipments_version}')
 
    , c2c_vtc_06_vol_count       AS
     (SELECT DISTINCT geography
@@ -1343,7 +1356,7 @@ query_list.append(["scen.ink_13_ink_crgs_w_vtc", ink_13_ink_crgs_w_vtc, "overwri
 
 # COMMAND ----------
 
-ink_working_fcst = """
+ink_working_fcst = f"""
 WITH geography_mapping   AS
     (SELECT DISTINCT market10 AS market_10
                    , region_5
@@ -1371,7 +1384,7 @@ WITH geography_mapping   AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '2023.03.10.1'
+       AND ns.version = '{norm_shipments_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)

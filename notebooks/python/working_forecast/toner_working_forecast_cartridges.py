@@ -10,6 +10,17 @@
 
 # MAGIC %run ../common/database_utils
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('installed_base_version', '') # installed base version
+dbutils.widgets.text('usage_share_version', '') # usage-share version
+
+# COMMAND ----------
+
+# Global Variables
+# retrieve widget values and assign to variables
+installed_base_version = dbutils.widgets.get('installed_base_version')
+usage_share_version = dbutils.widgets.get('usage_share_version')
+
 # COMMAND ----------
 
 # Global Variables
@@ -104,7 +115,7 @@ query_list.append(["scen.toner_01_us_uploads", toner_01_us_uploads, "overwrite"]
 
 # COMMAND ----------
 
-toner_02_us_dmd = """
+toner_02_us_dmd = f"""
 WITH dmd_01_ib_load AS
     (SELECT ib.cal_date
           , ib.platform_subset
@@ -119,7 +130,7 @@ WITH dmd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.03.23.1'
+       AND ib.version = '{installed_base_version}'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -304,7 +315,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.03.23.1'
+       AND ib.version = '{installed_base_version}'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -339,7 +350,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = '2023.03.28.1'
+       AND us.version = '{usage_share_version}'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
