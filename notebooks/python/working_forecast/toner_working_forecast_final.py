@@ -441,7 +441,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '{}
+        AND ns.version = '{norm_shipments_version}'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
