@@ -10,6 +10,7 @@
 # create empty widgets for interactive sessions
 dbutils.widgets.text('norm_shipments_version', '') # norm shipments version
 dbutils.widgets.text('installed_base_version', '') # installed-base version
+dbutils.widgets.text('usage_share_version', '') # usage-share version
 
 # COMMAND ----------
 
@@ -17,6 +18,7 @@ dbutils.widgets.text('installed_base_version', '') # installed-base version
 # retrieve widget values and assign to variables
 norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
 installed_base_version = dbutils.widgets.get('installed_base_version')
+usage_share_version = dbutils.widgets.get('usage_share_version')
 
 # COMMAND ----------
 
@@ -1466,7 +1468,7 @@ WITH geography_mapping   AS
     (SELECT 'IB'         AS record
           , 'SYSTEM'     AS user_name
           , NULL         AS load_date
-          , '2023.03.10.1' AS version
+          , '{installed_base_version}' AS version
      FROM prod.ib
 
      UNION ALL
@@ -1474,7 +1476,7 @@ WITH geography_mapping   AS
      SELECT 'USAGE_SHARE' AS record
           , 'SYSTEM'      AS user_name
           , NULL          AS load_date
-          , '2023.03.17.2'  AS version
+          , '{usage_share_version}'  AS version
      FROM prod.usage_share_ink
 
      UNION ALL

@@ -9,10 +9,10 @@
 # COMMAND ----------
 
 # MAGIC %run ../common/database_utils
-
-# create empty widgets for interactive sessions
-dbutils.widgets.text('installed_base_version', '') # installed base version
-dbutils.widgets.text('usage_share_version', '') # usage-share version
+# MAGIC
+# MAGIC # create empty widgets for interactive sessions
+# MAGIC dbutils.widgets.text('installed_base_version', '') # installed base version
+# MAGIC dbutils.widgets.text('usage_share_version', '') # usage-share version
 
 # COMMAND ----------
 
@@ -346,7 +346,7 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_toner AS us
+     FROM prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
