@@ -1032,7 +1032,7 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '{norm_shipments}'
+       AND ns.version = '{norm_shipments_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
