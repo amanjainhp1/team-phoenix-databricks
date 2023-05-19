@@ -1,12 +1,4 @@
 # Databricks notebook source
-# MAGIC %run ../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
 # create empty widgets for interactive sessions
 dbutils.widgets.text('norm_shipments_version', '') # norm shipments version
 dbutils.widgets.text('installed_base_version', '') # installed-base version
