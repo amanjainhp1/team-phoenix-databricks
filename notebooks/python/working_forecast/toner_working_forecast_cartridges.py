@@ -4,15 +4,9 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../common/database_utils
-# MAGIC
-# MAGIC # create empty widgets for interactive sessions
-# MAGIC dbutils.widgets.text('installed_base_version', '') # installed base version
-# MAGIC dbutils.widgets.text('usage_share_version', '') # usage-share version
+# create empty widgets for interactive sessions
+dbutils.widgets.text('installed_base_version', '') # installed base version
+dbutils.widgets.text('usage_share_version', '') # usage-share version
 
 # COMMAND ----------
 
