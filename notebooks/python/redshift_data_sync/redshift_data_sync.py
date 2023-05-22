@@ -117,12 +117,17 @@ def redshift_data_sync(datestamp: str, timestamp:str, table: str, credentials: d
     
     # Copy data to itg/dev
     for destination_env in destination_envs:
-        submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
-                            constants['REDSHIFT_PORT'][destination_env],
-                            credentials[destination_env]['username'],
-                            credentials[destination_env]['password'],
-                            constants['REDSHIFT_URL'][destination_env],
-                            drop_table_query)
+        try:
+            submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
+                                constants['REDSHIFT_PORT'][destination_env],
+                                credentials[destination_env]['username'],
+                                credentials[destination_env]['password'],
+                                constants['REDSHIFT_URL'][destination_env],
+                                drop_table_query)
+        except Exception as error:
+            print (f"{destination_env}|An exception has occured while attempting to drop/create {table}:", error)
+            print (f"{destination_env}|Exception Type:", type(error))
+            raise Exception(error)
 
         # Copy data from ITG bucket to Redshift
         redshift_copy(dbname=constants['REDSHIFT_DATABASE'][destination_env],
