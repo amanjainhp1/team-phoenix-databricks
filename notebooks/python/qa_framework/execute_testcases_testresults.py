@@ -35,8 +35,9 @@ from IPython.display import HTML
 
 # COMMAND ----------
 
-s3_bucket ='dataos-core-itg-team-phoenix'
+#s3_bucket ='dataos-core-itg-team-phoenix'
 s3_bucket1=constants['S3_BASE_BUCKET'][stack]
+s3_bucket=s3_bucket1[6:-1]
 print(s3_bucket)
 print(s3_bucket1)
 
