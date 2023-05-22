@@ -17,3 +17,13 @@ def retrieve_latest_s3_object_by_prefix(bucket, prefix):
     objects = list(s3.Bucket(bucket).objects.filter(Prefix=prefix))
     objects.sort(key=lambda o: o.last_modified)
     return objects[-1].key
+
+# COMMAND ----------
+
+def get_file_content_from_s3(bucket, path):
+  
+  s3 = boto3.resource('s3')
+  obj = s3.Object(bucket, path)
+  content = obj.get()['Body'].read().decode('utf-8')
+  
+  return content
