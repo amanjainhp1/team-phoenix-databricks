@@ -82,6 +82,9 @@ supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
 supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
     .load()
+mps_card_revenue = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.mps_card_revenue") \
+    .load()
 
 # COMMAND ----------
 
@@ -112,6 +115,7 @@ tables = [
     ['mdm.rdma_base_to_sales_product_map', rdma_base_to_sales_product_map],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['stage.ib', ib],
+    ['fin_prod.mps_card_revenue', mps_card_revenue],
     ['fin_stage.odw_sacp_actuals', odw_sacp_actuals],
     ['fin_stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
     ]
@@ -3286,7 +3290,7 @@ GROUP BY cal_date, pl, country_alpha2, sales_product_number
 mcodes_offset = spark.sql(mcodes_offset)
 mcodes_offset.createOrReplaceTempView("mcodes_offset")
 
-
+# leaving old code here for now as reference; updated 5-22-2023
 mps_revenue_from_edw = f"""
 SELECT
     cal_date,
@@ -3314,14 +3318,31 @@ mps_revenue_from_edw = spark.sql(mps_revenue_from_edw)
 mps_revenue_from_edw.createOrReplaceTempView("mps_revenue_from_edw")
 
 
+mps_revenue_from_card = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    'EST_MPS_REVENUE_JV' AS sales_product_number,
+    'TRAD' AS ce_split,
+    SUM(usd_amount) as gross_revenue
+FROM fin_prod.mps_card_revenue
+WHERE 1=1
+    AND usd_amount <> 0
+    AND product_number IN ('H7503A','H7509A','H7523A','U07LCA','U1001AC','UE266_001')
+    AND cal_date > '2021-10-01'
+    AND pl = '5T'
+GROUP BY cal_date, country_alpha2, pl
+"""
+
+mps_revenue_from_card = spark.sql(mps_revenue_from_card)
+mps_revenue_from_card.createOrReplaceTempView("mps_revenue_from_card")
+
+
 estimated_mps_revenue = f"""
 SELECT 
     cal_date,
-    CASE
-        WHEN country_alpha2 = 'XS' THEN 'CZ'
-        WHEN country_alpha2 = 'XW' THEN 'US'
-        ELSE country_alpha2
-    END AS country_alpha2,
+    country_alpha2,
     pl,
     sales_product_number,                
     ce_split,    
@@ -3333,7 +3354,7 @@ SELECT
     0 as other_cos,
     0 AS total_cos,
     0 AS revenue_units
-FROM mps_revenue_from_edw
+FROM mps_revenue_from_card
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
 """
 
