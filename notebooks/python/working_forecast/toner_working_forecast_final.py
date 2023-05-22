@@ -11,6 +11,14 @@ dbutils.widgets.text('usage_share_version', '') # usage-share version
 installed_base_version = dbutils.widgets.get('installed_base_version')
 norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
 usage_share_version = dbutils.widgets.get('usage_share_version')
+dbutils.widgets.text('run_vtc_and_adjusted_cartridges', '') # run notebook boolean
+
+# COMMAND ----------
+
+# exit notebook if task boolean is False, else continue
+notebook_run_parameter_label = 'run_vtc_and_adjusted_cartridges' 
+if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
+	dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
 
 # COMMAND ----------
 
