@@ -1,11 +1,13 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC ### QA Framework
+
+# COMMAND ----------
+
 import pyspark.sql.functions as f
 import time
-from pyspark.sql import Window
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from pyspark.sql.functions import substring
-from pyspark.sql.functions import to_timestamp, when, col
+from pyspark.sql import Window, SparkSession
+from pyspark.sql.functions import col, substring, to_timestamp, when
 import re
 import smtplib
 from pathlib import Path
@@ -15,7 +17,9 @@ from email.mime.text import MIMEText
 from email.utils import COMMASPACE, formatdate
 from email import encoders
 import pandas as pd
+import numpy as np
 from IPython.core.display import HTML
+from IPython.display import HTML
 
 # COMMAND ----------
 
@@ -32,6 +36,9 @@ from IPython.core.display import HTML
 # COMMAND ----------
 
 s3_bucket ='dataos-core-itg-team-phoenix'
+s3_bucket1=constants['S3_BASE_BUCKET'][stack]
+print(s3_bucket)
+print(s3_bucket1)
 
 # COMMAND ----------
 
@@ -139,6 +146,11 @@ test_category_values_str = ','.join(test_category_values)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ##### Retrieve test cases details as per parameters
+
+# COMMAND ----------
+
 filtered_test_cases =(read_testcases_data.filter((col('table_name').isin(table_name_values_str.split(','))) & (col('module_name').isin(module_name_values_str.split(','))) & (col('schema_name').isin(schema_name_values_str.split(','))) & (col('test_category').isin(test_category_values_str.split(','))) ))
 filtered_test_cases.show()
 
@@ -150,8 +162,8 @@ filtered_test_cases.show()
 
 # COMMAND ----------
 
-import numpy as np
-import pandas as pd
+# MAGIC %md
+# MAGIC #### Execute test cases and store test results
 
 # COMMAND ----------
 
@@ -162,6 +174,8 @@ for row in data_collect:
     min_threshold=row["min_threshold"]
     max_threshold=row["max_threshold"]
     testcase_id=row["test_case_id"]
+    testcase_module=row["module_name"]
+    testcase_cat=row["test_category"]
     query_path=row["query_path"]
     element_name=row["element_name"]
     print(test_query)
@@ -188,7 +202,12 @@ for row in data_collect:
         VALUES
         ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{results}');"""
         submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
-    
+    #if test_result_detail_df.count()>=1000:
+     #   s3_output_bucket = s3_bucket1+"QA Framework/test_results/"
+        #+{testcase_module}+"/"+{testcase_cat}
+        #s3_output_bucket=s3_bucket+"/QA Framework/"+testcase_module+testcase_cat+"_detail"
+      #  print(s3_output_bucket)
+       # write_df_to_s3(test_result_detail_df, s3_output_bucket, "parquet", "append")
 
 # COMMAND ----------
 
@@ -224,8 +243,11 @@ critical_cases_df.display()
 
 # COMMAND ----------
 
-import pandas as pd
-from IPython.display import HTML
+# MAGIC %md
+# MAGIC #### Email notification of failed cases by severity
+
+# COMMAND ----------
+
 if low_cases_df.count()>=1:
     subject='QA Framework - Low Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+low_cases_df.toPandas().to_html()
@@ -237,8 +259,6 @@ if medium_cases_df.count()>=1:
 
 # COMMAND ----------
 
-import pandas as pd
-from IPython.display import HTML
 if critical_cases_df.count()>=1:
     subject='QA Framework - Critical Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'The notebook will exit. Please investigate the issues'+'\n'+ critical_cases_df.toPandas().to_html()
