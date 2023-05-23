@@ -7,177 +7,6 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../common/s3_utils
-
-# COMMAND ----------
-
-#load cbm data from sfai
-cbm_st_data = read_sql_server_to_df(configs) \
-    .option("dbtable", "CBM.dbo.cbm_st_data") \
-    .load()
-
-# COMMAND ----------
-
-edw_fin_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix-fin/"
-edw_ships_s3_bucket= f"s3://dataos-core-{stack}-team-phoenix/product/"
-
-# COMMAND ----------
-
-# load parquet files to df
-edw_revenue_units_sales_landing = spark.read.parquet(edw_fin_s3_bucket + "EDW/edw_revenue_units_sales_landing")
-
-edw_revenue_document_currency_landing = spark.read.parquet(edw_fin_s3_bucket + "EDW/edw_revenue_document_currency_landing")
-
-edw_revenue_dollars_landing = spark.read.parquet(edw_fin_s3_bucket + "EDW/edw_revenue_dollars_landing")
-
-edw_shipment_actuals_landing = spark.read.parquet(edw_ships_s3_bucket + "EDW/edw_shipment_actuals_landing")
-
-# COMMAND ----------
-
-# load S3 tables to df
-mps_ww_shipped_supply = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.mps_ww_shipped_supply") \
-    .load()
-iso_country_code_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.iso_country_code_xref") \
-    .load()
-calendar = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.calendar") \
-    .load()
-profit_center_code_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.profit_center_code_xref") \
-    .load()
-product_line_xref = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.product_line_xref") \
-    .load()
-itp_laser_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.itp_laser_landing") \
-    .load()
-supplies_iink_units_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.supplies_iink_units_landing") \
-    .load()
-supplies_manual_mcode_jv_detail_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_stage.supplies_manual_mcode_jv_detail_landing") \
-    .load()
-country_currency_map_landing = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.country_currency_map") \
-    .load()
-list_price_eu_country_list = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.list_price_eu_country_list") \
-    .load()
-exclusion = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.exclusion") \
-    .load()
-rdma_base_to_sales_product_map = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.rdma_base_to_sales_product_map") \
-    .load()
-supplies_hw_mapping = read_redshift_to_df(configs) \
-    .option("dbtable", "mdm.supplies_hw_mapping") \
-    .load()
-ib = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.ib") \
-    .load()
-actuals_supplies_salesprod = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.actuals_supplies_salesprod") \
-    .load()
-planet_actuals = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.planet_actuals") \
-    .load()
-supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.supplies_finance_hier_restatements_2020_2021") \
-    .load()
-supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
-    .load()
-
-# COMMAND ----------
-
-# delta tables
-
-import re
-
-tables = [
-    ['fin_stage.edw_revenue_units_sales_staging', edw_revenue_units_sales_landing],
-    ['fin_stage.edw_revenue_document_currency_staging', edw_revenue_document_currency_landing],
-    ['fin_stage.edw_revenue_dollars_staging', edw_revenue_dollars_landing],
-    ['fin_stage.edw_shipment_actuals_staging', edw_shipment_actuals_landing],
-    ['fin_stage.mps_ww_shipped_supply_staging', mps_ww_shipped_supply],
-    ['mdm.iso_country_code_xref', iso_country_code_xref],
-    ['mdm.profit_center_code_xref', profit_center_code_xref],
-    ['fin_stage.itp_laser_landing', itp_laser_landing],
-    ['fin_stage.supplies_iink_units_landing', supplies_iink_units_landing],
-    ['mdm.calendar', calendar],
-    ['mdm.product_line_xref', product_line_xref],
-    ['fin_stage.supplies_manual_mcode_jv_detail_landing', supplies_manual_mcode_jv_detail_landing],
-    ['fin_stage.country_currency_map_landing', country_currency_map_landing],
-    ['mdm.list_price_eu_country_list', list_price_eu_country_list],
-    ['fin_stage.cbm_st_data', cbm_st_data],
-    ['mdm.exclusion', exclusion],
-    ['mdm.rdma_base_to_sales_product_map', rdma_base_to_sales_product_map],
-    ['mdm.supplies_hw_mapping', supplies_hw_mapping],
-    ['stage.ib', ib],
-    ['fin_stage.planet_actuals', planet_actuals],
-    ['fin_stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
-    ]
-
-for table in tables:
-    # Define the input and output formats and paths and the table name.
-    schema = table[0].split(".")[0]
-    table_name = table[0].split(".")[1]
-    write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    # Load the data from its source.
-    df = table[1]    
-    print(f'loading {table[0]}...')
-    
-    for column in df.dtypes:
-        renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
-        df = df.withColumnRenamed(column[0], renamed_column)
-        print(renamed_column) 
-        
-     # Write the data to its target.
-    df.write \
-       .format(write_format) \
-       .option("overwriteSchema", "true") \
-       .mode("overwrite") \
-       .save(save_path)
-
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-     # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
-    spark.table(table[0]).createOrReplaceTempView(table_name)
-    
-    print(f'{table[0]} loaded')
-
-# COMMAND ----------
-
-# delete Delta tables and underlying Delta files
-tables = [
-    ['stage.planet_actuals', planet_actuals],
-    ['stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
-]
-
-for table in tables:
-    schema = table[0].split(".")[0]
-    table_name = table[0].split(".")[1]
-    save_path = f'/tmp/delta/{schema}/{table_name}'
-    
-    spark.sql(f"DROP TABLE IF EXISTS {schema}.{table_name}")
-    dbutils.fs.rm(save_path, True)
-
-# COMMAND ----------
-
-actuals_supplies_salesprod.createOrReplaceTempView("actuals_supplies_salesprod")
-
-# COMMAND ----------
-
-supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
-
-# COMMAND ----------
-
 addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIES SALES PRODUCT FINANCIALS", "ACTUALS - EDW SUPPLIES SALES PRODUCT FINANCIALS")
 
 # COMMAND ----------
@@ -197,7 +26,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC WHERE business_area_code NOT IN 
 # MAGIC (
 # MAGIC SELECT DISTINCT plxx 
-# MAGIC FROM product_line_xref 
+# MAGIC FROM mdm.product_line_xref 
 # MAGIC WHERE technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
 # MAGIC     AND pl_category IN ('SUP', 'LLC')
 # MAGIC     OR plxx IN ('GO00', 'GN00', 'IE00', 'AU00') -- discontinued product lines that have records in EDW, plus Media (AU)
@@ -343,7 +172,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC WHERE business_area_code NOT IN 
 # MAGIC (
 # MAGIC SELECT DISTINCT plxx 
-# MAGIC FROM product_line_xref 
+# MAGIC FROM mdm.product_line_xref 
 # MAGIC WHERE technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
 # MAGIC     AND pl_category IN ('SUP', 'LLC')
 # MAGIC     OR plxx IN ('GO00', 'GN00', 'IE00', 'AU00') -- discontinued product lines that have records in EDW, plus Media (AU)
@@ -392,7 +221,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC WHERE Prod_Line NOT IN 
 # MAGIC     (
 # MAGIC     SELECT DISTINCT pl
-# MAGIC     FROM product_line_xref 
+# MAGIC     FROM mdm.product_line_xref 
 # MAGIC     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
 # MAGIC         AND PL_category IN ('SUP', 'LLC')
 # MAGIC         OR PL IN ('GO', 'GN', 'IE', 'IX')  
@@ -2210,7 +2039,7 @@ JOIN finance_sys_recorded_pl fpl
     AND fpl.sales_product_number = ci2.sales_product_number
 JOIN mdm.rdma_base_to_sales_product_map rdma
     ON rdma.sales_product_number = ci2.sales_product_number
-JOIN supplies_hw_country_actuals_mapping shcam
+JOIN stage.supplies_hw_country_actuals_mapping shcam
     ON rdma.base_product_number = shcam.base_product_number
     AND ci2.cal_date = shcam.cal_date
     AND ci2.country_alpha2 = shcam.country_alpha2
@@ -6768,7 +6597,7 @@ document_currency_time_availability.createOrReplaceTempView("document_currency_t
 
 currency_history_needed = f"""
 SELECT distinct sales.cal_date
-FROM actuals_supplies_salesprod sales
+FROM fin_prod.actuals_supplies_salesprod sales
 LEFT JOIN document_currency_time_availability doc ON doc.cal_date = sales.cal_date
 WHERE doc.cal_date is null
 """
