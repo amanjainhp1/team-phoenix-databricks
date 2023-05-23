@@ -7,6 +7,14 @@
 # create empty widgets for interactive sessions
 dbutils.widgets.text('installed_base_version', '') # installed base version
 dbutils.widgets.text('usage_share_version', '') # usage-share version
+dbutils.widgets.text('run_system_cartridges', '') # run notebook boolean
+
+# COMMAND ----------
+
+# exit notebook if task boolean is False, else continue
+notebook_run_parameter_label = 'run_system_cartridges' 
+if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
+	dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
 
 # COMMAND ----------
 
