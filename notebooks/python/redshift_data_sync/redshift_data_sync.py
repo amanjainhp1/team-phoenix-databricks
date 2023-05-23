@@ -22,57 +22,82 @@ from datetime import datetime
 
 # Retrieve credentials
 def retrieve_credentials(env: str) -> dict[str, str]:
-    # Establish a session to be used in subsequent call to AWS Secrets Manager
-    sm_session = create_session(role_arn=constants['STS_IAM_ROLE'][env], set_env_vars = False)
-    # Retrieve secret
-    secret_val = secrets_get(secret_name=constants['REDSHIFT_SECRET_NAME'][env], session=sm_session)
-    return secret_val
+    try:
+        # Establish a session to be used in subsequent call to AWS Secrets Manager
+        sm_session = create_session(role_arn=constants['STS_IAM_ROLE'][env], set_env_vars = False)
+        # Retrieve secret
+        secret_val = secrets_get(secret_name=constants['REDSHIFT_SECRET_NAME'][env], session=sm_session)
+        return secret_val
+    except Exception as error:
+        print (f"{env.lower()}|An exception has occured while attempting to retrieve Redshift credentials:", error)
+        print (f"{env.lower()}|Exception Type:", type(error))
+        raise Exception(error)
 
 # Retrieve all table names in a given schema  
 def get_redshift_table_names(configs:dict, schema: str):
-    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
-        .format(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'])
-    con = psycopg2.connect(conn_string)
-    cur = con.cursor()
-    cur.execute(f" SELECT table_schema || '.' || table_name FROM information_schema.tables WHERE table_schema='{schema}' AND table_type <> 'VIEW'")
-    data = cur.fetchall()
-    table_list = [row[0] for row in data]
-    cur.close()
-    return(table_list)
+    try:
+        conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+            .format(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'])
+        con = psycopg2.connect(conn_string)
+        cur = con.cursor()
+        cur.execute(f" SELECT table_schema || '.' || table_name FROM information_schema.tables WHERE table_schema='{schema}' AND table_type <> 'VIEW'")
+        data = cur.fetchall()
+        table_list = [row[0] for row in data]
+        cur.close()
+        return(table_list)
+    except Exception as error:
+        print (f"{stack.lower()}|An exception has occured while attempting to retrieve tables in {schema} schema:", error)
+        print (f"{stack.lower()}|Exception Type:", type(error))
+        raise Exception(error)
 
 # Unload data to S3 from Redshift
 def redshift_unload(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str, s3_url: str, iam_role: str):
     print(f'prod|Started unloading {schema}.{table}')
     start_time = time.time()
-    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
-        .format(dbname, port, user, password, host)
-    con = psycopg2.connect(conn_string)
-    cur = con.cursor()
-    # Retrieve all columns except those with identity type
-    cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_schema='{schema}' AND table_name='{table}' AND (column_default NOT LIKE '%identity%' OR column_default IS NULL) ORDER BY ordinal_position asc")
-    data = cur.fetchall()
-    col_list = [row[0] for row in data]
-    select_statement = "SELECT " + ", ".join(col_list) + f" FROM {schema}.{table}"
-    cur.close()
+    select_statement = ""
+    try:
+        conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+            .format(dbname, port, user, password, host)
+        con = psycopg2.connect(conn_string)
+        cur = con.cursor()
+        # Retrieve all columns except those with identity type
+        cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_schema='{schema}' AND table_name='{table}' AND (column_default NOT LIKE '%identity%' OR column_default IS NULL) ORDER BY ordinal_position asc")
+        data = cur.fetchall()
+        col_list = [row[0] for row in data]
+        select_statement = "SELECT " + ", ".join(col_list) + f" FROM {schema}.{table}"
+        cur.close()
+    except Exception as error:
+        print (f"prod|An exception has occured while attempting to retrieve column names of {schema}.{table}:", error)
+        print (f"{destination_env}|Exception Type:", type(error))
+        raise Exception(error)
 
-    unload_query = f"UNLOAD ('{select_statement}') TO '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET ALLOWOVERWRITE;"
-
-    submit_remote_query(dbname, port, user, password, host, unload_query)
-    function_duration = round(time.time()-start_time, 2)
-    print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
+    try:
+        unload_query = f"UNLOAD ('{select_statement}') TO '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET ALLOWOVERWRITE;"
+        submit_remote_query(dbname, port, user, password, host, unload_query)
+        function_duration = round(time.time()-start_time, 2)
+        print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
+    except Exception as error:
+        print (f"prod|An exception has occured while attempting to unload {schema}.{table}:", error)
+        print (f"{destination_env}|Exception Type:", type(error))
+        raise Exception(error)
 
 # Retrieve ddl
 def redshift_retrieve_ddl(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str):
-    conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
-        .format(dbname, port, user, password, host)
-    con = psycopg2.connect(conn_string)
-    cur = con.cursor()
-    cur.execute(f"SELECT ddl FROM prod.generate_tbl_ddl_vw WHERE schemaname='{schema}' AND tablename='{table}'")
-    data = cur.fetchall()
-    ddl = ""
-    for row in data:
-        ddl += ("\n" + row[0])
-    return ddl
+    try:
+        conn_string = "dbname='{}' port='{}' user='{}' password='{}' host='{}'"\
+            .format(dbname, port, user, password, host)
+        con = psycopg2.connect(conn_string)
+        cur = con.cursor()
+        cur.execute(f"SELECT ddl FROM prod.generate_tbl_ddl_vw WHERE schemaname='{schema}' AND tablename='{table}'")
+        data = cur.fetchall()
+        ddl = ""
+        for row in data:
+            ddl += ("\n" + row[0])
+        return ddl
+    except Exception as error:
+        print (f"prod|An exception has occured while attempting to retrieve ddl of {schema}.{table}:", error)
+        print (f"prod|Exception Type:", type(error))
+        raise Exception(error)
 
 # Rebuild table and copy data from S3 to Redshift
 def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, schema: str, table: str, s3_url: str, iam_role: str, destination_env:str):
@@ -81,7 +106,12 @@ def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, sch
     copy_query = f"COPY {schema}.{table} FROM '{s3_url}' IAM_ROLE '{iam_role}' FORMAT AS PARQUET;"
     # Update permissions
     permissions_query = f"GRANT ALL ON {schema}.{table} TO GROUP dev_arch_eng;"
-    submit_remote_query(dbname, port, user, password, host, copy_query + permissions_query)
+    try:
+        submit_remote_query(dbname, port, user, password, host, copy_query + permissions_query)
+    except Exception as error:
+        print (f"{destination_env}|An exception has occured while attempting to copy {schema}.{table}:", error)
+        print (f"{destination_env}|Exception Type:", type(error))
+        raise Exception(error)
     function_duration = round(time.time()-start_time, 2)
     print(f'{destination_env}|Finished copying {schema}.{table} in {function_duration}s')
 
@@ -117,12 +147,17 @@ def redshift_data_sync(datestamp: str, timestamp:str, table: str, credentials: d
     
     # Copy data to itg/dev
     for destination_env in destination_envs:
-        submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
-                            constants['REDSHIFT_PORT'][destination_env],
-                            credentials[destination_env]['username'],
-                            credentials[destination_env]['password'],
-                            constants['REDSHIFT_URL'][destination_env],
-                            drop_table_query)
+        try:
+            submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
+                                constants['REDSHIFT_PORT'][destination_env],
+                                credentials[destination_env]['username'],
+                                credentials[destination_env]['password'],
+                                constants['REDSHIFT_URL'][destination_env],
+                                drop_table_query)
+        except Exception as error:
+            print (f"{destination_env}|An exception has occured while attempting to drop/create {table}:", error)
+            print (f"{destination_env}|Exception Type:", type(error))
+            raise Exception(error)
 
         # Copy data from ITG bucket to Redshift
         redshift_copy(dbname=constants['REDSHIFT_DATABASE'][destination_env],
