@@ -105,7 +105,7 @@ SELECT c.record
 FROM npi_table c
 LEFT JOIN hardware_info h
     ON c.platform_subset=h.platform_subset
-WHERE c.units >0 
+WHERE c.units >=0 
     AND h.product_lifecycle_status = 'N' or h.product_lifecycle_status_usage='N' or product_lifecycle_status_share='N'
 """
 
@@ -116,7 +116,7 @@ npi_1.createOrReplaceTempView("npi_1")
 
 overlap_1 = """
 
----Find overlap between current and mature
+---Find overlap between current and NPI
 SELECT c.record
       ,c.cal_date
       ,c.geography_grain
@@ -128,15 +128,18 @@ SELECT c.record
             WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN 'NPI'
             WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN 'TELEMETRY'
             WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN 'TELEMETRY'
+			WHEN c.measure='TELEMETRY' THEN 'TELEMETRY'
+			WHEN c.data_source like 'MATURE%' THEN 'MATURE'
             ELSE 'MODELED'
             END AS data_source
       ,c.version
       ,c.measure
-      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.customer_engagement = 'I-INK' THEN 1
-            WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.customer_engagement != 'I-INK' THEN m.units
-            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' THEN m.units
+      ,CASE WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.data_source !='TELEMETRY' AND c.customer_engagement = 'I-INK' THEN 1
+			WHEN c.product_lifecycle_status_share='N' AND c.measure='HP_SHARE' AND c.data_source != 'HAVE DATA' AND c.data_source !='TELEMETRY' AND c.customer_engagement != 'I-INK' THEN m.units																																					 
+            WHEN c.product_lifecycle_status_usage='N' AND c.measure like '%USAGE%' AND c.data_source != 'DASHBOARD' AND c.data_source !='TELEMETRY' THEN m.units
             WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
             WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN c.units
+			WHEN c.data_source='TELEMETRY' THEN c.units
             ELSE c.units
             END AS units
       ,c.proxy_used
@@ -202,5 +205,5 @@ combine_1=spark.sql(combine_1)
 
 # COMMAND ----------
 
-#write_df_to_redshift(configs: config(), df: matures_norm_final_landing, destination: "stage"."usrs_matures_norm_final_landing", mode: str = "overwrite")
+
 write_df_to_s3(df=combine_1, destination=f"{constants['S3_BASE_BUCKET'][stack]}usage_share_promo/{datestamp}/usage_share_country", format="parquet", mode="overwrite", upper_strings=True)
