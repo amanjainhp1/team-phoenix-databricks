@@ -431,7 +431,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'MACEDONIA (THE FORMER YUGOSLAV REPUBLIC OF)'
+# MAGIC     country = 'NORTH MACEDONIA'
 # MAGIC WHERE    
 # MAGIC     country = 'MACEDONIA'
 
@@ -467,7 +467,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC   country = 'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND'
+# MAGIC   country = 'UNITED KINGDOM'
 # MAGIC   WHERE    
 # MAGIC   country = 'UK'
 
@@ -476,9 +476,18 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'UNITED STATES OF AMERICA'
+# MAGIC     country = 'UNITED STATES'
 # MAGIC WHERE    
 # MAGIC     country = 'USA'
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
+# MAGIC SET 
+# MAGIC     country = 'CZECHIA'
+# MAGIC WHERE    
+# MAGIC     country = 'CZECH REPUBLIC'
 
 # COMMAND ----------
 
@@ -1028,7 +1037,7 @@ SELECT revenue_recognition_fiscal_year_month_code,
     SUM(working_PandL_summary_base_quantity) AS base_quantity,
     SUM(working_PandL_summary_extended_quantity) AS extended_quantity,
     SUM(working_PandL_summary_sales_quantity) AS sales_quantity
-FROM edw_revenue_units_sales_staging
+FROM fin_stage.edw_revenue_units_sales_staging
 WHERE working_PandL_summary_extended_quantity != 0
     AND manufacturing_product_identifier != '?'
     AND business_area_code NOT IN ('AU00') -- again, no media here; added in base product staging
@@ -2831,12 +2840,12 @@ SELECT
     Prod_Line AS pl,
     category,
     SUM(Shipped_Qty) AS shipped_qty
-FROM mps_ww_shipped_supply_staging AS mps
-JOIN calendar AS cal ON mps.Month = cal.Date
+FROM fin_stage.mps_ww_shipped_supply_staging AS mps
+JOIN mdm.calendar AS cal ON mps.Month = cal.Date
 WHERE Prod_Line IN 
     (
     SELECT DISTINCT pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC') 
     -- excludes GD in case there are any; GD has a different business model; would not expect GD volumes from mps
