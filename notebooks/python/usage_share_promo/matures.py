@@ -73,8 +73,8 @@ mature_helper_1 ="""
       ,upper(mat.forecast_process_note) as forecast_process_note
       ,upper(mat.post_processing_note) as post_processing_note
       ,'MATURE' as data_source
-      ,mat.version
-      ,mat.measure
+      ,'' as version
+      ,upper(mat.measure) as measure
       ,mat.units
       ,mat.proxy_used
       ,mat.ib_version
@@ -351,7 +351,7 @@ combine_data_b.createOrReplaceTempView("combine_data_b")
 
 #Combine the three tables (current table, forecast, backcast)
 matures_norm_final_landing = f"""
-SELECT nl.record
+SELECT distinct nl.record
     , nl.cal_date
     , 'COUNTRY' as geography_grain
     , nl.country_alpha2 as geography
@@ -368,7 +368,7 @@ SELECT nl.record
     , nl.load_date
 FROM mature_helper_2 nl
 UNION ALL
-SELECT fl.record
+SELECT distinct fl.record
     , fl.cal_date
     , 'COUNTRY' as geography_grain
     , fl.geography
@@ -385,7 +385,7 @@ SELECT fl.record
     , fl.load_date
 FROM combine_data fl
 UNION ALL
-SELECT bl.record
+SELECT distinct bl.record
     , bl.cal_date
     , 'COUNTRY' as geography_grain
     , bl.geography
