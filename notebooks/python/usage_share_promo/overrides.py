@@ -48,17 +48,6 @@ override_in.createOrReplaceTempView("override_in")
 
 # COMMAND ----------
 
-#read in override data
-override_in2 = read_redshift_to_df(configs) \
-  .option("query","""
-    SELECT geography_grain, geography, platform_subset, customer_engagement, measure, min_sys_date,month_num, value, load_date
-    FROM "prod"."epa_drivers_usage_share"
-    """) \
-  .load()
-override_in2.createOrReplaceTempView("override_in2")
-
-# COMMAND ----------
-
 override_in=spark.sql("""select
 	user_name
         , geography_grain
@@ -78,8 +67,7 @@ override_in.createOrReplaceTempView("override_in")
 override_in_gp = """
     select user_name, max(load_date) as max_load_date
     from override_in
-    WHERE load_date > '2023-01-06'
-    and value > 0
+	WHERE (load_date > '2023-01-06')
     group by user_name
 """
 
@@ -95,6 +83,7 @@ override_table = """
     step2 as (
     select *, concat(user_name, load_date) as grp
     from override_in
+	and value > 0 
     )
     select  geography_grain
         , geography
@@ -618,6 +607,7 @@ override_table_c.createOrReplaceTempView("override_table_c")
 # MAGIC #Update usage & Share
 
 # COMMAND ----------
+
 overlap_1 = """
 
 ---Find overlap between current and mature
@@ -630,7 +620,7 @@ SELECT c.record
       ,c.forecast_process_note
       ,CASE WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN 'TELEMETRY'
             WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN 'TELEMETRY'
-	    WHEN c.data_source = 'TELEMETRY' THEN 'TELEMETRY'
+			WHEN c.data_source = 'TELEMETRY' THEN 'TELEMETRY'																	   
             WHEN c.data_source = 'NPI' THEN 'NPI'
             WHEN m.source is null then c.data_source
             ELSE m.source
@@ -639,7 +629,7 @@ SELECT c.record
       ,c.measure
       ,CASE WHEN c.measure='HP_SHARE' AND c.data_source = 'HAVE DATA' THEN c.units
             WHEN c.measure like '%USAGE%' AND c.data_source = 'DASHBOARD' THEN c.units
-	    WHEN c.data_source = 'TELEMETRY' THEN c.units
+			WHEN c.data_source = 'TELEMETRY' THEN c.units																   
             WHEN c.data_source = 'NPI' THEN c.units
             WHEN m.source is null then c.units
             ELSE m.units
@@ -663,6 +653,7 @@ overlap_1.createOrReplaceTempView("overlap_1")
 overlap_1.count()
 
 # COMMAND ----------
+
 update_table = """
 WITH base as (
     SELECT record
@@ -829,7 +820,7 @@ SELECT cal_date
     , ib_version
 FROM step5
 WHERE usage IS NOT NULL
-    AND usage > 0
+    AND usage >= 0
 UNION ALL
 SELECT cal_date
 	, geography_grain
@@ -842,7 +833,7 @@ SELECT cal_date
     , ib_version
 FROM step5
 WHERE page_share IS NOT NULL
-    AND page_share > 0
+    AND page_share >= 0
 UNION ALL
 SELECT cal_date
 	, geography_grain
@@ -855,7 +846,7 @@ SELECT cal_date
     , ib_version
 FROM step5
 WHERE usage_c IS NOT NULL
-    AND usage_c > 0
+    AND usage_c >= 0
 UNION ALL
 SELECT cal_date
 	,geography_grain
@@ -868,7 +859,7 @@ SELECT cal_date
     , ib_version
 FROM step5
 WHERE usage_k IS NOT NULL
-    AND usage_k > 0
+    AND usage_k >= 0
 
 )
 SELECT "USAGE_SHARE" as record
