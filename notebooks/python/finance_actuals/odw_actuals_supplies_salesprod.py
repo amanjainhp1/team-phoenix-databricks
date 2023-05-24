@@ -819,7 +819,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'MACEDONIA (THE FORMER YUGOSLAV REPUBLIC OF)'
+# MAGIC     country = 'NORTH MACEDONIA'
 # MAGIC WHERE    
 # MAGIC     country = 'MACEDONIA'
 
@@ -855,7 +855,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC   country = 'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND'
+# MAGIC   country = 'UNITED KINGDOM'
 # MAGIC   WHERE    
 # MAGIC   country = 'UK'
 
@@ -864,9 +864,18 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'UNITED STATES OF AMERICA'
+# MAGIC     country = 'UNITED STATES'
 # MAGIC WHERE    
 # MAGIC     country = 'USA'
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
+# MAGIC SET 
+# MAGIC     country = 'CZECHIA'
+# MAGIC WHERE    
+# MAGIC     country = 'CZECH REPUBLIC'
 
 # COMMAND ----------
 
