@@ -47,8 +47,10 @@ ink_table.createOrReplaceTempView("ink_table")
 #combine ink and toner (need to add LF)
 current_table = """
 SELECT * FROM toner_table
+	WHERE measure in ('USAGE','K_USAGE','COLOR_USAGE','HP_SHARE')
 UNION ALL
 SELECT * FROM ink_table
+	WHERE measure in ('USAGE','K_USAGE','COLOR_USAGE','HP_SHARE')
 """
 
 current_table=spark.sql(current_table)
@@ -115,7 +117,7 @@ SELECT c.record
       ,c.platform_subset
       ,c.customer_engagement
       ,c.forecast_process_note
-      ,c.data_source
+      ,'MATURE' as data_source
       ,c.version
       ,c.measure
       ,c.units
@@ -130,7 +132,7 @@ SELECT c.record
 FROM matures_table c
 LEFT JOIN hardware_info h
     ON c.platform_subset=h.platform_subset
-WHERE c.units >0 
+WHERE c.units >=0 
     --AND h.product_lifecycle_status != 'E'
 """
 
