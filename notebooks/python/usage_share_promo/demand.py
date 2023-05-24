@@ -103,9 +103,9 @@ with step1 as (
     , CASE WHEN us.measure like '%USAGE%' THEN us.source
         ELSE NULL
         END AS source_u
-	, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
-    , SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
-    , SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
+		, SUM(CASE WHEN us.measure='USAGE' THEN us.units ELSE 0 END) AS usage
+    	, SUM(CASE WHEN us.measure='HP_SHARE' THEN us.units ELSE 0 END) AS page_share
+    	, SUM(CASE WHEN us.measure='COLOR_USAGE' THEN us.units ELSE 0 END) AS usage_c
 	, SUM(CASE WHEN us.measure='K_USAGE' THEN us.units ELSE 0 END) AS usage_k
 FROM us_table us 
 GROUP BY us.cal_date
@@ -140,10 +140,10 @@ GROUP BY
       ,u.customer_engagement
       ,MAX(u.source_s) as source_s
       ,MAX(u.source_u) as source_u
-      ,SUM(u.usage) AS usage
+      ,SUM(CASE WHEN u.usage_k =0 THEN u.usage+3*usage_c ELSE u.usage_k+3*usage_c END) AS usage
       ,SUM(u.page_share) AS page_share
       ,SUM(u.usage_c) AS usage_c
-      ,SUM(u.usage_k) AS usage_k
+      ,SUM(CASE WHEN u.usage_k =0 THEN u.usage ELSE u.usage_k END) AS usage_k
       ,SUM(i.units) AS ib
 FROM step2a u
 LEFT JOIN ib i
@@ -166,10 +166,10 @@ GROUP BY
       ,MAX(u.source_u) as source_u
       ,SUM(u.usage*coalesce(ib,0)) AS pages
       ,SUM(u.page_share*usage*coalesce(ib,0)) AS hp_pages
-      ,SUM(u.usage_c*coalesce(ib,0)) AS color_pages
+      ,SUM(3*u.usage_c*coalesce(ib,0)) AS color_pages
       ,SUM(u.usage_k*coalesce(ib,0)) AS black_pages
       ,SUM(u.page_share*usage_k*coalesce(ib,0)) AS hp_k_pages
-      ,SUM(u.page_share*usage_c*coalesce(ib,0)) AS hp_c_pages
+      ,SUM(u.page_share*3*usage_c*coalesce(ib,0)) AS hp_c_pages
       ,SUM(coalesce(ib,0)) as ib
     FROM step2 u
     GROUP BY 
@@ -207,7 +207,7 @@ GROUP BY
 	, h4.customer_engagement
 	, h4.pages/nullif(ib,0) AS usage
 	, h4.hp_pages/nullif(pages,0) AS page_share
-	, h4.color_pages/nullif(ib,0) AS usage_c
+	, (h4.color_pages/nullif(ib,0))/3 AS usage_c
 	, h4.black_pages/nullif(ib,0) AS usage_k
     , h4.pages as total_pages
 	, h4.hp_pages
@@ -229,7 +229,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE usage IS NOT NULL
-    AND usage > 0
+    AND usage >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -240,7 +240,7 @@ SELECT cal_date
 	, source_s as source
 FROM step5
 WHERE page_share IS NOT NULL
-    AND page_share > 0
+    AND page_share >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -251,7 +251,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE usage_c IS NOT NULL
-    AND usage_c > 0
+    AND usage_c >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -262,7 +262,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE usage_k IS NOT NULL
-    AND usage_k > 0
+    AND usage_k >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -273,7 +273,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE total_pages IS NOT NULL
-    AND total_pages > 0
+    AND total_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -284,7 +284,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE total_color_pages IS NOT NULL
-    AND total_color_pages > 0
+    AND total_color_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -295,7 +295,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE total_k_pages IS NOT NULL
-    AND total_k_pages > 0
+    AND total_k_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -306,7 +306,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
+    AND hp_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -317,29 +317,29 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
+    AND hp_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
 	, platform_subset
 	, customer_engagement
 	, 'NON_HP_K_PAGES' as measure
-	, total_pages-hp_k_pages as units
+	, total_k_pages-hp_k_pages as units
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
+    AND hp_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
 	, platform_subset
 	, customer_engagement
 	, 'NON_HP_COLOR_PAGES' as measure
-	, total_pages-hp_color_pages as units
+	, total_color_pages-hp_color_pages as units
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
+    AND hp_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -350,7 +350,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
+    AND hp_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -361,7 +361,7 @@ SELECT cal_date
 	, source_u as source
 FROM step5
 WHERE hp_pages IS NOT NULL
-    AND hp_pages > 0
+    AND hp_pages >= 0
 UNION ALL
 SELECT cal_date
 	, geography
@@ -371,6 +371,7 @@ SELECT cal_date
 	, ib as units
 	, 'IB' as source
 FROM step5
+
 )
 SELECT "USAGE_SHARE" as record
       ,cal_date
