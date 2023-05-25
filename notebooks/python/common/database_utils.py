@@ -1,6 +1,5 @@
 # Databricks notebook source
 import boto3
-import concurrent.futures
 import json
 import os
 import psycopg2
@@ -9,9 +8,8 @@ import uuid
 
 from datetime import datetime
 from functools import singledispatch
-from pyspark.sql.functions import col, upper
+from pyspark.sql.functions import col,upper
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.types import StructType, StructField
 from sqlite3 import Timestamp
 from typing import Union
 
@@ -194,60 +192,37 @@ def read_redshift_to_spark_df(configs: dict, query: str) -> DataFrame:
 # COMMAND ----------
 
 # write dataframe to delta table
-# expected input is a list of ['schema_name.table_name', dataframe, thread number (optional)]
-
-# Databricks will not allow us to easily write out a table with non-nullable columns using a DataFrame,
-#  so ignore that field when comparing schemas
-def ignore_nullable(schema):
-    modified_fields = []
-    for field in schema.fields:
-        modified_fields.append(StructField(field.name, field.dataType, nullable=True))
-    return StructType(modified_fields)
-
-def write_df_to_delta_inner_function(table: list, rename_cols: bool):
-        # Extract the schema and table names.
-        full_table_name = table[0]
-        view_name = full_table_name.split(".")[1]
-
+# expected input is a list of ['schema_name.table_name', dataframe]
+def write_df_to_delta(tables: list, rename_cols: bool = False):
+    for table in tables:
+        # Define the input and output formats and paths and the table name.
+        schema_name = table[0].split(".")[0]
+        table_name = table[0].split(".")[1]
+        write_format = 'delta'
+        save_path = f'/tmp/delta/{schema_name}/{table_name}'
+        
         # Load the data from its source.
         df = table[1]
-        print(f'loading {full_table_name}...')
+        print(f'loading {table[0]}...')
 
         # Rename columns with restricted characters
         if rename_cols:
             for column in df.dtypes:
-                column_wo_parentheses = re.sub('\)|\(', '', column[0].lower())
-                column_w_underscores = re.sub('-| ', '_', column_wo_parentheses)
-                column_wo_dollarsign = re.sub('\$', '_dollars', column_w_underscores)
-                df = df.withColumnRenamed(column[0], column_wo_dollarsign)
+                renamed_column = re.sub('\)', '', re.sub('\(', '', re.sub('-', '_', re.sub('/', '_', re.sub('\$', '_dollars', re.sub(' ', '_', column[0])))))).lower()
+                df = df.withColumnRenamed(column[0], renamed_column)
 
-        # Create the table from DataFrame and corresponding view
-        df.createOrReplaceTempView(view_name)
-        ## Check if delta table exists
-        try:
-            delta_table_schema = spark.sql(f"SELECT * FROM {full_table_name} LIMIT 1").schema
-            print(f'{full_table_name} exists')
-            ## Check if schemas match, then a) truncate and append, else b) drop and re-create table using DataFrame schema
-            if ignore_nullable(df.schema) == ignore_nullable(delta_table_schema):
-                print(f'DataFrame and table schemas match. Truncating {full_table_name}')
-                spark.sql(f"TRUNCATE TABLE {full_table_name}")
-                spark.sql(f"INSERT INTO {full_table_name} SELECT * FROM {view_name}")
-            else:
-                print(f'DataFrame and table schemas do not match. Re-creating {full_table_name}')
-                spark.sql(f"DROP TABLE {full_table_name}")
-                spark.sql(f"CREATE TABLE {full_table_name} SELECT * FROM {view_name}")
-        except:
-            print(f'creating {full_table_name}')
-            spark.sql(f"CREATE TABLE {full_table_name} SELECT * FROM {view_name}")
-        print(f'{full_table_name} loaded')
+        # Write the data to its target.
+        df.write \
+            .format(write_format) \
+            .mode("overwrite") \
+            .option('overwriteSchema', 'true') \
+            .save(save_path)
 
-def write_df_to_delta(tables: list, rename_cols: bool = False, threads: int = 1) -> None:
-    with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
-        future_to_table = {}
-        for table in tables:
-            future = executor.submit(write_df_to_delta_inner_function, table, rename_cols)
-            future_to_table[future] = table[0]
-
-        for future in concurrent.futures.as_completed(future_to_table):
-            table = future_to_table[future]
-            result = future.result()
+        spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+        
+        # Create the table.
+        spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+        
+        spark.table(table[0]).createOrReplaceTempView(table_name)
+        
+        print(f'{table[0]} loaded')
