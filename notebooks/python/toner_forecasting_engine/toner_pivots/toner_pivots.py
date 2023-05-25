@@ -2723,7 +2723,7 @@ LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = asb.platform_subset
 JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = asb.market10
-WHERE asb.base_product_number = 'EST_MPS_REVENUE_JV'
+WHERE asb.base_product_number IN ('EST_MPS_REVENUE_JV', 'CTSS', 'BIRDS', 'CISS')
 GROUP BY f.date
     , f.fiscal_year_qtr
     , f.fiscal_yr
