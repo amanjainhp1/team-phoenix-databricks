@@ -1,12 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Working Forecast Country
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Global Libraries
 
 # COMMAND ----------
@@ -24,7 +24,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Bring in Delta Tables for Inputs
 
 # COMMAND ----------
@@ -53,7 +53,7 @@ spark.sql("""
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Country Forecast
 
 # COMMAND ----------
@@ -332,7 +332,7 @@ LEFT JOIN (SELECT DISTINCT geography, platform_subset FROM ctry_06_ib_country_mi
     AND ib.platform_subset = c2c.platform_subset
 WHERE 1=1
     AND c2c.cal_date >= fcst.supplies_forecast_start
-    AND hw.technology IN ('LASER','INK')
+    AND hw.technology IN ('LASER','INK','PWA')
 """)
 
 ctry_lib_02.createOrReplaceTempView("ctry_lib_02_adj_combo_mappings")

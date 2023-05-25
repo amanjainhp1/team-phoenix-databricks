@@ -11,10 +11,6 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../config_forecasting_engine
-
-# COMMAND ----------
-
 # MAGIC %run ../../common/configs
 
 # COMMAND ----------
@@ -23,23 +19,7 @@
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC
-# MAGIC ## Load Delta Lake Tables
-
-# COMMAND ----------
-
-trade_forecast = read_redshift_to_df(configs) \
-    .option("dbtable", "prod.trade_forecast") \
-    .load()
-
-tables = [
-    ["prod.trade_forecast", trade_forecast, "overwrite"],
-]
-
-# COMMAND ----------
-
-# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+query_list = []
 
 # COMMAND ----------
 
@@ -49,9 +29,7 @@ tables = [
 
 # COMMAND ----------
 
-filter_vars = spark.sql("""
-
-
+filter_vars = """
 SELECT record
     , MAX(version) AS version
 FROM prod.trade_forecast
@@ -63,7 +41,9 @@ UNION ALL
 
 -- just to track inputs; don't use as a filter in subsequent models 5/10/2022
 SELECT 'USAGE_SHARE' AS record
-    , '{}' AS version
+    , version AS version
+    FROM prod.version 
+    WHERE version = (SELECT MAX(version) FROM prod.version where record = 'USAGE_SHARE')
 
 UNION ALL
 
@@ -72,7 +52,7 @@ SELECT record
 FROM prod.norm_shipments
 WHERE 1=1
     AND record IN ('ACTUALS - HW', 'HW_FCST', 'HW_STF_FCST')
-    AND version = '{}'
+    AND version = (SELECT MAX(version) FROM prod.version where record = 'NORM_SHIPMENTS')
 GROUP BY record
 
 UNION ALL
@@ -100,15 +80,14 @@ SELECT record
 FROM prod.ib
 WHERE 1=1
     AND record = 'IB'
-    AND version = '{}'
+    AND version = (SELECT MAX(version) FROM prod.version where record = 'IB')
 GROUP BY record
-""".format(us_version, ib_version, ib_version))
-
-filter_vars.createOrReplaceTempView("pivots_lib_01_filter_vars")
+"""
+query_list.append(["stage.pivots_lib_01_filter_vars", filter_vars, "overwrite"])
 
 # COMMAND ----------
 
-geo_mapping = spark.sql("""
+geo_mapping = """
 SELECT 'CENTRAL EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
 SELECT 'GREATER ASIA' AS market_10, 'AP' AS region_5 UNION ALL
 SELECT 'INDIA SL & BL' AS market_10, 'AP' AS region_5 UNION ALL
@@ -119,9 +98,8 @@ SELECT 'NORTHERN EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
 SELECT 'SOUTHERN EUROPE' AS market_10, 'EU' AS region_5 UNION ALL
 SELECT 'UK&I' AS market_10, 'EU' AS region_5 UNION ALL
 SELECT 'GREATER CHINA' AS market_10, 'AP' AS region_5
-""")
-
-geo_mapping.createOrReplaceTempView("pivots_lib_02_geo_mapping")
+"""
+query_list.append(["stage.pivots_lib_02_geo_mapping", geo_mapping, "overwrite"])
 
 # COMMAND ----------
 
@@ -131,7 +109,7 @@ geo_mapping.createOrReplaceTempView("pivots_lib_02_geo_mapping")
 
 # COMMAND ----------
 
-demand = spark.sql("""
+pivots_01_demand = """
 with pivots_t_19_hw_xref as (
     SELECT hw.platform_subset
         , hw.pl
@@ -171,16 +149,15 @@ JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
     AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'NON_HP_K_PAGES')
-    AND d.cal_date BETWEEN '{}' AND '{}'
+    AND d.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
     AND d.version = (select MAX(version) from prod.demand)
-""".format(pivots_start, pivots_end))
+"""
 
-demand.createOrReplaceTempView("pivots_01_demand")
-#write_df_to_redshift(configs, demand, "stage.pivots_01_demand", "overwrite")
+query_list.append(["stage.pivots_01_demand", pivots_01_demand, "overwrite"])
 
 # COMMAND ----------
 
-cartridge_mix = spark.sql("""
+cartridge_mix = """
 
 with pivots_t_19_hw_xref as (
     SELECT hw.platform_subset
@@ -216,7 +193,7 @@ with pivots_t_19_hw_xref as (
         , s.cartridge_alias
         , s.toner_category
         , s.k_color
-        , CASE WHEN s.crg_intro_dt IS NULL THEN '' ELSE s.crg_intro_dt END AS crg_intro_dt
+        , s.crg_intro_dt
         , COALESCE (s.equivalents_multiplier, 1) AS equivalents_multiplier
         , rdma.pl AS supplies_pl
         , rdma.base_prod_name
@@ -241,30 +218,27 @@ JOIN pivots_t_19_hw_xref AS hw
 JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = mr.base_product_number
 WHERE 1=1
-    AND mr.cal_date BETWEEN '{}' AND '{}'
-""".format(pivots_start, pivots_end))
+    AND mr.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+"""
 
-cartridge_mix.createOrReplaceTempView("pivots_02_cartridge_mix")
-#write_df_to_redshift(configs, cartridge_mix, "stage.pivots_02_cartridge_mix", "overwrite")
+query_list.append(["stage.pivots_02_cartridge_mix", cartridge_mix, "overwrite"])
 
 # COMMAND ----------
 
-yield_pivots = spark.sql("""
+yield_pivots = """
 
 with pivots_t_04_yield_step_1 as (
-    SELECT 'YIELD' AS record
-        , date_format(current_date, 'yyyy-MM') AS period
-        , CAST(current_date() AS DATE) AS period_dt
+    SELECT cast('YIELD' as varchar(32)) AS record
         , c.Date AS cal_date
-        , 'N/A' AS market10
+        , cast('N/A' as varchar(8)) AS market10
         , CASE WHEN y.geography = 'JP' THEN 'AP'
                WHEN y.geography = 'US' THEN 'NA'
                ELSE y.geography END AS region_5
-        , 'N/A' AS platform_subset
+        , cast('N/A' as varchar(8)) AS platform_subset
         , y.base_product_number
         , y.effective_date
         , y.value AS yield
-        , 'Y' AS official_flag
+         , cast('Y' as varchar(8)) AS official_flag
     FROM mdm.yield AS y
     JOIN mdm.calendar AS c
         ON 1=1
@@ -272,11 +246,9 @@ with pivots_t_04_yield_step_1 as (
         AND y.official =1
         AND y.geography_grain = 'REGION_5'
         AND c.day_of_month = 1
-        AND c.Date BETWEEN '{}' AND '{}'
+        AND c.Date BETWEEN '2018-01-01' AND '2027-12-01'
 ),  pivots_t_04b_yield_step_2 as (
     SELECT record
-        , period
-        , period_dt
         , cal_date
         , market10
         , region_5
@@ -291,8 +263,6 @@ with pivots_t_04_yield_step_1 as (
     WHERE 1=1
 )
 SELECT DISTINCT y1.record
-    , y1.period
-    , y1.period_dt
     , y2.cal_date
     , y1.market10
     , y1.region_5
@@ -308,17 +278,14 @@ JOIN pivots_t_04b_yield_step_2 AS y2
     AND y1.next_effective_date > y2.cal_date
     AND y1.region_5 = y2.region_5
     AND y1.base_product_number = y2.base_product_number
-""".format(pivots_start, pivots_end))
+"""
 
-yield_pivots.createOrReplaceTempView("pivots_03_yield")
-#write_df_to_redshift(configs, yield_pivots, "stage.pivots_03_yield", "overwrite")
+query_list.append(["stage.pivots_03_yield", yield_pivots, "overwrite"])
 
 # COMMAND ----------
 
-usage = spark.sql("""
+usage = """
 SELECT 'USAGE_SHARE' AS record
-    , date_format(current_date, 'yyyy-MM') AS period
-    , CAST(current_date() AS DATE) AS period_dt
     , us.cal_date
     , us.geography AS market10
     , geo.region_5
@@ -331,27 +298,22 @@ SELECT 'USAGE_SHARE' AS record
 FROM scen.toner_03_usage_share AS us
 JOIN mdm.hardware_xref AS hw
     ON hw.platform_subset = us.platform_subset
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = us.geography
 WHERE 1=1
-    AND us.version = (select max(version) from scen.toner_03_usage_share)
     AND us.measure IN ('COLOR_USAGE', 'K_USAGE')
     AND us.geography_grain = 'MARKET10'
     AND NOT hw.product_lifecycle_status = 'E'
     AND hw.technology IN ('LASER')
-    AND us.cal_date BETWEEN '{}' AND '{}'
-""".format(pivots_start, pivots_end))
-
-usage.createOrReplaceTempView("pivots_04_usage")
-#write_df_to_redshift(configs, usage, "stage.pivots_04_usage", "overwrite")
+    AND us.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+"""
+query_list.append(["stage.pivots_04_usage", usage, "overwrite"])
 
 # COMMAND ----------
 
-pages_wo_mktshr = spark.sql("""
+pages_wo_mktshr = """
 with pivots_t_06_pages_wo_mktshr as (
     SELECT DISTINCT 'PGS WO MKTSHR' AS record
-        , date_format(current_date, 'yyyy-MM') AS period
-        , CAST(current_date() AS DATE) AS period_dt
         , cal_date
         , market10
         , platform_subset
@@ -361,15 +323,13 @@ with pivots_t_06_pages_wo_mktshr as (
         , COALESCE(COALESCE(NON_HP_K_PAGES, 0) + COALESCE(HP_K_PAGES, 0), 0) As k_units
         , COALESCE(COALESCE(NON_HP_COLOR_PAGES, 0) + COALESCE(HP_COLOR_PAGES, 0), 0) As color_units
         , 'Y' AS official_flag
-    FROM pivots_01_demand
+    FROM stage.pivots_01_demand
     PIVOT
         ( 
         SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
     )
 )
 SELECT p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -380,17 +340,15 @@ SELECT p.record
     , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_06_pages_wo_mktshr AS p
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = p.market10
-JOIN pivots_02_cartridge_mix AS crg
+JOIN stage.pivots_02_cartridge_mix AS crg
     ON crg.platform_subset = p.platform_subset
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
 WHERE 1=1 and crg.k_color = 'BLACK'
 GROUP BY p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -403,8 +361,6 @@ GROUP BY p.record
 UNION
 
 SELECT p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -415,17 +371,15 @@ SELECT p.record
     , SUM(p.color_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_06_pages_wo_mktshr AS p
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = p.market10
-JOIN pivots_02_cartridge_mix AS crg
+JOIN stage.pivots_02_cartridge_mix AS crg
     ON crg.platform_subset = p.platform_subset
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
 WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -435,20 +389,15 @@ GROUP BY p.record
     , crg.k_color
     , p.official_flag
 
-
-""")
-
-pages_wo_mktshr.createOrReplaceTempView("pivots_05_pages_wo_mktshr_split")
-#write_df_to_redshift(configs, pages_wo_mktshr, "stage.pivots_05_pages_wo_mktshr_split", "overwrite")
+"""
+query_list.append(["stage.pivots_05_pages_wo_mktshr_split", pages_wo_mktshr, "overwrite"])
 
 # COMMAND ----------
 
-pages_w_mktshr = spark.sql("""
+pages_w_mktshr = """
 
 with pivots_t_08_pages_w_mktshr as (
     SELECT DISTINCT 'PGS W MKTSHR' AS record
-        , date_format(current_date(), 'yyyy-MM') AS period
-        , CAST(current_date() AS DATE) AS period_dt
         , cal_date
         , market10
         , platform_subset
@@ -457,15 +406,13 @@ with pivots_t_08_pages_w_mktshr as (
         , COALESCE(HP_COLOR_PAGES,0) color_units
         , COALESCE(HP_K_PAGES,0) k_units
         , 'Y' AS official_flag
-    FROM pivots_01_demand
+    FROM stage.pivots_01_demand
     PIVOT
     (
         SUM(units) FOR measure IN ('HP_COLOR_PAGES' as HP_COLOR_PAGES, 'HP_K_PAGES' as HP_K_PAGES, 'NON_HP_COLOR_PAGES' as NON_HP_COLOR_PAGES, 'NON_HP_K_PAGES' as NON_HP_K_PAGES)
     )
 )
 SELECT p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -476,17 +423,15 @@ SELECT p.record
     , SUM(p.k_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_08_pages_w_mktshr AS p
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = p.market10
-JOIN pivots_02_cartridge_mix AS crg
+JOIN stage.pivots_02_cartridge_mix AS crg
     ON crg.platform_subset = p.platform_subset
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
 WHERE 1=1 and crg.k_color = 'BLACK'
 GROUP BY p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -499,8 +444,6 @@ GROUP BY p.record
 UNION
 
 SELECT p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -511,17 +454,15 @@ SELECT p.record
     , SUM(p.color_units * crg.mix_rate) AS units
     , p.official_flag
 FROM pivots_t_08_pages_w_mktshr AS p
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = p.market10
-JOIN pivots_02_cartridge_mix AS crg
+JOIN stage.pivots_02_cartridge_mix AS crg
     ON crg.platform_subset = p.platform_subset
     AND crg.customer_engagement = p.customer_engagement
     AND crg.cal_date = p.cal_date
     AND crg.geography = p.market10
 WHERE 1=1 and crg.k_color = 'COLOR'
 GROUP BY p.record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , geo.region_5
@@ -530,18 +471,15 @@ GROUP BY p.record
     , p.customer_engagement
     , crg.k_color
     , p.official_flag
-""")
+"""
 
-pages_w_mktshr.createOrReplaceTempView("pivots_06_pages_w_mktshr_split")
-#write_df_to_redshift(configs, pages_w_mktshr, "stage.pivots_06_pages_w_mktshr_split", "overwrite")
+query_list.append(["stage.pivots_06_pages_w_mktshr_split", pages_w_mktshr, "overwrite"])
 
 # COMMAND ----------
 
-crg_size = spark.sql("""
+crg_size = """
 
 SELECT 'HP CRG SZ' AS record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , p.region_5
@@ -552,24 +490,20 @@ SELECT 'HP CRG SZ' AS record
         NULLIF(COALESCE(y.yield, 0), 0) AS units
     , y.yield
     , p.official_flag
-FROM pivots_05_pages_wo_mktshr_split AS p
-LEFT JOIN pivots_03_yield AS y
+FROM stage.pivots_05_pages_wo_mktshr_split AS p
+LEFT JOIN stage.pivots_03_yield AS y
     ON p.base_product_number = y.base_product_number
     AND p.cal_date = y.cal_date
     AND p.region_5 = y.region_5
 WHERE 1=1
-""")
-
-crg_size.createOrReplaceTempView("pivots_07_crg_size")
-#write_df_to_redshift(configs, crg_size, "stage.pivots_07_crg_size", "overwrite")
+"""
+query_list.append(["stage.pivots_07_crg_size", crg_size, "overwrite"])
 
 # COMMAND ----------
 
-pages_wo_mktshr_k = spark.sql("""
+pages_wo_mktshr_k = """
 
 Select 'PGS WO MKTSHR-BLK' as record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , p.region_5
@@ -578,30 +512,25 @@ Select 'PGS WO MKTSHR-BLK' as record
     , p.customer_engagement
     , SUM(p.units) as units
     , p.official_flag
-FROM pivots_05_pages_wo_mktshr_split AS p
+FROM stage.pivots_05_pages_wo_mktshr_split AS p
 WHERE 1=1
     AND p.k_color = 'BLACK'
-GROUP BY p.period
-    , p.period_dt
-    , p.cal_date
+GROUP BY  p.cal_date
     , p.market10
     , p.region_5
     , p.platform_subset
     , p.base_product_number
     , p.customer_engagement
     , p.official_flag
-""")
+"""
 
-pages_wo_mktshr_k.createOrReplaceTempView("pivots_08_pages_wo_mktshr_k")
-#write_df_to_redshift(configs, pages_wo_mktshr_k, "stage.pivots_08_pages_wo_mktshr_k", "overwrite")
+query_list.append(["stage.pivots_08_pages_wo_mktshr_k", pages_wo_mktshr_k, "overwrite"])
 
 # COMMAND ----------
 
-pages_wo_mktshr_kcmy = spark.sql("""
+pages_wo_mktshr_kcmy = """
 
 Select 'PGS WO MKTSHR-KCMY' as record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , p.region_5
@@ -610,30 +539,25 @@ Select 'PGS WO MKTSHR-KCMY' as record
     , p.customer_engagement
     , SUM(p.units) as units
     , p.official_flag
-FROM pivots_05_pages_wo_mktshr_split AS p
+FROM stage.pivots_05_pages_wo_mktshr_split AS p
 WHERE 1=1
     AND p.k_color IN ('BLACK', 'COLOR')
-GROUP BY p.period
-    , p.period_dt
-    , p.cal_date
+GROUP BY p.cal_date
     , p.market10
     , p.region_5
     , p.platform_subset
     , p.base_product_number
     , p.customer_engagement
     , p.official_flag
-""")
+"""
 
-pages_wo_mktshr_kcmy.createOrReplaceTempView("pivots_09_pages_wo_mktshr_kcmy")
-#write_df_to_redshift(configs, pages_wo_mktshr_kcmy, "stage.pivots_09_pages_wo_mktshr_kcmy", "overwrite")
+query_list.append(["stage.pivots_09_pages_wo_mktshr_kcmy", pages_wo_mktshr_kcmy, "overwrite"])
 
 # COMMAND ----------
 
-pages_w_mktshr_k = spark.sql("""
+pages_w_mktshr_k = """
 
 Select 'PGS W MKTSHR-BLK' as record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , p.region_5
@@ -642,30 +566,25 @@ Select 'PGS W MKTSHR-BLK' as record
     , p.customer_engagement
     , SUM(p.units) as units
     , p.official_flag
-FROM pivots_06_pages_w_mktshr_split AS p
+FROM stage.pivots_06_pages_w_mktshr_split AS p
 WHERE 1=1
     AND p.k_color = 'BLACK'
-GROUP BY p.period
-    , p.period_dt
-    , p.cal_date
+GROUP BY  p.cal_date
     , p.market10
     , p.region_5
     , p.platform_subset
     , p.base_product_number
     , p.customer_engagement
     , p.official_flag
-""")
+"""
 
-pages_w_mktshr_k.createOrReplaceTempView("pivots_10_pages_w_mktshr_k")
-#write_df_to_redshift(configs, pages_w_mktshr_k, "stage.pivots_10_pages_w_mktshr_k", "overwrite")
+query_list.append(["stage.pivots_10_pages_w_mktshr_k", pages_w_mktshr_k, "overwrite"])
 
 # COMMAND ----------
 
-pages_w_mktshr_kcmy = spark.sql("""
+pages_w_mktshr_kcmy = """
 
 Select 'PGS W MKTSHR-KCMY' as record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , p.region_5
@@ -674,30 +593,25 @@ Select 'PGS W MKTSHR-KCMY' as record
     , p.customer_engagement
     , SUM(p.units) as units
     , p.official_flag
-FROM pivots_06_pages_w_mktshr_split AS p
+FROM stage.pivots_06_pages_w_mktshr_split AS p
 WHERE 1=1
     AND p.k_color IN ('BLACK', 'COLOR')
-GROUP BY p.period
-    , p.period_dt
-    , p.cal_date
+GROUP BY  p.cal_date
     , p.market10
     , p.region_5
     , p.platform_subset
     , p.base_product_number
     , p.customer_engagement
     , p.official_flag
-""")
+"""
 
-pages_w_mktshr_kcmy.createOrReplaceTempView("pivots_11_pages_w_mktshr_kcmy")
-#write_df_to_redshift(configs, pages_w_mktshr_kcmy, "stage.pivots_11_pages_w_mktshr_kcmy", "overwrite")
+query_list.append(["stage.pivots_11_pages_w_mktshr_kcmy", pages_w_mktshr_kcmy, "overwrite"])
 
 # COMMAND ----------
 
-supplies_pmf = spark.sql("""
+supplies_pmf = """
 
 SELECT 'SUPPLIES PMF' AS record
-    , date_format(current_date(), 'yyyy-MM') AS period
-    , CAST(current_date() AS DATE) AS period_dt
     , t.cal_date
     , t.market10
     , t.region_5
@@ -707,23 +621,20 @@ SELECT 'SUPPLIES PMF' AS record
     , t.cartridges as units
     , 'Y' as official_flag
 FROM prod.trade_forecast AS t
-JOIN pivots_lib_01_filter_vars AS fv
+JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = t.record
     AND fv.version = t.version
 WHERE 1=1
-    AND t.cal_date BETWEEN '{}' AND '{}'
-""".format(pivots_start, pivots_end))
+    AND t.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+"""
 
-supplies_pmf.createOrReplaceTempView("pivots_12_supplies_pmf")
-#write_df_to_redshift(configs, supplies_pmf, "stage.pivots_12_supplies_pmf", "overwrite")
+query_list.append(["stage.pivots_12_supplies_pmf", supplies_pmf, "overwrite"])
 
 # COMMAND ----------
 
-supplies_pmf_equivalent = spark.sql("""
+supplies_pmf_equivalent = """
 
 SELECT 'PMF EQUIV' AS record
-    , p.period
-    , p.period_dt
     , p.cal_date
     , p.market10
     , p.region_5
@@ -733,24 +644,21 @@ SELECT 'PMF EQUIV' AS record
     , p.units AS base_units
     , p.units * COALESCE(s.equivalents_multiplier, 1) AS units
     , p.official_flag
-FROM pivots_12_supplies_pmf AS p
+FROM stage.pivots_12_supplies_pmf AS p
 LEFT JOIN mdm.supplies_xref AS s
     ON s.base_product_number = p.base_product_number
 WHERE 1=1
-    AND s.official = 'true'
-""")
+    AND s.official = 1
+"""
 
-supplies_pmf_equivalent.createOrReplaceTempView("pivots_13_supplies_pmf_equivalent")
-#write_df_to_redshift(configs, supplies_pmf_equivalent, "stage.pivots_13_supplies_pmf_equivalent", "overwrite")
+query_list.append(["stage.pivots_13_supplies_pmf_equivalent", supplies_pmf_equivalent, "overwrite"])
 
 # COMMAND ----------
 
-units_pivot_prep = spark.sql("""
+units_pivot_prep = """
 
 
 SELECT 'COLOR USAGE' AS record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -760,15 +668,13 @@ SELECT 'COLOR USAGE' AS record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_04_usage
+FROM stage.pivots_04_usage
 WHERE 1=1
     AND measure = 'COLOR_USAGE'
 
 UNION ALL
 
 SELECT 'K USAGE' AS record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -778,15 +684,13 @@ SELECT 'K USAGE' AS record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_04_usage
+FROM stage.pivots_04_usage
 WHERE 1=1
     AND measure = 'K_USAGE'
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -796,14 +700,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_05_pages_wo_mktshr_split
+FROM stage.pivots_05_pages_wo_mktshr_split
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -813,14 +715,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_06_pages_w_mktshr_split
+FROM stage.pivots_06_pages_w_mktshr_split
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -830,14 +730,12 @@ SELECT record
     , units
     , yield
     , official_flag
-FROM pivots_07_crg_size
+FROM stage.pivots_07_crg_size
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -847,14 +745,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_08_pages_wo_mktshr_k
+FROM stage.pivots_08_pages_wo_mktshr_k
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -864,14 +760,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_09_pages_wo_mktshr_kcmy
+FROM stage.pivots_09_pages_wo_mktshr_kcmy
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -881,14 +775,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_10_pages_w_mktshr_k
+FROM stage.pivots_10_pages_w_mktshr_k
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -898,14 +790,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_11_pages_w_mktshr_kcmy
+FROM stage.pivots_11_pages_w_mktshr_kcmy
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -915,14 +805,12 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_12_supplies_pmf
+FROM stage.pivots_12_supplies_pmf
 WHERE 1=1
 
 UNION ALL
 
 SELECT record
-    , period
-    , period_dt
     , cal_date
     , market10
     , region_5
@@ -932,20 +820,17 @@ SELECT record
     , units
     , 0 as yield
     , official_flag
-FROM pivots_13_supplies_pmf_equivalent
+FROM stage.pivots_13_supplies_pmf_equivalent
 WHERE 1=1
-""")
+"""
 
-units_pivot_prep.createOrReplaceTempView("pivots_14_units_pivot_prep")
-#write_df_to_redshift(configs, units_pivot_prep, "stage.pivots_14_units_pivot_prep", "overwrite")
+query_list.append(["stage.pivots_14_units_pivot_prep", units_pivot_prep, "overwrite"])
 
 # COMMAND ----------
 
-units_pivot = spark.sql("""
+units_pivot = """
 
-SELECT period
-    , period_dt
-    , cal_date
+SELECT cal_date
     , market10
     , region_5
     , platform_subset
@@ -967,8 +852,6 @@ SELECT period
 FROM
 (
     SELECT record
-        , period
-        , period_dt
         , cal_date
         , market10
         , region_5
@@ -978,7 +861,7 @@ FROM
         , units
         , yield
         , official_flag
-    FROM pivots_14_units_pivot_prep
+    FROM stage.pivots_14_units_pivot_prep
 ) AS TP
 PIVOT
 (
@@ -988,14 +871,13 @@ PIVOT
         'PGS WO MKTSHR-BLK' AS pgs_wo_mktshr_blk, 'PGS W MKTSHR-KCMY' AS pgs_w_mktshr_kcmy, 'PGS WO MKTSHR-KCMY' AS pgs_wo_mktshr_kcmy,
         'HP CRG SZ' AS hp_crg_sz, 'SUPPLIES PMF' AS supplies_pmf, 'PMF EQUIV' AS pmf_equiv, 'COLOR USAGE' AS color_usage, 'K USAGE' AS k_usage)
 ) 
-""")
+"""
 
-units_pivot.createOrReplaceTempView("pivots_15_units_pivot")
-#write_df_to_redshift(configs, units_pivot, "stage.pivots_15_units_pivot", "overwrite")
+query_list.append(["stage.pivots_15_units_pivot", units_pivot, "overwrite"])
 
 # COMMAND ----------
 
-working_forecast = spark.sql("""
+working_forecast = """
 
 with pivots_t_17_fiscal_calendar as (
     SELECT cal.date
@@ -1006,7 +888,7 @@ with pivots_t_17_fiscal_calendar as (
     FROM mdm.calendar AS cal
     WHERE 1=1
         AND cal.day_of_month = 1
-        AND cal.fiscal_yr BETWEEN '{}' AND '{}'
+        AND cal.fiscal_yr BETWEEN 2018 AND 2027
 ),  pivots_t_19_hw_xref as (
 
     SELECT hw.platform_subset
@@ -1043,7 +925,7 @@ SELECT s.base_product_number
     , s.cartridge_alias
     , s.toner_category
     , s.k_color
-    , CASE WHEN s.crg_intro_dt IS NULL THEN '' ELSE s.crg_intro_dt END AS crg_intro_dt
+    , s.crg_intro_dt
     , COALESCE (s.equivalents_multiplier, 1) AS equivalents_multiplier
     , rdma.pl AS supplies_pl
     , rdma.base_prod_name
@@ -1069,7 +951,7 @@ SELECT wf.record
     , wf.adjusted_cartridges
     , COALESCE(s.equivalents_multiplier, 1) AS equivalents_multiplier
 FROM prod.working_forecast AS wf
-JOIN pivots_lib_01_filter_vars AS fv 
+JOIN stage.pivots_lib_01_filter_vars AS fv 
     ON fv.record = wf.record
     AND fv.version = wf.version
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1078,17 +960,16 @@ JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = wf.platform_subset
 LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = wf.base_product_number
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = wf.geography
 WHERE 1=1
-""".format(pivots_start, pivots_end))
+"""
 
-working_forecast.createOrReplaceTempView("pivots_16_working_forecast")
-#write_df_to_redshift(configs, working_forecast, "stage.pivots_16_working_forecast", "overwrite")
+query_list.append(["stage.pivots_16_working_forecast", working_forecast, "overwrite"])
 
 # COMMAND ----------
 
-wampv_prep = spark.sql("""
+wampv_prep = """
 SELECT 'HW - IB' AS record_type
     , 'WAMPV_PREP' AS record
     , ib.cal_date
@@ -1097,7 +978,7 @@ SELECT 'HW - IB' AS record_type
     , ib.customer_engagement
     , SUM(ib.units) AS wampv_ib_units
 FROM prod.ib AS ib
-JOIN pivots_lib_01_filter_vars AS fv
+JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = ib.record
     AND fv.version = ib.version
 LEFT JOIN mdm.iso_country_code_xref AS ccx
@@ -1108,14 +989,14 @@ GROUP BY ib.cal_date
     , ccx.market10
     , ib.platform_subset
     , ib.customer_engagement
-""")
+"""
 
-wampv_prep.createOrReplaceTempView("pivots_17_wampv_prep")
-#write_df_to_redshift(configs, wampv_prep, "stage.pivots_17_wampv_prep", "overwrite")
+query_list.append(["stage.pivots_17_wampv_prep", wampv_prep, "overwrite"])
 
 # COMMAND ----------
 
- combined = spark.sql("""
+ combined = """
+
 
 with pivots_t_17_fiscal_calendar as (
     
@@ -1127,7 +1008,7 @@ with pivots_t_17_fiscal_calendar as (
     FROM mdm.calendar AS cal
     WHERE 1=1
         AND cal.day_of_month = 1
-        AND cal.fiscal_yr BETWEEN '{}' AND '{}'
+        AND cal.fiscal_yr BETWEEN 2018 AND 2027
 ),  pivots_t_19_hw_xref as (
 
     SELECT hw.platform_subset
@@ -1165,7 +1046,7 @@ with pivots_t_17_fiscal_calendar as (
         , ns.version
         , ns.load_date
     FROM prod.norm_shipments AS ns
-    JOIN pivots_lib_01_filter_vars AS fv
+    JOIN stage.pivots_lib_01_filter_vars AS fv
         ON fv.record = ns.record  -- 3 record categories
         AND fv.version = ns.version
     JOIN pivots_t_17_fiscal_calendar AS f
@@ -1184,7 +1065,7 @@ with pivots_t_17_fiscal_calendar as (
         , s.cartridge_alias
         , s.toner_category
         , s.k_color
-        , CASE WHEN s.crg_intro_dt IS NULL THEN '' ELSE s.crg_intro_dt END AS crg_intro_dt
+        , s.crg_intro_dt
         , COALESCE (s.equivalents_multiplier, 1) AS equivalents_multiplier
         , rdma.pl AS supplies_pl
         , rdma.base_prod_name
@@ -1206,7 +1087,7 @@ SELECT apf.cal_date
     --, apf.country_alpha2
     , SUM(apf.net_revenue * 1.0) / NULLIF(SUM(apf.units), 0) AS net_revenue_per_unit
 FROM fin_prod.actuals_plus_forecast_financials AS apf
-JOIN pivots_lib_01_filter_vars AS fv
+JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = apf.record_type  -- 2 record categories
     AND fv.version = apf.version
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1224,9 +1105,6 @@ GROUP BY apf.cal_date
     --, apf.country_alpha2
 )SELECT 'HW - IB' AS record_type
     , 'IB' AS record
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS DATE) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -1263,7 +1141,7 @@ GROUP BY apf.cal_date
     , 'N/A' AS cartridge_size
     , 'N/A' AS single_multi
     , 'N/A' AS crg_chrome
-    , '' AS crg_intro_dt
+    , null AS crg_intro_dt
     , '' AS trans_vs_contract
     , '' AS p2j_identifier
 
@@ -1303,7 +1181,7 @@ GROUP BY apf.cal_date
     , SUM(0) AS hp_sell_in_pages_k_only
 
 FROM prod.ib AS ib
-JOIN pivots_lib_01_filter_vars AS fv
+JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = ib.record
     AND fv.version = ib.version
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1341,9 +1219,6 @@ UNION ALL
 SELECT 'HW SHIPS' AS record_type
     , 'PRINTER SHIPMENTS' AS record
 
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -1380,7 +1255,7 @@ SELECT 'HW SHIPS' AS record_type
     , 'N/A' AS cartridge_size
     , 'N/A' AS single_multi
     , 'N/A' AS crg_chrome
-    , '' AS crg_intro_dt
+    , null AS crg_intro_dt
     , '' AS trans_vs_contract
     , '' AS p2j_identifier
 
@@ -1451,9 +1326,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'GROSS REV, FIJI$, DISCOUNT %, PMF $' AS record
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
     , f.date AS month
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -1505,7 +1377,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS pgswomktshr_color
     , SUM(0) AS hp_crg_sz
     , SUM(apf.net_revenue) AS fiji_usd  -- rename fiji field names to better descriptions
-    , IFNULL(SUM(apf.contra) * 1.0 / NULLIF(SUM(apf.gross_revenue), 0), 0) AS discount_pcnt  -- not used; candidate to remove
+    , COALESCE(SUM(apf.contra) * 1.0 / NULLIF(SUM(apf.gross_revenue), 0), 0) AS discount_pcnt  -- not used; candidate to remove
     , SUM(apf.gross_revenue) AS gross_rev_w  
     , SUM(apf.net_revenue) AS net_rev_w    
     , SUM(0) AS net_rev_trade
@@ -1521,7 +1393,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
 FROM fin_prod.actuals_plus_forecast_financials AS apf  -- code review with Priya --> Noelle
-JOIN pivots_lib_01_filter_vars AS fv
+JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = apf.record_type  -- 2 record categories
     AND fv.version = apf.version
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1566,9 +1438,6 @@ UNION ALL
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'HP SELL-IN PAGES' AS record
 
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -1645,7 +1514,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , COALESCE(SUM(yield_x_units_black_only), 0) AS hp_sell_in_pages_k_only
 
 FROM fin_prod.actuals_plus_forecast_financials AS apf
-JOIN pivots_lib_01_filter_vars AS fv
+JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = apf.record_type  -- 2 record categories
     AND fv.version = apf.version
 JOIN pivots_t_17_fiscal_calendar AS f
@@ -1693,10 +1562,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'WORKING: TRADE UNITS, SPARES, CHANNEL FILL, EXPECTED CRGS' AS record
-
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -1772,7 +1637,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy 
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM pivots_16_working_forecast AS wf
+FROM stage.pivots_16_working_forecast AS wf
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = wf.cal_date
 JOIN pivots_t_19_hw_xref AS hw
@@ -1818,10 +1683,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'HP CRG SZ, PGS W MKTSHR-BLK, PGS WO MKTSHR-BLK, PGS W MKTSHR, PGS WO MKTSHR' AS record
-
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -1897,7 +1758,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM pivots_15_units_pivot AS p
+FROM stage.pivots_15_units_pivot AS p
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 LEFT JOIN pivots_t_19_hw_xref AS hw
@@ -1943,10 +1804,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'PMF UNITS, PMF EQUI' AS record
-
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -2022,7 +1879,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
+FROM stage.pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 LEFT JOIN pivots_t_19_hw_xref AS hw
@@ -2069,10 +1926,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'HP SELL-IN PAGES' AS record
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
-
     , f.date AS month
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -2148,17 +2001,15 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS wampv_ib_units
     , SUM(p.supplies_pmf * p.yield) AS hp_sell_in_pages_kcmy
     , CASE WHEN s.k_color <> 'BLACK' THEN SUM(0) ELSE SUM(p.supplies_pmf * p.yield) END AS hp_sell_in_pages_k_only
-FROM pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
+FROM stage.pivots_15_units_pivot AS p  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = p.platform_subset
 LEFT JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = p.base_product_number
-JOIN fin_prod.actuals_plus_forecast_financials apf
-    ON apf.cal_date = f.date
 WHERE 1=1
-    AND apf.record_type <> 'ACTUALS'
+    AND p.cal_date > (select min(cal_date) from fin_prod.actuals_plus_forecast_financials where record_type  != 'ACTUALS') 
 GROUP BY f.date
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -2194,10 +2045,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'K_USAGE, COLOR_USAGE' AS record
-
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -2273,7 +2120,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM pivots_15_units_pivot AS p  
+FROM stage.pivots_15_units_pivot AS p  
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = p.cal_date
 LEFT JOIN pivots_t_19_hw_xref AS hw
@@ -2321,9 +2168,6 @@ UNION ALL
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'WAMPV_PREP' AS record
 
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date AS month
     , f.fiscal_year_qtr
@@ -2399,8 +2243,8 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy 
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM pivots_15_units_pivot AS p 
-LEFT JOIN pivots_17_wampv_prep as w
+FROM stage.pivots_15_units_pivot AS p 
+LEFT JOIN stage.pivots_17_wampv_prep as w
     ON w.cal_date = p.cal_date
     AND w.market10 = p.market10
     AND w.platform_subset = p.platform_subset
@@ -2452,9 +2296,7 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'NET REVENUE WORKING' AS record
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
+
 
     , f.date
     , f.fiscal_year_qtr
@@ -2528,7 +2370,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy 
     , SUM(0) AS hp_sell_in_pages_k_only
 FROM pivots_t_22_net_rev_per_unit AS nrpu
-JOIN pivots_15_units_pivot AS t 
+JOIN stage.pivots_15_units_pivot AS t 
     ON nrpu.base_product_number = t.base_product_number
     AND nrpu.platform_subset = t.platform_subset
     AND nrpu.cal_date = t.cal_date
@@ -2576,9 +2418,6 @@ UNION ALL
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'NET REVENUE WORKING' AS record
 
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS date) AS period_dt
 
     , f.date
     , f.fiscal_year_qtr
@@ -2655,7 +2494,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM prod.ms4_v_canon_units_prelim AS c  -- TODO locate VIEW IN Redshift 
+FROM supplies_fcst.odw_canon_units_prelim_vw AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = c.cal_date
 LEFT JOIN pivots_t_18_supplies_xref AS s
@@ -2684,10 +2523,6 @@ UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'NON-TRADE UNITS' AS record
-
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS DATE) AS period_dt
 
     , f.date
     , f.fiscal_year_qtr
@@ -2771,7 +2606,7 @@ JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = asb.platform_subset
 JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = asb.base_product_number
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = asb.market10
 WHERE customer_engagement = 'EST_DIRECT_FULFILLMENT'
 GROUP BY f.date
@@ -2814,9 +2649,7 @@ UNION
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , 'NON-TRADE REVENUE' AS record
-    , date_format(current_date(), 'yyyy-MM') AS cycle
-    , date_format(current_date(), 'yyyy-MM-dd') AS begin_cycle_date
-    , CAST(current_date() AS DATE) AS period_dt
+
     , f.date
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -2888,9 +2721,9 @@ JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = asb.cal_date
 LEFT JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = asb.platform_subset
-JOIN pivots_lib_02_geo_mapping AS geo
+JOIN stage.pivots_lib_02_geo_mapping AS geo
     ON geo.market_10 = asb.market10
-WHERE asb.base_product_number = 'EST_MPS_REVENUE_JV'
+WHERE asb.base_product_number IN ('EST_MPS_REVENUE_JV', 'CTSS', 'BIRDS', 'CISS')
 GROUP BY f.date
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -2915,24 +2748,22 @@ GROUP BY f.date
     , asb.revenue_units
     , asb.equivalent_units
     , asb.pl
-""".format(pivots_start, pivots_end))
 
-combined.createOrReplaceTempView("pivots_18_combined")
-#write_df_to_redshift(configs, combined, "stage.pivots_18_combined", "overwrite")
+"""
 
+query_list.append(["stage.pivots_18_combined", combined, "overwrite"])
 
 # COMMAND ----------
 
-toner_pivots_data_source = spark.sql("""
+toner_pivots_data_source = """
 
 SELECT
     -- filters
     record_type
     , record
-    , cycle
-    , begin_cycle_date
-    , period_dt
-
+    , cast('2023-05' as varchar(64)) "cycle"
+    , cast('2023-05-07' as varchar(64)) begin_cycle_date
+    , cast('2023-05-07' as date) period_dt
     -- dates
     , month
     , fiscal_year_qtr
@@ -2993,6 +2824,7 @@ SELECT
     , vtc_w
     , rev_units_nt
     , equiv_units_nt
+    , revenue_nt
     , pgswmktshr_blackonly
     , pgswomktshr_blackonly
     , pgswmktshr_color
@@ -3014,11 +2846,11 @@ SELECT
     , wampv_ib_units
     , hp_sell_in_pages_kcmy -- new
     , hp_sell_in_pages_k_only -- new
-FROM pivots_18_combined p 
-""")
+FROM stage.pivots_18_combined p 
+"""
 
-write_df_to_redshift(configs, toner_pivots_data_source, "stage.toner_pivots_data_source", "overwrite")
+query_list.append(["stage.toner_pivots_data_source", toner_pivots_data_source, "overwrite"])
 
 # COMMAND ----------
 
-
+# MAGIC %run "../../common/output_to_redshift" $query_list=query_list

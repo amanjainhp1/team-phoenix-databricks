@@ -556,3 +556,7 @@ write_df_to_s3(df=update_version, destination=s3_destination, format="parquet", 
 
 if dbutils.widgets.get("writeout").upper() == "TRUE":
     write_df_to_redshift(configs=configs, df=update_version, destination="prod.usage_share", mode="overwrite")
+
+    # truncate and load prod.usage_share_country table
+    usage_share_country_df = spark.read.parquet(s3_destination.replace('usage_share', 'demand'))
+    write_df_to_redshift(configs=configs, df=usage_share_country_df, destination='prod.usage_share_country', mode='append', preactions='TRUNCATE prod.usage_share_country')

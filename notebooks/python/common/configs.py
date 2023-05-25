@@ -2,10 +2,11 @@
 import boto3
 import json
 import os
+from typing import Dict
 
 # COMMAND ----------
 
-def create_session(role_arn: str, session_duration: int = 3600):
+def create_session(role_arn: str, session_duration: int = 3600, set_env_vars: bool = True):
     # Create an STS client object that represents a live connection to the STS service
     sts_client = boto3.client('sts')
 
@@ -21,10 +22,11 @@ def create_session(role_arn: str, session_duration: int = 3600):
     # credentials that can be used to make subsequent API calls
     credentials=assumed_role_object['Credentials']
     
-    # Set AWS environment variables to temporary credentials (AWS CLI will default to these)
-    os.environ['AWS_ACCESS_KEY_ID'] = credentials['AccessKeyId']
-    os.environ['AWS_SECRET_ACCESS_KEY'] = credentials['SecretAccessKey']
-    os.environ['AWS_SESSION_TOKEN'] = credentials['SessionToken']
+    # If True, set AWS environment variables to temporary credentials (AWS CLI will default to these)
+    if set_env_vars:
+        os.environ['AWS_ACCESS_KEY_ID'] = credentials['AccessKeyId']
+        os.environ['AWS_SECRET_ACCESS_KEY'] = credentials['SecretAccessKey']
+        os.environ['AWS_SESSION_TOKEN'] = credentials['SessionToken']
 
     # Establish a session to be used in subsequent calls to AWS services
     session = boto3.Session(
@@ -38,19 +40,23 @@ def create_session(role_arn: str, session_duration: int = 3600):
 
 # COMMAND ----------
 
-# Retrieve username and password from AWS secrets manager
+# Retrieve username and password from AWS Secrets Manager
 
-def secrets_get(secret_name, region_name):
-    endpoint_url = "https://secretsmanager.us-west-2.amazonaws.com"
-    client = None
-    try:
-        client = session.client(service_name='secretsmanager',
-                                region_name=region_name)
-    except:
-        client = boto3.client(service_name='secretsmanager',
-                              region_name=region_name)
+def secrets_get(secret_name: str, region_name: str = "us-west-2", session: boto3.session.Session = None) -> Dict[str, str]:
+    # Create a new session object if one has not been provided
+    if not session:
+        session = boto3.session.Session()
+
+    # Create a Secrets Manager client
+    client = session.client(
+        service_name="secretsmanager",
+        region_name=region_name
+    )
+
+    # Get the secret value
     get_secret_value_response = client.get_secret_value(SecretId=secret_name)
-    return eval(get_secret_value_response['SecretString'])
+
+    return eval(get_secret_value_response["SecretString"])
 
 # COMMAND ----------
 
@@ -203,6 +209,12 @@ if 'analyst' in spark.conf.get('spark.databricks.clusterUsageTags.instanceProfil
 
 # assume role, retrieve credentials, create session
 session = create_session(constants["STS_IAM_ROLE"][stack], constants["SESSION_DURATION"][stack])
+
+# COMMAND ----------
+
+# set default unity catalog (delta tables)
+if role == 'developer':
+    spark.sql(f"USE CATALOG team_phoenix_{stack}")
 
 # COMMAND ----------
 

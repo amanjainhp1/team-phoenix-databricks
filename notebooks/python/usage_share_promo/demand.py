@@ -439,10 +439,10 @@ update_version = f"""
 update_version=spark.sql(update_version)
 update_version=update_version.withColumn("load_date", update_version.load_date.cast('timestamp'))
 update_version.createOrReplaceTempView("update_version")
+
 # COMMAND ----------
 
 s3_destination = f"{constants['S3_BASE_BUCKET'][stack]}spectrum/demand/{max_version}"
 print("output file name: " + s3_destination)
 
 write_df_to_s3(df=update_version, destination=s3_destination, format="parquet", mode="overwrite", upper_strings=True)
-

@@ -63,22 +63,16 @@ for table in tables:
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
     df = table[1]
     print(f'loading {table[0]}...')
     # Write the data to its target.
     df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .save(save_path)
+        .format(write_format) \
+        .mode("overwrite") \
+        .saveAsTable(table[0])
 
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
@@ -751,11 +745,10 @@ SELECT distinct cal_date,
     platform_subset,
     base_product_number,
     m.market10,
-    SUM(printers_per_baseprod) AS printers_per_baseprod,
-    1 / SUM(printers_per_baseprod) AS hw_mix
+    printers_per_baseprod,
+    1 / printers_per_baseprod AS hw_mix
 FROM hw_supplies_map3 m
 LEFT JOIN iso_country_code_xref iso ON m.market10 = iso.market10
-GROUP BY platform_subset, base_product_number, m.market10, cal_date
 """
 
 supplies_hw_map_mix = spark.sql(supplies_hw_map_mix)

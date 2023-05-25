@@ -1,12 +1,12 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Adjusted Revenue
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Notebook/Process Prep
 
 # COMMAND ----------
@@ -55,7 +55,7 @@ accounting_rate
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Add Version
 
 # COMMAND ----------
@@ -86,7 +86,7 @@ tables = [['prod.version', version, "overwrite"]]
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Supplies History Constant Currency
 
 # COMMAND ----------
@@ -429,7 +429,7 @@ query_list.append(["fin_stage.adj_rev_supplies_history_constant_currency", supp_
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Channel Inventory Prepped AMS Unadjusted
 
 # COMMAND ----------
@@ -447,7 +447,7 @@ chann_inv_ams = spark.sql("""
 				cast(st.month as date) as cal_date,  
 				case
 					when st.country_code = '0A' then 'XB'
-					when st.country_code = '0M' then 'XH'
+					when st.country_code in ('0M', '0B', '0C') THEN 'XH'
 					when st.country_code = 'CS' then 'XA'
 					when st.country_code = 'KV' then 'XA'
 				else st.country_code
@@ -614,7 +614,7 @@ query_list.append(["fin_stage.channel_inventory_prepped_ams_unadjusted", chann_i
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Channel Inventory Prep 1
 
 # COMMAND ----------
@@ -631,7 +631,7 @@ ch_inv_prep_1 = spark.sql("""
 				cast(st.month as date) as cal_date,  
 				case
 					when st.country_code = '0A' then 'XB'
-					when st.country_code = '0M' then 'XH'
+					when st.country_code in ('0M', '0B', '0C') THEN 'XH'
 					when st.country_code = 'CS' then 'XA'
 					when st.country_code = 'KV' then 'XA'
 				else st.country_code
@@ -805,7 +805,7 @@ ch_inv_prep_2.createOrReplaceTempView("channel_inventory_prepped1")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## CBM Sellthru XCode Adjusted 5
 
 # COMMAND ----------
@@ -1182,7 +1182,7 @@ cbm_sell_adj5_3.createOrReplaceTempView("cbm_sellthru_xcode_adjusted5")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## CI with Accounting Rates 3
 
 # COMMAND ----------
@@ -1256,7 +1256,6 @@ for table in tables:
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
     df = table[1]    
@@ -1269,16 +1268,11 @@ for table in tables:
         
      # Write the data to its target.
     df.write \
-       .format(write_format) \
-       .option("overwriteSchema", "true") \
-       .mode("overwrite") \
-       .save(save_path)
+        .format(write_format) \
+        .option("overwriteSchema", "true") \
+        .mode("overwrite") \
+        .saveAsTable(table[0])
 
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-     # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
@@ -2276,7 +2270,7 @@ ci_rates_31.createOrReplaceTempView("ci_with_accounting_rates3")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Adjusted Revenue
 
 # COMMAND ----------
@@ -2714,7 +2708,7 @@ query_list.append(["fin_stage.adjusted_revenue_staging", adj_rev_6, "overwrite"]
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Adjusted Revenue Salesprod
 
 # COMMAND ----------
@@ -2792,7 +2786,6 @@ for table in tables:
     table_name = table[0].split(".")[1]
     mode = table[2]
     write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
     df = table[1]
@@ -2800,20 +2793,11 @@ for table in tables:
     print(f'loading {table[0]}...')
     # Write the data to its target.
     renamed_df.write \
-      .format(write_format) \
-      .mode(mode) \
-      .option("overwriteSchema", "true")\
-      .save(save_path)
+        .format(write_format) \
+        .mode(mode) \
+        .option("overwriteSchema", "true")\
+        .saveAsTable(table[0])
 
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
-
-# COMMAND ----------
-
-

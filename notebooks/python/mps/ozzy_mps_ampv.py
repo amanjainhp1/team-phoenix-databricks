@@ -43,7 +43,7 @@ WHERE BusinessTypeGrp <> 'cMPS'
 # Connection details
 ozzy_mps_ampv_records = spark.read \
     .format("jdbc") \
-    .option("url", f"jdbc:sqlserver://{ozzy_secret['host']}:{ozzy_secret['port']};") \
+    .option("url", f"jdbc:sqlserver://{ozzy_secret['host']}:{ozzy_secret['port']};trustServerCertificate=true;") \
     .option("user", ozzy_secret["username"]) \
     .option("password", ozzy_secret["password"]) \
     .option("query", ozzy_mps_ampv_query) \

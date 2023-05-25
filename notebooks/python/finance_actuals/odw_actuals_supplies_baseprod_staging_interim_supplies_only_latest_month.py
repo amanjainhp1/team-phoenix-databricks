@@ -70,7 +70,6 @@ for table in tables:
     schema = table[0].split(".")[0]
     table_name = table[0].split(".")[1]
     write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
     df = table[1]
@@ -78,16 +77,11 @@ for table in tables:
     
     # Write the data to its target.
     df.write \
-      .format(write_format) \
-      .option("overwriteSchema", "true") \
-      .mode("overwrite") \
-      .save(save_path)
+        .format(write_format) \
+        .option("overwriteSchema", "true") \
+        .mode("overwrite") \
+        .saveAsTable(table[0])
 
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
-    
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
@@ -510,7 +504,7 @@ SELECT
     base_product_amount_percent
 FROM rdma_salesprod_to_baseprod_map_correction2
 WHERE sales_product_line_code IN ('AU', 'UR')
-AND base_product_line_code NOT IN ('AU', 'UR')
+AND base_product_line_code NOT IN ('AU', 'UR', 'TX', 'UK')
 """        
 
 media_only_rdma_map = spark.sql(media_only_rdma_map)
@@ -771,7 +765,7 @@ SELECT
     country_alpha2,
     market10,
     sales_product_number,
-    ('UNKN' + pl) AS base_product_number,
+    CONCAT('UNKN', pl) AS base_product_number,
     pl,
     customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
@@ -787,7 +781,7 @@ SELECT
     official,
     version 
 FROM sp_missing_bp
-GROUP BY record, cal_date, country_alpha2, sales_product_number, ('UNKN' + pl), pl, customer_engagement, official, version, market10
+GROUP BY record, cal_date, country_alpha2, sales_product_number, pl, customer_engagement, official, version, market10
 """
     
 baseprod_unknown = spark.sql(baseprod_unknown)

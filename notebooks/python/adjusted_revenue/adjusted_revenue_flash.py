@@ -1,8 +1,8 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # Adjusted Revenue Flash
-# MAGIC 
+# MAGIC
 # MAGIC Tables Needed in Delta Lake:
 # MAGIC - fin_prod.adjusted_revenue_salesprod
 # MAGIC - fin_prod.supplies_finance_flash
@@ -18,7 +18,7 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## Add Version
 
 # COMMAND ----------
@@ -338,7 +338,7 @@ with adjusted_revenue_staging_ci_inventory_balance as -- ci is a balance sheet o
                  cast(month as date)                                            as cal_date,
                  case
                      when country_code = '0A' then 'XB'
-                     when country_code = '0M' then 'XH'
+                     when country_code in ('0M', '0B', '0C') THEN 'XH'
                      when country_code = 'CS' then 'XA'
                      when country_code = 'KV' then 'XA'
                      else country_code
@@ -1406,7 +1406,6 @@ for table in tables:
     table_name = table[0].split(".")[1]
     mode = table[2]
     write_format = 'delta'
-    save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
     df = table[1]
@@ -1414,15 +1413,10 @@ for table in tables:
     print(f'loading {table[0]}...')
     # Write the data to its target.
     renamed_df.write \
-      .format(write_format) \
-      .mode(mode) \
-      .option("overwriteSchema", "true")\
-      .save(save_path)
-
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
-    
-    # Create the table.
-    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+        .format(write_format) \
+        .mode(mode) \
+        .option("overwriteSchema", "true")\
+        .saveAsTable(table[0])
     
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
@@ -1436,7 +1430,3 @@ GRANT ALL ON TABLE fin_prod.adjusted_revenue_flash TO GROUP phoenix_dev;
 """
 
 submit_remote_query(configs, query_access_grant)
-
-# COMMAND ----------
-
-

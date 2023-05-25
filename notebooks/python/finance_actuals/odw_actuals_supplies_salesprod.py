@@ -82,6 +82,9 @@ supplies_finance_hier_restatements_2020_2021 = read_redshift_to_df(configs) \
 supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "stage.supplies_hw_country_actuals_mapping") \
     .load()
+mps_card_revenue = read_redshift_to_df(configs) \
+    .option("dbtable", "fin_prod.mps_card_revenue") \
+    .load()
 
 # COMMAND ----------
 
@@ -112,6 +115,7 @@ tables = [
     ['mdm.rdma_base_to_sales_product_map', rdma_base_to_sales_product_map],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['stage.ib', ib],
+    ['fin_prod.mps_card_revenue', mps_card_revenue],
     ['fin_stage.odw_sacp_actuals', odw_sacp_actuals],
     ['fin_stage.supplies_finance_hier_restatements_2020_2021', supplies_finance_hier_restatements_2020_2021]
     ]
@@ -819,7 +823,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'MACEDONIA (THE FORMER YUGOSLAV REPUBLIC OF)'
+# MAGIC     country = 'NORTH MACEDONIA'
 # MAGIC WHERE    
 # MAGIC     country = 'MACEDONIA'
 
@@ -855,7 +859,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC   country = 'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND'
+# MAGIC   country = 'UNITED KINGDOM'
 # MAGIC   WHERE    
 # MAGIC   country = 'UK'
 
@@ -864,9 +868,18 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'UNITED STATES OF AMERICA'
+# MAGIC     country = 'UNITED STATES'
 # MAGIC WHERE    
 # MAGIC     country = 'USA'
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
+# MAGIC SET 
+# MAGIC     country = 'CZECHIA'
+# MAGIC WHERE    
+# MAGIC     country = 'CZECH REPUBLIC'
 
 # COMMAND ----------
 
@@ -1296,7 +1309,7 @@ SELECT
     CAST(Month AS DATE) AS cal_date,  
     CASE
         WHEN Country_Code = '0A' THEN 'XB'
-        WHEN Country_Code = '0M' THEN 'XH'
+        WHEN Country_Code IN ('0M', '0B', '0C') THEN 'XH'
         WHEN Country_Code = 'CS' THEN 'XA'
         WHEN Country_Code = 'KV' THEN 'XA'
     ELSE Country_Code
@@ -2143,8 +2156,8 @@ SELECT
     SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units,
-    LAG(COALESCE(SUM(indirect_units), 0), 1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
-    LAG(COALESCE(SUM(direct_units), 0), 1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
+    LAG(COALESCE(SUM(indirect_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
+    LAG(COALESCE(SUM(direct_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
 FROM supplies_mps_full_calendar
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, indirect_units, direct_units
 """
@@ -2168,9 +2181,9 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units,
     AVG(lagged_indirect_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS indirect_ships,
+        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS indirect_ships,
     AVG(lagged_direct_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS direct_ships
+        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS direct_ships
 FROM mps_data_lagged
 GROUP BY cal_date, pl, country_alpha2, sales_product_number, lagged_indirect_ships, lagged_direct_ships
 """
@@ -3286,7 +3299,7 @@ GROUP BY cal_date, pl, country_alpha2, sales_product_number
 mcodes_offset = spark.sql(mcodes_offset)
 mcodes_offset.createOrReplaceTempView("mcodes_offset")
 
-
+# leaving old code here for now as reference; updated 5-22-2023
 mps_revenue_from_edw = f"""
 SELECT
     cal_date,
@@ -3314,14 +3327,31 @@ mps_revenue_from_edw = spark.sql(mps_revenue_from_edw)
 mps_revenue_from_edw.createOrReplaceTempView("mps_revenue_from_edw")
 
 
+mps_revenue_from_card = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,
+    'EST_MPS_REVENUE_JV' AS sales_product_number,
+    'TRAD' AS ce_split,
+    SUM(usd_amount) as gross_revenue
+FROM fin_prod.mps_card_revenue
+WHERE 1=1
+    AND usd_amount <> 0
+    AND product_number IN ('H7503A','H7509A','H7523A','U07LCA','U1001AC','UE266_001')
+    AND cal_date > '2021-10-01'
+    AND pl = '5T'
+GROUP BY cal_date, country_alpha2, pl
+"""
+
+mps_revenue_from_card = spark.sql(mps_revenue_from_card)
+mps_revenue_from_card.createOrReplaceTempView("mps_revenue_from_card")
+
+
 estimated_mps_revenue = f"""
 SELECT 
     cal_date,
-    CASE
-        WHEN country_alpha2 = 'XS' THEN 'CZ'
-        WHEN country_alpha2 = 'XW' THEN 'US'
-        ELSE country_alpha2
-    END AS country_alpha2,
+    country_alpha2,
     pl,
     sales_product_number,                
     ce_split,    
@@ -3333,7 +3363,7 @@ SELECT
     0 as other_cos,
     0 AS total_cos,
     0 AS revenue_units
-FROM mps_revenue_from_edw
+FROM mps_revenue_from_card
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
 """
 

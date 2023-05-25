@@ -507,7 +507,7 @@ SELECT
     base_product_amount_percent
 FROM rdma_salesprod_to_baseprod_map_correction2
 WHERE sales_product_line_code IN ('AU', 'UR')
-AND base_product_line_code NOT IN ('AU', 'UR')
+AND base_product_line_code NOT IN ('AU', 'UR', 'TX', 'UK')
 """        
 
 media_only_rdma_map = spark.sql(media_only_rdma_map)
@@ -782,7 +782,7 @@ SELECT
     official,
     version 
 FROM sp_missing_bp
-GROUP BY record, cal_date, country_alpha2, sales_product_number, ('UNKN' + pl), pl, customer_engagement, official, version, market10
+GROUP BY record, cal_date, country_alpha2, sales_product_number, pl, customer_engagement, official, version, market10
 """
     
 baseprod_unknown = spark.sql(baseprod_unknown)
