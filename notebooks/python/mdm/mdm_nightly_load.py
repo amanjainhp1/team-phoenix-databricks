@@ -25,60 +25,7 @@ notebooks = []
 try:
     tables = json.loads(dbutils.widgets.get("tables"))
 except:
-    tables = json.loads("""
-        {
-            "country_currency_map": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Staging",
-                "source_schema": "dbo",
-                "source_table": "country_currency_map_staging",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "country_currency_map"
-            },
-            "list_price_eoq": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "list_price_eoq",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "list_price_eoq"
-            },
-            "list_price_eu_country_list": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Prod",
-                "source_schema": "dbo",
-                "source_table": "list_price_EU_CountryList",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "list_price_eu_country_list"
-            },
-            "list_price_term_codes": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Landing",
-                "source_schema": "dbo",
-                "source_table": "list_price_term_codes_landing",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "mdm", 
-                "destination_table": "list_price_term_codes"
-            },
-            "ms4_profit_center_hierarchy_staging": {
-                "source_system": "sqlserver", 
-                "source_database":"IE2_Landing",
-                "source_schema": "ms4",
-                "source_table": "ms4_profit_center_hierarchy_staging",
-                "destination_system": "redshift", 
-                "destination_database": "", 
-                "destination_schema": "prod", 
-                "destination_table": "ms4_profit_center_hierarchy"
-            }
-        }
-    """)
+    raise Exception("ERROR: No tables provided in the 'tables' parameter. Please provide a valid value.")
     
 date = datetime.today()
 
