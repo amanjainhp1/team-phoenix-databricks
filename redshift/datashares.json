@@ -87,7 +87,8 @@
             "tableau_demand_qc_vw",
             "cartridge_mix_override_yield_errors_vw",
             "mix_rate_sum_error_vw",
-            "supplies_dash_vw"
+            "supplies_dash_vw",
+            "usage_share_country_vw"
         ]
     }
 }
