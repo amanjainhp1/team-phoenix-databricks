@@ -24,13 +24,13 @@ product_line_xref = read_redshift_to_df(configs) \
 supplies_hw_mapping = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.supplies_hw_mapping") \
     .load()
+usage_share_country = read_redshift_to_df(configs) \
+    .option("query", "SELECT * FROM prod.usage_share_country WHERE measure = 'HP_PAGES'") \
+    .load()
 
 # COMMAND ----------
 
-# load from spectrum table
-usage_share_country = read_redshift_to_df(configs) \
-    .option("query", "SELECT * FROM phoenix_spectrum_prod.usage_share_country WHERE version = (SELECT MAX(version) FROM phoenix_spectrum_prod.usage_share_country) AND measure = 'HP_PAGES'") \
-    .load()
+usage_share_country.count()
 
 # COMMAND ----------
 
