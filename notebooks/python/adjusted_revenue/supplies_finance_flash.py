@@ -619,6 +619,7 @@ for table in tables:
     table_name = table[0].split(".")[1]
     mode = table[2]
     write_format = 'delta'
+    save_path = f'/tmp/delta/{schema}/{table_name}'
     
     # Load the data from its source.
     df = table[1]
@@ -626,11 +627,20 @@ for table in tables:
     print(f'loading {table[0]}...')
     # Write the data to its target.
     renamed_df.write \
-        .format(write_format) \
-        .mode(mode) \
-        .option("overwriteSchema", "true")\
-        .saveAsTable(table[0])
+      .format(write_format) \
+      .mode(mode) \
+      .option("overwriteSchema", "true")\
+      .save(save_path)
 
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+    
+    # Create the table.
+    spark.sql("CREATE TABLE IF NOT EXISTS " + table[0] + " USING DELTA LOCATION '" + save_path + "'")
+    
     spark.table(table[0]).createOrReplaceTempView(table_name)
     
     print(f'{table[0]} loaded')
+
+# COMMAND ----------
+
+
