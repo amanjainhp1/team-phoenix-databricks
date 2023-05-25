@@ -105,7 +105,7 @@ SELECT cal.Date AS cal_date
       ,unit_reporting_code
       ,unit_reporting_description
       ,SUM(revenue_unit_quantity) as extended_quantity
-  FROM odw_revenue_units_sales_actuals land
+  FROM fin_stage.odw_revenue_units_sales_actuals land
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
@@ -282,7 +282,7 @@ odw_dollars_raw = f"""
       ,SUM(warr) * -1 as warranty
       ,SUM(total_cost_of_sales_usd) * -1 as total_cos
       ,SUM(gross_margin_usd) as gross_profit
-  FROM odw_report_rac_product_financials_actuals land
+  FROM fin_stage.odw_report_rac_product_financials_actuals land
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
@@ -577,7 +577,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'MACEDONIA (THE FORMER YUGOSLAV REPUBLIC OF)'
+# MAGIC     country = 'NORTH MACEDONIA'
 # MAGIC WHERE    
 # MAGIC     country = 'MACEDONIA'
 
@@ -613,7 +613,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC   country = 'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND'
+# MAGIC   country = 'UNITED KINGDOM'
 # MAGIC   WHERE    
 # MAGIC   country = 'UK'
 
@@ -622,9 +622,18 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'UNITED STATES OF AMERICA'
+# MAGIC     country = 'UNITED STATES'
 # MAGIC WHERE    
 # MAGIC     country = 'USA'
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
+# MAGIC SET 
+# MAGIC     country = 'CZECHIA'
+# MAGIC WHERE    
+# MAGIC     country = 'CZECH REPUBLIC'
 
 # COMMAND ----------
 
@@ -1542,12 +1551,12 @@ SELECT
     Prod_Line AS pl,
     category,
     SUM(Shipped_Qty) AS shipped_qty
-FROM mps_ww_shipped_supply_staging AS mps
-JOIN calendar AS cal ON mps.Month = cal.Date
+FROM fin_stage.mps_ww_shipped_supply_staging AS mps
+JOIN mdm.calendar AS cal ON mps.Month = cal.Date
 WHERE Prod_Line IN 
     (
     SELECT DISTINCT pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC') 
     -- excludes GD in case there are any; GD has a different business model; would not expect GD volumes from mps
@@ -1589,7 +1598,7 @@ SELECT
     ce_split,
     COALESCE(SUM(shipped_qty), 0) AS shipped_qty
 FROM mps_shipped_qty2 AS mps     
-JOIN iso_country_code_xref AS geo ON mps.country = geo.country
+JOIN mdm.iso_country_code_xref AS geo ON mps.country = geo.country
 GROUP BY cal_date, country_alpha2, ce_split, sales_product_number, pl
 """
 
@@ -1893,8 +1902,8 @@ SELECT
     SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units,
-    LAG(COALESCE(SUM(indirect_units), 0), 1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
-    LAG(COALESCE(SUM(direct_units), 0), 1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
+    LAG(COALESCE(SUM(indirect_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
+    LAG(COALESCE(SUM(direct_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
 FROM supplies_mps_full_calendar
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, indirect_units, direct_units
 """
@@ -1918,9 +1927,9 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units,
     AVG(lagged_indirect_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS indirect_ships,
+        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS indirect_ships,
     AVG(lagged_direct_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS direct_ships
+        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS direct_ships
 FROM mps_data_lagged
 GROUP BY cal_date, pl, country_alpha2, sales_product_number, lagged_indirect_ships, lagged_direct_ships
 """

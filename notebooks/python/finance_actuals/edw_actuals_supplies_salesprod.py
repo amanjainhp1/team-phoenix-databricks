@@ -427,7 +427,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'MACEDONIA (THE FORMER YUGOSLAV REPUBLIC OF)'
+# MAGIC     country = 'NORTH MACEDONIA'
 # MAGIC WHERE    
 # MAGIC     country = 'MACEDONIA'
 
@@ -463,7 +463,7 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC   country = 'UNITED KINGDOM OF GREAT BRITAIN AND NORTHERN IRELAND'
+# MAGIC   country = 'UNITED KINGDOM'
 # MAGIC   WHERE    
 # MAGIC   country = 'UK'
 
@@ -472,9 +472,18 @@ addversion_info = call_redshift_addversion_sproc(configs, "ACTUALS - EDW SUPPLIE
 # MAGIC %sql
 # MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
 # MAGIC SET 
-# MAGIC     country = 'UNITED STATES OF AMERICA'
+# MAGIC     country = 'UNITED STATES'
 # MAGIC WHERE    
 # MAGIC     country = 'USA'
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC UPDATE fin_stage.mps_ww_shipped_supply_staging
+# MAGIC SET 
+# MAGIC     country = 'CZECHIA'
+# MAGIC WHERE    
+# MAGIC     country = 'CZECH REPUBLIC'
 
 # COMMAND ----------
 
@@ -1024,7 +1033,7 @@ SELECT revenue_recognition_fiscal_year_month_code,
     SUM(working_PandL_summary_base_quantity) AS base_quantity,
     SUM(working_PandL_summary_extended_quantity) AS extended_quantity,
     SUM(working_PandL_summary_sales_quantity) AS sales_quantity
-FROM edw_revenue_units_sales_staging
+FROM fin_stage.edw_revenue_units_sales_staging
 WHERE working_PandL_summary_extended_quantity != 0
     AND manufacturing_product_identifier != '?'
     AND business_area_code NOT IN ('AU00') -- again, no media here; added in base product staging
@@ -2827,12 +2836,12 @@ SELECT
     Prod_Line AS pl,
     category,
     SUM(Shipped_Qty) AS shipped_qty
-FROM mps_ww_shipped_supply_staging AS mps
-JOIN calendar AS cal ON mps.Month = cal.Date
+FROM fin_stage.mps_ww_shipped_supply_staging AS mps
+JOIN mdm.calendar AS cal ON mps.Month = cal.Date
 WHERE Prod_Line IN 
     (
     SELECT DISTINCT pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC') 
     -- excludes GD in case there are any; GD has a different business model; would not expect GD volumes from mps
@@ -3168,8 +3177,8 @@ SELECT
     SUM(warranty) AS warranty,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units,
-    LAG(COALESCE(SUM(indirect_units), 0), 1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
-    LAG(COALESCE(SUM(direct_units), 0), 1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
+    LAG(COALESCE(SUM(indirect_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
+    LAG(COALESCE(SUM(direct_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
 FROM supplies_mps_full_calendar
 GROUP BY cal_date, country_alpha2, pl, sales_product_number, indirect_units, direct_units
 """
@@ -3192,9 +3201,9 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units,
     AVG(lagged_indirect_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS indirect_ships,
+        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS indirect_ships,
     AVG(lagged_direct_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS direct_ships
+        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS direct_ships
 FROM mps_data_lagged
 GROUP BY cal_date, pl, country_alpha2, sales_product_number, lagged_indirect_ships, lagged_direct_ships
 """
