@@ -14,11 +14,13 @@ from typing import List
 
 # create empty widgets for interactive sessions
 dbutils.widgets.text('technology', '')
+dbutils.widgets.text('description_and_notes', '')
 
 # COMMAND ----------
 
 # retrieve widget values and assign to variables
 technology = dbutils.widgets.get('technology').lower()
+description_and_notes = dbutils.widgets.get('description_and_notes').upper()
 
 # for labelling tables, laser/toner = toner, ink = ink
 technology_label = ''
@@ -47,7 +49,7 @@ def update_table_version_info(
     return None
 
 
-def read_stage_write_prod(inputs: List[List[str]]):
+def read_stage_write_prod(inputs: List[List[str]], technology_label: str, description_and_notes: str):
     for input in inputs:
         # read in result of query as DataFrame
         df = read_redshift_to_df(configs).option("query", input[1]).load()
@@ -60,7 +62,7 @@ def read_stage_write_prod(inputs: List[List[str]]):
 
         # add new version
         addversion_info = call_redshift_addversion_sproc(
-            configs, "IE2-WORKING-FORECAST", "SYSTEM BUILD"
+            configs, f"{technology_label.upper()}-WORKING-FORECAST", f"{description_and_notes}"
         )
 
         # update inserted records with new version info
@@ -99,4 +101,4 @@ FROM scen.{technology_label}_working_fcst
 
 inputs.append(["working_forecast", working_forecast_query])
 
-read_stage_write_prod(inputs)
+read_stage_write_prod(inputs=inputs, technology_label=technology_label, description_and_notes=description_and_notes)
