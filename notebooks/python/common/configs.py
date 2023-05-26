@@ -71,6 +71,44 @@ for tag in custom_tags:
 # COMMAND ----------
 
 # define constants
+common_constants = {
+    "REDSHIFT_URL": {
+        "dev": "dataos-core-dev-team-phoenix.dev.hpdataos.com",
+        "itg": "dataos-core-team-phoenix-itg.hpdataos.com",
+        "prod": "dataos-core-team-phoenix.hpdataos.com",
+        "reporting": "dataos-core-team-phoenix-reporting.hpdataos.com"
+    },
+    "REDSHIFT_PORT": {
+        "dev": "5439",
+        "itg": "5439",
+        "prod": "5439",
+        "reporting": "5439"
+    },
+    "REDSHIFT_DATABASE": {
+        "dev": "dev",
+        "itg": "itg",
+        "prod": "prod",
+        "reporting": "prod"
+    },
+    "REDSHIFT_IAM_ROLE": {
+        "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
+        "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
+        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
+        "reporting": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
+    },
+    "REDSHIFT_DEV_GROUP": {
+        "dev": "dev_arch_eng",
+        "itg": "dev_arch_eng",
+        "prod": "phoenix_dev"
+    },
+    "REDSHIFT_SPECTRUM_SCHEMA": {
+        "dev": "phoenix_spectrum",
+        "itg": "phoenix_spectrum_itg",
+        "prod": "phoenix_spectrum_prod",
+        "reporting": "phoenix_spectrum_reporting"
+    }
+}
+
 developer_constants = {
     "SFAI_URL": "jdbc:sqlserver://sfai.corp.hpicloud.net:1433;trustServerCertificate=true;",
     "SFAI_DRIVER": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
@@ -97,41 +135,12 @@ developer_constants = {
         "prod": "s3a://dataos-core-prod-team-phoenix-fin/",
         "reporting": "s3a://dataos-core-prod-team-phoenix-fin/"
     },
-    "REDSHIFT_URL": {
-        "dev": "dataos-core-dev-team-phoenix.dev.hpdataos.com",
-        "itg": "dataos-core-team-phoenix-itg.hpdataos.com",
-        "prod": "dataos-core-team-phoenix.hpdataos.com",
-        "reporting": "dataos-core-team-phoenix-reporting.hpdataos.com"
-    },
-    "REDSHIFT_PORT": {
-        "dev": "5439",
-        "itg": "5439",
-        "prod": "5439",
-        "reporting": "5439"
-    },
-    "REDSHIFT_DATABASE": {
-        "dev": "dev",
-        "itg": "itg",
-        "prod": "prod",
-        "reporting": "prod"
-    },
-    "REDSHIFT_DEV_GROUP": {
-        "dev": "dev_arch_eng",
-        "itg": "dev_arch_eng",
-        "prod": "phoenix_dev"
-    },
     "REDSHIFT_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/dataos-core-dev-01/auto_glue-dj6tOj",
         "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_glue-v6JOfZ",
         "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/redshift/phoenix/auto_glue-aDckNc",
         "reporting": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/redshift/phoenix-reporting/auto_databricks-w7Xhqb",
         "reporting-readonly": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/redshift/phoenix-reporting/auto_reporting-XnolN0"
-    },
-    "REDSHIFT_IAM_ROLE": {
-        "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
-        "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
-        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix",
-        "reporting": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
     },
     "STS_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-role",
@@ -151,36 +160,10 @@ analyst_constants = {
         "itg": "s3a://dataos-core-itg-team-phoenix/analyst/",
         "prod": "s3a://dataos-core-prod-team-phoenix/analyst/"
     },
-    "REDSHIFT_URL": {
-        "dev": "dataos-core-dev-team-phoenix.dev.hpdataos.com",
-        "itg": "dataos-core-team-phoenix-itg.hpdataos.com",
-        "prod": "dataos-core-team-phoenix.hpdataos.com"
-    },
-    "REDSHIFT_PORT": {
-        "dev": "5439",
-        "itg": "5439",
-        "prod": "5439"
-    },
-    "REDSHIFT_DATABASE": {
-        "dev": "dev",
-        "itg": "itg",
-        "prod": "prod",
-        "reporting": "prod"
-    },
-    "REDSHIFT_DEV_GROUP": {
-        "dev": "dev_arch_eng",
-        "itg": "dev_arch_eng",
-        "prod": "phoenix_dev"
-    },
     "REDSHIFT_SECRET_NAME": {
         "dev": "arn:aws:secretsmanager:us-west-2:740156627385:secret:dev/redshift/team-phoenix/auto_team_phoenix_analyst-LU2mBY",
         "itg": "arn:aws:secretsmanager:us-west-2:740156627385:secret:itg/redshift/team-phoenix/auto_team_phoenix_analyst-c3Hinm",
         "prod": "arn:aws:secretsmanager:us-west-2:828361281741:secret:prod/redshift/team-phoenix/auto_team_phoenix_analyst-W0FFkg"
-    },
-    "REDSHIFT_IAM_ROLE": {
-        "dev": "arn:aws:iam::740156627385:role/team-phoenix-role",
-        "itg": "arn:aws:iam::740156627385:role/redshift-copy-unload-team-phoenix",
-        "prod": "arn:aws:iam::828361281741:role/redshift-copy-unload-team-phoenix"
     },
     "STS_IAM_ROLE": {
         "dev": "arn:aws:iam::740156627385:role/dataos-dev-databricks-phoenix-analyst-role",
@@ -199,11 +182,11 @@ analyst_constants = {
 # determine which constants to use (e.g. developer or analyst)
 role = 'developer'
 sql_server_access = True
-constants = developer_constants
+constants = {**common_constants, **developer_constants}
 if 'analyst' in spark.conf.get('spark.databricks.clusterUsageTags.instanceProfileArn') and spark.conf.get('spark.databricks.clusterUsageTags.instanceProfileUsed'):
     role = 'analyst'
     sql_server_access = False
-    constants = analyst_constants
+    constants = {**common_constants, **analyst_constants}
 
 # COMMAND ----------
 
