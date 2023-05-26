@@ -107,7 +107,7 @@ norm_shipments = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM prod.norm_shipments WHERE version = (select max(version) from prod.norm_shipments)") \
     .load()
 usage_share1 = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM prod.usage_share WHERE version = '{usage_share_version}'") \
+    .option("query", f"SELECT * FROM phoenix_spectrum_prod.usage_share WHERE version = '{usage_share_version}'") \
     .load()
 hardware_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.hardware_xref") \
@@ -1234,7 +1234,7 @@ ifs2.filter((col('platform_subset') == 'RUBY LITE 60 MANAGED') & (col('market10'
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ifs2, "ifs2.ifs2", "overwrite")
+write_df_to_redshift(configs, ifs2, "ifs2.ifs2_country_fsb", "overwrite")
 
 # COMMAND ----------
 

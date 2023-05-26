@@ -154,7 +154,7 @@ pen_agg.createOrReplaceTempView("pen_agg")
 
 # COMMAND ----------
 
-pen_agg.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
+pen_agg.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') & (col('base_product_number') == 'L0S52A')).orderBy('year').display()
 
 # COMMAND ----------
 
@@ -176,7 +176,7 @@ pen_inputs.createOrReplaceTempView("pen_inputs")
 
 # COMMAND ----------
 
-pen_inputs.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
+pen_inputs.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') & (col('base_product_number') == 'F6U15A')).orderBy('year').display()
 
 # COMMAND ----------
 
@@ -206,11 +206,7 @@ pen_pv_cf.createOrReplaceTempView("pen_pv_cf")
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
-pen_pv_cf.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
+pen_pv_cf.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') & (col('base_product_number') == 'F6U15A')).orderBy('year').display()
 
 # COMMAND ----------
 
@@ -238,7 +234,7 @@ pen_pv_agg.createOrReplaceTempView("pen_pv_agg")
 
 # COMMAND ----------
 
-pen_pv_agg.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') ).display()
+pen_pv_agg.filter((col('platform_subset') == 'MANHATTAN YET1') & (col('region_5') == 'NA') ).display()
 
 # COMMAND ----------
 
@@ -264,7 +260,7 @@ platform_subset_region.createOrReplaceTempView("platform_subset_region")
 
 # COMMAND ----------
 
-platform_subset_region.filter((col('platform_subset') == 'RUBY MOBILE') & (col('region_5') == 'NA') ).display()
+platform_subset_region.filter((col('platform_subset') == 'MANHATTAN YET1') & (col('region_5') == 'NA') ).display()
 
 # COMMAND ----------
 
