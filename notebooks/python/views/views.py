@@ -1220,7 +1220,7 @@ inner join mdm.supplies_xref sx
 on hy.host_cartridge_alias = sx.cartridge_alias
 inner join 
 (
-select record, region_5, platform_subset, base_product_number, crg_chrome, crg_chrome_type, customer_engagement, max(usage) as usage from ifs2.usage_share
+select record, region_5, platform_subset, base_product_number, crg_chrome, crg_chrome_type, customer_engagement, max(usage) as usage from ifs2.usage_share_ink
 group by record, region_5, platform_subset, base_product_number, crg_chrome, crg_chrome_type, customer_engagement
 ) us
 on sx.base_product_number = us.base_product_number

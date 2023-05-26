@@ -60,7 +60,7 @@ from
 	, max(usage) as gross_usage
 	, avg(trade_split) as trade_split
 	, avg(yield) as yield
-	from ifs2.ifs2_country_fsb_04_24 icf    --change table name
+	from ifs2.ifs2_ink_pen
 	group by record
 	, region_5
 	, platform_subset
@@ -102,7 +102,7 @@ select record
 ,max(decay) as decay
 ,min(remaining_amount) as remaining_amount
 ,max(hp_share) as market_share 
-from ifs2.ifs2_country_fsb_04_24      -- change table name
+from ifs2.ifs2_ink_pen
 group by record
 ,platform_subset
 ,base_product_number
@@ -154,7 +154,7 @@ pen_agg.createOrReplaceTempView("pen_agg")
 
 # COMMAND ----------
 
-pen_agg.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') & (col('base_product_number') == 'L0S52A')).orderBy('year').display()
+pen_agg.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
 
 # COMMAND ----------
 
@@ -173,10 +173,6 @@ from pen_agg
 '''.format(discounting_factor,discounting_factor,op_ex_rate,op_ex_rate,tax_rate)
 pen_inputs = spark.sql(q4)
 pen_inputs.createOrReplaceTempView("pen_inputs")
-
-# COMMAND ----------
-
-pen_inputs.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') & (col('base_product_number') == 'F6U15A')).orderBy('year').display()
 
 # COMMAND ----------
 
@@ -206,10 +202,6 @@ pen_pv_cf.createOrReplaceTempView("pen_pv_cf")
 
 # COMMAND ----------
 
-pen_pv_cf.filter((col('platform_subset') == 'EDWIN') & (col('region_5') == 'NA') & (col('base_product_number') == 'F6U15A')).orderBy('year').display()
-
-# COMMAND ----------
-
 q6 = '''
 select record
 , region_5
@@ -231,10 +223,6 @@ record
 '''
 pen_pv_agg = spark.sql(q6)
 pen_pv_agg.createOrReplaceTempView("pen_pv_agg")
-
-# COMMAND ----------
-
-pen_pv_agg.filter((col('platform_subset') == 'MANHATTAN YET1') & (col('region_5') == 'NA') ).display()
 
 # COMMAND ----------
 
@@ -260,35 +248,35 @@ platform_subset_region.createOrReplaceTempView("platform_subset_region")
 
 # COMMAND ----------
 
-platform_subset_region.filter((col('platform_subset') == 'MANHATTAN YET1') & (col('region_5') == 'NA') ).display()
+# q5 = '''
+# select record
+# , region_5
+# , platform_subset
+# , customer_engagement
+# , year
+# , sum(net_revenue) as supplies_net_revenue
+# , sum(vpm) as supplies_vpm
+# , sum(gm) as supplies_gm
+# , sum(operating_profit) as supplies_operating_profit
+# , sum(pen_net_profit) as pen_net_profit
+# from pen_inputs
+# group by
+# record
+# , region_5
+# , platform_subset
+# , customer_engagement
+# , year
+# '''
+# pen_agg_year = spark.sql(q5)
+# pen_agg_year.createOrReplaceTempView("pen_agg_year")
 
 # COMMAND ----------
 
-q5 = '''
-select record
-, region_5
-, platform_subset
-, customer_engagement
-, year
-, sum(net_revenue) as supplies_net_revenue
-, sum(vpm) as supplies_vpm
-, sum(gm) as supplies_gm
-, sum(operating_profit) as supplies_operating_profit
-, sum(pen_net_profit) as pen_net_profit
-from pen_inputs
-group by
-record
-, region_5
-, platform_subset
-, customer_engagement
-, year
-'''
-pen_agg_year = spark.sql(q5)
-pen_agg_year.createOrReplaceTempView("pen_agg_year")
+platform_subset_region.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA')).display()
 
 # COMMAND ----------
 
-pen_agg_year.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA')).display()
+write_df_to_redshift(configs, platform_subset_region, "ifs2.ifs2_ink_region5", "overwrite")
 
 # COMMAND ----------
 

@@ -119,7 +119,7 @@ yield_ = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.yield") \
     .load()
 forecast_supplies_baseprod = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM ifs2.forecast_supplies_baseprod WHERE version = '{forecast_supplies_baseprod_version}'") \
+    .option("query", f"SELECT * FROM fin_prod.forecast_supplies_baseprod WHERE version = '{forecast_supplies_baseprod_version}'") \
     .load()
 ## changes: change schema of forecast_supplies_baseprod to fin_prod
 page_cc_mix = read_redshift_to_df(configs) \
@@ -681,7 +681,6 @@ trade_split.createOrReplaceTempView("trade_split")
 # COMMAND ----------
 
 ##financial_forecast inputs
-## changes: change column names
 query = '''
 select distinct fsb.record
 		, shm.platform_subset
@@ -693,15 +692,15 @@ select distinct fsb.record
 		, fsb.cal_date
 		, fsb.insights_base_units
 		, fsb.baseprod_gru
-		, fsb.baseprod_contra_perunit as baseprod_contra_per_unit 
-		, fsb.baseprod_variablecost_perunit as baseprod_variable_cost_per_unit
-		, fsb.baseprod_fixedcost_perunit as baseprod_fixed_cost_per_unit
+		, fsb.baseprod_contra_per_unit as baseprod_contra_per_unit 
+		, fsb.baseprod_variable_cost_per_unit as baseprod_variable_cost_per_unit
+		, fsb.baseprod_fixed_cost_per_unit as baseprod_fixed_cost_per_unit
 		, fsb.load_date
 		, fsb.version
 		, fsb.sales_gru_version
 		, fsb.contra_version
-		, fsb.variablecost_version as variable_cost_version
-		, fsb.fixedcost_version as fixed_cost_version
+		, fsb.variable_cost_version as variable_cost_version
+		, fsb.fixed_cost_version as fixed_cost_version
 from forecast_supplies_baseprod fsb
 left join mdm.supplies_hw_mapping shm
 on fsb.base_product_number = shm.base_product_number

@@ -153,20 +153,20 @@ calendar = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
-#  ['prod.usage_share1' , usage_share1],
-#  ['mdm.hardware_xref' , hardware_xref],
-#  ['mdm.supplies_xref' , supplies_xref],
-#  ['prod.decay_m13' , decay_m13],
-#  ['mdm.yield' , yield_],
+ ['prod.usage_share1' , usage_share1],
+ ['mdm.hardware_xref' , hardware_xref],
+ ['mdm.supplies_xref' , supplies_xref],
+ ['prod.decay_m13' , decay_m13],
+ ['mdm.yield' , yield_],
  ['ifs2.forecast_supplies_baseprod' , forecast_supplies_baseprod],
-#  ['prod.page_cc_mix' , page_cc_mix],
-#  ['mdm.iso_country_code_xref' , iso_country_code_xref],
-# # ['scen.working_forecast_country' , working_forecast_country],
-# # ['prod.working_forecast_country' , working_forecast_country],
-#  ['prod.working_forecast' , working_forecast],
-#  ['mdm.supplies_hw_mapping', supplies_hw_mapping],
-#  ['prod.norm_shipments' , norm_shipments],
-#  ['ifs2.toner_host_yield' , toner_host_yield],
+ ['prod.page_cc_mix' , page_cc_mix],
+ ['mdm.iso_country_code_xref' , iso_country_code_xref],
+# ['scen.working_forecast_country' , working_forecast_country],
+# ['prod.working_forecast_country' , working_forecast_country],
+ ['prod.working_forecast' , working_forecast],
+ ['mdm.supplies_hw_mapping', supplies_hw_mapping],
+ ['prod.norm_shipments' , norm_shipments],
+ ['ifs2.toner_host_yield' , toner_host_yield],
   ['mdm.calendar' , calendar]
 ]
 
