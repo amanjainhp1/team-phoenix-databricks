@@ -7670,16 +7670,6 @@ salesprod_preplanet_with_currency_map1.createOrReplaceTempView("salesprod_prepla
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select cal_date, sum(gross_revenue) as net_revenue 
-# MAGIC from salesprod_preplanet_with_currency_map1
-# MAGIC where 1=1
-# MAGIC and sales_product_number = 'EST_MPS_REVENUE_JV' 
-# MAGIC group by cal_date
-# MAGIC order by 1;
-
-# COMMAND ----------
-
 # TIE OUT TO OFFICIAL FINANCIALS
 
 # COMMAND ----------
