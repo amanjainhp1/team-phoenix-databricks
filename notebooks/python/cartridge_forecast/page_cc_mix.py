@@ -638,10 +638,10 @@ WITH geography_mapping AS
        AND NOT UPPER(sup.Crg_Chrome) IN ('HEAD', 'UNK')
        AND UPPER(hw.product_lifecycle_status) = 'N'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
-    )
-       
+    ),    
 
-    SELECT  cal_date
+    combined_overrides as (
+        SELECT  cal_date
           , market10
           , platform_subset
           , Crg_Base_Prod_Number base_product_number
@@ -656,7 +656,7 @@ WITH geography_mapping AS
 
      UNION ALL
 
-     SELECT cal_date
+         SELECT cal_date
           , market10
           , platform_subset
           , Crg_Base_Prod_Number base_product_number
@@ -668,6 +668,38 @@ WITH geography_mapping AS
           , consumable_type
           , load_date
      FROM prod_crg_mix_market10 
+    ),
+
+    remove_dups as (
+        SELECT cal_date
+        ,market10
+        ,platform_subset
+        ,base_product_number
+        ,customer_engagement
+        ,mix_pct
+        ,upload_type
+        ,k_color
+        ,Crg_Chrome
+        ,consumable_type
+        ,load_date
+        ,ROW_NUMBER () OVER (PARTITION BY cal_date,market10,platform_subset,base_product_number,customer_engagement ORDER BY load_date desc) rn
+     FROM combined_overrides
+     )
+
+     SELECT 
+         cal_date
+        ,market10
+        ,platform_subset
+        ,base_product_number
+        ,customer_engagement
+        ,mix_pct
+        ,upload_type
+        ,k_color
+        ,Crg_Chrome
+        ,consumable_type
+        ,load_date
+     FROM remove_dups
+     WHERE rn = 1
 """
 
 query_list.append(["stage.page_cc_mix_override", page_cc_mix_override, "overwrite"])
@@ -678,6 +710,7 @@ query_list.append(["stage.page_cc_mix_override", page_cc_mix_override, "overwrit
 # MAGIC ## page_mix_complete
 
 # COMMAND ----------
+
 
 page_mix_complete = """
     SELECT 'PCM_ENGINE_PROJECTION' AS "type"
