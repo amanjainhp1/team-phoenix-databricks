@@ -505,7 +505,7 @@ WITH supplies_forecast_months as
                , s.crg_chrome
 ),
     
-    page_mix as 
+    cc_mix as 
 (
     SELECT  ac.geography_grain
           , ac.geography
@@ -534,7 +534,7 @@ WITH supplies_forecast_months as
     	  ,m.crg_chrome
     	  ,m.single_multi
     	  ,m.page_mix
-     FROM page_mix m 
+     FROM cc_mix m 
      cross join mdm.calendar c 
      CROSS JOIN supplies_forecast_months AS fm
      WHERE c."date" BETWEEN fm.supplies_forecast_start AND DATEADD(MONTH, 120, fm.supplies_forecast_start) AND c.day_of_month  = 1
@@ -599,6 +599,7 @@ WITH geography_mapping AS
        AND NOT UPPER(sup.Crg_Chrome) IN ('HEAD', 'UNK')
        AND UPPER(hw.product_lifecycle_status) = 'N'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+    )
 
    , prod_crg_mix_market10 AS
     (SELECT cmo.cal_date
@@ -640,32 +641,32 @@ WITH geography_mapping AS
     )
        
 
-    SELECT cmo.cal_date
-          , cmo.market10
-          , cmo.platform_subset
-          , cmo.Crg_Base_Prod_Number base_product_number
-          , cmo.customer_engagement
-          , cmo.mix_pct
-          , cmo.upload_type
-          , cmo.k_color
-          , cmo.Crg_Chrome
-          , cmo.consumable_type
-          , cmo.load_date
+    SELECT  cal_date
+          , market10
+          , platform_subset
+          , Crg_Base_Prod_Number base_product_number
+          , customer_engagement
+          , mix_pct
+          , upload_type
+          , k_color
+          , Crg_Chrome
+          , consumable_type
+          , load_date
      FROM prod_crg_mix_region5 
 
      UNION ALL
 
-     SELECT cmo.cal_date
-          , cmo.market10
-          , cmo.platform_subset
-          , cmo.Crg_Base_Prod_Number base_product_number
-          , cmo.customer_engagement
-          , cmo.mix_pct
-          , cmo.upload_type
-          , cmo.k_color
-          , cmo.Crg_Chrome
-          , cmo.consumable_type
-          , cmo.load_date
+     SELECT cal_date
+          , market10
+          , platform_subset
+          , Crg_Base_Prod_Number base_product_number
+          , customer_engagement
+          , mix_pct
+          , upload_type
+          , k_color
+          , Crg_Chrome
+          , consumable_type
+          , load_date
      FROM prod_crg_mix_market10 
 """
 
@@ -679,7 +680,7 @@ query_list.append(["stage.page_cc_mix_override", page_cc_mix_override, "overwrit
 # COMMAND ----------
 
 page_mix_complete = """
-    SELECT 'PCM_ENGINE_PROJECTION' type
+    SELECT 'PCM_ENGINE_PROJECTION' AS "type"
           ,cal_date
           ,geography_grain
           ,geography
@@ -695,7 +696,7 @@ page_mix_complete = """
 
      UNION ALL
 
-     SELECT 'PCM_FORECASTER_OVERRIDE' AS type
+     SELECT 'PCM_FORECASTER_OVERRIDE' AS "type"
           , pmo.cal_date
           , 'MARKET10'                AS geography_grain
           , pmo.market10              AS geography
@@ -705,7 +706,7 @@ page_mix_complete = """
           , pmo.mix_pct               AS page_mix
      FROM stage.page_cc_mix_override AS pmo
      JOIN mdm.hardware_xref AS hw
-         ON hw.platform_subset = m26.platform_subset
+         ON hw.platform_subset = pmo.platform_subset
      WHERE 1 = 1
        AND hw.technology = 'LASER'
 """
@@ -720,14 +721,14 @@ query_list.append(["stage.page_mix_complete", page_mix_complete, "overwrite"])
 # COMMAND ----------
 
 cc_mix_complete = """
-    SELECT 'PCM_ENGINE_PROJECTION' type
+    SELECT 'PCM_ENGINE_PROJECTION' AS "type"
           ,cal_date
           ,geography_grain
           ,geography
           ,platform_subset
           ,base_product_number
           ,customer_engagement
-          ,page_mix
+          ,page_mix cc_mix
      FROM stage.cc_mix_engine AS pcm
      WHERE NOT EXISTS (
          SELECT 1 FROM stage.page_cc_mix_override pmo 
@@ -736,19 +737,19 @@ cc_mix_complete = """
 
      UNION ALL
 
-     SELECT 'PCM_FORECASTER_OVERRIDE' AS type
+     SELECT 'PCM_FORECASTER_OVERRIDE' AS "type"
           , pmo.cal_date
           , 'MARKET10'                AS geography_grain
           , pmo.market10              AS geography
           , pmo.platform_subset
           , pmo.base_product_number
           , pmo.customer_engagement
-          , pmo.mix_pct               AS page_mix
+          , pmo.mix_pct               AS cc_mix
      FROM stage.page_cc_mix_override AS pmo
      JOIN mdm.hardware_xref AS hw
-         ON hw.platform_subset = m26.platform_subset
+         ON hw.platform_subset = pmo.platform_subset
      WHERE 1 = 1
-       AND hw.technology IN ('INK','PWA)
+       AND hw.technology IN ('INK','PWA')
 """
 
 query_list.append(["stage.cc_mix_complete", cc_mix_complete, "overwrite"])
@@ -794,102 +795,3 @@ query_list.append(["stage.page_cc_mix", page_cc_mix, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Apply EOL Update
-
-# COMMAND ----------
-
-submit_remote_query(configs, """with reg5_m10 as
-(
-select distinct region_5,market10
-from mdm.iso_country_code_xref
-where region_5 is not null and region_5 not in ('XU','XW')
-),
-
-reg_8_m10 as 
-(
-select distinct cc.country_alpha2,cc.country_level_1,c.market10
-from mdm.iso_cc_rollup_xref cc
-left join mdm.iso_country_code_xref c on c.country_alpha2 = cc.country_alpha2
-where cc.country_scenario = 'HOST_REGION_8'
-),
-
-swm_m10 as 
-(
-select swm.geography
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  where geography_grain = 'MARKET10' and swm.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
-
-  union 
-
-  select distinct r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  left join reg5_m10 r5 on r5.region_5 = swm.geography
-  where geography_grain = 'REGION_5' and geography != 'JP' and swm.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
-  group by r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-
-	union
-
-  select distinct r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  left join reg5_m10 r5 on r5.region_5 = swm.geography
-  where geography_grain = 'REGION_5' and geography = 'JP'
-  and not exists (select 1 from mdm.supplies_hw_mapping s where s.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
-  and s.base_product_number = swm.base_product_number and s.customer_engagement = swm.customer_engagement and s.platform_subset = swm.platform_subset
-  and s.geography IN ('AP - EM','AP - DM', 'AP'))
- group by r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-
-	union 
-	
-  select distinct r8.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  left join reg_8_m10 r8 on r8.country_level_1 = swm.geography
-  where geography_grain = 'REGION_8' and swm.eol_date is not null and swm.eol_date != '2100-01-01'
- group by r8.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-)
-
-update stage.page_cc_mix 
-set mix_rate = null 
-from stage.page_cc_mix pg
-inner join swm_m10 swm on swm.geography = pg.geography and swm.base_product_number = pg.base_product_number and pg.platform_subset = swm.platform_subset 
-						  and pg.customer_engagement = swm.customer_engagement 
-where pg.cal_date >= swm.eol_date 
-""")
