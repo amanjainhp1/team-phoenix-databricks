@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_cartridges
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. page_cc_cartridges
 # MAGIC   
@@ -89,239 +89,6 @@ WITH crg_months AS
             , d.geography
             , d.platform_subset
             , d.customer_engagement)
-
-   , pcm_04_crg_actuals AS
-    (SELECT DISTINCT v.cal_date
-                   , v.geography_grain
-                   , v.geography
-                   , shm.platform_subset
-                   , v.base_product_number
-                   , v.k_color
-                   , v.crg_chrome
-                   , v.consumable_type
-                   , v.cartridge_volume
-     FROM stage.cartridge_units AS v
-              JOIN stage.shm_base_helper AS shm
-                   ON UPPER(shm.base_product_number) = UPPER(v.base_product_number)
-                       AND UPPER(shm.geography) = UPPER(v.geography)
-     WHERE 1 = 1
-       AND v.cartridge_volume > 0)
-
-   , pcm_05_pages AS
-    (SELECT DISTINCT v.cal_date
-                   , v.geography_grain
-                   , v.geography
-                   , v.platform_subset
-                   , v.base_product_number
-                   , dmd.customer_engagement
-                   , CASE
-                         WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
-                         ELSE 'SINGLE' END         AS single_multi
-                   , v.k_color
-                   , v.crg_chrome
-                   , v.consumable_type
-                   , v.cartridge_volume
-                   , pf.yield
-                   , v.cartridge_volume * pf.yield AS pages
-     FROM pcm_04_crg_actuals AS v
-              JOIN mdm.supplies_xref AS s
-                   ON UPPER(s.base_product_number) = UPPER(v.base_product_number)
-              JOIN mdm.hardware_xref AS hw
-                   ON UPPER(hw.platform_subset) = UPPER(v.platform_subset)
-              JOIN pcm_02_hp_demand AS dmd
-                   ON UPPER(dmd.platform_subset) = UPPER(v.platform_subset)
-                       AND UPPER(dmd.geography) = UPPER(v.geography)
-                       AND CAST(dmd.cal_date AS DATE) = CAST(v.cal_date AS DATE)
-              JOIN pen_fills AS pf
-                   ON UPPER(pf.base_product_number) = UPPER(v.base_product_number)
-                       AND CAST(pf.cal_date AS DATE) = CAST(v.cal_date AS DATE)
-                       AND UPPER(pf.market_10) = UPPER(v.geography)
-              JOIN stage.shm_base_helper AS shm
-                   ON UPPER(shm.base_product_number) = UPPER(v.base_product_number)
-                       AND UPPER(shm.platform_subset) = UPPER(v.platform_subset)
-                       AND UPPER(shm.customer_engagement) = UPPER(dmd.customer_engagement)
-     WHERE 1 = 1
-       AND UPPER(hw.technology) IN ('INK', 'LASER', 'PWA'))
-
-   , pcrg_01_k_acts AS
-    (SELECT pcm.type
-          , pcm.cal_date
-          , pcm.geography_grain
-          , pcm.geography
-          , pcm.platform_subset
-          , pcm.base_product_number
-          , pcm.customer_engagement
-          , pcm.mix_rate AS page_cc_mix
-          , dmd.black_demand
-          , pf.yield
-          , pcm.mix_rate * dmd.black_demand                       AS page_demand
-          , pcm.mix_rate * dmd.black_demand /
-            NULLIF(pf.yield, 0)                                      AS cartridges
-          , pc.cartridge_volume
-          , SUM(dmd.black_demand)
-            OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-            NULLIF(SUM(dmd.black_demand)
-                   OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                   0)                                                AS demand_scalar
-          , (pc.cartridge_volume /
-             NULLIF((pcm.mix_rate * dmd.black_demand / NULLIF(pf.yield, 0)),
-                    0)) *
-            SUM(dmd.black_demand)
-            OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-            NULLIF(SUM(dmd.black_demand)
-                   OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                   0)                                                AS imp
-          , pcm.mix_rate * dmd.black_demand / NULLIF(pf.yield, 0) *
-            ((pc.cartridge_volume /
-              NULLIF((pcm.mix_rate * dmd.black_demand / NULLIF(pf.yield, 0)),
-                     0)) *
-             SUM(dmd.black_demand)
-             OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-             NULLIF(SUM(dmd.black_demand)
-                    OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                    0))                                              AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
-              JOIN mdm.supplies_xref AS S
-                   ON UPPER(S.base_product_number) = UPPER(pcm.base_product_number)
-              JOIN pcm_02_hp_demand AS dmd
-                   ON dmd.cal_date = pcm.cal_date
-                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
-                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
-                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
-              JOIN pen_fills AS pf
-                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
-                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
-              JOIN pcm_05_pages AS pc
-                   ON pc.cal_date = pcm.cal_date
-                       AND UPPER(pc.geography) = UPPER(pcm.geography)
-                       AND UPPER(pc.platform_subset) = UPPER(pcm.platform_subset)
-                       AND UPPER(pc.base_product_number) = UPPER(pcm.base_product_number)
-                       AND UPPER(pc.customer_engagement) = UPPER(pcm.customer_engagement)
-     WHERE 1 = 1
-       AND UPPER(pcm.type) = 'PCM_ENGINE_ACTS'
-       AND UPPER(s.k_color) = 'BLACK')
-
-, pcrg_02_color_acts AS
-    (SELECT pcm.type
-          , pcm.cal_date
-          , pcm.geography_grain
-          , pcm.geography
-          , pcm.platform_subset
-          , pcm.base_product_number
-          , pcm.customer_engagement
-          , pcm.mix_rate AS page_cc_mix
-          , dmd.color_demand
-          , pf.yield
-          , pcm.mix_rate * dmd.color_demand                       AS page_demand
-          , pcm.mix_rate * dmd.color_demand /
-            NULLIF(pf.yield, 0)                                      AS cartridges
-          , pc.cartridge_volume
-          , SUM(dmd.color_demand)
-            OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-            NULLIF(SUM(dmd.color_demand)
-                   OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                   0)                                                AS demand_scalar
-          , (pc.cartridge_volume /
-             NULLIF((pcm.mix_rate * dmd.color_demand / NULLIF(pf.yield, 0)),
-                    0)) *
-            SUM(dmd.color_demand)
-            OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-            NULLIF(SUM(dmd.color_demand)
-                   OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                   0)                                                AS imp
-          , pcm.mix_rate * dmd.color_demand / NULLIF(pf.yield, 0) *
-            ((pc.cartridge_volume /
-              NULLIF((pcm.mix_rate * dmd.color_demand / NULLIF(pf.yield, 0)),
-                     0)) *
-             SUM(dmd.color_demand)
-             OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-             NULLIF(SUM(dmd.color_demand)
-                    OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                    0))                                              AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
-              JOIN mdm.supplies_xref AS s
-                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
-              JOIN pcm_02_hp_demand AS dmd
-                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
-                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
-                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
-              JOIN pen_fills AS pf
-                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
-                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
-              JOIN pcm_05_pages AS pc
-                   ON CAST(pc.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(pc.geography) = UPPER(pcm.geography)
-                       AND UPPER(pc.platform_subset) = UPPER(pcm.platform_subset)
-                       AND UPPER(pc.base_product_number) = UPPER(pcm.base_product_number)
-                       AND UPPER(pc.customer_engagement) = UPPER(pcm.customer_engagement)
-     WHERE 1 = 1
-       AND UPPER(pcm.type) = 'PCM_ENGINE_ACTS'
-       AND CASE WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
-           ELSE 'SINGLE' END = 'SINGLE'
-       AND UPPER(s.k_color) = 'COLOR')
-
-, pcrg_03_color_multi_acts AS
-    (SELECT pcm.type
-          , pcm.cal_date
-          , pcm.geography_grain
-          , pcm.geography
-          , pcm.platform_subset
-          , pcm.base_product_number
-          , pcm.customer_engagement
-          , pcm.mix_rate AS page_cc_mix
-          , dmd.cmy_demand
-          , pf.yield
-          , pcm.mix_rate * dmd.cmy_demand                       AS page_demand
-          , pcm.mix_rate * dmd.cmy_demand / NULLIF(pf.yield, 0) AS cartridges
-          , pc.cartridge_volume
-          , SUM(dmd.cmy_demand)
-            OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-            NULLIF(SUM(dmd.cmy_demand)
-                   OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                   0)                                              AS demand_scalar
-          , (pc.cartridge_volume /
-             NULLIF((pcm.mix_rate * dmd.cmy_demand / NULLIF(pf.yield, 0)),
-                    0)) *
-            SUM(dmd.cmy_demand)
-            OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-            NULLIF(SUM(dmd.cmy_demand)
-                   OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                   0)                                              AS imp
-          , pcm.mix_rate * dmd.cmy_demand / NULLIF(pf.yield, 0) *
-            ((pc.cartridge_volume /
-              NULLIF((pcm.mix_rate * dmd.cmy_demand / NULLIF(pf.yield, 0)),
-                     0)) *
-             SUM(dmd.cmy_demand)
-             OVER (PARTITION BY dmd.cal_date, dmd.geography, dmd.platform_subset, pcm.base_product_number, pcm.customer_engagement) /
-             NULLIF(SUM(dmd.cmy_demand)
-                    OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
-                    0))                                            AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
-              JOIN mdm.supplies_xref AS s
-                   ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
-              JOIN pcm_02_hp_demand AS dmd
-                   ON CAST(dmd.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(dmd.geography) = UPPER(pcm.geography)
-                       AND UPPER(dmd.platform_subset) = UPPER(pcm.platform_subset)
-                       AND UPPER(dmd.customer_engagement) = UPPER(pcm.customer_engagement)
-              JOIN pen_fills AS pf
-                   ON UPPER(pf.base_product_number) = UPPER(pcm.base_product_number)
-                       AND CAST(pf.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(pf.market_10) = UPPER(pcm.geography)
-              JOIN pcm_05_pages AS pc
-                   ON CAST(pc.cal_date AS DATE) = CAST(pcm.cal_date AS DATE)
-                       AND UPPER(pc.geography) = UPPER(pcm.geography)
-                       AND UPPER(pc.platform_subset) = UPPER(pcm.platform_subset)
-                       AND UPPER(pc.base_product_number) = UPPER(pcm.base_product_number)
-                       AND UPPER(pc.customer_engagement) = UPPER(pcm.customer_engagement)
-     WHERE 1 = 1
-       AND UPPER(pcm.type) = 'PCM_ENGINE_ACTS'
-       AND CASE WHEN UPPER(s.single_multi) = 'TRI-PACK' THEN 'MULTI'
-           ELSE 'SINGLE' END <> 'SINGLE'
-       AND UPPER(s.k_color) = 'COLOR')
 
 , pcrg_04_k_fcst AS
     (SELECT pcm.type
@@ -439,69 +206,30 @@ WITH crg_months AS
        AND UPPER(pcm.type) <> 'PCM_ENGINE_ACTS'
        AND UPPER(s.k_color) = 'COLOR')
 
-SELECT type
-    , cal_date
-    , geography_grain
-    , geography
-    , platform_subset
-    , base_product_number
-    , customer_engagement
-    , page_cc_mix
-    , black_demand AS demand
-    , yield
-    , page_demand
-    , cartridges
-    , cartridge_volume
-    , demand_scalar
-    , imp
-    , imp_corrected_cartridges
+SELECT 'ACTUALS' type
+    , cu.cal_date
+    , cu.geography_grain
+    , cu.geography
+    , cu.platform_subset
+    , cu.base_product_number
+    , cu.customer_engagement
+    , cu.page_cc_mix
+    , cu.black_demand AS demand
+    , cu.yield
+    , cu.page_demand
+    , cu.cartridges
+    , cu.cartridge_volume
+    , cu.demand_scalar
+    , cu.imp
+    , cu.imp_corrected_cartridges
 	, CAST(cal_date AS VARCHAR) + ' ' + geography + ' ' + platform_subset + ' ' +
         base_product_number + ' ' + customer_engagement AS composite_key
-FROM pcrg_01_k_acts
+FROM stage.cartridge_units cu
+             JOIN pen_fills AS pf
+                   ON UPPER(pf.base_product_number) = UPPER(cu.base_product_number)
+                       AND CAST(pf.cal_date AS DATE) = CAST(cu.cal_date AS DATE)
+                       AND UPPER(pf.market_10) = UPPER(cu.geography)
 
-UNION ALL
-
-SELECT type
-    , cal_date
-    , geography_grain
-    , geography
-    , platform_subset
-    , base_product_number
-    , customer_engagement
-    , page_cc_mix
-    , color_demand AS demand
-    , yield
-    , page_demand
-    , cartridges
-    , cartridge_volume
-    , demand_scalar
-    , imp
-    , imp_corrected_cartridges
-	, CAST(cal_date AS VARCHAR) + ' ' + geography + ' ' + platform_subset + ' ' +
-        base_product_number + ' ' + customer_engagement AS composite_key
-FROM pcrg_02_color_acts
-
-UNION ALL
-
-SELECT type
-    , cal_date
-    , geography_grain
-    , geography
-    , platform_subset
-    , base_product_number
-    , customer_engagement
-    , page_cc_mix
-    , cmy_demand AS demand
-    , yield
-    , page_demand
-    , cartridges
-    , cartridge_volume
-    , demand_scalar
-    , imp
-    , imp_corrected_cartridges
-	, CAST(cal_date AS VARCHAR) + ' ' + geography + ' ' + platform_subset + ' ' +
-        base_product_number + ' ' + customer_engagement AS composite_key
-FROM pcrg_03_color_multi_acts
 
 UNION ALL
 
