@@ -204,7 +204,7 @@ FROM prod.actuals_supplies AS acts
 WHERE 1 = 1
   AND xref.official = 1 
   AND acts.customer_engagement IN ('EST_INDIRECT_FULFILLMENT', 'I-INK', 'TRAD')
-  AND NOT xref.crg_chrome IN ('HEAD', 'UNK') 
+  AND xref.crg_chrome NOT IN ('HEAD', 'UNK') 
 GROUP BY acts.cal_date
        , acts.base_product_number
        , acts.platform_subset
@@ -424,7 +424,7 @@ WITH supplies_forecast_months as
                , s.crg_chrome
 ),
     
-    page_mix as 
+    page_mix_black as 
 (
     SELECT  ac.geography_grain
           , ac.geography
@@ -440,9 +440,56 @@ WITH supplies_forecast_months as
             SUM(cartridge_volume)
                    OVER (PARTITION BY  ac.geography, ac.platform_subset, ac.crg_chrome, ac.customer_engagement) AS page_mix
      FROM avergae_actuals AS ac
-     WHERE 1 = 1 
+     WHERE 1 = 1 AND UPPER(ac.k_color) = 'BLACK' -- AND UPPER(p.crg_chrome) = 'BLK'  Do we need to include DRUM
+),
+
+    page_mix_color as 
+(
+    SELECT  ac.geography_grain
+          , ac.geography
+          , ac.platform_subset
+          , ac.base_product_number
+          , ac.customer_engagement
+          , ac.single_multi
+          , ac.k_color
+          , ac.crg_chrome
+          , ac.cartridge_volume
+          , SUM(cartridge_volume)
+                   OVER (PARTITION BY  ac.geography, ac.platform_subset, ac.base_product_number, ac.customer_engagement)/
+            SUM(cartridge_volume)
+                   OVER (PARTITION BY  ac.geography, ac.platform_subset, ac.crg_chrome, ac.customer_engagement) AS page_mix
+     FROM avergae_actuals AS ac
+     WHERE 1 = 1 AND UPPER(ac.k_color) = 'COLOR' AND UPPER(ac.crg_chrome) IS NOT NULL
+),
+
+    page_mix AS 
+(
+    SELECT  geography_grain
+          , geography
+          , platform_subset
+          , base_product_number
+          , customer_engagement
+          , single_multi
+          , k_color
+          , crg_chrome
+          , cartridge_volume
+          , page_mix
+    FROM page_mix_black
+
+    UNION 
+
+    SELECT  geography_grain
+          , geography
+          , platform_subset
+          , base_product_number
+          , customer_engagement
+          , single_multi
+          , k_color
+          , crg_chrome
+          , cartridge_volume
+          , page_mix
+    FROM page_mix_color
 )
-     
     SELECT c."date" cal_date
     	  ,m.base_product_number
     	  ,m.platform_subset
@@ -505,7 +552,7 @@ WITH supplies_forecast_months as
                , s.crg_chrome
 ),
     
-    cc_mix as 
+     cc_mix_black as 
 (
     SELECT  ac.geography_grain
           , ac.geography
@@ -521,7 +568,55 @@ WITH supplies_forecast_months as
             SUM(cartridge_volume)
                    OVER (PARTITION BY  ac.geography, ac.platform_subset, ac.crg_chrome, ac.customer_engagement) AS page_mix
      FROM avergae_actuals AS ac
-     WHERE 1 = 1 
+     WHERE 1 = 1 AND UPPER(ac.k_color) = 'BLACK' -- AND UPPER(p.crg_chrome) = 'BLK'  Do we need to include DRUM
+),
+
+    cc_mix_color as 
+(
+    SELECT  ac.geography_grain
+          , ac.geography
+          , ac.platform_subset
+          , ac.base_product_number
+          , ac.customer_engagement
+          , ac.single_multi
+          , ac.k_color
+          , ac.crg_chrome
+          , ac.cartridge_volume
+          , SUM(cartridge_volume)
+                   OVER (PARTITION BY  ac.geography, ac.platform_subset, ac.base_product_number, ac.customer_engagement)/
+            SUM(cartridge_volume)
+                   OVER (PARTITION BY  ac.geography, ac.platform_subset, ac.crg_chrome, ac.customer_engagement) AS page_mix
+     FROM avergae_actuals AS ac
+     WHERE 1 = 1 AND UPPER(ac.k_color) = 'COLOR'  AND UPPER(ac.crg_chrome) IS NOT NULL
+),
+
+    cc_mix AS 
+(
+    SELECT  geography_grain
+          , geography
+          , platform_subset
+          , base_product_number
+          , customer_engagement
+          , single_multi
+          , k_color
+          , crg_chrome
+          , cartridge_volume
+          , page_mix
+    FROM cc_mix_black
+
+    UNION 
+
+    SELECT  geography_grain
+          , geography
+          , platform_subset
+          , base_product_number
+          , customer_engagement
+          , single_multi
+          , k_color
+          , crg_chrome
+          , cartridge_volume
+          , page_mix
+    FROM cc_mix_color
 )
      
     SELECT c."date" cal_date

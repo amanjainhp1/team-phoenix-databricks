@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_cartridges_adjusts
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. analytic
 # MAGIC   2. channel_fill
@@ -25,7 +25,7 @@ query_list = []
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## analytic
 
 # COMMAND ----------
@@ -49,7 +49,7 @@ WITH date_helper AS
           , hw.hw_product_family
           , sup.Crg_Chrome
           , c2c.cartridges
-          , c2c.imp_corrected_cartridges
+          , c2c.adjusted_cartridges
           , MIN(c2c.cal_date)
             OVER (PARTITION BY c2c.geography, c2c.platform_subset, c2c.base_product_number, c2c.customer_engagement) AS min_cal_date
           , MAX(c2c.cal_date)
@@ -93,7 +93,7 @@ WITH date_helper AS
                      c2c.hw_product_family)                  AS hw_product_family
           , COALESCE(h.Crg_Chrome, c2c.Crg_Chrome)           AS Crg_Chrome
           , COALESCE(c2c.cartridges, 0)                      AS cartridges
-          , COALESCE(c2c.imp_corrected_cartridges, 0)        AS imp_corrected_cartridges
+          , COALESCE(c2c.adjusted_cartridges, 0)        AS adjusted_cartridges
      FROM ana_03_c2c_fill_gap_1 AS h
               LEFT JOIN ana_02_c2c_setup AS c2c
                         ON c2c.cal_date = h.cal_date
@@ -116,7 +116,7 @@ WITH date_helper AS
           , hw_product_family
           , Crg_Chrome
           , cartridges
-          , imp_corrected_cartridges
+          , adjusted_cartridges
           , MIN(cal_date)
             OVER (PARTITION BY geography, platform_subset, base_product_number, customer_engagement) AS min_cal_date
      FROM ana_04_c2c_fill_gap_2)
@@ -132,7 +132,7 @@ SELECT cal_date
      , hw_product_family
      , Crg_Chrome
      , cartridges
-     , imp_corrected_cartridges
+     , adjusted_cartridges
      , CASE
            WHEN min_cal_date < CAST(DATEADD(MONTH, 1, DATE_TRUNC('MONTH', CAST(GETDATE() AS DATE))) AS DATE)
                THEN 1
@@ -688,7 +688,7 @@ query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## host_cartridges
 
 # COMMAND ----------
@@ -919,7 +919,7 @@ query_list.append(["stage.host_cartridges", host_cartridges, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## welcome_kits
 
 # COMMAND ----------
@@ -1029,7 +1029,7 @@ query_list.append(["stage.welcome_kits", welcome_kits, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## vtc
 
 # COMMAND ----------
@@ -1042,8 +1042,8 @@ WITH vtc_01_analytic_cartridges AS
           , base_product_number
           , customer_engagement
           , SUM(cartridges)               AS cartridges
-          , SUM(imp_corrected_cartridges) AS imp_corrected_cartridges
-     FROM stage.analytic
+          , SUM(adjusted_cartridges) AS adjusted_cartridges
+     FROM stage.page_cc_cartridges
      GROUP BY cal_date
             , geography
             , platform_subset
@@ -1079,8 +1079,7 @@ WITH vtc_01_analytic_cartridges AS
           , COALESCE(h.host_units, 0)                                    AS host_cartridges
           , COALESCE(w.welcome_kits, 0)                                  AS welcome_kits
           , cr.cartridges
-          , cr.imp_corrected_cartridges
-          , cr.imp_corrected_cartridges * 1.0 / NULLIF(cr.cartridges, 0) AS imp
+          , cr.adjusted_cartridges
           , cr.cartridges +
             COALESCE(cf.channel_fill, 0) +
             COALESCE(ns.units * ss.supplies_spares, 0)                   AS expected_crgs
@@ -1121,7 +1120,7 @@ WITH vtc_01_analytic_cartridges AS
           , ac.platform_subset
           , ac.customer_engagement
           , ac.cartridges
-          , ac.imp_corrected_cartridges
+          , ac.adjusted_cartridges
           , ac.channel_fill
           , ac.hw_units
           , ac.supplies_spares_rate
@@ -1129,13 +1128,8 @@ WITH vtc_01_analytic_cartridges AS
           , ac.expected_crgs
           , ac.host_cartridges
           , ac.welcome_kits
-          , ac.imp
-          , COALESCE(SUM(ac.imp_corrected_cartridges)
-                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
-                     0) /
-            NULLIF(SUM(ac.expected_crgs)
-                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
-                   0) AS vtc
+          , COALESCE(ac.adjusted_cartridges, 0) /
+            NULLIF(ac.expected_crgs, 0) AS vtc
      FROM c2c_vtc_04_expected_crgs AS ac)
 
    , c2c_vtc_02_forecast_months AS
@@ -1150,22 +1144,6 @@ WITH vtc_01_analytic_cartridges AS
        AND UPPER(hw.record) = 'ACTUALS - HW'
        AND hw.version = '2023.03.23.1')
 
-   , c2c_vtc_06_vol_count AS
-    (SELECT DISTINCT geography
-                   , platform_subset
-                   , base_product_number
-                   , customer_engagement
-                   , COUNT(cal_date)
-                     OVER (PARTITION BY geography, base_product_number,platform_subset,customer_engagement) AS vol_count -- count of months with volume
-     FROM c2c_vtc_05_vtc_calc
-              CROSS JOIN c2c_vtc_02_forecast_months AS fm
-     WHERE 1 = 1
-       AND imp_corrected_cartridges <> 0
-       AND cal_date BETWEEN DATEADD(MONTH, -24,
-                                    fm.supplies_forecast_start) AND DATEADD(
-             MONTH, -1, fm.supplies_forecast_start) -- 24 month window
-    )
-
    , c2c_vtc_07_ma_vtc_prep AS
     (SELECT 'ACTUALS'                                                    AS type
           , vtcc.cal_date
@@ -1174,31 +1152,17 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.platform_subset
           , vtcc.customer_engagement
           , vtcc.cartridges
-          , vtcc.imp_corrected_cartridges
+          , vtcc.adjusted_cartridges
           , vtcc.channel_fill
           , vtcc.supplies_spares
           , vtcc.host_cartridges
           , vtcc.welcome_kits
           , vtcc.expected_crgs
-          , vtcc.imp
           , vtcc.vtc
-          , vol_counts.vol_count
           , MAX(vtcc.cal_date)
             OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
-              LEFT JOIN c2c_vtc_06_vol_count AS vol_counts
-                        ON UPPER(vol_counts.geography) =
-                           UPPER(vtcc.geography)
-                            AND
-                           UPPER(vol_counts.platform_subset) =
-                           UPPER(vtcc.platform_subset)
-                            AND
-                           UPPER(vol_counts.base_product_number) =
-                           UPPER(vtcc.base_product_number)
-                            AND
-                           UPPER(vol_counts.customer_engagement) =
-                           UPPER(vtcc.customer_engagement)
      WHERE 1 = 1
        AND vtcc.cal_date < fm.supplies_forecast_start
 
@@ -1211,15 +1175,13 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.platform_subset
           , vtcc.customer_engagement
           , vtcc.cartridges
-          , vtcc.imp_corrected_cartridges
+          , vtcc.adjusted_cartridges
           , vtcc.channel_fill
           , vtcc.supplies_spares
           , vtcc.host_cartridges
           , vtcc.welcome_kits
           , vtcc.expected_crgs
-          , vtcc.imp
           , vtcc.vtc
-          , NULL       AS vol_count
           , NULL       AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
@@ -1229,15 +1191,30 @@ WITH vtc_01_analytic_cartridges AS
    , c2c_vtc_08_ma_vtc AS
     (SELECT vtcc.geography
           , vtcc.base_product_number
-          , MAX(vtcc.vol_count)                AS vol_count
-          , SUM(vtcc.imp_corrected_cartridges) AS ma_vol -- used for 9 month MA; numerator
-          , SUM(vtcc.expected_crgs)            AS ma_exp -- used for 9 month MA; denominator
+          , vtcc.platform_subset
+          , vtcc.customer_engagement
+          , SUM(vtcc.adjusted_cartridges) AS avg_adjusted_cartridges -- 9 month average; numerator
+          , SUM(vtcc.expected_crgs)            AS avg_expected_crgs  -- 9 month average; denominator
      FROM c2c_vtc_07_ma_vtc_prep AS vtcc
      WHERE 1 = 1
        AND UPPER(vtcc.type) = 'ACTUALS'
        AND vtcc.cal_date BETWEEN DATEADD(MONTH, -8, vtcc.max_cal_date) AND vtcc.max_cal_date
      GROUP BY vtcc.geography
-            , vtcc.base_product_number)
+            , vtcc.base_product_number
+            , vtcc.platform_subset
+            , vtcc.customer_engagement)
+
+     ,c2c_mvtc as (
+         SELECT geography
+              , base_product_number
+              , platform_subset
+              , customer_engagement
+              , avg_adjusted_cartridges
+              , avg_expected_crgs
+              ,COALESCE(avg_adjusted_cartridges,0)/NULLIF(avg_expected_crgs,0) AS mvtc
+         FROM c2c_vtc_08_ma_vtc
+
+     )       
 
    , c2c_vtc_09_ma_vtc_proj AS
     (SELECT vtcc.cal_date
@@ -1251,37 +1228,21 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.supplies_spares
           , vtcc.host_cartridges
           , vtcc.welcome_kits
-          , vtcc.imp
-          , vtcc.imp_corrected_cartridges
+          , vtcc.adjusted_cartridges
           , vtcc.vtc
-          , COALESCE(vtcc.vol_count, f.vol_count) AS vol_count
-          , f.ma_vol
-          , f.ma_exp
+          , mvtc.avg_adjusted_cartridges
+          , mvtc.avg_expected_crgs
           , CASE
                 WHEN vtcc.cal_date < fm.supplies_forecast_start
                     THEN vtcc.vtc -- history, use VTC
-                WHEN f.vol_count >= 9 AND
-                     vtcc.cal_date >=
-                     fm.supplies_forecast_start
-                    THEN f.mvtc -- else use MVTC based on last month of actuals
-                WHEN f.vol_count < 9 AND
-                     vtcc.cal_date >=
-                     fm.supplies_forecast_start
-                    THEN 1.0 -- if we don't use MA VTC then use VTC or 1.0; problematic for first month of forecast
-                ELSE 1.0 END                      AS mvtc -- use 1.0 as a placeholder for anything else; could create issues in the forecast window
+                WHEN vtcc.cal_date >= fm.supplies_forecast_start
+                    THEN COALESCE(mvtc.mvtc,1) -- else use MVTC based on last month of actuals
+                 END                      AS mvtc 
      FROM c2c_vtc_07_ma_vtc_prep AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
-              LEFT JOIN
-          (SELECT DISTINCT geography
-                         , base_product_number
-                         , vol_count
-                         , ma_vol
-                         , ma_exp
-                         , ma_vol * 1.0 / NULLIF(ma_exp, 0) AS mvtc
-           FROM c2c_vtc_08_ma_vtc) AS f
-          ON UPPER(f.geography) = UPPER(vtcc.geography)
-              AND UPPER(f.base_product_number) =
-                  UPPER(vtcc.base_product_number))
+              LEFT JOIN c2c_mvtc mvtc ON  mvtc.geography = vtcc.geography AND mvtc.base_product_number = vtcc.base_product_number 
+                                        AND mvtc.platform_subset = vtcc.platform_subset AND mvtc.customer_engagement = vtcc.customer_engagement
+        )
 
    , c2c_vtc AS
     (SELECT cal_date
@@ -1295,13 +1256,11 @@ WITH vtc_01_analytic_cartridges AS
           , supplies_spares
           , host_cartridges
           , welcome_kits
-          , imp
-          , imp_corrected_cartridges
+          , adjusted_cartridges
           , vtc
           , mvtc
-          , vol_count
-          , ma_vol
-          , ma_exp
+          , avg_adjusted_cartridges
+          , avg_expected_crgs
      FROM c2c_vtc_09_ma_vtc_proj)
 
 SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
@@ -1312,8 +1271,7 @@ SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
      , vtc.base_product_number
      , vtc.customer_engagement
      , vtc.cartridges
-     , vtc.imp                                                AS vol_rate
-     , vtc.imp_corrected_cartridges                           AS volume
+     , vtc.adjusted_cartridges                                AS volume
      , COALESCE(vtc.channel_fill, 0)                          AS channel_fill
      , COALESCE(vtc.supplies_spares, 0)                       AS supplies_spares_crgs
      , COALESCE(vtc.host_cartridges, 0)                       AS host_crgs
@@ -1323,14 +1281,15 @@ SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
      , COALESCE(vtc.vtc, 0) *
        COALESCE(vtc.expected_crgs, 0)                         AS vtc_adjusted_crgs
      , COALESCE(vtc.mvtc, 0)                                  AS mvtc
-     , COALESCE(vtc.mvtc, 0) *
-       COALESCE(vtc.expected_crgs, 0)                         AS mvtc_adjusted_crgs
-     , vtc.vol_count
-     , vtc.ma_vol
-     , vtc.ma_exp
+     , CASE 
+            WHEN vtc.cal_date < fm.supplies_forecast_start THEN vtc.adjusted_cartridges
+            ELSE  COALESCE(vtc.mvtc, 0) * COALESCE(vtc.expected_crgs, 0) END  AS mvtc_adjusted_crgs
+     , vtc.avg_adjusted_cartridges
+     , vtc.avg_expected_crgs
      , NULL                                                   AS load_date
      , NULL                                                   AS version
 FROM c2c_vtc AS vtc
+CROSS JOIN c2c_vtc_02_forecast_months AS fm
 WHERE 1 = 1
 
 UNION ALL
@@ -1344,7 +1303,6 @@ SELECT 'CONVERT_TO_CARTRIDGE'    AS record
      , h.base_product_number
      , h.customer_engagement -- TRAD only
      , 0.0                       AS cartridges
-     , 0.0                       AS vol_rate
      , 0.0                       AS volume
      , 0.0                       AS channel_fill
      , 0.0                       AS supplies_spares_crgs
@@ -1355,7 +1313,6 @@ SELECT 'CONVERT_TO_CARTRIDGE'    AS record
      , 0.0                       AS vtc_adjusted_crgs
      , 0.0                       AS mvtc
      , 0.0                       AS mvtc_adjusted_crgs
-     , 0.0                       AS vol_count
      , 0.0                       AS ma_vol
      , 0.0                       AS ma_exp
      , NULL                      AS load_date
