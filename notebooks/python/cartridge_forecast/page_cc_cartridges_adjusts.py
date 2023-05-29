@@ -1162,9 +1162,11 @@ WITH vtc_01_analytic_cartridges AS
           , MAX(vtcc.cal_date)
             OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
+     LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtcc.platform_subset
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
        AND vtcc.cal_date < fm.supplies_forecast_start
+       AND hx.product_lifecycle_status != 'N'
 
      UNION ALL
 
@@ -1184,9 +1186,36 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.vtc
           , NULL       AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
+     LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtcc.platform_subset
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
-       AND vtcc.cal_date >= fm.supplies_forecast_start)
+       AND vtcc.cal_date >= fm.supplies_forecast_start
+       AND hx.product_lifecycle_status != 'N'
+
+       UNION ALL
+       
+        SELECT 'FORECAST' AS type
+          , vtcc.cal_date
+          , vtcc.geography
+          , vtcc.base_product_number
+          , vtcc.platform_subset
+          , vtcc.customer_engagement
+          , vtcc.cartridges
+          , vtcc.adjusted_cartridges
+          , vtcc.channel_fill
+          , vtcc.supplies_spares
+          , vtcc.host_cartridges
+          , vtcc.welcome_kits
+          , vtcc.expected_crgs
+          , 1 vtc
+          , NULL       AS max_cal_date
+     FROM c2c_vtc_05_vtc_calc AS vtcc
+     LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtcc.platform_subset
+              CROSS JOIN c2c_vtc_02_forecast_months AS fm
+     WHERE 1 = 1
+       AND vtcc.cal_date >= fm.supplies_forecast_start
+       AND hx.product_lifecycle_status = 'N'
+       )
 
    , c2c_vtc_08_ma_vtc AS
     (SELECT vtcc.geography
@@ -1236,7 +1265,7 @@ WITH vtc_01_analytic_cartridges AS
                 WHEN vtcc.cal_date < fm.supplies_forecast_start
                     THEN vtcc.vtc -- history, use VTC
                 WHEN vtcc.cal_date >= fm.supplies_forecast_start
-                    THEN COALESCE(mvtc.mvtc,1) -- else use MVTC based on last month of actuals
+                    THEN COALESCE(mvtc.mvtc,1) -- else use MVTC based on last 9 month of actuals
                  END                      AS mvtc 
      FROM c2c_vtc_07_ma_vtc_prep AS vtcc
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
