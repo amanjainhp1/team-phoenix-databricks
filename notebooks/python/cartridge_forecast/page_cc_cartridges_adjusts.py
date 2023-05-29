@@ -652,7 +652,7 @@ WITH crg_months AS
         ON hw.cal_date = c2c.cal_date
         AND UPPER(hw.geography) = UPPER(c2c.geography))
 
-SELECT cal_date
+SELECT DISTINCT cal_date
     , geography
     , platform_subset
     , base_product_number
@@ -660,8 +660,8 @@ SELECT cal_date
     , pl
     , hw_product_family
     , Crg_Chrome
-    , cartridges
-    , yield
+    , 0 cartridges
+    , 0 yield
     , 0 AS supplies_spares
 FROM case_statement
 WHERE cal_date < (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
@@ -1162,11 +1162,9 @@ WITH vtc_01_analytic_cartridges AS
           , MAX(vtcc.cal_date)
             OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
-     LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtcc.platform_subset
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
        AND vtcc.cal_date < fm.supplies_forecast_start
-       AND hx.product_lifecycle_status != 'N'
 
      UNION ALL
 
@@ -1186,35 +1184,9 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.vtc
           , NULL       AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
-     LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtcc.platform_subset
               CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
        AND vtcc.cal_date >= fm.supplies_forecast_start
-       AND hx.product_lifecycle_status != 'N'
-
-       UNION ALL
-       
-        SELECT 'FORECAST' AS type
-          , vtcc.cal_date
-          , vtcc.geography
-          , vtcc.base_product_number
-          , vtcc.platform_subset
-          , vtcc.customer_engagement
-          , vtcc.cartridges
-          , vtcc.adjusted_cartridges
-          , vtcc.channel_fill
-          , vtcc.supplies_spares
-          , vtcc.host_cartridges
-          , vtcc.welcome_kits
-          , vtcc.expected_crgs
-          , 1 vtc
-          , NULL       AS max_cal_date
-     FROM c2c_vtc_05_vtc_calc AS vtcc
-     LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtcc.platform_subset
-              CROSS JOIN c2c_vtc_02_forecast_months AS fm
-     WHERE 1 = 1
-       AND vtcc.cal_date >= fm.supplies_forecast_start
-       AND hx.product_lifecycle_status = 'N'
        )
 
    , c2c_vtc_08_ma_vtc AS
@@ -1318,8 +1290,43 @@ SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
      , NULL                                                   AS load_date
      , NULL                                                   AS version
 FROM c2c_vtc AS vtc
+LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtc.platform_subset
 CROSS JOIN c2c_vtc_02_forecast_months AS fm
 WHERE 1 = 1
+    AND hx.product_lifecycle_status != 'N' --EVERYTHING EXCEPT NPI's 
+
+UNION ALL
+
+SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
+     , vtc.cal_date
+     , 'MARKET10'                                             AS geography_grain
+     , vtc.geography
+     , vtc.platform_subset
+     , vtc.base_product_number
+     , vtc.customer_engagement
+     , vtc.cartridges
+     , vtc.adjusted_cartridges                                AS volume
+     , COALESCE(vtc.channel_fill, 0)                          AS channel_fill
+     , COALESCE(vtc.supplies_spares, 0)                       AS supplies_spares_crgs
+     , COALESCE(vtc.host_cartridges, 0)                       AS host_crgs
+     , COALESCE(vtc.welcome_kits, 0)                          AS welcome_kits
+     , COALESCE(vtc.expected_crgs, 0)                         AS expected_crgs
+     , COALESCE(vtc.vtc, 0)                                   AS vtc
+     , COALESCE(vtc.vtc, 0) *
+       COALESCE(vtc.expected_crgs, 0)                         AS vtc_adjusted_crgs
+     , COALESCE(vtc.mvtc, 0)                                  AS mvtc
+     , CASE 
+            WHEN vtc.cal_date < fm.supplies_forecast_start THEN vtc.adjusted_cartridges
+            ELSE  COALESCE(vtc.expected_crgs, 0) END  AS mvtc_adjusted_crgs
+     , vtc.avg_adjusted_cartridges
+     , vtc.avg_expected_crgs
+     , NULL                                                   AS load_date
+     , NULL                                                   AS version
+FROM c2c_vtc AS vtc
+LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtc.platform_subset
+CROSS JOIN c2c_vtc_02_forecast_months AS fm
+WHERE 1 = 1
+    AND hx.product_lifecycle_status = 'N' ----SET MVTC = 1 IN CASE OF NPI's
 
 UNION ALL
 
