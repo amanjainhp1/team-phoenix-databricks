@@ -48,7 +48,7 @@ supplies_hw_country_actuals_mapping = read_redshift_to_df(configs) \
 import re
 
 tables = [
-    ['fin_prod.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only],
+    ['fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only', odw_actuals_supplies_baseprod_staging_interim_supplies_only],
     ['fin_prod.odw_sacp_actuals', sacp_actuals],
     ['mdm.iso_country_code_xref', iso_country_code_xref],
     ['mdm.iso_cc_rollup_xref', iso_cc_rollup_xref],
@@ -118,9 +118,9 @@ SELECT
     SUM(equivalent_units) AS equivalent_units,
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
-FROM fin_prod.odw_actuals_supplies_baseprod_staging_interim_supplies_only
+FROM fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only
 WHERE 1=1
-AND cal_date = (select max(cal_date) from fin_prod.odw_actuals_supplies_baseprod_staging_interim_supplies_only)
+AND cal_date = (select max(cal_date) from fin_stage.odw_actuals_supplies_baseprod_staging_interim_supplies_only)
 GROUP BY cal_date, country_alpha2, base_product_number, pl, customer_engagement, market10
 """
 
