@@ -147,7 +147,7 @@ SELECT
     base_product_line_code,
     base_prod_per_sales_prod_qty,
     base_product_amount_percent
-FROM rdma_base_to_sales_product_map
+FROM mdm.rdma_base_to_sales_product_map
 """
 
 rdma_salesprod_to_baseprod_map_abridged = spark.sql(rdma_salesprod_to_baseprod_map_abridged)
@@ -310,10 +310,10 @@ SELECT
     'TRAD' AS customer_engagement,
     SUM(revenue_units) AS revenue_units
 FROM edw_unit_data_selected media
-JOIN calendar cal ON Edw_fiscal_yr_mo = revenue_recognition_fiscal_year_month_code
-JOIN product_line_xref pl ON business_area_code = plxx
-JOIN profit_center_code_xref pcx ON media.profit_center_code = pcx.profit_center_code
-JOIN iso_country_code_xref geo ON pcx.country_alpha2 = geo.country_alpha2
+JOIN mdm.calendar cal ON Edw_fiscal_yr_mo = revenue_recognition_fiscal_year_month_code
+JOIN mdm.product_line_xref pl ON business_area_code = plxx
+JOIN mdm.profit_center_code_xref pcx ON media.profit_center_code = pcx.profit_center_code
+JOIN mdm.iso_country_code_xref geo ON pcx.country_alpha2 = geo.country_alpha2
 WHERE Day_of_Month = 1
 AND revenue_units <> 0
 AND cal.Date < '2021-11-01'
@@ -337,7 +337,7 @@ FROM media_formatted
 WHERE country_alpha2 NOT IN 
         (
             SELECT country_alpha2
-            FROM iso_country_code_xref
+            FROM mdm.iso_country_code_xref
             WHERE country_alpha2 LIKE 'X%'
             AND country_alpha2 != 'XK'
         )
@@ -360,7 +360,7 @@ FROM media_formatted
 WHERE country_alpha2 IN 
         (
             SELECT country_alpha2
-            FROM iso_country_code_xref
+            FROM mdm.iso_country_code_xref
             WHERE country_alpha2 LIKE 'X%'
             AND country_alpha2 != 'XK'
         )
@@ -398,7 +398,7 @@ SELECT
     customer_engagement,
     SUM(revenue_units * COALESCE(country_unit_mix, 1)) AS revenue_units
 FROM media_with_xcodes m
-JOIN calendar cal ON cal_date = cal.Date
+JOIN mdm.calendar cal ON cal_date = cal.Date
 JOIN country_mix_media mix ON m.market10 = mix.market10 AND m.pl = mix.pl AND m.cal_date = mix.cal_date
 WHERE day_of_month = 1
 GROUP BY m.cal_date, country_alpha2, m.market10, sales_product_number, m.pl, customer_engagement
@@ -882,7 +882,7 @@ add_equivalents_units = f"""
 SELECT 
     base_product_number,
     COALESCE(equivalents_multiplier, 1) AS equivalents_multiplier
-FROM supplies_xref
+FROM mdm.supplies_xref
 """
 
 add_equivalents_units = spark.sql(add_equivalents_units)
@@ -929,7 +929,7 @@ supplies_equivalents.count()
 
 sub_months = f"""
 SELECT Date AS cal_date                    
-FROM calendar
+FROM mdm.calendar
 WHERE day_of_month = 1
 """
 
