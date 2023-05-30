@@ -1016,30 +1016,30 @@ WITH vtc_01_analytic_cartridges AS
           , base_product_number
           , customer_engagement
           , SUM(cartridges)               AS cartridges
-          , SUM(imp_corrected_cartridges) AS imp_corrected_cartridges
-     FROM scen.ink_08_analytic
+          , SUM(adjusted_cartridges) AS adjusted_cartridges
+     FROM scen.ink_07_page_cc_cartridges_final
      GROUP BY cal_date
             , geography
             , platform_subset
             , base_product_number
             , customer_engagement)
 
-   , vtc_03_norm_ships          AS
+   , vtc_03_norm_ships AS
     (SELECT cref.country_level_2 AS geography
           , ns.cal_date
           , ns.platform_subset
           , SUM(ns.units)        AS units
      FROM prod.norm_shipments AS ns
-     JOIN mdm.iso_cc_rollup_xref AS cref
-         ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
-         AND UPPER(cref.country_scenario) = 'Market10'
+              JOIN mdm.iso_cc_rollup_xref AS cref
+                   ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
+                       AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1 = 1
        AND ns.version = '{norm_shipments_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
 
-   , c2c_vtc_04_expected_crgs   AS
+   , c2c_vtc_04_expected_crgs AS
     (SELECT cr.cal_date
           , cr.geography
           , cr.platform_subset
@@ -1053,49 +1053,48 @@ WITH vtc_01_analytic_cartridges AS
           , COALESCE(h.host_units, 0)                                    AS host_cartridges
           , COALESCE(w.welcome_kits, 0)                                  AS welcome_kits
           , cr.cartridges
-          , cr.imp_corrected_cartridges
-          , cr.imp_corrected_cartridges * 1.0 / NULLIF(cr.cartridges, 0) AS imp
+          , cr.adjusted_cartridges
           , cr.cartridges +
             COALESCE(cf.channel_fill, 0) +
             COALESCE(ns.units * ss.supplies_spares, 0)                   AS expected_crgs
      FROM vtc_01_analytic_cartridges AS cr
-     LEFT JOIN scen.ink_10_supplies_spares AS ss
-         ON cr.cal_date = ss.cal_date
-         AND UPPER(cr.geography) = UPPER(ss.geography)
-         AND UPPER(cr.base_product_number) = UPPER(ss.base_product_number)
-         AND UPPER(cr.platform_subset) = UPPER(ss.platform_subset)
-         AND UPPER(cr.customer_engagement) = UPPER(ss.customer_engagement)
-     LEFT JOIN scen.ink_09_channel_fill AS cf
-         ON cr.cal_date = cf.cal_date
-         AND UPPER(cr.geography) = UPPER(cf.geography)
-         AND UPPER(cr.base_product_number) = UPPER(cf.base_product_number)
-         AND UPPER(cr.platform_subset) = UPPER(cf.platform_subset)
-         AND UPPER(cr.customer_engagement) = UPPER(cf.customer_engagement)
-     LEFT JOIN vtc_03_norm_ships AS ns
-         ON UPPER(ns.geography) = UPPER(cr.geography)
-         AND UPPER(ns.platform_subset) = UPPER(cr.platform_subset)
-         AND ns.cal_date = cr.cal_date
-     LEFT JOIN scen.ink_11_host AS h
-         ON cr.cal_date = h.cal_date
-         AND UPPER(cr.geography) = UPPER(h.geography)
-         AND UPPER(cr.base_product_number) = UPPER(h.base_product_number)
-         AND UPPER(cr.platform_subset) = UPPER(h.platform_subset)
-         AND UPPER(cr.customer_engagement) = UPPER(h.customer_engagement)
-     LEFT JOIN scen.ink_12_welcome_kits AS w
-         ON cr.cal_date = w.cal_date
-         AND UPPER(cr.geography) = UPPER(w.geography)
-         AND UPPER(cr.base_product_number) = UPPER(w.base_product_number)
-         AND UPPER(cr.platform_subset) = UPPER(w.platform_subset)
-         AND UPPER(cr.customer_engagement) = UPPER(w.customer_engagement))
+              LEFT JOIN scen.ink_10_supplies_spares AS ss
+                        ON cr.cal_date = ss.cal_date
+                            AND UPPER(cr.geography) = UPPER(ss.geography)
+                            AND UPPER(cr.base_product_number) = UPPER(ss.base_product_number)
+                            AND UPPER(cr.platform_subset) = UPPER(ss.platform_subset)
+                            AND UPPER(cr.customer_engagement) = UPPER(ss.customer_engagement)
+              LEFT JOIN scen.ink_09_channel_fill AS cf
+                        ON cr.cal_date = cf.cal_date
+                            AND UPPER(cr.geography) = UPPER(cf.geography)
+                            AND UPPER(cr.base_product_number) = UPPER(cf.base_product_number)
+                            AND UPPER(cr.platform_subset) = UPPER(cf.platform_subset)
+                            AND UPPER(cr.customer_engagement) = UPPER(cf.customer_engagement)
+              LEFT JOIN vtc_03_norm_ships AS ns
+                        ON UPPER(ns.geography) = UPPER(cr.geography)
+                            AND UPPER(ns.platform_subset) = UPPER(cr.platform_subset)
+                            AND ns.cal_date = cr.cal_date
+              LEFT JOIN scen.ink_11_host AS h
+                        ON cr.cal_date = h.cal_date
+                            AND UPPER(cr.geography) = UPPER(h.geography)
+                            AND UPPER(cr.base_product_number) = UPPER(h.base_product_number)
+                            AND UPPER(cr.platform_subset) = UPPER(h.platform_subset)
+                            AND UPPER(cr.customer_engagement) = UPPER(h.customer_engagement)
+              LEFT JOIN scen.ink_12_welcome_kits AS w
+                        ON cr.cal_date = w.cal_date
+                            AND UPPER(cr.geography) = UPPER(w.geography)
+                            AND UPPER(cr.base_product_number) = UPPER(w.base_product_number)
+                            AND UPPER(cr.platform_subset) = UPPER(w.platform_subset)
+                            AND UPPER(cr.customer_engagement) = UPPER(w.customer_engagement))
 
-   , c2c_vtc_05_vtc_calc        AS
+   , c2c_vtc_05_vtc_calc AS
     (SELECT ac.cal_date
           , ac.geography
           , ac.base_product_number
           , ac.platform_subset
           , ac.customer_engagement
           , ac.cartridges
-          , ac.imp_corrected_cartridges
+          , ac.adjusted_cartridges
           , ac.channel_fill
           , ac.hw_units
           , ac.supplies_spares_rate
@@ -1103,44 +1102,23 @@ WITH vtc_01_analytic_cartridges AS
           , ac.expected_crgs
           , ac.host_cartridges
           , ac.welcome_kits
-          , ac.imp
-          , COALESCE(SUM(ac.imp_corrected_cartridges)
-                     OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
-                     0) /
-            NULLIF(SUM(ac.expected_crgs)
-                   OVER (PARTITION BY ac.cal_date, ac.geography, ac.base_product_number,ac.platform_subset,ac.customer_engagement),
-                   0) AS vtc
+          , COALESCE(ac.adjusted_cartridges, 0) /
+            NULLIF(ac.expected_crgs, 0) AS vtc
      FROM c2c_vtc_04_expected_crgs AS ac)
 
    , c2c_vtc_02_forecast_months AS
     (SELECT DATEADD(MONTH, 1, MAX(hw.cal_date)) AS hw_forecast_start
           , MAX(sup.supplies_forecast_start)    AS supplies_forecast_start
      FROM prod.norm_shipments AS hw
-     CROSS JOIN (SELECT DATEADD(MONTH, 1, MAX(sup.cal_date)) AS supplies_forecast_start
-                 FROM prod.actuals_supplies AS sup
-                 WHERE 1 = 1
-                   AND sup.official = 1) AS sup
+              CROSS JOIN (SELECT DATEADD(MONTH, 1, MAX(sup.cal_date)) AS supplies_forecast_start
+                          FROM prod.actuals_supplies AS sup
+                          WHERE 1 = 1
+                            AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
        AND hw.version = '{norm_shipments_version}')
 
-   , c2c_vtc_06_vol_count       AS
-    (SELECT DISTINCT geography
-                   , platform_subset
-                   , base_product_number
-                   , customer_engagement
-                   , COUNT(cal_date)
-                     OVER (PARTITION BY geography, base_product_number,platform_subset,customer_engagement) AS vol_count -- count of months with volume
-     FROM c2c_vtc_05_vtc_calc
-     CROSS JOIN c2c_vtc_02_forecast_months AS fm
-     WHERE 1 = 1
-       AND imp_corrected_cartridges <> 0
-       AND cal_date BETWEEN DATEADD(MONTH, -24,
-                                    fm.supplies_forecast_start) AND DATEADD(
-             MONTH, -1, fm.supplies_forecast_start) -- 24 month window
-    )
-
-   , c2c_vtc_07_ma_vtc_prep     AS
+   , c2c_vtc_07_ma_vtc_prep AS
     (SELECT 'ACTUALS'                                                    AS type
           , vtcc.cal_date
           , vtcc.geography
@@ -1148,31 +1126,17 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.platform_subset
           , vtcc.customer_engagement
           , vtcc.cartridges
-          , vtcc.imp_corrected_cartridges
+          , vtcc.adjusted_cartridges
           , vtcc.channel_fill
           , vtcc.supplies_spares
           , vtcc.host_cartridges
           , vtcc.welcome_kits
           , vtcc.expected_crgs
-          , vtcc.imp
           , vtcc.vtc
-          , vol_counts.vol_count
           , MAX(vtcc.cal_date)
             OVER (PARTITION BY vtcc.geography, vtcc.base_product_number,vtcc.platform_subset,vtcc.customer_engagement) AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
-     CROSS JOIN c2c_vtc_02_forecast_months AS fm
-     LEFT JOIN c2c_vtc_06_vol_count AS vol_counts
-         ON UPPER(vol_counts.geography) =
-            UPPER(vtcc.geography)
-         AND
-            UPPER(vol_counts.platform_subset) =
-            UPPER(vtcc.platform_subset)
-         AND
-            UPPER(vol_counts.base_product_number) =
-            UPPER(vtcc.base_product_number)
-         AND
-            UPPER(vol_counts.customer_engagement) =
-            UPPER(vtcc.customer_engagement)
+              CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
        AND vtcc.cal_date < fm.supplies_forecast_start
 
@@ -1185,35 +1149,49 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.platform_subset
           , vtcc.customer_engagement
           , vtcc.cartridges
-          , vtcc.imp_corrected_cartridges
+          , vtcc.adjusted_cartridges
           , vtcc.channel_fill
           , vtcc.supplies_spares
           , vtcc.host_cartridges
           , vtcc.welcome_kits
           , vtcc.expected_crgs
-          , vtcc.imp
           , vtcc.vtc
-          , NULL       AS vol_count
           , NULL       AS max_cal_date
      FROM c2c_vtc_05_vtc_calc AS vtcc
-     CROSS JOIN c2c_vtc_02_forecast_months AS fm
+              CROSS JOIN c2c_vtc_02_forecast_months AS fm
      WHERE 1 = 1
-       AND vtcc.cal_date >= fm.supplies_forecast_start)
+       AND vtcc.cal_date >= fm.supplies_forecast_start
+       )
 
-   , c2c_vtc_08_ma_vtc          AS
+   , c2c_vtc_08_ma_vtc AS
     (SELECT vtcc.geography
           , vtcc.base_product_number
-          , MAX(vtcc.vol_count)                AS vol_count
-          , SUM(vtcc.imp_corrected_cartridges) AS ma_vol -- used for 9 month MA; numerator
-          , SUM(vtcc.expected_crgs)            AS ma_exp -- used for 9 month MA; denominator
+          , vtcc.platform_subset
+          , vtcc.customer_engagement
+          , SUM(vtcc.adjusted_cartridges) AS avg_adjusted_cartridges -- 9 month average; numerator
+          , SUM(vtcc.expected_crgs)            AS avg_expected_crgs  -- 9 month average; denominator
      FROM c2c_vtc_07_ma_vtc_prep AS vtcc
      WHERE 1 = 1
        AND UPPER(vtcc.type) = 'ACTUALS'
        AND vtcc.cal_date BETWEEN DATEADD(MONTH, -8, vtcc.max_cal_date) AND vtcc.max_cal_date
      GROUP BY vtcc.geography
-            , vtcc.base_product_number)
+            , vtcc.base_product_number
+            , vtcc.platform_subset
+            , vtcc.customer_engagement)
 
-   , c2c_vtc_09_ma_vtc_proj     AS
+     ,c2c_mvtc as (
+         SELECT geography
+              , base_product_number
+              , platform_subset
+              , customer_engagement
+              , avg_adjusted_cartridges
+              , avg_expected_crgs
+              ,COALESCE(avg_adjusted_cartridges,0)/NULLIF(avg_expected_crgs,0) AS mvtc
+         FROM c2c_vtc_08_ma_vtc
+
+     )       
+
+   , c2c_vtc_09_ma_vtc_proj AS
     (SELECT vtcc.cal_date
           , vtcc.geography
           , vtcc.base_product_number
@@ -1225,39 +1203,23 @@ WITH vtc_01_analytic_cartridges AS
           , vtcc.supplies_spares
           , vtcc.host_cartridges
           , vtcc.welcome_kits
-          , vtcc.imp
-          , vtcc.imp_corrected_cartridges
+          , vtcc.adjusted_cartridges
           , vtcc.vtc
-          , COALESCE(vtcc.vol_count, f.vol_count) AS vol_count
-          , f.ma_vol
-          , f.ma_exp
+          , mvtc.avg_adjusted_cartridges
+          , mvtc.avg_expected_crgs
           , CASE
-            WHEN vtcc.cal_date < fm.supplies_forecast_start
-                THEN vtcc.vtc -- history, use VTC
-            WHEN f.vol_count >= 9 AND
-                 vtcc.cal_date >=
-                 fm.supplies_forecast_start
-                THEN f.mvtc -- else use MVTC based on last month of actuals
-            WHEN f.vol_count < 9 AND
-                 vtcc.cal_date >=
-                 fm.supplies_forecast_start
-                THEN 1.0 -- if we don't use MA VTC then use VTC or 1.0; problematic for first month of forecast
-                ELSE 1.0 END                      AS mvtc -- use 1.0 as a placeholder for anything else; could create issues in the forecast window
+                WHEN vtcc.cal_date < fm.supplies_forecast_start
+                    THEN vtcc.vtc -- history, use VTC
+                WHEN vtcc.cal_date >= fm.supplies_forecast_start
+                    THEN COALESCE(mvtc.mvtc,1) -- else use MVTC based on last 9 month of actuals
+                 END                      AS mvtc 
      FROM c2c_vtc_07_ma_vtc_prep AS vtcc
-     CROSS JOIN c2c_vtc_02_forecast_months AS fm
-     LEFT JOIN
-     (SELECT DISTINCT geography
-                    , base_product_number
-                    , vol_count
-                    , ma_vol
-                    , ma_exp
-                    , ma_vol * 1.0 / NULLIF(ma_exp, 0) AS mvtc
-      FROM c2c_vtc_08_ma_vtc) AS f
-         ON UPPER(f.geography) = UPPER(vtcc.geography)
-         AND UPPER(f.base_product_number) =
-             UPPER(vtcc.base_product_number))
+              CROSS JOIN c2c_vtc_02_forecast_months AS fm
+              LEFT JOIN c2c_mvtc mvtc ON  mvtc.geography = vtcc.geography AND mvtc.base_product_number = vtcc.base_product_number 
+                                        AND mvtc.platform_subset = vtcc.platform_subset AND mvtc.customer_engagement = vtcc.customer_engagement
+        )
 
-   , c2c_vtc                    AS
+   , c2c_vtc AS
     (SELECT cal_date
           , geography
           , base_product_number
@@ -1269,43 +1231,76 @@ WITH vtc_01_analytic_cartridges AS
           , supplies_spares
           , host_cartridges
           , welcome_kits
-          , imp
-          , imp_corrected_cartridges
+          , adjusted_cartridges
           , vtc
           , mvtc
-          , vol_count
-          , ma_vol
-          , ma_exp
+          , avg_adjusted_cartridges
+          , avg_expected_crgs
      FROM c2c_vtc_09_ma_vtc_proj)
 
-SELECT 'CONVERT_TO_CARTRIDGE'           AS record
+SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
      , vtc.cal_date
-     , 'MARKET10'                       AS geography_grain
+     , 'MARKET10'                                             AS geography_grain
      , vtc.geography
      , vtc.platform_subset
      , vtc.base_product_number
      , vtc.customer_engagement
      , vtc.cartridges
-     , vtc.imp                          AS vol_rate
-     , vtc.imp_corrected_cartridges     AS volume
-     , COALESCE(vtc.channel_fill, 0)    AS channel_fill
-     , COALESCE(vtc.supplies_spares, 0) AS supplies_spares_crgs
-     , COALESCE(vtc.host_cartridges, 0) AS host_crgs
-     , COALESCE(vtc.welcome_kits, 0)    AS welcome_kits
-     , COALESCE(vtc.expected_crgs, 0)   AS expected_crgs
-     , COALESCE(vtc.vtc, 0)             AS vtc
+     , vtc.adjusted_cartridges                                AS volume
+     , COALESCE(vtc.channel_fill, 0)                          AS channel_fill
+     , COALESCE(vtc.supplies_spares, 0)                       AS supplies_spares_crgs
+     , COALESCE(vtc.host_cartridges, 0)                       AS host_crgs
+     , COALESCE(vtc.welcome_kits, 0)                          AS welcome_kits
+     , COALESCE(vtc.expected_crgs, 0)                         AS expected_crgs
+     , COALESCE(vtc.vtc, 0)                                   AS vtc
      , COALESCE(vtc.vtc, 0) *
-       COALESCE(vtc.expected_crgs, 0)   AS vtc_adjusted_crgs
-     , COALESCE(vtc.mvtc, 0)            AS mvtc
-     , COALESCE(vtc.mvtc, 0) *
-       COALESCE(vtc.expected_crgs, 0)   AS mvtc_adjusted_crgs
-     , vtc.vol_count
-     , vtc.ma_vol
-     , vtc.ma_exp
-     , NULL                             AS load_date
-     , NULL                             AS version
+       COALESCE(vtc.expected_crgs, 0)                         AS vtc_adjusted_crgs
+     , COALESCE(vtc.mvtc, 0)                                  AS mvtc
+     , CASE 
+            WHEN vtc.cal_date < fm.supplies_forecast_start THEN vtc.adjusted_cartridges
+            ELSE  COALESCE(vtc.mvtc, 0) * COALESCE(vtc.expected_crgs, 0) END  AS mvtc_adjusted_crgs
+     , vtc.avg_adjusted_cartridges
+     , vtc.avg_expected_crgs
+     , NULL                                                   AS load_date
+     , NULL                                                   AS version
 FROM c2c_vtc AS vtc
+LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtc.platform_subset
+CROSS JOIN c2c_vtc_02_forecast_months AS fm
 WHERE 1 = 1
+    AND hx.product_lifecycle_status != 'N' --EVERYTHING EXCEPT NPI's 
+
+UNION ALL
+
+SELECT 'CONVERT_TO_CARTRIDGE'                                 AS record
+     , vtc.cal_date
+     , 'MARKET10'                                             AS geography_grain
+     , vtc.geography
+     , vtc.platform_subset
+     , vtc.base_product_number
+     , vtc.customer_engagement
+     , vtc.cartridges
+     , vtc.adjusted_cartridges                                AS volume
+     , COALESCE(vtc.channel_fill, 0)                          AS channel_fill
+     , COALESCE(vtc.supplies_spares, 0)                       AS supplies_spares_crgs
+     , COALESCE(vtc.host_cartridges, 0)                       AS host_crgs
+     , COALESCE(vtc.welcome_kits, 0)                          AS welcome_kits
+     , COALESCE(vtc.expected_crgs, 0)                         AS expected_crgs
+     , COALESCE(vtc.vtc, 0)                                   AS vtc
+     , COALESCE(vtc.vtc, 0) *
+       COALESCE(vtc.expected_crgs, 0)                         AS vtc_adjusted_crgs
+     , COALESCE(vtc.mvtc, 0)                                  AS mvtc
+     , CASE 
+            WHEN vtc.cal_date < fm.supplies_forecast_start THEN vtc.adjusted_cartridges
+            ELSE  COALESCE(vtc.expected_crgs, 0) END  AS mvtc_adjusted_crgs
+     , vtc.avg_adjusted_cartridges
+     , vtc.avg_expected_crgs
+     , NULL                                                   AS load_date
+     , NULL                                                   AS version
+FROM c2c_vtc AS vtc
+LEFT JOIN mdm.hardware_xref hx ON hx.platform_subset = vtc.platform_subset
+CROSS JOIN c2c_vtc_02_forecast_months AS fm
+WHERE 1 = 1
+    AND hx.product_lifecycle_status = 'N' ----SET MVTC = 1 IN CASE OF NPI's
 
 UNION ALL
 
@@ -1318,7 +1313,6 @@ SELECT 'CONVERT_TO_CARTRIDGE'    AS record
      , h.base_product_number
      , h.customer_engagement -- TRAD only
      , 0.0                       AS cartridges
-     , 0.0                       AS vol_rate
      , 0.0                       AS volume
      , 0.0                       AS channel_fill
      , 0.0                       AS supplies_spares_crgs
@@ -1329,18 +1323,17 @@ SELECT 'CONVERT_TO_CARTRIDGE'    AS record
      , 0.0                       AS vtc_adjusted_crgs
      , 0.0                       AS mvtc
      , 0.0                       AS mvtc_adjusted_crgs
-     , 0.0                       AS vol_count
      , 0.0                       AS ma_vol
      , 0.0                       AS ma_exp
      , NULL                      AS load_date
      , NULL                      AS version
-FROM scen.ink_11_host AS h
-LEFT OUTER JOIN c2c_vtc AS vtc
-    ON vtc.cal_date = h.cal_date
-    AND UPPER(vtc.geography) = UPPER(h.geography)
-    AND UPPER(vtc.platform_subset) = UPPER(h.platform_subset)
-    AND UPPER(vtc.base_product_number) = UPPER(h.base_product_number)
-    AND UPPER(vtc.customer_engagement) = UPPER(h.customer_engagement)
+FROM stage.host_cartridges AS h
+         LEFT OUTER JOIN c2c_vtc AS vtc
+                         ON vtc.cal_date = h.cal_date
+                             AND UPPER(vtc.geography) = UPPER(h.geography)
+                             AND UPPER(vtc.platform_subset) = UPPER(h.platform_subset)
+                             AND UPPER(vtc.base_product_number) = UPPER(h.base_product_number)
+                             AND UPPER(vtc.customer_engagement) = UPPER(h.customer_engagement)
 WHERE 1 = 1
   AND vtc.cal_date IS NULL
   AND vtc.geography IS NULL
