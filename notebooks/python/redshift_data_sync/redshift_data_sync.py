@@ -20,6 +20,12 @@ from datetime import datetime
 
 # COMMAND ----------
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('destination_envs', '')
+dbutils.widgets.text('tables', '')
+
+# COMMAND ----------
+
 # Retrieve credentials
 def retrieve_credentials(env: str) -> dict[str, str]:
     try:
@@ -183,12 +189,18 @@ def main():
     timestamp = date.getTimestamp()
 
     # Define destination envs
-    destination_envs = ['itg', 'dev']
+    destination_envs = ['itg', 'dev'] if dbutils.widgets.get('destination_envs') == '' else dbutils.widgets.get('destination_envs').lower().replace(' |\'|"', '').split(',')
     
     # Define tables to copy
     tables = []
-    for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
-        tables += get_redshift_table_names(configs, schema)
+    if dbutils.widgets.get('tables') == '':
+        for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
+            tables += get_redshift_table_names(configs, schema)
+    else:
+        tables = dbutils.widgets.get('tables') \
+            .lower() \
+            .replace(' |\'|"', '') \
+            .split(',')
 
     # Retrieve credentials for each env
     credentials = {env:retrieve_credentials(env) for env in destination_envs}
