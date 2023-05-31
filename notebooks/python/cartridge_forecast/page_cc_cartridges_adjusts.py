@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_cartridges_adjusts
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. analytic
 # MAGIC   2. channel_fill
@@ -19,13 +19,32 @@
 
 # COMMAND ----------
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('installed_base_version', '') # installed base version
+dbutils.widgets.text('run_base_forecast', '') # run notebook boolean
+
+# COMMAND ----------
+
+# exit notebook if task boolean is False, else continue
+notebook_run_parameter_label = 'run_base_forecast' 
+if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
+	dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
+
+# COMMAND ----------
+
+# Global Variables
+# retrieve widget values and assign to variables
+installed_base_version = dbutils.widgets.get('installed_base_version')
+
+# COMMAND ----------
+
 # Global Variables
 query_list = []
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## analytic
 
 # COMMAND ----------
@@ -198,7 +217,7 @@ WITH cfadj_01_c2c AS
                    ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = '{installed_base_version}'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -437,7 +456,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '2023.03.23.1'
+        AND ns.version = '{installed_base_version}'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -688,7 +707,7 @@ query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## host_cartridges
 
 # COMMAND ----------
@@ -760,7 +779,7 @@ WITH shm_07_geo_1_host AS
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
                        AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = '{installed_base_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -794,7 +813,7 @@ WITH shm_07_geo_1_host AS
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
                        AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = '{installed_base_version}'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -835,7 +854,7 @@ WITH shm_07_geo_1_host AS
                        AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
                        AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = '{installed_base_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -919,7 +938,7 @@ query_list.append(["stage.host_cartridges", host_cartridges, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## welcome_kits
 
 # COMMAND ----------
@@ -959,7 +978,7 @@ WITH wel_01_stf_enroll AS
               LEFT JOIN mdm.iso_country_code_xref AS iso
                         ON UPPER(iso.country_alpha2) = UPPER(ib.country_alpha2)
      WHERE 1 = 1
-       AND ib.version = '2023.03.23.1'
+       AND ib.version = '{installed_base_version}'
        AND ib.cal_date > CAST('2023-10-01' AS DATE)
        AND UPPER(ib.measure) = 'IB'
        AND UPPER(ib.customer_engagement) = 'I-INK')
@@ -1029,7 +1048,7 @@ query_list.append(["stage.welcome_kits", welcome_kits, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC ## vtc
 
 # COMMAND ----------
@@ -1060,7 +1079,7 @@ WITH vtc_01_analytic_cartridges AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '2023.03.23.1'
+       AND ns.version = '{installed_base_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1148,7 +1167,7 @@ WITH vtc_01_analytic_cartridges AS
                             AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = '2023.03.23.1')
+       AND hw.version = '{installed_base_version}')
 
    , c2c_vtc_06_vol_count AS
     (SELECT DISTINCT geography

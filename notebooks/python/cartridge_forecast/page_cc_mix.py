@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_mix
 
 # COMMAND ----------
@@ -8,7 +8,7 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. shm_base_helper
 # MAGIC   2. cartridge_units
@@ -18,7 +18,7 @@
 # MAGIC   6. page_mix_complete
 # MAGIC   7. cc_mix_complete
 # MAGIC   8. page_cc_mix
-# MAGIC 
+# MAGIC
 # MAGIC Detail:
 # MAGIC + shm_base_helper 
 # MAGIC   + scrubbed data from supplies_hw_mapping
@@ -84,6 +84,27 @@
 # MAGIC   + sub-process inputs
 # MAGIC     + stage.page_mix_complete
 # MAGIC     + stage.cc_mix_complete
+
+# COMMAND ----------
+
+# create empty widgets for interactive sessions
+dbutils.widgets.text('installed_base_version', '') # installed base version
+dbutils.widgets.text('usage_share_version', '') # usage-share version
+dbutils.widgets.text('run_base_forecast', '') # run notebook boolean
+
+# COMMAND ----------
+
+# exit notebook if task boolean is False, else continue
+notebook_run_parameter_label = 'run_base_forecast' 
+if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
+	dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
+
+# COMMAND ----------
+
+# Global Variables
+# retrieve widget values and assign to variables
+installed_base_version = dbutils.widgets.get('installed_base_version')
+usage_share_version = dbutils.widgets.get('usage_share_version')
 
 # COMMAND ----------
 
@@ -242,7 +263,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = ('2023.03.23.1')
+       AND ib.version = '{installed_base_version}'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -272,44 +293,18 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_toner AS us
+     FROM prod.usage_share AS us
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = ('2023.03.28.1')
+       AND us.version = '{usage_share_version}'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ('LASER', 'INK')
+       AND UPPER(hw.technology) IN ('LASER', 'INK','PWA')
        AND us.cal_date > CAST('2015-10-01' AS DATE)
-       
-       UNION
-       
-       SELECT us.geography
-          , us.cal_date                         AS year_month_start
-          , CASE
-                WHEN hw.technology = 'LASER' AND
-                     us.platform_subset LIKE '%STND%'
-                    THEN 'STD'
-                WHEN hw.technology = 'LASER' AND
-                     us.platform_subset LIKE '%YET2%'
-                    THEN 'HP+'
-                ELSE us.customer_engagement END AS customer_engagement
-          , us.platform_subset
-          , us.measure
-          , us.units
-     FROM prod.usage_share_ink AS us
-              JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = us.platform_subset
-     WHERE 1 = 1
-       AND us.version = ('2023.03.28.1')
-       AND UPPER(us.measure) IN
-           ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
-       AND UPPER(us.geography_grain) = 'MARKET10'
-       AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ('INK', 'PWA')
-       AND us.cal_date > CAST('2015-10-01' AS DATE))
+)
    , dmd_04_us_agg AS
     (SELECT us.geography
           , us.year_month_start
@@ -1132,7 +1127,7 @@ WITH pcm_02_hp_demand AS
           , p.ccs
           , p.ccs /
             NULLIF(SUM(ccs)
-                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color, p.customer_engagement),
+                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color,p.crg_chrome, p.customer_engagement),
                    0) AS mix_step_1
      FROM pcm_05_ccs AS p
      WHERE 1 = 1
@@ -1153,7 +1148,7 @@ WITH pcm_02_hp_demand AS
           , p.ccs
           , p.ccs /
             NULLIF(SUM(ccs)
-                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color, p.customer_engagement),
+                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color,p.crg_chrome, p.customer_engagement),
                    0) AS mix_step_1
      FROM pcm_05_ccs AS p
      WHERE 1 = 1
@@ -1260,7 +1255,7 @@ WITH pcm_02_hp_demand AS
           , SUM(m10.device_spread)
             OVER (PARTITION BY m10.geography, m10.platform_subset, m10.base_product_number, m10.customer_engagement) /
             NULLIF(SUM(m10.device_spread)
-                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color),
+                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,m10.crg_chrome),
                    0) AS weighted_avg
      FROM pcm_10_mix_weighted_avg_step_1 AS m10
      WHERE 1 = 1
@@ -1279,7 +1274,7 @@ WITH pcm_02_hp_demand AS
           , SUM(m10.device_spread)
             OVER (PARTITION BY m10.geography, m10.platform_subset, m10.base_product_number, m10.customer_engagement) /
             NULLIF(SUM(m10.device_spread)
-                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color),
+                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,m10.crg_chrome),
                    0)                                                                       AS weighted_avg
      FROM pcm_10_mix_weighted_avg_step_1 AS m10
      WHERE 1 = 1
@@ -2098,102 +2093,3 @@ query_list.append(["stage.page_cc_mix", page_cc_mix, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Apply EOL Update
-
-# COMMAND ----------
-
-submit_remote_query(configs, """with reg5_m10 as
-(
-select distinct region_5,market10
-from mdm.iso_country_code_xref
-where region_5 is not null and region_5 not in ('XU','XW')
-),
-
-reg_8_m10 as 
-(
-select distinct cc.country_alpha2,cc.country_level_1,c.market10
-from mdm.iso_cc_rollup_xref cc
-left join mdm.iso_country_code_xref c on c.country_alpha2 = cc.country_alpha2
-where cc.country_scenario = 'HOST_REGION_8'
-),
-
-swm_m10 as 
-(
-select swm.geography
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  where geography_grain = 'MARKET10' and swm.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
-
-  union 
-
-  select distinct r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  left join reg5_m10 r5 on r5.region_5 = swm.geography
-  where geography_grain = 'REGION_5' and geography != 'JP' and swm.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
-  group by r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-
-	union
-
-  select distinct r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  left join reg5_m10 r5 on r5.region_5 = swm.geography
-  where geography_grain = 'REGION_5' and geography = 'JP'
-  and not exists (select 1 from mdm.supplies_hw_mapping s where s.official = 1 and swm.eol_date is not null and swm.eol_date != '2100-01-01'
-  and s.base_product_number = swm.base_product_number and s.customer_engagement = swm.customer_engagement and s.platform_subset = swm.platform_subset
-  and s.geography IN ('AP - EM','AP - DM', 'AP'))
- group by r5.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-
-	union 
-	
-  select distinct r8.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-  from mdm.supplies_hw_mapping swm
-  left join reg_8_m10 r8 on r8.country_level_1 = swm.geography
-  where geography_grain = 'REGION_8' and swm.eol_date is not null and swm.eol_date != '2100-01-01'
- group by r8.market10
-      ,swm.base_product_number
-      ,swm.customer_engagement
-      ,swm.platform_subset
-      ,swm.eol
-      ,swm.eol_date
-)
-
-update stage.page_cc_mix 
-set mix_rate = null 
-from stage.page_cc_mix pg
-inner join swm_m10 swm on swm.geography = pg.geography and swm.base_product_number = pg.base_product_number and pg.platform_subset = swm.platform_subset 
-						  and pg.customer_engagement = swm.customer_engagement 
-where pg.cal_date >= swm.eol_date 
-""")
