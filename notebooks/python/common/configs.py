@@ -195,6 +195,12 @@ session = create_session(constants["STS_IAM_ROLE"][stack], constants["SESSION_DU
 
 # COMMAND ----------
 
+# set default unity catalog (delta tables)
+if role == 'developer':
+    spark.sql(f"USE CATALOG team_phoenix_{stack}")
+
+# COMMAND ----------
+
 configs = {}
 
 # redshift
