@@ -5347,6 +5347,13 @@ SELECT cal_date,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
 FROM updated_pl_plus_gd
+WHERE 1=1
+AND pl IN (
+    SELECT DISTINCT pl 
+    FROM mdm.product_line_xref 
+    WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
+        AND PL_category IN ('SUP', 'LLC')
+    )
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
 """
 
