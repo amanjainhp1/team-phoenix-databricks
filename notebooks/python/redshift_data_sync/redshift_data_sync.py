@@ -121,6 +121,11 @@ def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, sch
     function_duration = round(time.time()-start_time, 2)
     print(f'{destination_env}|Finished copying {schema}.{table} in {function_duration}s')
 
+# Replace "invalid" characters for each element in a list of strings
+def replace_invalid_characters(list_of_strings: list, string_pattern: str, string_replacement: str = '') -> list:
+    pattern = re.compile(string_pattern)
+    return [re.sub(pattern, string_replacement, element) for element in list_of_strings]
+
 # COMMAND ----------
 
 # Unload data from prod
@@ -189,18 +194,26 @@ def main():
     timestamp = date.getTimestamp()
 
     # Define destination envs
-    destination_envs = ['itg', 'dev'] if dbutils.widgets.get('destination_envs') == '' else dbutils.widgets.get('destination_envs').lower().replace(' |\'|"', '').split(',')
+    destination_envs = ['itg', 'dev'] if dbutils.widgets.get('destination_envs') == '' else dbutils.widgets.get('destination_envs').lower().split(',')
+    destination_envs = replace_invalid_characters(list_of_strings=destination_envs, string_pattern='[^a-zA-Z]+')
     
     # Define tables to copy
     tables = []
     if dbutils.widgets.get('tables') == '':
         for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
             tables += get_redshift_table_names(configs, schema)
+    elif "." not in dbutils.widgets.get('tables'):
+        schemas = dbutils.widgets.get('tables') \
+            .lower() \
+            .split(',')
+        schemas = replace_invalid_characters(list_of_strings=schemas, string_pattern='[^0-9a-zA-Z]+')
+        for schema in schemas:
+            tables += get_redshift_table_names(configs, schema)
     else:
         tables = dbutils.widgets.get('tables') \
             .lower() \
-            .replace(' |\'|"', '') \
             .split(',')
+        tables = replace_invalid_characters(list_of_strings=tables, string_pattern='[^0-9a-zA-Z.]+')
 
     # Retrieve credentials for each env
     credentials = {env:retrieve_credentials(env) for env in destination_envs}
