@@ -20,8 +20,10 @@
 # COMMAND ----------
 
 # create empty widgets for interactive sessions
+dbutils.widgets.text('technology', '') # technology to run
 dbutils.widgets.text('installed_base_version', '') # installed base version
 dbutils.widgets.text('run_base_forecast', '') # run notebook boolean
+
 
 # COMMAND ----------
 
@@ -35,6 +37,31 @@ if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
 # Global Variables
 # retrieve widget values and assign to variables
 installed_base_version = dbutils.widgets.get('installed_base_version')
+technology = dbutils.widgets.get('technology').lower()
+
+supply_unit = 'cc' if technology == 'ink' else 'page'
+supply_units = supply_unit + 's'
+
+
+# for labelling tables, laser/toner = toner, ink = ink
+technology_label = ''
+if technology == 'ink':
+    technology_label = 'ink'
+elif technology == 'laser':
+    technology_label = 'toner'
+
+
+technologies_list = {}
+technologies_list["ink"] = ['INK', 'PWA']
+technologies_list["laser"] = ['LASER']
+
+# COMMAND ----------
+
+# join lists used in SQL queries to comma and single quote separated strings 
+def join_list(list_to_join: list) -> str:
+    return '\'' + '\',\''.join(list_to_join) + '\''
+
+technologies = join_list(technologies_list[technology])
 
 # COMMAND ----------
 
@@ -49,7 +76,7 @@ query_list = []
 
 # COMMAND ----------
 
-analytic = """
+analytic = f"""
 WITH date_helper AS
     (SELECT date_key
           , date AS cal_date
@@ -73,7 +100,7 @@ WITH date_helper AS
             OVER (PARTITION BY c2c.geography, c2c.platform_subset, c2c.base_product_number, c2c.customer_engagement) AS min_cal_date
           , MAX(c2c.cal_date)
             OVER (PARTITION BY c2c.geography, c2c.platform_subset, c2c.base_product_number, c2c.customer_engagement) AS max_cal_date
-     FROM stage.page_cc_cartridges AS c2c
+     FROM stage.{technology_label}_{supply_unit}_cartridges AS c2c
               JOIN mdm.hardware_xref AS hw
                    ON UPPER(hw.platform_subset) = UPPER(c2c.platform_subset)
               JOIN mdm.supplies_xref AS sup
@@ -162,7 +189,7 @@ SELECT cal_date
 FROM ana_05_c2c_fill_gap_3
 """
 
-query_list.append(["stage.analytic", analytic, "overwrite"])
+query_list.append([f"stage.{technology_label}_analytic", analytic, "overwrite"])
 
 # COMMAND ----------
 
@@ -171,7 +198,7 @@ query_list.append(["stage.analytic", analytic, "overwrite"])
 
 # COMMAND ----------
 
-channel_fill = """
+channel_fill = f"""
 WITH cfadj_01_c2c AS
     (SELECT c2c.cal_date
           , hw.intro_date                                                                                            AS hw_intro_date
@@ -183,7 +210,7 @@ WITH cfadj_01_c2c AS
           , c2c.base_product_number
           , c2c.customer_engagement
           , c2c.cartridges
-     FROM stage.analytic AS c2c
+     FROM stage.{technology_label}_analytic AS c2c
               JOIN mdm.hardware_xref AS hw
                    ON UPPER(hw.platform_subset) = UPPER(c2c.platform_subset)
      WHERE 1 = 1
@@ -350,7 +377,7 @@ WHERE 1 = 1
   AND c2c.cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
 """
 
-query_list.append(["stage.channel_fill", channel_fill, "overwrite"])
+query_list.append([f"stage.{technology_label}_channel_fill", channel_fill, "overwrite"])
 
 # COMMAND ----------
 
@@ -359,7 +386,7 @@ query_list.append(["stage.channel_fill", channel_fill, "overwrite"])
 
 # COMMAND ----------
 
-supplies_spares = """
+supplies_spares = f"""
 WITH crg_months AS
     (SELECT date_key
           , [date] AS cal_date
@@ -417,7 +444,7 @@ WITH crg_months AS
           , c2c.cartridges
           , c2c.actuals_flag
           , c2c.running_count
-     FROM stage.analytic AS c2c
+     FROM stage.{technology_label}_analytic AS c2c
      WHERE 1 = 1
        AND NOT (c2c.base_product_number IN
                 ('W9014MC', 'W9040MC', 'W9041MC', 'W9042MC', 'W9043MC') AND
@@ -702,7 +729,7 @@ FROM case_statement
 WHERE cal_date > (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1)
 """
 
-query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
+query_list.append([f"stage.{technology_label}_supplies_spares", supplies_spares, "overwrite"])
 
 # COMMAND ----------
 
@@ -712,7 +739,7 @@ query_list.append(["stage.supplies_spares", supplies_spares, "overwrite"])
 
 # COMMAND ----------
 
-host_cartridges = """
+host_cartridges = f"""
 WITH shm_07_geo_1_host AS
     (SELECT DISTINCT shm.platform_subset
                    , shm.base_product_number
@@ -737,7 +764,7 @@ WITH shm_07_geo_1_host AS
        AND shm.host_multiplier > 0
        AND UPPER(shm.geography_grain) IN
            ('REGION_5', 'REGION_8', 'MARKET10') -- ASSUMPTION
-       AND UPPER(hw.technology) IN ('INK', 'LASER', 'PWA'))
+       AND UPPER(hw.technology) IN ({technologies}))
 
    , shm_08_map_geo_host AS
     (SELECT platform_subset
@@ -933,7 +960,7 @@ GROUP BY cal_date
        , composite_key
 """
 
-query_list.append(["stage.host_cartridges", host_cartridges, "overwrite"])
+query_list.append([f"stage.{technology_label}_host_cartridges", host_cartridges, "overwrite"])
 
 # COMMAND ----------
 
@@ -943,7 +970,7 @@ query_list.append(["stage.host_cartridges", host_cartridges, "overwrite"])
 
 # COMMAND ----------
 
-welcome_kits = """ 
+welcome_kits = f""" 
 WITH wel_01_stf_enroll AS
     (SELECT iiel.platform_subset
           , CAST('I-INK' AS VARCHAR(25))       AS customer_engagement
@@ -1017,7 +1044,7 @@ SELECT c2c.cal_date
      , c2c.base_product_number
      , c2c.customer_engagement
      , ROUND(stf.all_enrollments_customer, 0) AS welcome_kits
-FROM stage.analytic AS c2c
+FROM stage.{technology_label}_analytic AS c2c
          JOIN wel_01_stf_enroll AS stf
               ON stf.cal_date = c2c.cal_date
                   AND UPPER(stf.geography) = UPPER(c2c.geography)
@@ -1034,7 +1061,7 @@ SELECT c2c.cal_date
      , c2c.base_product_number
      , c2c.customer_engagement
      , ROUND(ltf.welcome_kits, 0) AS welcome_kits
-FROM stage.analytic AS c2c
+FROM stage.{technology_label}_analytic AS c2c
          JOIN wel_04_ltf_ib_step_3 AS ltf
               ON ltf.cal_date = c2c.cal_date
                   AND UPPER(ltf.geography) = UPPER(c2c.geography)
@@ -1043,7 +1070,7 @@ FROM stage.analytic AS c2c
                  UPPER(ltf.customer_engagement) = UPPER(c2c.customer_engagement)
 """
 
-query_list.append(["stage.welcome_kits", welcome_kits, "overwrite"])
+query_list.append([f"stage.{technology_label}_welcome_kits", welcome_kits, "overwrite"])
 
 # COMMAND ----------
 
@@ -1053,7 +1080,7 @@ query_list.append(["stage.welcome_kits", welcome_kits, "overwrite"])
 
 # COMMAND ----------
 
-vtc = """
+vtc = f"""
 WITH vtc_01_analytic_cartridges AS
     (SELECT cal_date
           , geography
@@ -1062,7 +1089,7 @@ WITH vtc_01_analytic_cartridges AS
           , customer_engagement
           , SUM(cartridges)               AS cartridges
           , SUM(imp_corrected_cartridges) AS imp_corrected_cartridges
-     FROM stage.analytic
+     FROM stage.{technology_label}_analytic
      GROUP BY cal_date
             , geography
             , platform_subset
@@ -1104,13 +1131,13 @@ WITH vtc_01_analytic_cartridges AS
             COALESCE(cf.channel_fill, 0) +
             COALESCE(ns.units * ss.supplies_spares, 0)                   AS expected_crgs
      FROM vtc_01_analytic_cartridges AS cr
-              LEFT JOIN stage.supplies_spares AS ss
+              LEFT JOIN stage.{technology_label}_supplies_spares AS ss
                         ON cr.cal_date = ss.cal_date
                             AND UPPER(cr.geography) = UPPER(ss.geography)
                             AND UPPER(cr.base_product_number) = UPPER(ss.base_product_number)
                             AND UPPER(cr.platform_subset) = UPPER(ss.platform_subset)
                             AND UPPER(cr.customer_engagement) = UPPER(ss.customer_engagement)
-              LEFT JOIN stage.channel_fill AS cf
+              LEFT JOIN stage.{technology_label}_channel_fill AS cf
                         ON cr.cal_date = cf.cal_date
                             AND UPPER(cr.geography) = UPPER(cf.geography)
                             AND UPPER(cr.base_product_number) = UPPER(cf.base_product_number)
@@ -1120,13 +1147,13 @@ WITH vtc_01_analytic_cartridges AS
                         ON UPPER(ns.geography) = UPPER(cr.geography)
                             AND UPPER(ns.platform_subset) = UPPER(cr.platform_subset)
                             AND ns.cal_date = cr.cal_date
-              LEFT JOIN stage.host_cartridges AS h
+              LEFT JOIN stage.{technology_label}_host_cartridges AS h
                         ON cr.cal_date = h.cal_date
                             AND UPPER(cr.geography) = UPPER(h.geography)
                             AND UPPER(cr.base_product_number) = UPPER(h.base_product_number)
                             AND UPPER(cr.platform_subset) = UPPER(h.platform_subset)
                             AND UPPER(cr.customer_engagement) = UPPER(h.customer_engagement)
-              LEFT JOIN stage.welcome_kits AS w
+              LEFT JOIN stage.{technology_label}_welcome_kits AS w
                         ON cr.cal_date = w.cal_date
                             AND UPPER(cr.geography) = UPPER(w.geography)
                             AND UPPER(cr.base_product_number) = UPPER(w.base_product_number)
@@ -1379,7 +1406,7 @@ SELECT 'CONVERT_TO_CARTRIDGE'    AS record
      , 0.0                       AS ma_exp
      , NULL                      AS load_date
      , NULL                      AS version
-FROM stage.host_cartridges AS h
+FROM stage.{technology_label}_host_cartridges AS h
          LEFT OUTER JOIN c2c_vtc AS vtc
                          ON vtc.cal_date = h.cal_date
                              AND UPPER(vtc.geography) = UPPER(h.geography)
@@ -1394,7 +1421,7 @@ WHERE 1 = 1
   AND vtc.customer_engagement IS NULL
 """
 
-query_list.append(["stage.vtc", vtc, "overwrite"])
+query_list.append([f"stage.{technology_label}_vtc", vtc, "overwrite"])
 
 # COMMAND ----------
 

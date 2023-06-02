@@ -90,6 +90,7 @@
 # create empty widgets for interactive sessions
 dbutils.widgets.text('installed_base_version', '') # installed base version
 dbutils.widgets.text('usage_share_version', '') # usage-share version
+dbutils.widgets.text('technology', '') # technology to run
 dbutils.widgets.text('run_base_forecast', '') # run notebook boolean
 
 # COMMAND ----------
@@ -105,6 +106,30 @@ if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
 # retrieve widget values and assign to variables
 installed_base_version = dbutils.widgets.get('installed_base_version')
 usage_share_version = dbutils.widgets.get('usage_share_version')
+technology = dbutils.widgets.get('technology').lower()
+
+supply_unit = 'cc' if technology == 'ink' else 'page'
+supply_units = supply_unit + 's'
+
+# for labelling tables, laser/toner = toner, ink = ink
+technology_label = ''
+if technology == 'ink':
+    technology_label = 'ink'
+elif technology == 'laser':
+    technology_label = 'toner'
+
+
+technologies_list = {}
+technologies_list["ink"] = ['INK', 'PWA']
+technologies_list["laser"] = ['LASER']
+
+# COMMAND ----------
+
+# join lists used in SQL queries to comma and single quote separated strings 
+def join_list(list_to_join: list) -> str:
+    return '\'' + '\',\''.join(list_to_join) + '\''
+
+technologies = join_list(technologies_list[technology])
 
 # COMMAND ----------
 
@@ -123,7 +148,7 @@ query_list = []
 
 # COMMAND ----------
 
-shm_base_helper = """
+shm_base_helper = f"""
 WITH shm_01_iso AS
     (SELECT DISTINCT market10
                    , region_5
@@ -207,7 +232,7 @@ query_list.append(["stage.shm_base_helper", shm_base_helper, "overwrite"])
 
 # COMMAND ----------
 
-cartridge_units = """
+cartridge_units = f"""
 SELECT 'ACTUALS'                AS source
      , acts.cal_date
      , acts.base_product_number
@@ -227,8 +252,9 @@ FROM prod.actuals_supplies AS acts
                   AND cref.country_scenario = 'MARKET10'
 WHERE 1 = 1
   AND xref.official = 1 
+  AND xref.technology IN ({technologies})
   AND acts.customer_engagement IN ('EST_INDIRECT_FULFILLMENT', 'I-INK', 'TRAD')
-  AND NOT xref.crg_chrome IN ('HEAD', 'UNK')
+  AND xref.crg_chrome NOT IN ('HEAD', 'UNK')
 GROUP BY acts.cal_date
        , acts.base_product_number
        , cref.country_scenario 
@@ -240,7 +266,7 @@ GROUP BY acts.cal_date
              ELSE 'CARTRIDGE' END
 """
 
-query_list.append(["stage.cartridge_units", cartridge_units, "overwrite"])
+query_list.append([f"stage.{technology_label}_cartridge_units", cartridge_units, "overwrite"])
 
 # COMMAND ----------
 
@@ -249,7 +275,7 @@ query_list.append(["stage.cartridge_units", cartridge_units, "overwrite"])
 
 # COMMAND ----------
 
-demand = """
+demand = f"""
 WITH dbd_01_ib_load AS
     (SELECT ib.cal_date
           , ib.platform_subset
@@ -265,7 +291,7 @@ WITH dbd_01_ib_load AS
      WHERE 1 = 1
        AND ib.version = '{installed_base_version}'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+       AND UPPER(hw.technology) IN ({technologies})
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
        
    , dmd_02_ib AS
@@ -302,7 +328,7 @@ WITH dbd_01_ib_load AS
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
-       AND UPPER(hw.technology) IN ('LASER', 'INK','PWA')
+       AND UPPER(hw.technology) IN ({technologies})
        AND us.cal_date > CAST('2015-10-01' AS DATE)
 )
    , dmd_04_us_agg AS
@@ -398,7 +424,7 @@ SELECT dmd.cal_date
  FROM dmd_09_unpivot_measure AS dmd
 """
 
-query_list.append(["stage.demand", demand, "overwrite"])
+query_list.append([f"stage.{technology_label}_demand", demand, "overwrite"])
 
 # COMMAND ----------
 
@@ -407,7 +433,7 @@ query_list.append(["stage.demand", demand, "overwrite"])
 
 # COMMAND ----------
 
-page_mix_engine = """
+page_mix_engine = f"""
 WITH pcm_02_hp_demand AS
     (SELECT d.cal_date
           , d.geography
@@ -421,11 +447,11 @@ WITH pcm_02_hp_demand AS
                         THEN units END)                                       AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END *
                 3)                                                            AS cmy_demand
-     FROM stage.demand AS d
+     FROM stage.{technology_label}_demand AS d
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = d.platform_subset
      WHERE 1 = 1
-       AND hw.technology = 'LASER'
+       AND hw.technology IN ({technologies})
      GROUP BY d.cal_date
             , d.geography
             , d.platform_subset
@@ -451,7 +477,7 @@ WITH pcm_02_hp_demand AS
                    , v.crg_chrome
                    , v.consumable_type
                    , v.cartridge_volume
-     FROM stage.cartridge_units AS v
+     FROM stage.{technology_label}_cartridge_units AS v
               JOIN stage.shm_base_helper AS shm
                    ON shm.base_product_number = v.base_product_number
                        AND shm.geography = v.geography
@@ -535,7 +561,7 @@ WITH pcm_02_hp_demand AS
                        AND shm.platform_subset = v.platform_subset
                        AND shm.customer_engagement = dmd.customer_engagement
      WHERE 1 = 1
-       AND hw.technology = 'LASER')
+       AND hw.technology  IN ({technologies}))
 
    , pcm_06_mix_step_1_k AS
     (SELECT p.cal_date
@@ -967,8 +993,6 @@ SELECT 'PCM_ENGINE_PROJECTION'                                          AS type
 FROM pcm_18_projection AS m18
 """
 
-query_list.append(["stage.page_mix_engine", page_mix_engine, "overwrite"])
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -976,7 +1000,7 @@ query_list.append(["stage.page_mix_engine", page_mix_engine, "overwrite"])
 
 # COMMAND ----------
 
-cc_mix_engine = """
+cc_mix_engine = f"""
 WITH pcm_02_hp_demand AS
     (SELECT d.cal_date
           , d.geography
@@ -985,11 +1009,11 @@ WITH pcm_02_hp_demand AS
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END)     AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END * 3) AS cmy_demand
-     FROM stage.demand AS d
+     FROM stage.{technology_label}_demand AS d
      JOIN mdm.hardware_xref AS hw
         ON hw.platform_subset = d.platform_subset
      WHERE 1 = 1
-        AND hw.technology IN ('INK', 'PWA')
+        AND hw.technology IN ({technologies})
      GROUP BY d.cal_date
             , d.geography
             , d.platform_subset
@@ -1015,7 +1039,7 @@ WITH pcm_02_hp_demand AS
                    , v.crg_chrome
                    , v.consumable_type
                    , v.cartridge_volume
-     FROM stage.cartridge_units AS v
+     FROM stage.{technology_label}_cartridge_units AS v
               JOIN stage.shm_base_helper AS shm
                    ON shm.base_product_number = v.base_product_number
                        AND shm.geography = v.geography
@@ -1110,7 +1134,7 @@ WITH pcm_02_hp_demand AS
                    ON shm.base_product_number = v.base_product_number
                        AND shm.platform_subset = v.platform_subset
                        AND shm.customer_engagement = dmd.customer_engagement
-     WHERE 1=1 AND hw.technology IN ('INK', 'PWA'))
+     WHERE 1=1 AND hw.technology IN ({technologies}))
 
    , pcm_06_mix_step_1_k AS
     (SELECT p.cal_date
@@ -1353,7 +1377,9 @@ SELECT 'PCM_ENGINE_PROJECTION'                                          AS type
 FROM pcm_14_projection AS m14
 """
 
-query_list.append(["stage.cc_mix_engine", cc_mix_engine, "overwrite"])
+# COMMAND ----------
+
+query_list.append([f"stage.{technology_label}_{supply_unit}_mix_engine", eval(f"{supply_unit}_mix_engine"), "overwrite"])
 
 # COMMAND ----------
 
@@ -1362,7 +1388,7 @@ query_list.append(["stage.cc_mix_engine", cc_mix_engine, "overwrite"])
 
 # COMMAND ----------
 
-page_cc_mix_override = """
+page_cc_mix_override = f"""
 WITH crg_months AS
     (SELECT date_key
           , Date AS cal_date
@@ -1450,7 +1476,7 @@ WITH crg_months AS
        AND UPPER(cmo.geography_grain) = 'REGION_5'
        AND NOT UPPER(sup.Crg_Chrome) IN ('HEAD', 'UNK')
        AND UPPER(hw.product_lifecycle_status) = 'N'
-       AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+       AND UPPER(hw.technology) IN ({technologies})
        AND CAST(cmo.load_date AS DATE) > '2021-11-15')
 
    , prod_crg_mix_market10 AS
@@ -1489,7 +1515,7 @@ WITH crg_months AS
        AND UPPER(cmo.geography_grain) = 'MARKET10'
        AND NOT UPPER(sup.Crg_Chrome) IN ('HEAD', 'UNK')
        AND UPPER(hw.product_lifecycle_status) = 'N'
-       AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA')
+       AND UPPER(hw.technology) IN ({technologies})
        AND CAST(cmo.load_date AS DATE) > '2021-11-15')
 
    , prod_crg_mix AS
@@ -1590,7 +1616,7 @@ WITH crg_months AS
          AND pf.cal_date = cmo.cal_date
          AND pf.market_10 = cmo.geography
      WHERE 1=1
-       AND hw.technology IN ('LASER'))
+       AND hw.technology IN ({technologies}))
 
    , transform_mix_step_1_k AS
     (SELECT t.cal_date
@@ -1797,16 +1823,16 @@ SELECT type
 FROM output
 """
 
-query_list.append(["stage.page_cc_mix_override", page_cc_mix_override, "overwrite"])
+query_list.append([f"stage.{technology_label}_{supply_unit}_mix_override", page_cc_mix_override, "overwrite"])
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## page_mix_complete
+# MAGIC ## mix_complete
 
 # COMMAND ----------
 
-page_mix_complete = """
+mix_complete = f"""
 WITH pcm_27_pages_mix_prep AS
     (SELECT m19.type
           , m19.cal_date
@@ -1815,9 +1841,9 @@ WITH pcm_27_pages_mix_prep AS
           , m19.platform_subset
           , m19.base_product_number
           , m19.customer_engagement
-          , m19.page_mix
-     FROM stage.page_mix_engine AS m19
-     LEFT OUTER JOIN stage.page_cc_mix_override AS m26
+          , m19.{supply_unit}_mix
+     FROM stage.{technology_label}_{supply_unit}_mix_engine AS m19
+     LEFT OUTER JOIN stage.{technology_label}_{supply_unit}_mix_override AS m26
          ON m26.cal_date = m19.cal_date
          AND UPPER(m26.market10) = UPPER(m19.geography)
          AND UPPER(m26.platform_subset) = UPPER(m19.platform_subset)
@@ -1839,13 +1865,13 @@ WITH pcm_27_pages_mix_prep AS
           , m26.platform_subset
           , m26.base_product_number
           , m26.customer_engagement
-          , m26.mix_pct               AS page_mix
-     FROM stage.page_cc_mix_override AS m26
+          , m26.mix_pct               AS {supply_unit}_mix
+     FROM stage.{technology_label}_{supply_unit}_mix_override AS m26
      JOIN mdm.hardware_xref AS hw
          ON hw.platform_subset = m26.platform_subset
      WHERE 1 = 1
        AND m26.type = 'UPLOADS'
-       AND hw.technology = 'LASER'
+       AND hw.technology IN ({technologies})
 
      UNION ALL
 
@@ -1857,13 +1883,13 @@ WITH pcm_27_pages_mix_prep AS
           , m26.platform_subset
           , m26.base_product_number
           , m26.customer_engagement
-          , m26.mix_pct               AS page_mix
-     FROM stage.page_cc_mix_override AS m26
+          , m26.mix_pct               AS {supply_unit}_mix
+     FROM stage.{technology_label}_{supply_unit}_mix_override AS m26
      JOIN mdm.hardware_xref AS hw
          ON hw.platform_subset = m26.platform_subset
      WHERE 1 = 1
        AND m26.type = 'TRANSFORMED_UPLOADS'
-       AND hw.technology = 'LASER')
+       AND hw.technology IN ('LASER'))
 
    , pcm_28_pages_ccs_mix_filter AS
     (SELECT m27.type
@@ -1873,7 +1899,7 @@ WITH pcm_27_pages_mix_prep AS
           , m27.platform_subset
           , m27.base_product_number
           , m27.customer_engagement
-          , m27.page_mix
+          , m27.{supply_unit}_mix
      FROM pcm_27_pages_mix_prep AS m27
      WHERE 1 = 1
        AND UPPER(m27.type) = 'PCM_ENGINE_ACTS' -- all actuals
@@ -1887,7 +1913,7 @@ WITH pcm_27_pages_mix_prep AS
           , m27.platform_subset
           , m27.base_product_number
           , m27.customer_engagement
-          , m27.page_mix
+          , m27.{supply_unit}_mix
      FROM pcm_27_pages_mix_prep AS m27
               JOIN mdm.hardware_xref AS hw
                    ON UPPER(hw.platform_subset) = UPPER(m27.platform_subset)
@@ -1904,7 +1930,7 @@ WITH pcm_27_pages_mix_prep AS
           , m27.platform_subset
           , m27.base_product_number
           , m27.customer_engagement
-          , m27.page_mix
+          , m27.{supply_unit}_mix
      FROM pcm_27_pages_mix_prep AS m27
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = m27.platform_subset
@@ -1920,7 +1946,7 @@ SELECT m28.type
      , m28.platform_subset
      , m28.base_product_number
      , m28.customer_engagement
-     , m28.page_mix
+     , m28.{supply_unit}_mix
      , CAST(m28.cal_date AS VARCHAR) + ' ' + m28.geography + ' ' + m28.platform_subset + ' ' +
        m28.base_product_number + ' ' + m28.customer_engagement AS composite_key
 FROM pcm_28_pages_ccs_mix_filter AS m28
@@ -1931,124 +1957,7 @@ FROM pcm_28_pages_ccs_mix_filter AS m28
                   AND UPPER(shm.customer_engagement) = UPPER(m28.customer_engagement)
 """
 
-query_list.append(["stage.page_mix_complete", page_mix_complete, "overwrite"])
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## cc_mix_complete
-
-# COMMAND ----------
-
-cc_mix_complete = """
-WITH pcm_27_pages_ccs_mix_prep AS
-    (
-        -- engine mix; precedence to pcm_26 (forecaster overrides)
-        SELECT m19.type
-             , m19.cal_date
-             , m19.geography_grain
-             , m19.geography
-             , m19.platform_subset
-             , m19.base_product_number
-             , m19.customer_engagement
-             , m19.cc_mix
-        FROM stage.cc_mix_engine AS m19
-                 LEFT OUTER JOIN stage.page_cc_mix_override AS m26
-                                 ON m26.cal_date = m19.cal_date
-                                     AND UPPER(m26.market10) = UPPER(m19.geography)
-                                     AND UPPER(m26.platform_subset) = UPPER(m19.platform_subset)
-                                     AND UPPER(m26.customer_engagement) = UPPER(m19.customer_engagement)
-        WHERE 1 = 1
-          AND m26.cal_date IS NULL
-          AND m26.market10 IS NULL
-          AND m26.platform_subset IS NULL
-          AND m26.customer_engagement IS NULL
-
-        UNION ALL
-
-        -- cc mix uploads
-        SELECT 'PCM_FORECASTER_OVERRIDE' AS type
-             , m26.cal_date
-             , 'MARKET10' AS geography_grain
-             , m26.market10 AS geography
-             , m26.platform_subset
-             , m26.base_product_number
-             , m26.customer_engagement
-             , m26.mix_pct AS cc_mix
-        FROM stage.page_cc_mix_override AS m26
-        JOIN mdm.hardware_xref AS hw
-            ON hw.platform_subset = m26.platform_subset
-        WHERE 1=1
-          AND m26.type = 'UPLOADS'  -- no transformed mix required for ink
-          AND hw.technology IN ('INK', 'PWA'))
-
-   , pcm_28_pages_ccs_mix_filter AS
-    (SELECT m27.type
-          , m27.cal_date
-          , m27.geography_grain
-          , m27.geography
-          , m27.platform_subset
-          , m27.base_product_number
-          , m27.customer_engagement
-          , m27.cc_mix
-     FROM pcm_27_pages_ccs_mix_prep AS m27
-     WHERE 1 = 1
-       AND UPPER(m27.type) = 'PCM_ENGINE_ACTS' -- all actuals
-
-     UNION ALL
-
-     SELECT m27.type
-          , m27.cal_date
-          , m27.geography_grain
-          , m27.geography
-          , m27.platform_subset
-          , m27.base_product_number
-          , m27.customer_engagement
-          , m27.cc_mix
-     FROM pcm_27_pages_ccs_mix_prep AS m27
-              JOIN mdm.hardware_xref AS hw
-                   ON UPPER(hw.platform_subset) = UPPER(m27.platform_subset)
-     WHERE 1 = 1
-       AND UPPER(m27.type) = 'PCM_ENGINE_PROJECTION'
-       AND UPPER(hw.product_lifecycle_status) <> 'N' -- all forecast NOT NPIs
-
-     UNION ALL
-
-     SELECT m27.type
-          , m27.cal_date
-          , m27.geography_grain
-          , m27.geography
-          , m27.platform_subset
-          , m27.base_product_number
-          , m27.customer_engagement
-          , m27.cc_mix
-     FROM pcm_27_pages_ccs_mix_prep AS m27
-              JOIN mdm.hardware_xref AS hw
-                   ON hw.platform_subset = m27.platform_subset
-     WHERE 1 = 1
-       AND m27.type IN ('PCM_FORECASTER_OVERRIDE')
-       AND UPPER(hw.product_lifecycle_status) = 'N' -- all forecast NPIs
-    )
-
-SELECT m28.type
-     , m28.cal_date
-     , m28.geography_grain
-     , m28.geography
-     , m28.platform_subset
-     , m28.base_product_number
-     , m28.customer_engagement
-     , m28.cc_mix
-     , CAST(m28.cal_date AS VARCHAR) + ' ' + m28.geography + ' ' + m28.platform_subset + ' ' +
-       m28.base_product_number + ' ' + m28.customer_engagement AS composite_key
-FROM pcm_28_pages_ccs_mix_filter AS m28
-         JOIN stage.shm_base_helper AS shm
-              ON UPPER(shm.geography) = UPPER(m28.geography)
-                  AND UPPER(shm.platform_subset) = UPPER(m28.platform_subset)
-                  AND UPPER(shm.base_product_number) = UPPER(m28.base_product_number)
-                  AND UPPER(shm.customer_engagement) = UPPER(m28.customer_engagement)
-"""
-
-query_list.append(["stage.cc_mix_complete", cc_mix_complete, "overwrite"])
+query_list.append([f"stage.{technology_label}_{supply_unit}_mix_complete", mix_complete, "overwrite"])
 
 # COMMAND ----------
 
@@ -2057,7 +1966,7 @@ query_list.append(["stage.cc_mix_complete", cc_mix_complete, "overwrite"])
 
 # COMMAND ----------
 
-page_cc_mix = """
+page_cc_mix = f"""
 SELECT type
      , cal_date
      , geography_grain
@@ -2065,25 +1974,12 @@ SELECT type
      , platform_subset
      , base_product_number
      , customer_engagement
-     , cc_mix AS mix_rate
+     , {supply_unit}_mix AS mix_rate
      , composite_key
-FROM stage.cc_mix_complete
-
-UNION ALL
-
-SELECT type
-     , cal_date
-     , geography_grain
-     , geography
-     , platform_subset
-     , base_product_number
-     , customer_engagement
-     , page_mix AS mix_rate
-     , composite_key
-FROM stage.page_mix_complete
+FROM stage.{technology_label}_{supply_unit}_mix_complete
 """
 
-query_list.append(["stage.page_cc_mix", page_cc_mix, "overwrite"])
+query_list.append([f"stage.{technology_label}_{supply_unit}_mix", page_cc_mix, "overwrite"])
 
 # COMMAND ----------
 
