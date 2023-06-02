@@ -23,7 +23,7 @@ addversion_info = call_redshift_addversion_sproc(configs, record, 'WORKING FOREC
 # COMMAND ----------
 
 wf_country = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.working_forecast_country") \
+    .option("query", "SELECT * FROM scen.working_forecast_country WHERE technology = '{technology}'") \
     .load()
 
 tables = [

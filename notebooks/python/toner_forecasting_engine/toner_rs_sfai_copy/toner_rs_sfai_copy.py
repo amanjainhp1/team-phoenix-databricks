@@ -3,7 +3,7 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ../../common/database_utils
 
 # COMMAND ----------
 
@@ -89,15 +89,4 @@ toner_pivots = read_redshift_to_df(configs) \
       from prod.toner_pivots where version = (select max(version) from prod.toner_pivots)")\
     .load()
 
-toner_pivots.createOrReplaceTempView("toner_pivots")
-
-# COMMAND ----------
-
-tables = [
-    ['IE2_Prod.dbo.pivots_toner', toner_pivots, "append"]
-]
-
-# COMMAND ----------
-
-for t_name, df, mode in tables:
-    write_df_to_sqlserver(configs, df, t_name, mode)
+write_df_to_sqlserver(configs=configs, df=toner_pivots, destination='IE2_Prod.dbo.pivots_toner', mode="append")
