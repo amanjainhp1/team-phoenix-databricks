@@ -7,6 +7,11 @@
 
 # COMMAND ----------
 
+if dbutils.widgets.get('copy_pivots_to_sfai').lower().strip() != 'true':
+    dbutils.run.exit('EXIT: step skipped due to copy_pivots_to_sfai parameter not equal to "true"')
+
+# COMMAND ----------
+
 toner_pivots = read_redshift_to_df(configs) \
     .option("query", "select  record_type\
         , record\
@@ -96,8 +101,3 @@ tables = [
 
 for t_name, df, mode in tables:
     write_df_to_sqlserver(configs, df, t_name, mode)
-
-# COMMAND ----------
-
-
-

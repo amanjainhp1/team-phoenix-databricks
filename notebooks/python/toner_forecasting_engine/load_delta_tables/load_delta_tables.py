@@ -19,7 +19,7 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./config_forecasting_engine
+# MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
 
@@ -29,35 +29,41 @@
 
 # COMMAND ----------
 
-def check_against_redshift(test_tables):
+if dbutils.widgets.get('load_delta_tables').lower().strip() != 'true':
+    dbutils.notebook.exit('EXIT: step skipped due to load_delta_tables parameter not equal to "true"')
+
+# COMMAND ----------
+
+# compare Redshift table to Delta table
+# if row counts do not match,
+def check_against_redshift(test_tables: list) -> list:
     tables = []
     for table in test_tables:
         table_name = table[0]
         df = table[1]
         mode = table[2]
-        is_version = table[3]
+        version = table[3]
 
-        if is_version == "false":
+        if not version:
             row_count = spark.read.table(table_name)
             if row_count.count() == df.count():
                 print(table_name + " row counts match.")
             else:
                 spark.sql("DROP TABLE IF EXISTS " + table[0])
                 print(table_name + " row counts do not match. Table dropped.")
-                tables.append([table_name, df, mode, is_version])
+                tables.append([table_name, df, mode])
         else:
-            version = table[4]
-            version_df = spark.read.table(table_name)
-            version_list = version_df.select('version').rdd.map(lambda row : row[0]).collect()
+            version_list = spark.read.table(table_name) \
+                .select('version') \
+                .rdd.map(lambda row: row[0]) \
+                .collect()
             if version in version_list:
                 print(table_name + " version exists.")
             else:
                 print(table_name + " version does not exist.")
-                tables.append([table_name, df, mode, is_version, version])
+                tables.append([table_name, df, mode])
     
     return tables
-
-
 
 # COMMAND ----------
 
@@ -119,16 +125,12 @@ installed_base = read_redshift_to_df(configs) \
     .option("query", "select * from prod.ib where version='{}'".format(ib_version)) \
     .load()
 
-ink_working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '{}' and record = 'WORKING_FORECAST_INK'".format(ink_wf_version)) \
+working_fcst = read_redshift_to_df(configs) \
+    .option("query", "select * from prod.working_forecast where version = '{}' and record = '{}-WORKING-FORECAST'".format(wf_version, technology_label)) \
     .load()
 
 norm_shipments = read_redshift_to_df(configs) \
     .option("query", "select * from  prod.norm_shipments where version='{}'".format(ib_version)) \
-    .load()
-
-toner_working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '{}' and record = 'IE2-WORKING-FORECAST'".format(toner_wf_version)) \
     .load()
 
 # COMMAND ----------
@@ -156,7 +158,7 @@ toner_06_mix_rate_final = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 shm_base_helper = read_redshift_to_df(configs) \
-    .option("dbtable", "stage.shm_base_helper") \
+    .option("dbtable", f"scen.{technology_label}_shm_base_helper") \
     .load()
 
 # COMMAND ----------
@@ -180,23 +182,26 @@ ms4_v_canon_units_prelim = read_redshift_to_df(configs)\
 # COMMAND ----------
 
 test_tables = [
-    ["fin_prod.actuals_plus_forecast_financials", actuals_plus_forecast_financials, "overwrite", "false"],
-    ["fin_prod.stf_dollarization", stf_dollarization_df, "overwrite", "false"],
-    ["mdm.calendar", calendar_df, "overwrite", "false"],
-    ["mdm.iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite", "false"],
-    ["mdm.hardware_xref", hw_xref_df, "overwrite", "false"],
-    ["mdm.supplies_xref", supplies_xref, "overwrite", "false"],
-    ["prod.actuals_supplies", actuals_supplies, "overwrite", "false"],
-    ["prod.demand", demand, "overwrite", "false"],
-    ["prod.ib", installed_base, "append", "true", ib_version],
-    ["prod.norm_shipments", norm_shipments, "append", "true", ib_version],
-    ["prod.working_forecast", ink_working_fcst, "append", "true", ink_wf_version],
-    ["prod.working_forecast", toner_working_fcst, "append", "true", toner_wf_version],
-    ["scen.toner_03_usage_share", toner_us, "overwrite", "false"],
-    ["scen.toner_06_mix_rate_final", toner_06_mix_rate_final, "overwrite", "false"],
-    ["stage.shm_base_helper", shm_base_helper, "overwrite", "false"],
-    ["supplies_fcst.ms4_v_canon_units_prelim", ms4_v_canon_units_prelim, "overwrite", "false"],
+    ["fin_prod.actuals_plus_forecast_financials", actuals_plus_forecast_financials, "overwrite", False],
+    ["fin_prod.stf_dollarization", stf_dollarization_df, "overwrite", False],
+    ["mdm.calendar", calendar_df, "overwrite", False],
+    ["mdm.iso_cc_rollup_xref", iso_cc_rollup_xref, "overwrite", False],
+    ["mdm.hardware_xref", hw_xref_df, "overwrite", False],
+    ["mdm.supplies_xref", supplies_xref, "overwrite", False],
+    ["prod.actuals_supplies", actuals_supplies, "overwrite", False],
+    ["prod.demand", demand, "overwrite", False],
+    ["prod.ib", installed_base, "append", ib_version],
+    ["prod.norm_shipments", norm_shipments, "append", ib_version],
+    ["prod.working_forecast", working_fcst, "append", wf_version],
+    [f"scen.{technology_label}_shm_base_helper", shm_base_helper, "overwrite", False],
+    ["supplies_fcst.ms4_v_canon_units_prelim", ms4_v_canon_units_prelim, "overwrite", False],
 ]
+
+if technology_label == 'toner':
+    test_tables += [
+        ["scen.toner_03_usage_share", toner_us, "overwrite", False],
+        ["scen.toner_06_mix_rate_final", toner_06_mix_rate_final, "overwrite", False]
+    ]
 
 # COMMAND ----------
 
@@ -214,7 +219,3 @@ for table in tables:
 # COMMAND ----------
 
 end_table_check = check_against_redshift(tables)
-
-# COMMAND ----------
-
-

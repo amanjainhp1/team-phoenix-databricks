@@ -61,7 +61,7 @@ SELECT record
     , MAX(version) AS version
 FROM prod.working_forecast
 WHERE 1=1
-    AND record = 'IE2-WORKING-FORECAST'
+    AND record = 'TONER-WORKING-FORECAST'
 GROUP BY record
 
 UNION ALL
@@ -109,7 +109,7 @@ query_list.append(["stage.pivots_lib_02_geo_mapping", geo_mapping, "overwrite"])
 
 # COMMAND ----------
 
-pivots_01_demand = """
+pivots_01_demand = f"""
 with pivots_t_19_hw_xref as (
     SELECT hw.platform_subset
         , hw.pl
@@ -149,7 +149,7 @@ JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = d.platform_subset
 WHERE 1=1
     AND d.measure IN ('HP_K_PAGES', 'HP_COLOR_PAGES', 'NON_HP_COLOR_PAGES', 'NON_HP_K_PAGES')
-    AND d.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+    AND d.cal_date BETWEEN '{pivots_start}' AND '{pivots_end}'
     AND d.version = (select MAX(version) from prod.demand)
 """
 
@@ -157,7 +157,7 @@ query_list.append(["stage.pivots_01_demand", pivots_01_demand, "overwrite"])
 
 # COMMAND ----------
 
-cartridge_mix = """
+cartridge_mix = f"""
 
 with pivots_t_19_hw_xref as (
     SELECT hw.platform_subset
@@ -218,14 +218,14 @@ JOIN pivots_t_19_hw_xref AS hw
 JOIN pivots_t_18_supplies_xref AS s
     ON s.base_product_number = mr.base_product_number
 WHERE 1=1
-    AND mr.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+    AND mr.cal_date BETWEEN '{pivots_start}' AND '{pivots_end}'
 """
 
 query_list.append(["stage.pivots_02_cartridge_mix", cartridge_mix, "overwrite"])
 
 # COMMAND ----------
 
-yield_pivots = """
+yield_pivots = f"""
 
 with pivots_t_04_yield_step_1 as (
     SELECT cast('YIELD' as varchar(32)) AS record
@@ -246,7 +246,7 @@ with pivots_t_04_yield_step_1 as (
         AND y.official =1
         AND y.geography_grain = 'REGION_5'
         AND c.day_of_month = 1
-        AND c.Date BETWEEN '2018-01-01' AND '2027-12-01'
+        AND c.Date BETWEEN '{pivots_start}' AND '{pivots_end}'
 ),  pivots_t_04b_yield_step_2 as (
     SELECT record
         , cal_date
@@ -284,7 +284,7 @@ query_list.append(["stage.pivots_03_yield", yield_pivots, "overwrite"])
 
 # COMMAND ----------
 
-usage = """
+usage = f"""
 SELECT 'USAGE_SHARE' AS record
     , us.cal_date
     , us.geography AS market10
@@ -305,7 +305,7 @@ WHERE 1=1
     AND us.geography_grain = 'MARKET10'
     AND NOT hw.product_lifecycle_status = 'E'
     AND hw.technology IN ('LASER')
-    AND us.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+    AND us.cal_date BETWEEN '{pivots_start}' AND '{pivots_end}'
 """
 query_list.append(["stage.pivots_04_usage", usage, "overwrite"])
 
@@ -609,7 +609,7 @@ query_list.append(["stage.pivots_11_pages_w_mktshr_kcmy", pages_w_mktshr_kcmy, "
 
 # COMMAND ----------
 
-supplies_pmf = """
+supplies_pmf = f"""
 
 SELECT 'SUPPLIES PMF' AS record
     , t.cal_date
@@ -625,7 +625,7 @@ JOIN stage.pivots_lib_01_filter_vars AS fv
     ON fv.record = t.record
     AND fv.version = t.version
 WHERE 1=1
-    AND t.cal_date BETWEEN '2018-01-01' AND '2027-12-01'
+    AND t.cal_date BETWEEN '{pivots_start}' AND '{pivots_end}'
 """
 
 query_list.append(["stage.pivots_12_supplies_pmf", supplies_pmf, "overwrite"])
@@ -877,7 +877,7 @@ query_list.append(["stage.pivots_15_units_pivot", units_pivot, "overwrite"])
 
 # COMMAND ----------
 
-working_forecast = """
+working_forecast = f"""
 
 with pivots_t_17_fiscal_calendar as (
     SELECT cal.date
@@ -888,7 +888,7 @@ with pivots_t_17_fiscal_calendar as (
     FROM mdm.calendar AS cal
     WHERE 1=1
         AND cal.day_of_month = 1
-        AND cal.fiscal_yr BETWEEN 2018 AND 2027
+        AND cal.fiscal_yr BETWEEN {pivots_start[0:4]} AND {pivots_end[0:4]}
 ),  pivots_t_19_hw_xref as (
 
     SELECT hw.platform_subset
@@ -995,9 +995,7 @@ query_list.append(["stage.pivots_17_wampv_prep", wampv_prep, "overwrite"])
 
 # COMMAND ----------
 
- combined = """
-
-
+combined = f"""
 with pivots_t_17_fiscal_calendar as (
     
     SELECT cal.date
@@ -1008,7 +1006,7 @@ with pivots_t_17_fiscal_calendar as (
     FROM mdm.calendar AS cal
     WHERE 1=1
         AND cal.day_of_month = 1
-        AND cal.fiscal_yr BETWEEN 2018 AND 2027
+        AND cal.fiscal_yr BETWEEN {pivots_start[0:4]} AND {pivots_end[0:4]}
 ),  pivots_t_19_hw_xref as (
 
     SELECT hw.platform_subset
@@ -2755,15 +2753,15 @@ query_list.append(["stage.pivots_18_combined", combined, "overwrite"])
 
 # COMMAND ----------
 
-toner_pivots_data_source = """
+toner_pivots_data_source = f"""
 
 SELECT
     -- filters
     record_type
     , record
-    , cast('2023-05' as varchar(64)) "cycle"
-    , cast('2023-05-07' as varchar(64)) begin_cycle_date
-    , cast('2023-05-07' as date) period_dt
+    , cast('{cycle_date[:-3]}' as varchar(64)) "cycle" -- e.g. 2023-05
+    , cast('{cycle_date}' as varchar(64)) begin_cycle_date -- e.g. 2023-05-07
+    , cast('{cycle_date}' as date) period_dt
     -- dates
     , month
     , fiscal_year_qtr

@@ -19,22 +19,47 @@
 
 # COMMAND ----------
 
-ib_version = '2023.03.23.1'
-us_version = '2023.03.28.1'
-
-toner_wf_version = '2023.04.11.1'
-ink_wf_version = '2023.02.09.1'
-wf_country_version = '2023.04.11.1'
+# create empty widgets for interactive sessions
+dbutils.widgets.text('technology', '')
+dbutils.widgets.text('installed_base_version', '')  # installed base version
+dbutils.widgets.text('usage_share_version', '')  # usage-share version
+dbutils.widgets.text('working_forecast_version', '')
+dbutils.widgets.text('pivots_start', '')
+dbutils.widgets.text('pivots_end', '')
+dbutils.widgets.text('cycle_date', '')
 
 # COMMAND ----------
+
+technology = dbutils.widgets.get('technology')
+
+ib_version = dbutils.widgets.get('installed_base_version')
+us_version = dbutils.widgets.get('usage_share_version')
+
+wf_version = dbutils.widgets.get('working_forecast_version')
+
+# COMMAND ----------
+
+# for labelling tables, laser/toner = toner, ink = ink
+# for filtering technologies, laser/toner = 'LASER', ink = 'INK/PWA'
+technology_label = ''
+technologies_list = ''
+if technology == 'ink':
+    technology_label = 'ink'
+    technologies_list = "'INK', 'PWA'"
+elif technology in ('laser', 'toner'):
+    technology_label = 'toner'
+    technologies_list = "'LASER'"
+
+# COMMAND ----------
+
+print('technology: ' + technology)
+print('technology_label: ' + technology_label)
+print('technologies_list: ' + technologies_list)
 
 print('ib_version: ' + ib_version)
 print('us_version: ' + us_version)
 
-print('toner_wf_version: ' + toner_wf_version)
-print('ink_wf_version: ' + ink_wf_version)
-
-print('wf_country_version: ' + wf_country_version)
+print('wf_version: ' + wf_version)
 
 # COMMAND ----------
 
@@ -65,10 +90,14 @@ print('iink_stf_month_end: ' + iink_stf_month_end)
 
 # COMMAND ----------
 
-pivots_start = '2018-01-01'
-pivots_end = '2027-12-01'
+pivots_start = dbutils.widgets.get('pivots_start')
+pivots_end = dbutils.widgets.get('pivots_end')
 
 # COMMAND ----------
 
 print('pivots_start: ' + pivots_start)
 print('pivots_end: ' + pivots_end)
+
+# COMMAND ----------
+cycle_date = dbutils.widgets.get('cycle_date')
+print('cycle_date: ' + cycle_date)
