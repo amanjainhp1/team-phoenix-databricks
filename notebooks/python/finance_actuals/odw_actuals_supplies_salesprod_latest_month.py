@@ -5936,7 +5936,7 @@ FROM odw_salesprod_with_country_detail3  AS act
 WHERE 1=1
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -6374,7 +6374,7 @@ SELECT
     SUM(other_cos * COALESCE(country_rev_mix, 0)) AS other_cos,
     SUM(total_cos * COALESCE(country_rev_mix, 0)) AS total_cos,
     SUM(revenue_units * COALESCE(country_unit_mix, 0)) AS revenue_units
-FROM salesprod_with_xcodes_apams AS sp
+FROM salesprod_with_xcodes_apams_not_drivers AS sp
 LEFT JOIN combined_mix_4_apams AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.pl = cd.pl)
 GROUP BY sp.cal_date, country_alpha2, sp.region_5, sp.pl, sales_product_number, ce_split
 """
