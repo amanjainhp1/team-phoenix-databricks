@@ -9,7 +9,7 @@ dbutils.widgets.text('run_vtc_and_adjusted_cartridges', '') # run notebook boole
 # exit notebook if task boolean is False, else continue
 notebook_run_parameter_label = 'run_vtc_and_adjusted_cartridges' 
 if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
-  dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
+    dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
 
 # COMMAND ----------
 
