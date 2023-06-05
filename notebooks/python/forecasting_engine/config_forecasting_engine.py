@@ -24,7 +24,6 @@ dbutils.widgets.text('technology', '')
 dbutils.widgets.text('installed_base_version', '')  # installed base version
 dbutils.widgets.text('usage_share_version', '')  # usage-share version
 dbutils.widgets.text('working_forecast_source_name', '')
-dbutils.widgets.text('working_forecast_version', '')
 dbutils.widgets.text('pivots_start', '')
 dbutils.widgets.text('pivots_end', '')
 dbutils.widgets.text('cycle_date', '')
