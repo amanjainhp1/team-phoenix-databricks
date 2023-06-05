@@ -4,14 +4,6 @@ from typing import List
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
 # MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
