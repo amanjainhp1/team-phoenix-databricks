@@ -56,4 +56,4 @@ write_df_to_redshift(configs, working_country, "prod.working_forecast_country", 
 # COMMAND
 
 # for subsequent tasks pass args via task values
-dbutils.jobs.taskValues.set(key="wf_country_version", value=addversion_info[1])
+dbutils.jobs.taskValues.set(key="working_forecast_country_version", value=addversion_info[1])

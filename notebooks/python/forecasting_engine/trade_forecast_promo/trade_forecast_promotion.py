@@ -47,4 +47,4 @@ SELECT
 FROM stage.trade_forecast_staging AS trade
 """)
 
-write_df_to_redshift(configs, trade_forecast_promo, "prod.trade_forecast", "append")
+write_df_to_redshift(configs=configs, df=trade_forecast_promo, destination="prod.trade_forecast", mode="append")

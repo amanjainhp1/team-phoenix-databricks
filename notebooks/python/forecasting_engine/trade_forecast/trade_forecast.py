@@ -18,7 +18,8 @@
 # COMMAND ----------
 
 # retrieve wf_version from previous working_forecast_country_promo task
-wf_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_country_promo", key="wf_country_version")
+working_forecast_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_country_promo", key="working_forecast_version")
+working_forecast_country_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_country_promo", key="working_forecast_country_version")
 
 # COMMAND ----------
 
@@ -86,7 +87,7 @@ trade_01_common = spark.sql("""
     WHERE 1=1
         AND record = 'WORKING_FORECAST_COUNTRY'
     GROUP BY record
-""".format(wf_version, wf_country_version))
+""".format(working_forecast_version, working_forecast_country_version))
     
 trade_01_common.createOrReplaceTempView("trade_01_filter_vars")
 

@@ -23,6 +23,7 @@
 dbutils.widgets.text('technology', '')
 dbutils.widgets.text('installed_base_version', '')  # installed base version
 dbutils.widgets.text('usage_share_version', '')  # usage-share version
+dbutils.widgets.text('working_forecast_source_name', '')
 dbutils.widgets.text('working_forecast_version', '')
 dbutils.widgets.text('pivots_start', '')
 dbutils.widgets.text('pivots_end', '')
@@ -35,7 +36,7 @@ technology = dbutils.widgets.get('technology')
 ib_version = dbutils.widgets.get('installed_base_version')
 us_version = dbutils.widgets.get('usage_share_version')
 
-wf_version = dbutils.widgets.get('working_forecast_version')
+working_forecast_source_name = dbutils.widgets.get('working_forecast_source_name')
 
 # COMMAND ----------
 
@@ -59,7 +60,7 @@ print('technologies_list: ' + technologies_list)
 print('ib_version: ' + ib_version)
 print('us_version: ' + us_version)
 
-print('wf_version: ' + wf_version)
+print('working_forecast_source_name: ' + wf_version)
 
 # COMMAND ----------
 
