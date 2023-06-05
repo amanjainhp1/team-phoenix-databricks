@@ -106,3 +106,39 @@ s3 = boto3.resource('s3')
 s3.Object('dataos-core-prod-team-phoenix', new_location).copy_from(CopySource='dataos-core-prod-team-phoenix/' + file_to_delete)
 s3.Object('dataos-core-prod-team-phoenix',file_to_delete).delete()
 
+
+# COMMAND ----------
+
+# pull the data from the stage table and do a little bit of ETL
+mps_card_query = """
+SELECT
+    c.date as cal_date,
+    coalesce(left(a."country code",2), b.country_alpha2) as country_alpha2,
+    "prod nb" as product_number,
+    CAST("lc amount" as decimal(18,2)) as lc_amount,
+    CAST("$ amount" as decimal(18,2)) as usd_amount,
+    currency,
+    "business model" as rtm,
+    a."billing model" as billing_model,
+    left("business area",2) as pl,
+    a.load_date,
+    a.version
+FROM stage.mps_card_revenue_stage a
+    LEFT JOIN mdm.iso_cc_rollup_xref b on a.country=b.country_level_1
+        AND b.country_scenario = 'MPS_CARD'
+    LEFT JOIN mdm.calendar c on a."billing month" = left(c.date_key,6)
+        AND c.day_of_month = 1
+WHERE 1=1
+    AND "$ amount" IS NOT NULL
+ORDER BY 2,3,1,5
+"""
+
+# execute query from stage table
+mps_card_records = read_redshift_to_df(configs) \
+    .option("query", mps_card_query) \
+    .load()
+
+# COMMAND ----------
+
+# write the data to fin_prod database
+write_df_to_redshift(configs, mps_card_records, "fin_prod.mps_card_revenue", "overwrite")
