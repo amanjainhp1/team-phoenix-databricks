@@ -5,11 +5,11 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../common/configs
+# MAGIC %run ./common/configs
 
 # COMMAND ----------
 
-# MAGIC %run ../common/database_utils
+# MAGIC %run ./common/database_utils
 
 # COMMAND ----------
 
