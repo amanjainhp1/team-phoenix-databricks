@@ -36,6 +36,7 @@ SELECT DISTINCT
 	  UPPER(record)
 	, UPPER(RIGHT(record, 16)) as record_name
 FROM f_report_units
+WHERE record not like 'OUTLOOK%'
 """)
 
 # COMMAND ----------
