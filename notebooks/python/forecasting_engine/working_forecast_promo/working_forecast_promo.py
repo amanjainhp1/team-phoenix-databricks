@@ -74,8 +74,8 @@ SELECT
 FROM scen.{technology_label}_working_fcst
 """
 
-read_stage_write_prod(input=["working_forecast", working_forecast_query], technology_label=technology_label, working_forecast_source_name=working_forecast_source_name)
+working_forecast_version = read_stage_write_prod(input=["working_forecast", working_forecast_query], technology_label=technology_label, working_forecast_source_name=working_forecast_source_name)[0]
 
 # COMMAND ----------
 
-dbutils.jobs.taskValues.set(key="working_forecast_version", value=addversion_info[1])
+dbutils.jobs.taskValues.set(key="working_forecast_version", value=working_forecast_version)
