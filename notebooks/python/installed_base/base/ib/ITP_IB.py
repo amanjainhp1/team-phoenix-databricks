@@ -26,7 +26,7 @@ SELECT record
     , split_name
     , ib.platform_subset
     , printer_installs
-    , ib
+    , ib::float8
 FROM "stage"."rtm_ib_staging" AS ib
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ib.platform_subset
@@ -48,7 +48,7 @@ WHERE 1=1
     , 'I_TONER' AS split_name
     , ites.platform_subset
     , 0 AS printer_installs
-    , COALESCE(cumulative_enrollees,0) AS ib
+    , COALESCE(cumulative_enrollees::float8,0) AS ib
 FROM "stage"."instant_toner_enrollees_stf" AS ites
 JOIN "mdm"."hardware_xref" AS hw
     ON ites.platform_subset = hw.platform_subset
@@ -67,7 +67,7 @@ UNION ALL
     , 'I_TONER' AS split_name
     , itel.platform_subset
     , 0 AS printer_installs
-    , COALESCE(cumulative_enrollees,0) AS ib
+    , COALESCE(cumulative_enrollees::float8,0) AS ib
 FROM "stage"."instant_toner_enrollees_ltf" AS itel
 JOIN "mdm"."hardware_xref" AS hw
     ON itel.platform_subset = hw.platform_subset
@@ -97,9 +97,29 @@ LEFT JOIN stf_ltf_union itp
 )
 -- combine TRAD and I_TONER
 , final as  (
-select * from stf_ltf_union
-union all 
+
 select * from trad_ib
+union all 
+select  
+      stf_ltf.record
+    , stf_ltf.version
+    , stf_ltf.load_date
+    , stf_ltf.month_begin
+    , stf_ltf.geography_grain
+    , stf_ltf.geography
+    , stf_ltf.country_alpha2
+    , stf_ltf.hps_ops
+    , stf_ltf.technology
+    , stf_ltf.split_name
+    , stf_ltf.platform_subset
+    , stf_ltf.printer_installs
+    , stf_ltf.ib
+from stf_ltf_union stf_ltf 
+join trad_ib trad 
+  ON trad.month_begin = stf_ltf.month_begin
+    AND trad.country_alpha2 = stf_ltf.country_alpha2
+    AND trad.platform_subset = stf_ltf.platform_subset
+
 )
 select * from final"""
 
