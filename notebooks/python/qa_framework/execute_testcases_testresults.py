@@ -43,6 +43,11 @@ print(s3_bucket1)
 
 # COMMAND ----------
 
+username=dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
+print(username)
+
+# COMMAND ----------
+
 #load testcases data into df
 read_testcases_data = read_redshift_to_df(configs).option("query", "SELECT * FROM stage.test_cases where enabled=1").load()
 
@@ -157,6 +162,11 @@ filtered_test_cases.show()
 
 # COMMAND ----------
 
+dbutils.widgets.text("notification_email","swati.gutgutia@hp.com")
+
+
+# COMMAND ----------
+
 #truncate test results table to be truncated at the start of every month 
 #truncate_testresults_table_query =f""" TRUNCATE TABLE stage.test_results;"""
 #submit_remote_query(configs,truncate_testresults_table_query )
@@ -186,7 +196,7 @@ for row in data_collect:
     test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
     print(test_result_detail_df.count())
     results=0
-    if test_result_detail_df.count()<1000:
+    if test_result_detail_df.count()<500:
         results = test_result_detail_df.toPandas().to_json(orient='records')
     print(results)
     #test_result_detail=test_result_detail_df.first()['count']
@@ -195,7 +205,7 @@ for row in data_collect:
     insert_test_result= f""" INSERT INTO stage.test_results
     (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id)
     VALUES
-    ('{testcase_id}','',getdate(),'admin','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
+    ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
     submit_remote_query(configs,insert_test_result ) # insert into test result table
     if test_result_detail_df.count()>1:
         insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
@@ -203,12 +213,12 @@ for row in data_collect:
         VALUES
         ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{results}');"""
         submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
-    #if test_result_detail_df.count()>=1000:
-     #   s3_output_bucket = s3_bucket1+"QA Framework/test_results/"
+    if test_result_detail_df.count()>=1000:
+        s3_output_bucket = s3_bucket1+"QA Framework/test_results/"
         #+{testcase_module}+"/"+{testcase_cat}
         #s3_output_bucket=s3_bucket+"/QA Framework/"+testcase_module+testcase_cat+"_detail"
-      #  print(s3_output_bucket)
-       # write_df_to_s3(test_result_detail_df, s3_output_bucket, "parquet", "append")
+        print(s3_output_bucket)
+        write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")
 
 # COMMAND ----------
 
@@ -249,19 +259,23 @@ critical_cases_df.display()
 
 # COMMAND ----------
 
+send_to_email=dbutils.widgets.get("notification_email")
+
+# COMMAND ----------
+
 if low_cases_df.count()>=1:
     subject='QA Framework - Low Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+low_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
 if medium_cases_df.count()>=1:
     subject='QA Framework - Medium Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+medium_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
 
 # COMMAND ----------
 
 if critical_cases_df.count()>=1:
     subject='QA Framework - Critical Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'The notebook will exit. Please investigate the issues'+'\n'+ critical_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
     dbutils.notebook.exit(json.dumps(subject))
