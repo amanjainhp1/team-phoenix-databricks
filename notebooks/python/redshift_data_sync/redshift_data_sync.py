@@ -74,7 +74,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         cur.close()
     except Exception as error:
         print (f"prod|An exception has occured while attempting to retrieve column names of {schema}.{table}:", error)
-        print (f"{destination_env}|Exception Type:", type(error))
+        print (f"prod|Exception Type:", type(error))
         raise Exception(error)
 
     try:
@@ -84,7 +84,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
     except Exception as error:
         print (f"prod|An exception has occured while attempting to unload {schema}.{table}:", error)
-        print (f"{destination_env}|Exception Type:", type(error))
+        print (f"prod|Exception Type:", type(error))
         raise Exception(error)
 
 # Retrieve ddl
@@ -213,7 +213,7 @@ def main():
         tables = dbutils.widgets.get('tables') \
             .lower() \
             .split(',')
-        tables = replace_invalid_characters(list_of_strings=tables, string_pattern='[^0-9a-zA-Z.]+')
+        tables = replace_invalid_characters(list_of_strings=tables, string_pattern='[^0-9a-zA-Z._]+')
 
     # Retrieve credentials for each env
     credentials = {env:retrieve_credentials(env) for env in destination_envs}
