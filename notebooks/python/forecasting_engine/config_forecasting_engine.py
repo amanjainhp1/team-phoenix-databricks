@@ -59,7 +59,7 @@ print('technologies_list: ' + technologies_list)
 print('ib_version: ' + ib_version)
 print('us_version: ' + us_version)
 
-print('working_forecast_source_name: ' + wf_version)
+print('working_forecast_source_name: ' + working_forecast_source_name)
 
 # COMMAND ----------
 
