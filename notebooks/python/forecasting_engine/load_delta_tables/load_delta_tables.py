@@ -118,7 +118,7 @@ installed_base = read_redshift_to_df(configs) \
     .load()
 
 working_fcst = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast where version = '{}' and record = '{}-WORKING-FORECAST'".format(wf_version, technology_label)) \
+    .option("query", "select * from prod.working_forecast where version = '{}' and record = '{}-WORKING-FORECAST'".format(working_forecast_version, technology_label)) \
     .load()
 
 norm_shipments = read_redshift_to_df(configs) \
