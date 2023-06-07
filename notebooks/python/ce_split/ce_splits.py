@@ -29,28 +29,13 @@ def get_data_by_table(table):
 
 # COMMAND ----------
 
-## Get SFAI ce_splits_override data into redshift
-
-f_report_units_query = """
-SELECT *
-FROM ie2_landing.dbo.ce_splits_override_landing
-"""
-
-f_report_units = read_sql_server_to_df(configs) \
-    .option("query", f_report_units_query) \
-    .load()
-
-write_df_to_redshift(configs, f_report_units, "stage.ce_splits_override", "overwrite")
-
-# COMMAND ----------
-
 max_version_info = call_redshift_addversion_sproc(configs, 'CE_SPLITS_I-INK', 'FORECASTER INPUT')
 
 # COMMAND ----------
 
 ## Reading source tables from redshit
 instant_ink_enrollees = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM prod.instant_ink_enrollees") \
+    .option("query", f"SELECT * FROM prod.instant_ink_enrollees_stf") \
     .load()
 hardware_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.hardware_xref") \
@@ -59,7 +44,7 @@ iso_country_code_xref = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.iso_country_code_xref") \
     .load()
 ce_splits_override = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM stage.ce_splits_override") \
+    .option("query", f"SELECT * FROM prod.ce_splits_override") \
     .load()
 calendar = read_redshift_to_df(configs) \
     .option("query", f"SELECT * FROM mdm.calendar") \
@@ -72,12 +57,12 @@ norm_shipments = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
-  ['prod.instant_ink_enrollees' , instant_ink_enrollees],
+  ['prod.instant_ink_enrollees_stf' , instant_ink_enrollees],
   ['mdm.hardware_xref' , hardware_xref],
   ['mdm.calendar' , calendar],
   ['mdm.iso_country_code_xref' , iso_country_code_xref],
   ['prod.norm_shipments' , norm_shipments],
-  ['stage.ce_splits_override', ce_splits_override]
+  ['prod.ce_splits_override', ce_splits_override]
 ]
 
 for table in tables:
@@ -116,14 +101,14 @@ query = '''
         , i.country
         , CASE WHEN c.developed_emerging = 'DEVELOPED' THEN 'DM' WHEN c.developed_emerging = 'EMERGING' THEN 'EM' END em_dm
         , 'I-INK' business_model
-        , year_month
+        , cal_date year_month
         , 'I-INK' split_name 
         , 'PRE' pre_post_flag
         , CASE WHEN
-                SUM(printer_sell_out_units) OVER(PARTITION BY platform_subset, i.country ORDER BY year_month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) <= 0 THEN 0 
-                ELSE cum_enrollees_month/SUM(printer_sell_out_units) OVER(PARTITION BY platform_subset,i.country ORDER BY year_month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) 
+                SUM(hw_sellto) OVER(PARTITION BY platform_subset, i.country ORDER BY cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) <= 0 THEN 0 
+                ELSE cumulative_enrollees/SUM(hw_sellto) OVER(PARTITION BY platform_subset,i.country ORDER BY cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) 
                 END AS ce_split 
-    FROM  instant_ink_enrollees_df_view i
+    FROM  instant_ink_enrollees_stf_df_view i
     LEFT JOIN iso_country_code_xref_df_view c 
     ON c.country_alpha2 = i.country
     WHERE i.official = 1 
@@ -137,14 +122,14 @@ query = '''
         , i.country
         , CASE WHEN c.developed_emerging = 'DEVELOPED' THEN 'DM' WHEN c.developed_emerging = 'EMERGING' THEN 'EM' END em_dm
         , 'I-INK' business_model
-        , year_month
+        , cal_date year_month
         , 'TRAD' split_name 
         , 'PRE' pre_post_flag
         , CASE WHEN
-            SUM(printer_sell_out_units) OVER(PARTITION BY platform_subset, i.country ORDER BY year_month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) <= 0 THEN 0
-            ELSE 1 - cum_enrollees_month/SUM(printer_sell_out_units) OVER(PARTITION BY platform_subset,i.country ORDER BY year_month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+            SUM(hw_sellto) OVER(PARTITION BY platform_subset, i.country ORDER BY cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) <= 0 THEN 0
+            ELSE 1 - cumulative_enrollees/SUM(hw_sellto) OVER(PARTITION BY platform_subset,i.country ORDER BY cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
             END AS ce_split
-    FROM  instant_ink_enrollees_df_view i
+    FROM  instant_ink_enrollees_stf_df_view i
     LEFT JOIN iso_country_code_xref_df_view c
     ON c.country_alpha2 = i.country
     WHERE i.official = 1  
@@ -207,8 +192,8 @@ ce_greater_one.createOrReplaceTempView("ce_greater_one_df_view")
 # MAGIC   AND d.split_name = 'TRAD'
 # MAGIC WHEN MATCHED THEN UPDATE
 # MAGIC set d.ce_split = 0;
-# MAGIC 
-# MAGIC 
+# MAGIC
+# MAGIC
 # MAGIC UPDATE stage.initial_ce_split SET ce_split = 1 WHERE ce_split > 1 and split_name = 'I-INK'
 
 # COMMAND ----------
@@ -419,6 +404,9 @@ SELECT
     , split_name
     , pre_post_flag
     , value
+    , 1 active
+    ,'1900-01-01 00:00:00.000' active_at
+    ,'1900-01-01 00:00:00.000' inactive_at
 FROM npi_plus_enrolles_ce_splits_view
 
 UNION
@@ -434,6 +422,9 @@ SELECT
     , split_name
     , pre_post_flag
     , value
+    , 1 active
+    ,'1900-01-01 00:00:00.000' active_at
+    ,'1900-01-01 00:00:00.000' inactive_at
 FROM ce_future_view
 '''
 
@@ -444,10 +435,10 @@ final_ce.createOrReplaceTempView('final_ce_view')
 
 final_ce = final_ce \
     .select('record', 'platform_subset', 'region_5', 'country_alpha2', 'em_dm', 'business_model',
-            'month_begin', 'split_name', 'pre_post_flag', 'value') \
-    .withColumn('official', f.lit(1)) \
+            'month_begin', 'split_name', 'pre_post_flag', 'value', 'active' , 'active_at', 'inactive_at') \
     .withColumn('load_date', f.lit(max_version_info[1])) \
-    .withColumn('version', f.lit(max_version_info[0]))
+    .withColumn('version', f.lit(max_version_info[0])) \
+    .withColumn('official', f.lit(1))
 
 # COMMAND ----------
 
@@ -473,7 +464,7 @@ write_df_to_redshift(configs, final_ce, "prod.ce_splits", "append")
 query = '''
 delete from prod.ce_splits 
 where platform_subset in (
-select distinct platform_subset from stage.ce_splits_override where official = 1)
+select distinct platform_subset from prod.ce_splits_override where official = 1)
 and official = 1
 '''
 
@@ -482,17 +473,17 @@ submit_remote_query(configs , query)
 # COMMAND ----------
 
 ce_splits_override = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM stage.ce_splits_override where official = 1") \
+    .option("query", f"SELECT * FROM prod.ce_splits_override where official = 1") \
     .load()
 
 # COMMAND ----------
 
 ce_splits_override = ce_splits_override \
     .select('record', 'platform_subset', 'region_5', 'country_alpha2', 'em_dm', 'business_model',
-            'month_begin', 'split_name', 'pre_post_flag', 'value') \
-    .withColumn('official', f.lit(1)) \
+            'month_begin', 'split_name', 'pre_post_flag', 'value', 'active' , 'active_at', 'inactive_at') \
     .withColumn('load_date', f.lit(max_version_info[1])) \
-    .withColumn('version', f.lit(max_version_info[0]))
+    .withColumn('version', f.lit(max_version_info[0])) \
+    .withColumn('official', f.lit(1))
 
 # COMMAND ----------
 
