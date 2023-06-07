@@ -69,6 +69,8 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         # Retrieve all columns except those with identity type
         cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_schema='{schema}' AND table_name='{table}' AND (column_default NOT LIKE '%identity%' OR column_default IS NULL) ORDER BY ordinal_position asc")
         data = cur.fetchall()
+        if len(data) == 0:
+            raise Exception(f"Unable to retrieve table information for {schema}.{table}. Check DDL.")
         col_list = [row[0] for row in data]
         select_statement = "SELECT " + ", ".join(col_list) + f" FROM {schema}.{table}"
         cur.close()
