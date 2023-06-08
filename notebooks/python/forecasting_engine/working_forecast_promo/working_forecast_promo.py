@@ -54,7 +54,7 @@ def read_stage_write_prod(input: List[str], technology_label: str, working_forec
 
 working_forecast_query = f"""
 SELECT 
-    f'{technology_label.upper()}-WORKING-FORECAST' AS record
+    '{technology_label.upper()}-WORKING-FORECAST' AS record
     , CAST(cal_date AS DATE) cal_date
     , geography_grain
     , geography
