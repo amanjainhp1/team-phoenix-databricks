@@ -614,7 +614,6 @@ SELECT acts.geography
     , acts.vtc
     , acts.ctry_ce_crgs AS cartridges
     , acts.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
-    , '{technology_label.upper()}' AS technology
 FROM ctry_04_adj_hist_mix_2 AS acts
 
 UNION ALL
@@ -628,7 +627,6 @@ SELECT fcst.geography
     , fcst.vtc
     , fcst.ctry_ce_crgs AS cartridges
     , fcst.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
-    , '{technology.upper()}' AS technology
 FROM ctry_13_adj_fcst_ctry_mix AS fcst
 """)
 
