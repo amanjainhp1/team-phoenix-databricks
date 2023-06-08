@@ -2861,7 +2861,7 @@ WHERE Prod_Line IN
         OR PL IN ('GO', 'GN', 'IE')
     ) 
     AND Fiscal_Yr > '2015' AND Day_of_Month = 1
-    AND cal.Date < '2021-11-01'
+    AND cal.Date < '2022-01-01'
 GROUP BY cal.Date, country, direct_or_indirect_sf, Product_Nbr, Prod_Line, category
 """
 
@@ -2937,7 +2937,7 @@ SELECT
     sales_product_number,
     direct_units,
         (select min(cal_date) from mps_direct) as min_cal_date,
-        (select max(cal_date) from mps_direct) as max_cal_date
+        (select distinct '2021-12-01' from mps_direct) as max_cal_date
 FROM mps_direct
 """
 
@@ -3047,6 +3047,7 @@ LEFT JOIN mdm.rdma_base_to_sales_product_map rdma
     ON rdma.sales_product_number = mps.sales_product_number
 WHERE 1=1
 AND sales_product_line_code is not null
+AND cal_date < '2021-11-01'
 GROUP BY cal_date, country_alpha2, mps.sales_product_number, sales_product_line_code
 """
 
