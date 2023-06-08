@@ -9,7 +9,7 @@ from typing import List
 # COMMAND ----------
 
 # generate a uuid to uniquely identify the record set
-guid = str(uuid.uuid4())
+guid = str(uuid.uuid4()).upper()
 
 # COMMAND ----------
 
@@ -54,7 +54,7 @@ def read_stage_write_prod(input: List[str], technology_label: str, working_forec
 
 working_forecast_query = f"""
 SELECT 
-    record
+    f'{technology_label.upper()}-WORKING-FORECAST' AS record
     , CAST(cal_date AS DATE) cal_date
     , geography_grain
     , geography
