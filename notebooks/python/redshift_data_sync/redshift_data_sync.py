@@ -69,12 +69,14 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         # Retrieve all columns except those with identity type
         cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_schema='{schema}' AND table_name='{table}' AND (column_default NOT LIKE '%identity%' OR column_default IS NULL) ORDER BY ordinal_position asc")
         data = cur.fetchall()
+        if len(data) == 0:
+            raise Exception(f"Unable to retrieve table information for {schema}.{table}. Check DDL.")
         col_list = [row[0] for row in data]
         select_statement = "SELECT " + ", ".join(col_list) + f" FROM {schema}.{table}"
         cur.close()
     except Exception as error:
         print (f"prod|An exception has occured while attempting to retrieve column names of {schema}.{table}:", error)
-        print (f"{destination_env}|Exception Type:", type(error))
+        print (f"prod|Exception Type:", type(error))
         raise Exception(error)
 
     try:
@@ -84,7 +86,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
     except Exception as error:
         print (f"prod|An exception has occured while attempting to unload {schema}.{table}:", error)
-        print (f"{destination_env}|Exception Type:", type(error))
+        print (f"prod|Exception Type:", type(error))
         raise Exception(error)
 
 # Retrieve ddl
@@ -213,7 +215,7 @@ def main():
         tables = dbutils.widgets.get('tables') \
             .lower() \
             .split(',')
-        tables = replace_invalid_characters(list_of_strings=tables, string_pattern='[^0-9a-zA-Z.]+')
+        tables = replace_invalid_characters(list_of_strings=tables, string_pattern='[^0-9a-zA-Z._]+')
 
     # Retrieve credentials for each env
     credentials = {env:retrieve_credentials(env) for env in destination_envs}
