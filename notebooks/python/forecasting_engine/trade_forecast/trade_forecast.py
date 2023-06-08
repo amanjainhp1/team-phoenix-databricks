@@ -10,7 +10,7 @@
 # COMMAND ----------
 
 # retrieve wf_version from previous working_forecast_country_promo task
-working_forecast_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_country_promo", key="working_forecast_version")
+working_forecast_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_promo", key="working_forecast_version")
 working_forecast_country_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_country_promo", key="working_forecast_country_version")
 
 # COMMAND ----------
@@ -20,8 +20,8 @@ SELECT *
 FROM prod.working_forecast_country
 WHERE 1=1
     AND version = '{}'
-    AND technology = '{}'
-""".format(wf_country_version, technology)
+    AND record = '{}'
+""".format(working_forecast_country_version, f'{technology_label.upper()}_WORKING_FORECAST_COUNTRY')
 
 wf_country = read_redshift_to_df(configs) \
     .option("query", wf_country_query) \
@@ -33,7 +33,7 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 

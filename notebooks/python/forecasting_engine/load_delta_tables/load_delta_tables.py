@@ -15,6 +15,10 @@
 
 # COMMAND ----------
 
+working_forecast_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_promo", key="working_forecast_version")
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC 
 # MAGIC ## Data Check Function
@@ -26,6 +30,16 @@ if dbutils.widgets.get('load_delta_tables').lower().strip() != 'true':
 
 # COMMAND ----------
 
+# inner function to check if delta table exists
+def delta_table_exists(table_name: str) -> bool:
+    delta_exists = False
+    try:
+        delta_df = spark.read.table(table_name)
+        delta_exists = True
+    except Exception as error:
+        print(table_name + " delta table does not exist.")
+    return delta_exists
+
 # compare Redshift table to Delta table
 # if row counts do not match,
 def check_against_redshift(test_tables: list) -> list:
@@ -36,14 +50,18 @@ def check_against_redshift(test_tables: list) -> list:
         mode = table[2]
         version = table[3]
 
-        if not version:
-            row_count = spark.read.table(table_name)
-            if row_count.count() == df.count():
+        if not delta_table_exists(table_name):
+            tables.append(table)
+            continue
+
+        # check if loading full table or single version (i.e. YYYY.MM.DD.N or False) 
+        if not version:                
+            if spark.read.table(table_name).count() == df.count():
                 print(table_name + " row counts match.")
             else:
                 spark.sql("DROP TABLE IF EXISTS " + table[0])
                 print(table_name + " row counts do not match. Table dropped.")
-                tables.append([table_name, df, mode])
+                tables.append(table)
         else:
             version_list = spark.read.table(table_name) \
                 .select('version') \
@@ -53,7 +71,7 @@ def check_against_redshift(test_tables: list) -> list:
                 print(table_name + " version exists.")
             else:
                 print(table_name + " version does not exist.")
-                tables.append([table_name, df, mode])
+                tables.append(table)
     
     return tables
 
@@ -125,6 +143,10 @@ norm_shipments = read_redshift_to_df(configs) \
     .option("query", "select * from  prod.norm_shipments where version='{}'".format(ib_version)) \
     .load()
 
+version = read_redshift_to_df(configs) \
+    .option("dbtable", "prod.version") \
+    .load()
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -141,28 +163,8 @@ toner_06_mix_rate_final = read_redshift_to_df(configs) \
     .option("dbtable", "scen.toner_06_mix_rate_final") \
     .load()
 
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Stage
-
-# COMMAND ----------
-
 shm_base_helper = read_redshift_to_df(configs) \
     .option("dbtable", f"scen.{technology_label}_shm_base_helper") \
-    .load()
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC 
-# MAGIC ## Supplies Fcst
-
-# COMMAND ----------
-
-ms4_v_canon_units_prelim = read_redshift_to_df(configs)\
-    .option("dbtable", "supplies_fcst.odw_canon_units_prelim_vw")\
     .load()
 
 # COMMAND ----------
@@ -184,9 +186,9 @@ test_tables = [
     ["prod.demand", demand, "overwrite", False],
     ["prod.ib", installed_base, "append", ib_version],
     ["prod.norm_shipments", norm_shipments, "append", ib_version],
-    ["prod.working_forecast", working_fcst, "append", wf_version],
+    ["prod.working_forecast", working_fcst, "append", working_forecast_version],
     [f"scen.{technology_label}_shm_base_helper", shm_base_helper, "overwrite", False],
-    ["supplies_fcst.ms4_v_canon_units_prelim", ms4_v_canon_units_prelim, "overwrite", False],
+    ["prod.version", version, "overwrite", False]
 ]
 
 if technology_label == 'toner':

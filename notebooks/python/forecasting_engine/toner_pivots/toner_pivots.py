@@ -2488,7 +2488,7 @@ SELECT 'SUPPLIES FC/ACTUALS' AS record_type
     , SUM(0) AS hp_sell_in_pages_kcmy
     , SUM(0) AS hp_sell_in_pages_k_only
 
-FROM supplies_fcst.odw_canon_units_prelim_vw AS c  -- TODO locate VIEW IN Redshift 
+FROM fin_prod.odw_canon_units_prelim_vw AS c  -- TODO locate VIEW IN Redshift 
 JOIN pivots_t_17_fiscal_calendar AS f
     ON f.date = c.cal_date
 LEFT JOIN pivots_t_18_supplies_xref AS s
@@ -2847,4 +2847,4 @@ query_list.append(["stage.toner_pivots_data_source", toner_pivots_data_source, "
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+# MAGIC %run "../common/output_to_redshift" $query_list=query_list

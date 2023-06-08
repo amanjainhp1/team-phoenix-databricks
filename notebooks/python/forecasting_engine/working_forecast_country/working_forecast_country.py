@@ -22,7 +22,7 @@
 # COMMAND ----------
 
 working_forecast = read_redshift_to_df(configs) \
-    .option("dbtable", f"scen.{technology}_working_forecast") \
+    .option("dbtable", f"scen.{technology_label}_working_fcst") \
     .load()
 
 # COMMAND ----------
@@ -628,16 +628,17 @@ SELECT fcst.geography
     , fcst.vtc
     , fcst.ctry_ce_crgs AS cartridges
     , fcst.ctry_ce_mvtc_crgs AS mvtc_adjusted_crgs
-    , '{technology_label.upper()}' AS technology
+    , '{technology.upper()}' AS technology
 FROM ctry_13_adj_fcst_ctry_mix AS fcst
 """)
 
+ctry_14.cache()
 ctry_14.createOrReplaceTempView("c2c_adj_country_pf_split")
 
 # COMMAND ----------
 
-spark.sql("""select count(*) from c2c_adj_country_pf_split""").show()
+ctry_14.count()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs=configs, df=ctry_14, destination=f"scen.working_forecast_country", mode="append", preactions=f"DELETE FROM TABLE scen.working_forecast_country WHERE technology = '{technology}'")
+write_df_to_redshift(configs=configs, df=ctry_14, destination=f"scen.{technology_label}_working_forecast_country", mode="overwrite")
