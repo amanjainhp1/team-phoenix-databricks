@@ -2968,7 +2968,7 @@ from supplies_mps_full_calendar_cross_join mps
 left join supplies_mps_analytic_setup setup on
     mps.cal_date = setup.cal_date and
     mps.country_alpha2 = setup.country_alpha2 and
-    mps.sales_product_number = setup.sales_product_number and
+    mps.sales_product_number = setup.sales_product_number
 """
 
 fill_gap1 = spark.sql(fill_gap1)
@@ -3039,19 +3039,39 @@ mps_data_lagged_pl = f"""
 SELECT
     cal_date,
     country_alpha2,
-    sales_product_line_code as pl
-    sales_product_number,
+    sales_product_line_code as pl,
+    mps.sales_product_number,
     SUM(lagged_direct_ships) AS lagged_direct_ships
 FROM mps_data_lagged mps
 LEFT JOIN mdm.rdma_base_to_sales_product_map rdma
     ON rdma.sales_product_number = mps.sales_product_number
 WHERE 1=1
 AND sales_product_line_code is not null
-GROUP BY cal_date, country_alpha2, sales_product_number, sales_product_line_code
+GROUP BY cal_date, country_alpha2, mps.sales_product_number, sales_product_line_code
 """
 
-mps_data_lagged = spark.sql(mps_data_lagged)
-mps_data_lagged.createOrReplaceTempView("mps_data_lagged")
+mps_data_lagged_pl = spark.sql(mps_data_lagged_pl)
+mps_data_lagged_pl.createOrReplaceTempView("mps_data_lagged_pl")
+
+
+mps_data_lagged_pl2 = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    CASE
+        WHEN pl = '65' THEN 'HF'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
+    sales_product_number,
+    SUM(lagged_direct_ships) AS lagged_direct_ships
+FROM mps_data_lagged_pl
+GROUP BY cal_date, country_alpha2, sales_product_number, pl
+"""
+
+mps_data_lagged_pl2 = spark.sql(mps_data_lagged_pl2)
+mps_data_lagged_pl2.createOrReplaceTempView("mps_data_lagged_pl2")
 
 
 salesprod_join_mps_direct_units_only = f"""
@@ -3079,12 +3099,7 @@ GROUP BY cal_date,
  SELECT 
     cal_date,
     country_alpha2,
-    CASE
-        WHEN pl = 'EO' THEN 'GL'
-        WHEN pl = 'GM' THEN 'K6'
-        WHEN pl = '65' THEN 'HF'
-    ELSE pl
-    END AS pl,
+    pl,
     sales_product_number, 
     'EST_DIRECT_FULFILLMENT' AS ce_split,   
     0 AS gross_revenue,
@@ -3094,7 +3109,7 @@ GROUP BY cal_date,
     0 AS warranty,
     0 AS total_cos,
     SUM(lagged_direct_ships) AS revenue_units
-FROM mps_data_lagged_pl
+FROM mps_data_lagged_pl2
 GROUP BY cal_date,
     country_alpha2,
     pl,
