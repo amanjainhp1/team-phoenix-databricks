@@ -27,7 +27,11 @@
             "forecast_variable_cost_toner_vw",
             "forecast_variable_cost_ink_vw",
             "forecast_fixed_cost_input_vw",
-            "act_plus_fcst_financials_vw"
+            "act_plus_fcst_financials_vw",
+            "list_price_filtered_vw",
+            "fourbox_vw",
+            "currency_hedge_vw",
+            "v_finance_forecast_pl",
         ],
         "ib": [
             "decay_vw",
@@ -36,7 +40,11 @@
             "norm_shipments_ce_vw",
             "hw_plan_vw",
             "ib_dash_vw",
-            "ib_norm_ships_vw"
+            "ib_norm_ships_vw",
+            "ib_dashboard_limited_vw",
+            "ib_dashboard_limited_cycle_over_cycle_vw",
+            "hardware_ltf_vw",
+            "actuals_hw_vw",
         ],
         "ifs2": [
             "norm_shipments_vw",
@@ -59,7 +67,8 @@
             "list_price_term_codes",
             "hardware_xref",
             "rdma_base_to_sales_product_map",
-            "iso_country_code_xref"
+            "iso_country_code_xref",
+            "decay_vw",
         ],
         "supplies_fcst":[
             "hardware_xref_vw",
@@ -88,7 +97,11 @@
             "cartridge_mix_override_yield_errors_vw",
             "mix_rate_sum_error_vw",
             "supplies_dash_vw",
-            "usage_share_country_vw"
+            "usage_share_country_vw",
+            "toner_pivots_vw",
+            "tableau_demand_qc_vw",
+            "actual_supplies_vw",
+            "cai_supplies_vw",
         ]
     }
 }
