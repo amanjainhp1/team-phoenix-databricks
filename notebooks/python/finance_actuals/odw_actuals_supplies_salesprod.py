@@ -3919,10 +3919,7 @@ SELECT
     country_alpha2,
     region_5,
     pl,
-    CASE
-        WHEN sales_product_number is null THEN CONCAT('UNKN', pl) 
-        ELSE sales_product_number
-    END AS sales_product_number,
+    sales_product_number,
     ce_split,
     COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
     COALESCE(SUM(net_currency), 0) AS net_currency,
