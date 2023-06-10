@@ -619,9 +619,10 @@ chann_inv_ams = spark.sql("""
 				country_alpha2,
 				sales_product_number,
 				pl,
-				inventory_usd,
-				inventory_qty
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty) as inventory_qty
 			from channel_inventory_region5
+   			group by cal_date, region_5, country_alpha2, sales_product_number, pl
             
 """.format(cbm_st_month))
 
