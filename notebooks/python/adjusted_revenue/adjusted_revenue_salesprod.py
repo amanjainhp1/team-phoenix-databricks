@@ -607,8 +607,8 @@ chann_inv_ams = spark.sql("""
 					else sales_product_number
 				end as sales_product_number,
 				pl,
-				sum(channel_inventory_usd) as inventory_usd,
-				sum(channel_inventory_qty) as inventory_qty
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty) as inventory_qty
 			from channel_inventory_set_proxy_to_pl
 			group by cal_date, country_alpha2, sales_product_number, pl, region_5
 		)
