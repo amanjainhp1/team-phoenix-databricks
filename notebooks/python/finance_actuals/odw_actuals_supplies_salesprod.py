@@ -3218,6 +3218,7 @@ JOIN mdm.calendar AS cal ON jv.yearmon = cal.Calendar_Yr_Mo
 LEFT JOIN mdm.iso_country_code_xref AS iso ON jv.country = iso.country
 WHERE 1=1 
     AND Day_of_Month = 1
+    AND date > '2021-10-01'
 GROUP BY cal.Date, pl.pl, jv.country, country_alpha2, sales_product_number
 """
 
@@ -3245,7 +3246,7 @@ SELECT
     SUM(total_cos) AS total_cos,
     0 AS revenue_units
 FROM designated_mcodes
-WHERE cal_date in (SELECT distinct cal_date FROM odw_salesprod_all_cleaned)
+WHERE 1=1
 GROUP BY cal_date, pl, country_alpha2, sales_product_number        
 """
 
@@ -3532,24 +3533,16 @@ spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTemp
 
 # COMMAND ----------
 
-unknown_skus = f"""
-select distinct sales_product_number 
-from odw_salesprod_before_plcharges_temp2
-where sales_product_number like 'UNK%'
-and sales_product_number <> 'UNKNLU'
-"""
-
-unknown_skus = spark.sql(unknown_skus)
-unknown_skus.createOrReplaceTempView("unknown_skus")
-
-            
-salesprod_pre_spread_unadjusted = f"""
+salesprod_pre_spread_unadjusted01 = f"""
 SELECT
     cal_date,
     country_alpha2,
     region_5,
     pl,
-    'PL-CHARGE' AS sales_product_number,
+    CASE 
+        WHEN sales_product_number LIKE 'UNKN%' THEN 'PL-CHARGE' 
+        ELSE sales_product_number
+    END AS sales_product_number,
     ce_split,                            
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -3561,14 +3554,44 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM odw_salesprod_before_plcharges_temp2
 WHERE 1=1
-AND sales_product_number IN (select sales_product_number from unknown_skus)
+AND pl <> 'LU'
 GROUP BY cal_date,
     country_alpha2,
     region_5,
     pl,
     sales_product_number,
     ce_split
-    
+"""
+
+salesprod_pre_spread_unadjusted01 = spark.sql(salesprod_pre_spread_unadjusted01)
+salesprod_pre_spread_unadjusted01.createOrReplaceTempView("salesprod_pre_spread_unadjusted01")
+
+
+salesprod_pre_spread_unadjusted02 = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,                            
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_pre_spread_unadjusted01
+WHERE 1=1
+GROUP BY cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split
+
 UNION ALL
 
 SELECT
@@ -3588,7 +3611,7 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM odw_salesprod_before_plcharges_temp2
 WHERE 1=1
-AND sales_product_number NOT IN (select sales_product_number from unknown_skus)
+AND pl = 'LU'
 GROUP BY cal_date,
     country_alpha2,
     region_5,
@@ -3597,8 +3620,38 @@ GROUP BY cal_date,
     ce_split
 """
 
-salesprod_pre_spread_unadjusted = spark.sql(salesprod_pre_spread_unadjusted)
-salesprod_pre_spread_unadjusted.createOrReplaceTempView("salesprod_pre_spread_unadjusted")
+salesprod_pre_spread_unadjusted02 = spark.sql(salesprod_pre_spread_unadjusted02)
+salesprod_pre_spread_unadjusted02.createOrReplaceTempView("salesprod_pre_spread_unadjusted02")
+
+
+salesprod_pre_spread_unadjusted03 = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,                            
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_pre_spread_unadjusted02
+WHERE 1=1
+GROUP BY cal_date,
+    country_alpha2,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split
+"""
+
+salesprod_pre_spread_unadjusted03 = spark.sql(salesprod_pre_spread_unadjusted03)
+salesprod_pre_spread_unadjusted03.createOrReplaceTempView("salesprod_pre_spread_unadjusted03")
 
 
 salesprod_pre_spread = f"""
@@ -3617,7 +3670,7 @@ SELECT
     COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units),0) AS revenue_units
-FROM salesprod_pre_spread_unadjusted
+FROM salesprod_pre_spread_unadjusted03
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, revenue_units
 """
 
@@ -3866,7 +3919,10 @@ SELECT
     country_alpha2,
     region_5,
     pl,
-    sales_product_number,
+    CASE
+        WHEN sales_product_number is null THEN CONCAT('UNKN', pl) 
+        ELSE sales_product_number
+    END AS sales_product_number,
     ce_split,
     COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
     COALESCE(SUM(net_currency), 0) AS net_currency,
