@@ -2879,6 +2879,28 @@ estimated_mps_revenue = spark.sql(estimated_mps_revenue)
 estimated_mps_revenue.createOrReplaceTempView("estimated_mps_revenue")
 
 
+estimated_mps_revenue_offset = f"""
+SELECT 
+    cal_date,
+    country_alpha2,
+    pl,
+    'UNKN5T' AS sales_product_number,                
+    ce_split,    
+    SUM(gross_revenue) * -1 AS gross_revenue,
+    0 AS net_currency,
+    0 AS contractual_discounts,
+    0 AS discretionary_discounts,
+    0 AS warranty,
+    0 AS total_cos,
+    0 AS revenue_units
+FROM estimated_mps_revenue
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
+"""
+
+estimated_mps_revenue_offset = spark.sql(estimated_mps_revenue_offset)
+estimated_mps_revenue_offset.createOrReplaceTempView("estimated_mps_revenue_offset")
+
+
 salesprod_add_mcodes = f"""
 SELECT 
     cal_date,
