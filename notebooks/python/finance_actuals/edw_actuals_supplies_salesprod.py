@@ -6208,7 +6208,6 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_currency_emea2
@@ -6286,7 +6285,6 @@ SELECT
     SUM(contractual_discounts * country_mix) AS contractual_discounts,
     SUM(discretionary_discounts * country_mix) AS discretionary_discounts,                
     SUM(warranty * country_mix) AS warranty,
-    SUM(other_cos * country_mix) AS other_cos,
     SUM(total_cos * country_mix) AS total_cos,
     SUM(revenue_units * country_mix) AS revenue_units
 FROM salesprod_emea_with_xcodes_drivers AS sp
@@ -6315,7 +6313,6 @@ SELECT
     SUM(contractual_discounts * COALESCE(country_mix, 1)) AS contractual_discounts,
     SUM(discretionary_discounts * COALESCE(country_mix, 1)) AS discretionary_discounts,                
     SUM(warranty * COALESCE(country_mix, 1)) AS warranty,
-    SUM(other_cos * COALESCE(country_mix, 1)) AS other_cos,
     SUM(total_cos * COALESCE(country_mix, 1)) AS total_cos,
     SUM(revenue_units * COALESCE(country_mix, 1)) AS revenue_units
 FROM salesprod_emea_with_xcodes_drivers AS sp
@@ -6347,7 +6344,6 @@ SELECT
     COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
     COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
     COALESCE(SUM(warranty), 0) AS warranty,    
-    COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
 FROM emea_salesprod_xcode_mash_drivers
@@ -6371,7 +6367,6 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_currency_emea2
@@ -6398,7 +6393,6 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM emea_salesprod_xcode_mash_drivers_null esx
@@ -6713,7 +6707,6 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,            
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM emea_salesprod_xcode_fix_drivers
