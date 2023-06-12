@@ -577,7 +577,7 @@ chann_inv_ams = spark.sql("""
 				)
 			group by cal_date, country_alpha2, sales_product_number, pl
 		),
-		channel_inventory_region5 as
+		channel_inventory_set_proxy_to_pl as
 		(
 			select
 				cal_date,
@@ -594,6 +594,39 @@ chann_inv_ams = spark.sql("""
 			from channel_inventory_supplies_pl st
 			join mdm.iso_country_code_xref geo on st.country_alpha2 = geo.country_alpha2
 			group by cal_date, st.country_alpha2, sales_product_number, pl, region_5
+		),
+		channel_inventory_set_proxy_to_pl2 as
+		(
+			select
+				cal_date,
+				region_5,
+				country_alpha2,
+				case
+					when sales_product_number = 'PROXY_ADJUSTMENTGM'
+					then 'PROXY_ADJUSTMENTK6'
+					else sales_product_number
+				end as sales_product_number,
+				pl,
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty) as inventory_qty
+			from channel_inventory_set_proxy_to_pl
+			group by cal_date, country_alpha2, sales_product_number, pl, region_5
+		),
+		channel_inventory_region5 as
+		(
+			select
+				cal_date,
+				region_5,
+				country_alpha2,
+				sales_product_number,
+				CASE
+					WHEN sales_product_number = 'PROXY_ADJUSTMENTK6' THEN 'K6'
+					ELSE pl
+    			END AS pl,
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty) as inventory_qty
+			from channel_inventory_set_proxy_to_pl2
+			group by cal_date, country_alpha2, sales_product_number, pl, region_5
 		)
 		
 			select
@@ -602,9 +635,10 @@ chann_inv_ams = spark.sql("""
 				country_alpha2,
 				sales_product_number,
 				pl,
-				inventory_usd,
-				inventory_qty
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty) as inventory_qty
 			from channel_inventory_region5
+   			group by cal_date, region_5, country_alpha2, sales_product_number, pl
             
 """.format(cbm_st_month))
 
