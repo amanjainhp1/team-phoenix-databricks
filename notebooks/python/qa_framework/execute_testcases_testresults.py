@@ -14,6 +14,7 @@ from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 from email.utils import COMMASPACE, formatdate
 from email import encoders
 import pandas as pd
@@ -196,7 +197,7 @@ for row in data_collect:
     test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
     print(test_result_detail_df.count())
     results=0
-    if test_result_detail_df.count()<500:
+    if test_result_detail_df.count()<100:
         results = test_result_detail_df.toPandas().to_json(orient='records')
     print(results)
     #test_result_detail=test_result_detail_df.first()['count']
@@ -207,18 +208,29 @@ for row in data_collect:
     VALUES
     ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
     submit_remote_query(configs,insert_test_result ) # insert into test result table
-    if test_result_detail_df.count()>1:
+    if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:
         insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
         (test_case_id,test_result_id,detail_value)
         VALUES
         ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{results}');"""
         submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
-    if test_result_detail_df.count()>=1000:
-        s3_output_bucket = s3_bucket1+"QA Framework/test_results/"
-        #+{testcase_module}+"/"+{testcase_cat}
-        #s3_output_bucket=s3_bucket+"/QA Framework/"+testcase_module+testcase_cat+"_detail"
-        print(s3_output_bucket)
+        s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
+        print(s3_output_bucket) # already created on S3
         write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")
+        #test_result_detail_df.toPandas().to_csv("/dbfs/df_testqa.csv", mode='w+', encoding='utf-8')
+    if test_result_detail_df.count()>500:
+        s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
+        print(s3_output_bucket) # already created on S3
+        insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
+        (test_case_id,test_result_id,detail_value)
+        VALUES
+        ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{s3_output_bucket}');"""
+        submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
+        write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")
+    if testcase_cat=="VOV Check":
+        delete_from_test_results_vov=f""" delete from stage.test_results_detail_vov where module_name='{testcase_module}';"""
+        submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
+        write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="stage.test_results_detail_vov", mode="append")
 
 # COMMAND ----------
 
@@ -238,12 +250,17 @@ def send_email(email_from, email_to, subject, message):
   msg['From'] = email_from
   msg['To'] =  ', '.join(email_to)
   
+  #filedata = sc.textFile("/dbfs/df_testqa.csv", use_unicode=False)
   msg.attach(MIMEText(message.encode('utf-8'), 'html', 'utf-8'))
+  #part = MIMEApplication("".join(filedata.collect()), Name="df_testqa.csv")
+  #part['Content-Disposition'] = 'attachment; filename="%s"' % 'df_testqa.csv'
+  #msg.attach(part)
   
   ses_service = boto3.client(service_name = 'ses', region_name = 'us-west-2')
     
   try:
     response = ses_service.send_raw_email(Source = email_from, Destinations = email_to, RawMessage = {'Data': msg.as_string()})
+  
   
   except ClientError as e:
     raise Exception(str(e.response['Error']['Message']))
