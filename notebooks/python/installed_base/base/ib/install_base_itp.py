@@ -35,8 +35,7 @@ WHERE 1=1
 )
 -- Pull STF LTF data
 , stf_ltf_union as (
-
-    SELECT 'IB' AS record
+SELECT 'IB' AS record
     , cast(null as varchar(64)) AS version
     , cast(null as date) as load_date
     , ites.calendar_month_date::date as month_begin
@@ -76,7 +75,7 @@ WHERE itel.calendar_month_date::date > (SELECT MAX(calendar_month_date::date) FR
 )
 
 , trad_ib as (
-   SELECT trad.record
+SELECT trad.record
     , trad.version
     , trad.load_date
     , trad.month_begin
@@ -100,7 +99,7 @@ LEFT JOIN stf_ltf_union itp
 
 select * from trad_ib
 union all 
-select  
+SELECT  
       stf_ltf.record
     , stf_ltf.version
     , stf_ltf.load_date
@@ -114,9 +113,9 @@ select
     , stf_ltf.platform_subset
     , stf_ltf.printer_installs
     , stf_ltf.ib
-from stf_ltf_union stf_ltf 
-join trad_ib trad 
-  ON trad.month_begin = stf_ltf.month_begin
+FROM stf_ltf_union stf_ltf 
+JOIN trad_ib trad 
+    ON trad.month_begin = stf_ltf.month_begin
     AND trad.country_alpha2 = stf_ltf.country_alpha2
     AND trad.platform_subset = stf_ltf.platform_subset
 
