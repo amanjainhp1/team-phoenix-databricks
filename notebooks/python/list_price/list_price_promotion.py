@@ -418,7 +418,7 @@ list_price_filtered = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-load_date = list_price_filtered.sort(col('load_date').desc()).select('load_date').distinct().head()[0]
+load_date = list_price_filtered.agg({"load_date": "max"}).collect()[0][0]
 
 dateTimeStr = str(load_date)
 
