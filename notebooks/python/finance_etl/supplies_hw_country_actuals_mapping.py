@@ -15,6 +15,9 @@
 calendar = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.calendar") \
     .load()
+hardware_xref = read_redshift_to_df(configs) \
+    .option("dbtable", "mdm.hardware_xref") \
+    .load()
 iso_country_code_xref = read_redshift_to_df(configs) \
     .option("dbtable", "mdm.iso_country_code_xref") \
     .load()
@@ -40,6 +43,7 @@ usage_share_country.createOrReplaceTempView("usage_share_country")
 
 tables = [
     ['mdm.iso_country_code_xref', iso_country_code_xref],
+    ['mdm.hardware_xref', hardware_xref],
     ['mdm.supplies_hw_mapping', supplies_hw_mapping],
     ['mdm.calendar', calendar],
     ['mdm.product_line_xref', product_line_xref]
@@ -588,13 +592,55 @@ SELECT record
     , CAST(load_date AS date) as version
 FROM usage_share_baseprod_02
 """
-
+ 
 supplies_hw_country_actuals_mapping = spark.sql(supplies_hw_country_actuals_mapping)
 supplies_hw_country_actuals_mapping.createOrReplaceTempView("supplies_hw_country_actuals_mapping")
 
 # COMMAND ----------
 
 write_df_to_redshift(configs, supplies_hw_country_actuals_mapping, "stage.supplies_hw_country_actuals_mapping", "append", postactions = "", preactions = "TRUNCATE stage.supplies_hw_country_actuals_mapping")
+
+# COMMAND ----------
+
+# list null base product numbers when joining shm to usage share country
+usage_share_baseprod_03 = f"""
+SELECT usc.cal_date
+    , usc.country_alpha2
+    , iso.region_5
+    , usc.platform_subset
+    , shm.base_product_number
+    , usc.customer_engagement
+    , hx.hw_product_family
+    , sum(hp_pages) as hp_pages
+FROM usage_share_country08 usc
+LEFT JOIN shm_12_map_geo_6 shm
+    ON usc.country_alpha2 = shm.country_alpha2
+    AND usc.platform_subset = shm.platform_subset
+    AND usc.customer_engagement = shm.customer_engagement
+LEFT JOIN mdm.hardware_xref hx 
+    ON hx.platform_subset = usc.platform_subset
+LEFT JOIN mdm.iso_country_code_xref iso
+    ON iso.country_alpha2 = usc.country_alpha2
+WHERE 1=1
+    AND hp_pages > 0
+    AND usc.cal_date > '2015-10-01' 
+    AND shm.base_product_number is null
+    AND usc.cal_date < current_date()
+GROUP BY usc.cal_date
+    , usc.country_alpha2
+    , usc.platform_subset
+    , shm.base_product_number
+    , usc.customer_engagement
+    , hx.hw_product_family
+    , iso.region_5
+"""
+
+usage_share_baseprod_03 = spark.sql(usage_share_baseprod_03)
+usage_share_baseprod_03.createOrReplaceTempView("usage_share_baseprod_03")
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, usage_share_baseprod_03, "scen.sup_hw_ctry_base_product_dropout", "append", postactions = "", preactions = "TRUNCATE scen.sup_hw_ctry_base_product_dropout")
 
 # COMMAND ----------
 
