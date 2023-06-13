@@ -444,10 +444,4 @@ baseprod_na_printer_join_shm.count()
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select *
-# MAGIC from baseprod_na_printer_join_shm
-
-# COMMAND ----------
-
-#write_df_to_redshift(configs, baseprod_load_financials, "scen.supplies_pen_to_ptr_mapping_dropout", "append", postactions = "", preactions = "truncate scen.supplies_pen_to_ptr_mapping_dropout")
+write_df_to_redshift(configs, baseprod_na_printer_join_shm, "scen.supplies_pen_to_ptr_mapping_dropout", "append", postactions = "", preactions = "truncate scen.supplies_pen_to_ptr_mapping_dropout")
