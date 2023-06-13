@@ -4,6 +4,10 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install xlsxwriter
+
+# COMMAND ----------
+
 import pyspark.sql.functions as f
 import time
 from pyspark.sql import Window, SparkSession
@@ -19,8 +23,10 @@ from email.utils import COMMASPACE, formatdate
 from email import encoders
 import pandas as pd
 import numpy as np
+import io
 from IPython.core.display import HTML
 from IPython.display import HTML
+from io import BytesIO
 
 # COMMAND ----------
 
@@ -181,56 +187,60 @@ dbutils.widgets.text("notification_email","swati.gutgutia@hp.com")
 
 #insert test cases into test results table
 data_collect = filtered_test_cases.collect()
-for row in data_collect:
-    test_query=row["test_query"]   
-    min_threshold=row["min_threshold"]
-    max_threshold=row["max_threshold"]
-    testcase_id=row["test_case_id"]
-    testcase_module=row["module_name"]
-    testcase_cat=row["test_category"]
-    query_path=row["query_path"]
-    element_name=row["element_name"]
-    print(test_query)
-    if('QA' in query_path):
-        test_query=(get_file_content_from_s3(s3_bucket,query_path))
-        print(test_query)
-    test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
-    print(test_result_detail_df.count())
-    results=0
-    if test_result_detail_df.count()<100:
-        results = test_result_detail_df.toPandas().to_json(orient='records')
-    print(results)
-    #test_result_detail=test_result_detail_df.first()['count']
-    test_result_detail=test_result_detail_df.count()
-    #test_result=''
-    insert_test_result= f""" INSERT INTO stage.test_results
-    (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id)
-    VALUES
-    ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
-    submit_remote_query(configs,insert_test_result ) # insert into test result table
-    if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:
-        insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
-        (test_case_id,test_result_id,detail_value)
-        VALUES
-        ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{results}');"""
-        submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
-        s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
-        print(s3_output_bucket) # already created on S3
-        write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")
-        #test_result_detail_df.toPandas().to_csv("/dbfs/df_testqa.csv", mode='w+', encoding='utf-8')
-    if test_result_detail_df.count()>500:
-        s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
-        print(s3_output_bucket) # already created on S3
-        insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
-        (test_case_id,test_result_id,detail_value)
-        VALUES
-        ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{s3_output_bucket}');"""
-        submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
-        write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")
-    if testcase_cat=="VOV Check":
-        delete_from_test_results_vov=f""" delete from stage.test_results_detail_vov where module_name='{testcase_module}';"""
-        submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
-        write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="stage.test_results_detail_vov", mode="append")
+with io.BytesIO() as buffer:
+    with pd.ExcelWriter(buffer,engine='xlsxwriter') as writer:
+        for row in data_collect:
+            test_query=row["test_query"]   
+            min_threshold=row["min_threshold"]
+            max_threshold=row["max_threshold"]
+            testcase_id=row["test_case_id"]
+            testcase_module=row["module_name"]
+            testcase_cat=row["test_category"]
+            query_path=row["query_path"]
+            element_name=row["element_name"]
+            print(test_query)
+            if('QA' in query_path):
+                test_query=(get_file_content_from_s3(s3_bucket,query_path))
+                print(test_query)
+            test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
+            print(test_result_detail_df.count())
+            results=0
+            if test_result_detail_df.count()<100:
+                results = test_result_detail_df.toPandas().to_json(orient='records')
+            print(results)
+            #test_result_detail=test_result_detail_df.first()['count']
+            test_result_detail=test_result_detail_df.count()
+            #test_result=''
+            insert_test_result= f""" INSERT INTO stage.test_results
+            (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id)
+            VALUES
+            ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
+            submit_remote_query(configs,insert_test_result ) # insert into test result table 
+            if test_result_detail_df.count()>1 and test_result_detail_df.count()<5000:
+                test_result_detail_df.toPandas().to_excel(writer, sheet_name=str(testcase_id), index= False)  
+            if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:
+                insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
+                (test_case_id,test_result_id,detail_value)
+                VALUES
+                ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{results}');"""
+                submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
+                s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
+                print(s3_output_bucket) # already created on S3
+                write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")         
+            if test_result_detail_df.count()>500:
+                s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
+                print(s3_output_bucket) # already created on S3
+                insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
+                (test_case_id,test_result_id,detail_value)
+                VALUES
+                ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{s3_output_bucket}');"""
+                submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
+                write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "append")
+            if testcase_cat=="VOV Check":
+                delete_from_test_results_vov=f""" delete from stage.test_results_detail_vov where module_name='{testcase_module}';"""
+                submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
+                write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="stage.test_results_detail_vov", mode="append")
+    Testresultexcel=buffer.getvalue()    
 
 # COMMAND ----------
 
@@ -251,10 +261,11 @@ def send_email(email_from, email_to, subject, message):
   msg['To'] =  ', '.join(email_to)
   
   #filedata = sc.textFile("/dbfs/df_testqa.csv", use_unicode=False)
+  
+  part = MIMEApplication(Testresultexcel)
+  part.add_header('Content-Disposition','attachment',filename="testresulexcel.xlsx")
   msg.attach(MIMEText(message.encode('utf-8'), 'html', 'utf-8'))
-  #part = MIMEApplication("".join(filedata.collect()), Name="df_testqa.csv")
-  #part['Content-Disposition'] = 'attachment; filename="%s"' % 'df_testqa.csv'
-  #msg.attach(part)
+  msg.attach(part)
   
   ses_service = boto3.client(service_name = 'ses', region_name = 'us-west-2')
     
