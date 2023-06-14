@@ -45,6 +45,10 @@ ib = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+actuals_supplies_baseprod.count()
+
+# COMMAND ----------
+
 import re
 
 tables = [
@@ -112,9 +116,12 @@ SELECT cal_date
     , base_product_number
     , customer_engagement
     , SUM(hp_pages) as hp_pages
+    , SUM(page_mix) as page_mix
 FROM supplies_hw_country_actuals_mapping
 WHERE 1=1
-AND cal_date <= (SELECT MAX(cal_date) FROM actuals_supplies_baseprod_na_printer)
+    AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.actuals_supplies_baseprod) 
+                    AND (SELECT MAX(cal_date) FROM fin_prod.actuals_supplies_baseprod)
+    AND page_mix > 0
 GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, customer_engagement
 """
  
@@ -389,13 +396,17 @@ shm_12_map_geo_6.createOrReplaceTempView("shm_12_map_geo_6")
 
 # COMMAND ----------
 
-# baseprod NA platform subset map back to shm, data
-baseprod_na_printer_join_shm = f"""
+baseprod_na_printer_join_shm.count()
+
+# COMMAND ----------
+
+# baseprod NA platform subset map back to data
+baseprod_na_printer_join_shca = f"""
 SELECT             
     bnp.cal_date,
     bnp.country_alpha2,
     bnp.market10,
-    shm.platform_subset,
+    shca.platform_subset,
     hx.hw_product_family,
     bnp.base_product_number,
     bnp.pl,
@@ -406,28 +417,25 @@ SELECT
     SUM(ib.units) as ib_units,
     SUM(hp_pages) as hp_pages
 FROM actuals_supplies_baseprod_na_printer bnp
-LEFT JOIN shm_12_map_geo_6 shm
-    ON bnp.base_product_number = shm.base_product_number
-    AND bnp.country_alpha2 = shm.country_alpha2
-    AND bnp.customer_engagement = shm.customer_engagement
-LEFT JOIN ib_data ib 
-    ON ib.cal_date = bnp.cal_date
-    AND ib.platform_subset = shm.platform_subset
-    AND ib.country_alpha2 = bnp.country_alpha2
 LEFT JOIN shca_mapping_actuals_period_only shca
     ON shca.cal_date = bnp.cal_date
-    AND shca.platform_subset = shm.platform_subset
     AND shca.country_alpha2 = bnp.country_alpha2
+    AND shca.customer_engagement = bnp.customer_engagement
+    AND shca.base_product_number = bnp.base_product_number
+LEFT JOIN ib_data ib 
+    ON ib.cal_date = shca.cal_date
+    AND ib.platform_subset = shca.platform_subset
+    AND ib.country_alpha2 = shca.country_alpha2
 LEFT JOIN mdm.supplies_xref sx
     ON sx.base_product_number = bnp.base_product_number
 LEFT JOIN mdm.hardware_xref hx
-    ON hx.platform_subset = shm.platform_subset
+    ON hx.platform_subset = shca.platform_subset
 WHERE 1=1
 GROUP BY             
     bnp.cal_date,
     bnp.country_alpha2,
     bnp.market10,
-    shm.platform_subset,
+    shca.platform_subset,
     bnp.base_product_number,
     bnp.pl,
     bnp.customer_engagement,
@@ -435,13 +443,17 @@ GROUP BY
     hx.hw_product_family
 """
 
-baseprod_na_printer_join_shm = spark.sql(baseprod_na_printer_join_shm)
-baseprod_na_printer_join_shm.createOrReplaceTempView("baseprod_na_printer_join_shm")
+baseprod_na_printer_join_shca = spark.sql(baseprod_na_printer_join_shca)
+baseprod_na_printer_join_shca.createOrReplaceTempView("baseprod_na_printer_join_shca")
 
 # COMMAND ----------
 
-baseprod_na_printer_join_shm.count()
+# MAGIC %sql
+# MAGIC select * 
+# MAGIC from baseprod_na_printer_join_shca 
+# MAGIC where platform_subset is not null
+# MAGIC
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, baseprod_na_printer_join_shm, "scen.supplies_pen_to_ptr_mapping_dropout", "append", postactions = "", preactions = "truncate scen.supplies_pen_to_ptr_mapping_dropout")
+write_df_to_redshift(configs, baseprod_na_printer_join_shca, "scen.supplies_pen_to_ptr_mapping_dropout", "append", postactions = "", preactions = "truncate scen.supplies_pen_to_ptr_mapping_dropout")

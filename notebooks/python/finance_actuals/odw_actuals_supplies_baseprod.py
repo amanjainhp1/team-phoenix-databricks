@@ -112,10 +112,9 @@ SELECT cal_date,
     platform_subset,
     base_product_number,
     customer_engagement,
-    sum(page_mix) AS platform_mix,
-    version
-FROM stage.supplies_hw_country_actuals_mapping
-WHERE version = (select max(version) from stage.supplies_hw_country_actuals_mapping)
+    sum(page_mix) AS platform_mix
+FROM supplies_hw_country_actuals_mapping
+WHERE 1=1
     AND cal_date BETWEEN (SELECT MIN(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod) 
                     AND (SELECT MAX(cal_date) FROM fin_prod.odw_actuals_supplies_salesprod)
     AND page_mix > 0
@@ -123,8 +122,7 @@ GROUP BY cal_date,
     country_alpha2,
     platform_subset,
     base_product_number,
-    customer_engagement,
-    version
+    customer_engagement
 """
 
 usage_share_country_hp_pages_mix = spark.sql(usage_share_country_hp_pages_mix)
@@ -204,10 +202,10 @@ baseprod_printer_from_usc = f"""
 SELECT 
     act.cal_date,            
     act.country_alpha2,
-    market10,
-    platform_subset,
+    act.market10,
+    mix.platform_subset,
     act.base_product_number,
-    pl,
+    act.pl,
     act.customer_engagement,
     SUM(gross_revenue * platform_mix) AS gross_revenue,
     SUM(net_currency * platform_mix) AS net_currency,
@@ -223,12 +221,12 @@ SELECT
     SUM(yield_x_units * platform_mix) AS yield_x_units,
     SUM(yield_x_units_black_only * platform_mix) AS yield_x_units_black_only
 FROM baseprod_without_acct_items act
-JOIN usage_share_country_hp_pages_mix mix 
+INNER JOIN usage_share_country_hp_pages_mix mix 
   ON mix.cal_date = act.cal_date 
   AND mix.country_alpha2 = act.country_alpha2 
   AND mix.base_product_number = act.base_product_number
   AND mix.customer_engagement = act.customer_engagement
-GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, pl, act.customer_engagement, platform_subset, market10
+GROUP BY act.cal_date, act.country_alpha2, act.base_product_number, act.pl, act.customer_engagement, mix.platform_subset, act.market10
 """
 
 baseprod_printer_from_usc = spark.sql(baseprod_printer_from_usc)
@@ -241,10 +239,9 @@ baseprod_printer_from_usc.createOrReplaceTempView("baseprod_printer_from_usc")
 baseprod_printer_from_usc2 = f"""
 SELECT act.cal_date,
     act.country_alpha2,
-    market10,
-    'NA' AS platform_subset,
+    act.market10,
     act.base_product_number,
-    pl,   
+    act.pl,   
     act.customer_engagement,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
@@ -265,17 +262,52 @@ LEFT JOIN usage_share_country_hp_pages_mix mix
   AND mix.country_alpha2 = act.country_alpha2
   AND mix.base_product_number = act.base_product_number
   AND mix.customer_engagement = act.customer_engagement
-WHERE platform_subset is null
+WHERE mix.platform_subset is null
 GROUP BY act.cal_date,
     act.country_alpha2,
-    market10,
+    act.market10,
     act.base_product_number,
-    pl,   
+    act.pl,   
     act.customer_engagement
 """            
 
 baseprod_printer_from_usc2 = spark.sql(baseprod_printer_from_usc2)
 baseprod_printer_from_usc2.createOrReplaceTempView("baseprod_printer_from_usc2") 
+
+# COMMAND ----------
+
+baseprod_printer_from_usc3 = f"""
+SELECT act.cal_date,
+    act.country_alpha2,
+    act.market10,
+    'NA' as platform_subset,
+    act.base_product_number,
+    act.pl,   
+    act.customer_engagement,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) AS net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(gross_profit) AS gross_profit,
+    SUM(revenue_units) AS revenue_units,
+    SUM(equivalent_units) AS equivalent_units,
+    SUM(yield_x_units) AS yield_x_units,
+    SUM(yield_x_units_black_only) AS yield_x_units_black_only
+FROM baseprod_printer_from_usc2 act
+GROUP BY act.cal_date,
+    act.country_alpha2,
+    act.market10,
+    act.base_product_number,
+    act.pl,   
+    act.customer_engagement
+"""            
+
+baseprod_printer_from_usc3 = spark.sql(baseprod_printer_from_usc3)
+baseprod_printer_from_usc3.createOrReplaceTempView("baseprod_printer_from_usc3") 
 
 # COMMAND ----------
 
@@ -288,7 +320,7 @@ SELECT *
 FROM baseprod_printer_from_usc
 UNION ALL
 SELECT *
-FROM baseprod_printer_from_usc2
+FROM baseprod_printer_from_usc3
 """
 
 all_baseprod_with_platform_subsets = spark.sql(all_baseprod_with_platform_subsets)
