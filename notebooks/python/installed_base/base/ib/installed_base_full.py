@@ -74,10 +74,10 @@ WHERE 1=1
 UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments_ce"
+    , '1.1' version
+FROM "stage"."norm_shipments_ce"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
+    --AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
 
 UNION ALL
 
@@ -171,10 +171,10 @@ WHERE 1=1
 UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments_ce"
+    , '1.1' version
+FROM "stage"."norm_shipments_ce"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
+  --  AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
 
 UNION ALL
 
@@ -446,19 +446,14 @@ SELECT ib.month_begin
     , ib.region_5
     , ib.country_alpha2
     , ib.hps_ops
-    , COALESCE(ce.split_name, ib.split_name, 'TRAD') AS split_name
+    , ib.split_name AS split_name
     , ib.platform_subset
-    , ib.printer_installs * COALESCE(ce.value, 1.0) AS printer_installs
-    , ib.ib * COALESCE(ce.value, 1.0) AS ib
+    , ib.printer_installs AS printer_installs
+    , ib.ib AS ib
 FROM ib_11_prelim_output AS ib
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ib.platform_subset
-LEFT JOIN ib_02c_ce_splits_final AS ce
-    ON ce.platform_subset = ib.platform_subset
-    AND ce.country_alpha2 = ib.country_alpha2
-    AND ce.pre_post_flag = 'POST'
-    AND ce.month_begin = ib.month_begin
-    AND ce.value > 0
+
 WHERE 1=1
     AND hw.technology IN ('INK', 'PWA')
     
