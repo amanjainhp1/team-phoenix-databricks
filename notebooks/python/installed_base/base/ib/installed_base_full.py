@@ -75,9 +75,9 @@ UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
     , version
-FROM "prod"."norm_shipments"
+FROM "prod"."norm_shipments_ce"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
 
 UNION ALL
 
@@ -172,9 +172,9 @@ UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
     , version
-FROM "prod"."norm_shipments"
+FROM "prod"."norm_shipments_ce"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
 
 UNION ALL
 
@@ -188,9 +188,10 @@ SELECT ns.region_5
     , ns.cal_date AS month_begin
     , ns.country_alpha2
     , ns.platform_subset
+    , ns.customer_engagement
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships" AS ns
+FROM "stage"."norm_shipments_ce" AS ns
 JOIN ib_01_filter_vars AS fv
     ON fv.record = 'BUILD_NORM_SHIPS'
     AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END

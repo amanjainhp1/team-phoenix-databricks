@@ -451,20 +451,78 @@ query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"
 
 norm_ships_ce = """
 
-SELECT
-    'NORM_SHIPS_CE' AS record
-    , ns.month_begin AS cal_date
-    , ns.region_5 AS region_5
-    , ns.country_alpha2
-    , ns.platform_subset
-    , UPPER(ns.split_name) AS customer_engagement
-    , ns.split_value
-    , ns.units AS units
-    , getdate() as load_date
-    , 'staging' as version
-FROM stage.ib_04_units_ce_splits_pre ns
-WHERE 1=1
+with ns_enrollees as
+(
+    select
+        'stf' as record,
+        cal_date,
+        country,
+        platform_subset,
+        sum(net_p1_enrollees) as p1_units
+    from prod.instant_ink_enrollees_stf
+    where 1=1
+        aND official=1
+        and net_p1_enrollees <> 0
+    GROUP BY cal_date, country, platform_subset
+    UNION ALL
+    select
+        'ltf' as record,
+        cal_date,
+        country,
+        platform_subset,
+        sum(net_p1_enrollees) as p1_units
+    from prod.instant_ink_enrollees_ltf
+    where 1=1
+        and official=1
+        and net_p1_enrollees <> 0
+    GROUP BY cal_date, country, platform_subset
+),
 
+step_1 as
+(
+    select
+           a.record,
+           a.cal_date,
+           region_5,
+           country_alpha2,
+           a.platform_subset,
+           'TRAD' as customer_engagement,
+           0 as split_value,
+           a.units - coalesce(b.p1_units,0) as units,
+           load_date,
+           version
+    from stage.norm_ships a left join ns_enrollees b
+        on a.platform_subset=b.platform_subset
+        and a.cal_date=b.cal_date
+        and a.country_alpha2 = b.country
+    UNION ALL
+    select
+        'instant_ink',
+        cal_date,
+        b.region_5,
+        country_alpha2,
+        platform_subset,
+        'I-INK' as customer_engagement,
+        0 as split_value,
+        a.p1_units as units,
+        getdate() as load_date,
+        '2023.06.13.1' as version
+    from ns_enrollees a left join mdm.iso_country_code_xref b on a.country = b.country_alpha2
+)
+
+select 'NORM_SHIPS_CE record,
+       cal_date,
+       region_5,
+       country_alpha2,
+       platform_subset,
+       customer_engagement,
+       split_value,
+       units,
+       getdate() as load_date,
+       '2023.06.13.1' version
+from step_1
+where 1=1
+order by cal_date
 """
 query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
 
