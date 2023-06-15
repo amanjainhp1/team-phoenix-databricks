@@ -1571,7 +1571,7 @@ WITH geography_mapping   AS
      WHERE 1 = 1
        AND v.upload_type = 'WORKING-FORECAST'
        AND UPPER(v.user_name) IN
-           ('JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
+           ('JON.LINDBERG@HP.COM','GRETCHENB', 'GRETCHEN.BRUNNER@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
 
    , toner_cf_prep       AS
     (SELECT fv.user_name
