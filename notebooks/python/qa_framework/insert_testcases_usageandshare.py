@@ -23,10 +23,10 @@ insert_testqueries_in_testcases_table_query= f"""
 INSERT INTO stage.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
-('Phoenix - QA','','','Data availability check','US','Check if ib is available for share data','prod','prod.usage_share_country','share','','QA Framework/usageandshare/shareebutnoIB.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','','Duplicate Check','US','Check for duplicates','prod','prod.usage_share_country','US','','QA Framework/usageandshare/Duplicate_check.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','','Data availability check','US','Drop in usage or share','prod','prod.usage_share_country','US','','QA Framework/usageandshare/Usage_share_drop.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','','Data availability check','US','Check if color usage is available for MONO platform','prod','prod.usage_share_country','ib','','QA Framework/usageandshare/Colorusageformonoplatform.sql','1','1',getdate(),'admin',1,'Medium')
+('Phoenix - QA','','','Data availability check','US','Check if ib is available for share data','prod','prod.usage_share_country','share','','QA Framework/usageandshare/shareebutnoIB.sql','1','1',getdate(),'admin',1,'Critical')
+,('Phoenix - QA','','','Duplicate Check','US','Check for duplicates','prod','prod.usage_share_country','US','','QA Framework/usageandshare/Duplicate_check.sql','1','1',getdate(),'admin',1,'Critical')
+,('Phoenix - QA','','','Data availability check','US','Drop in usage or share','prod','prod.usage_share_country','US','','QA Framework/usageandshare/Usage_share_drop.sql','1','1',getdate(),'admin',1,'Critical')
+,('Phoenix - QA','','','Data availability check','US','Check if color usage is available for MONO platform','prod','prod.usage_share_country','usage','','QA Framework/usageandshare/Colorusageformonoplatform.sql','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','','Data availability check','US','Check for measures for color platform','prod','prod.usage_share_country','US','','QA Framework/usageandshare/colorplatformmeasurescheck.sql','1','1',getdate(),'admin',1,'Medium')
 ;"""
 
@@ -44,26 +44,26 @@ VALUES
 ,'Check if geography is available in mdm','prod','prod.usage_share_country'
 ,'geography','select * from 
 (select geography from prod.usage_share_country  where geography is not null except select country_alpha2  from mdm.iso_country_code_xref  )','','1','1'
-,getdate(),'admin',1,'Medium')
+,getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','','MDM Check','US'
 ,'Check if platform is available in mdm','prod','prod.usage_share_country'
 ,'platform_subset','select * from 
 (select platform_subset from prod.usage_share_country  where platform_subset is not null except select platform_subset from mdm.hardware_xref )','','1','1'
-,getdate(),'admin',1,'Medium')
+,getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','','Data availability check','US','Check if share is available for ib data','prod','prod.usage_share_country'
 ,'share','','QA Framework/usageandshare/Ib but no share.sql','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','','Data availability check','US'
 ,'Check if platform is available in usage share','prod','prod.usage_share_country'
 ,'platform_subset','select * from 
 (select platform_subset from prod.usage_share_country  where platform_subset is not null except select platform_subset from prod.usage_share )','','1','1'
-,getdate(),'admin',1,'Medium')
+,getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','','Duplicate check','US'
 ,'Check if source is duplicate','prod','prod.usage_share_country'
 ,'platform_subset','select record,cal_date,geography_grain,geography,platform_subset,customer_engagement,measure,count(distinct source)
 from prod.usage_share_country
 group by record,cal_date,geography_grain,geography,platform_subset,customer_engagement,measure
 having count(distinct source)>1','','1','1'
-,getdate(),'admin',1,'Medium')
+,getdate(),'admin',1,'Critical')
 ;"""
 
 # COMMAND ----------
@@ -79,11 +79,11 @@ VALUES
 ('Phoenix - QA','','','VOV Check','US'
 ,'Proxy - cycle over cycle comparisons','phoenix_spectrum_prod','phoenix_spectrum_prod.cupsm'
 ,'proxy','','QA Framework/usageandshare/Proxycoccomparison.sql','1','1'
-,getdate(),'admin',1,'Medium')
+,getdate(),'admin',1,'Very Low')
 ,('Phoenix - QA','','','Data Check','US'
 ,'Start date comparsion between usage and IB','prod','prod.usage_share_country'
 ,'cal_date','','QA Framework/usageandshare/startdateval_IBvsUS.sql','1','1'
-,getdate(),'admin',1,'Medium')
+,getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','','VOV Check','US'
 ,'Usage Share VOV check',' phoenix_spectrum_prod',' phoenix_spectrum_prod.usage_share_country'
 ,'units','','QA Framework/usageandshare/vovtesting.sql','1','1'
@@ -131,9 +131,10 @@ having sum(colorusaget)::decimal(18,2)>sum(usaget)::decimal(18,2)','','1','1'
 ,getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','','Data availability Check','US'
 ,'Drop out between US and IB','prod','prod.usage_share_country'
-,'US','select  country_alpha2, a.platform_subset, count(1)
+,'US','select  a.country_alpha2, a.platform_subset,b.product_lifecycle_status_usage ,b.product_lifecycle_status_share,b.technology,iccx.region_3 ,iccx.market10  , count(1)
 from prod.ib a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
-where country_alpha2||UPPER(a.platform_subset) in
+left join mdm.iso_country_code_xref iccx on a.country_alpha2 =iccx.country_alpha2 
+where a.country_alpha2||UPPER(a.platform_subset) in
 (
 select country_alpha2||UPPER(platform_subset) from prod.ib where version
 =(select max(ib_version) from prod.usage_share_country where version=(select max(version) from prod.usage_share_country ))
@@ -141,7 +142,7 @@ and units>0
 except
 select geography||UPPER(platform_subset) from prod.usage_share_country
 )
-group by country_alpha2,a.platform_subset','','1','1'
+group by a.country_alpha2,a.platform_subset,b.product_lifecycle_status_usage ,b.product_lifecycle_status_share,b.technology,iccx.region_3 ,iccx.market10','','1','1'
 ,getdate(),'admin',1,'Medium')
 ;"""
 
@@ -155,8 +156,8 @@ insert_testqueries_in_testcases_table_query= f"""
 INSERT INTO stage.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
-('Phoenix - QA','','','Range Check','US','Usage should not be less than 0','prod','prod.usage_share_country','usage','select * from prod.usage_share_country where measure=''USAGE'' and  units<0','','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','','Range Check','US','Share should be between 0-1','prod','prod.usage_share_country','share','select * from prod.usage_share_country where measure=''HP_SHARE'' and  (units<0 or units>1) ','','1','1',getdate(),'admin',1,'Medium');"""
+('Phoenix - QA','','','Range Check','US','Usage should not be less than 0','prod','prod.usage_share_country','usage','select * from prod.usage_share_country where measure=''USAGE'' and  units<0','','1','1',getdate(),'admin',1,'Critical')
+,('Phoenix - QA','','','Range Check','US','Share should be between 0-1','prod','prod.usage_share_country','share','select * from prod.usage_share_country where measure=''HP_SHARE'' and  (units<0 or units>1) ','','1','1',getdate(),'admin',1,'Critical');"""
 
 # COMMAND ----------
 
