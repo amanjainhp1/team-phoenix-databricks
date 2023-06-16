@@ -945,7 +945,7 @@ WITH pcm_02_hp_demand AS
           , SUM(m10.device_spread)
             OVER (PARTITION BY m10.geography, m10.platform_subset, m10.base_product_number, m10.customer_engagement) /
             NULLIF(SUM(m10.device_spread)
-                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,p.crg_chrome),
+                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,m10.crg_chrome),
                    0) AS weighted_avg
      FROM pcm_10_mix_weighted_avg_step_1 AS m10
      WHERE 1 = 1
@@ -964,7 +964,7 @@ WITH pcm_02_hp_demand AS
           , SUM(m10.device_spread)
             OVER (PARTITION BY m10.geography, m10.platform_subset, m10.base_product_number, m10.customer_engagement) /
             NULLIF(SUM(m10.device_spread)
-                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,p.crg_chrome),
+                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,m10.crg_chrome),
                    0)                                                                       AS weighted_avg
      FROM pcm_10_mix_weighted_avg_step_1 AS m10
      WHERE 1 = 1
