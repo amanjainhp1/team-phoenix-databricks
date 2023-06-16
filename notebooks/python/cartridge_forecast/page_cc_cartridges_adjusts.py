@@ -1461,6 +1461,26 @@ write_df_to_redshift(configs, df_page_cc_mix, "prod.page_cc_mix", "append")
 
 # COMMAND ----------
 
+base_promo_add_version = """
+CALL prod.addversion_sproc('CONVERT_TO_CARTRIDGE', 'SYSTEM BUILD')
+"""
+
+# COMMAND ----------
+
+submit_remote_query(configs, base_promo_add_version)
+
+# COMMAND ----------
+
+page_mix_add_version = """
+CALL prod.addversion_sproc('PAGES_CCS_MIX', 'SYSTEM BUILD')
+"""
+
+# COMMAND ----------
+
+submit_remote_query(configs, page_mix_add_version)
+
+# COMMAND ----------
+
  query_update_latest_version_base = """
  UPDATE prod.cartridge_demand_cartridges
  SET version  = (SELECT MAX(version) FROM prod.version WHERE record = 'CONVERT_TO_CARTRIDGE'),
@@ -1480,3 +1500,7 @@ write_df_to_redshift(configs, df_page_cc_mix, "prod.page_cc_mix", "append")
 # COMMAND ----------
 
 submit_remote_query(configs, query_update_latest_version_base)
+
+# COMMAND ----------
+
+submit_remote_query(configs, query_update_latest_version_mix)
