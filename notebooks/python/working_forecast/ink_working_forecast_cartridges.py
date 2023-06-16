@@ -817,7 +817,7 @@ WITH pcm_02_hp_demand AS
           , p.ccs
           , p.ccs /
             NULLIF(SUM(ccs)
-                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color, p.customer_engagement),
+                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color,p.crg_chrome, p.customer_engagement),
                    0) AS mix_step_1
      FROM pcm_05_ccs AS p
      WHERE 1 = 1
@@ -838,7 +838,7 @@ WITH pcm_02_hp_demand AS
           , p.ccs
           , p.ccs /
             NULLIF(SUM(ccs)
-                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color, p.customer_engagement),
+                   OVER (PARTITION BY p.cal_date, p.geography, p.platform_subset, p.k_color,p.crg_chrome, p.customer_engagement),
                    0) AS mix_step_1
      FROM pcm_05_ccs AS p
      WHERE 1 = 1
@@ -945,7 +945,7 @@ WITH pcm_02_hp_demand AS
           , SUM(m10.device_spread)
             OVER (PARTITION BY m10.geography, m10.platform_subset, m10.base_product_number, m10.customer_engagement) /
             NULLIF(SUM(m10.device_spread)
-                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color),
+                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,p.crg_chrome),
                    0) AS weighted_avg
      FROM pcm_10_mix_weighted_avg_step_1 AS m10
      WHERE 1 = 1
@@ -964,7 +964,7 @@ WITH pcm_02_hp_demand AS
           , SUM(m10.device_spread)
             OVER (PARTITION BY m10.geography, m10.platform_subset, m10.base_product_number, m10.customer_engagement) /
             NULLIF(SUM(m10.device_spread)
-                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color),
+                   OVER (PARTITION BY m10.geography, m10.platform_subset, m10.customer_engagement, m10.k_color,p.crg_chrome),
                    0)                                                                       AS weighted_avg
      FROM pcm_10_mix_weighted_avg_step_1 AS m10
      WHERE 1 = 1

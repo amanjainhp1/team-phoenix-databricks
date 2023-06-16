@@ -1434,19 +1434,19 @@ query_list.append([f"stage.{technology_label}_vtc", vtc, "overwrite"])
 
 # COMMAND ----------
 
-base_forecast_query = """
+base_forecast_query = f"""
 SELECT record, cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, channel_fill, supplies_spares_crgs, host_crgs, welcome_kits, expected_crgs, mvtc, mvtc_adjusted_crgs, cast(NULL as date) load_date, cast(NULL as varchar(64)) version
-FROM stage.vtc
+FROM stage.{technology_label}_vtc
 """
 
 df_base_forecast = read_redshift_to_df(configs).option("query", base_forecast_query).load()
 
 # COMMAND ----------
 
-page_cc_mix_query = """
+page_cc_mix_query = f"""
 SELECT "type", cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, mix_rate, cast(NULL as date) load_date, 
 cast(NULL as varchar(64)) version
-FROM stage.page_cc_mix;
+FROM stage.{technology_label}_{supply_unit}_mix
 """
 
 df_page_cc_mix = read_redshift_to_df(configs).option("query", page_cc_mix_query).load()
