@@ -225,14 +225,14 @@ SELECT CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month,
     , ucep.country_alpha2
     , iso.market13
     , ucep.hps_ops
-    , ucep.split_name
+    , ucep.customer_engagement split_name
     , ucep.platform_subset
     , SUM(ucep.units * pl.value) AS printer_installs
 FROM "stage"."ib_04_units_ce_splits_pre" AS ucep
 JOIN "mdm"."printer_lag" AS pl  -- implicit cross join (or cartesian product)
     ON ucep.region_5 = pl.region_5
     AND ucep.hps_ops = pl.hps_ops
-    AND ucep.split_name = pl.split_name
+    AND ucep.customer_engagement = pl.split_name
     AND pl.pre_post_flag = 'PRE'
 LEFT JOIN iso ON ucep.country_alpha2=iso.country_alpha2
 GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month, ucep.month_begin) AS INTEGER) + pl.month_lag - 1) / 12
@@ -242,7 +242,7 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , iso.market13
     , ucep.country_alpha2
     , ucep.hps_ops
-    , ucep.split_name
+    , ucep.customer_engagement
     , ucep.platform_subset
 """
 

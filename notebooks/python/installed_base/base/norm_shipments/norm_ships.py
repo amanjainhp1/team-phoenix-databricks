@@ -275,7 +275,6 @@ query_list.append(["stage.norm_ships", norm_ships, "overwrite"])
 # COMMAND ----------
 
 norm_ships_ce = """
-
 with ns_enrollees as
 (
     select
@@ -283,11 +282,11 @@ with ns_enrollees as
         cal_date,
         country,
         platform_subset,
-        sum(net_p1_enrollees) as p1_units
+        sum(p1_enrollees) as p1_units
     from prod.instant_ink_enrollees_stf
     where 1=1
         aND official=1
-        and net_p1_enrollees <> 0
+        and p1_enrollees <> 0
     GROUP BY cal_date, country, platform_subset
     UNION ALL
     select
@@ -295,11 +294,11 @@ with ns_enrollees as
         cal_date,
         country,
         platform_subset,
-        sum(net_p1_enrollees) as p1_units
+        sum(p1_enrollees) as p1_units
     from prod.instant_ink_enrollees_ltf
     where 1=1
         and official=1
-        and net_p1_enrollees <> 0
+        and p1_enrollees <> 0
     GROUP BY cal_date, country, platform_subset
 ),
 
@@ -314,8 +313,8 @@ step_1 as
            'TRAD' as customer_engagement,
            0 as split_value,
            a.units - coalesce(b.p1_units,0) as units,
-           load_date,
-           version
+           getdate() as load_date,
+        '2023.06.13.1' as version
     from stage.norm_ships a left join ns_enrollees b
         on a.platform_subset=b.platform_subset
         and a.cal_date=b.cal_date
@@ -340,18 +339,18 @@ step_1 as
         'instant_ink',
         cal_date,
         b.region_5,
-        country_alpha2,
+        a.country_alpha2,
         platform_subset,
         'I-INK' as customer_engagement,
         0 as split_value,
         a.units as units,
         getdate() as load_date,
         '2023.06.13.1' as version
-    from stage.norm_ships a left join mdm.iso_country_code_xref b on a.country = b.country_alpha2
+    from stage.norm_ships a left join mdm.iso_country_code_xref b on a.country_alpha2 = b.country_alpha2
     where a.platform_subset like '%PAAS%'
 )
 
-select 'NORM_SHIPS_CE record,
+select 'NORM_SHIPS_CE' record,
        cal_date,
        region_5,
        country_alpha2,
@@ -363,7 +362,6 @@ select 'NORM_SHIPS_CE record,
        '2023.06.13.1' version
 from step_1
 where 1=1
-order by cal_date
 """
 query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
 
@@ -453,7 +451,7 @@ SELECT ns.region_5
     , ns.customer_engagement 
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships_ce" AS ns
+FROM "stage"."norm_shipments_ce" AS ns
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ns.platform_subset
 JOIN "mdm"."iso_country_code_xref" AS cc
@@ -468,7 +466,7 @@ SELECT ns.region_5
     , ns.country_alpha2
     , ns.platform_subset
     , ns.month_begin
-    , ns.split_name
+    , ns.customer_engagement
     , 1.0 AS split_value
     , ns.units  AS units
 FROM ib_03_norm_shipments_agg AS ns
