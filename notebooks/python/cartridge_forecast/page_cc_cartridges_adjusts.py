@@ -1431,3 +1431,52 @@ query_list.append([f"stage.{technology_label}_vtc", vtc, "overwrite"])
 # COMMAND ----------
 
 # MAGIC %run "../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+base_forecast_query = """
+SELECT record, cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, cartridges, channel_fill, supplies_spares_crgs, host_crgs, welcome_kits, expected_crgs, mvtc, mvtc_adjusted_crgs, cast(NULL as date) load_date, cast(NULL as varchar(64)) version
+FROM stage.vtc
+"""
+
+df_base_forecast = read_redshift_to_df(configs).option("query", base_forecast_query).load()
+
+# COMMAND ----------
+
+page_cc_mix_query = """
+SELECT "type", cal_date, geography_grain, geography, platform_subset, base_product_number, customer_engagement, mix_rate, cast(NULL as date) load_date, 
+cast(NULL as varchar(64)) version
+FROM stage.page_cc_mix;
+"""
+
+df_page_cc_mix = read_redshift_to_df(configs).option("query", page_cc_mix_query).load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, df_base_forecast, "prod.cartridge_demand_cartridges", "append")
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, df_page_cc_mix, "prod.page_cc_mix", "append")
+
+# COMMAND ----------
+
+ query_update_latest_version_base = """
+ UPDATE prod.cartridge_demand_cartridges
+ SET version  = (SELECT MAX(version) FROM prod.version WHERE record = 'CONVERT_TO_CARTRIDGE'),
+     load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'CONVERT_TO_CARTRIDGE')
+ WHERE version IS NULL 
+ """
+
+# COMMAND ----------
+
+ query_update_latest_version_mix = """
+ UPDATE prod.page_cc_mix
+ SET version  = (SELECT MAX(version) FROM prod.version WHERE record = 'PAGE_CC_MIX'),
+     load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'PAGE_CC_MIX')
+ WHERE version IS NULL 
+ """
+
+# COMMAND ----------
+
+submit_remote_query(configs, query_update_latest_version_base)
