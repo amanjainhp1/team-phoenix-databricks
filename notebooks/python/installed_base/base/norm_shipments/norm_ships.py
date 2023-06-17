@@ -84,7 +84,32 @@ SELECT ref.region_5
 FROM "prod"."actuals_hw" AS act
 JOIN "mdm"."iso_country_code_xref" AS ref
     ON act.country_alpha2 = ref.country_alpha2
-WHERE act.record IN ('ACTUALS - HW','ACTUALS_LF')
+JOIN "mdm".hardware_xref hw
+    ON hw.platform_subset = act.platform_subset
+WHERE act.record IN ('ACTUALS_LF')
+      AND hw.technology = 'LF'
+      AND act.official = 1
+GROUP BY ref.region_5
+    , act.record
+    , act.cal_date
+    , act.country_alpha2
+    , act.platform_subset
+
+UNION ALL
+
+SELECT ref.region_5
+    , act.record
+    , act.cal_date
+    , act.country_alpha2
+    , act.platform_subset
+    , SUM(act.base_quantity) AS units  -- base_prod_number to platform_subset
+FROM "prod"."actuals_hw" AS act
+JOIN "mdm"."iso_country_code_xref" AS ref
+    ON act.country_alpha2 = ref.country_alpha2
+JOIN "mdm".hardware_xref hw
+    ON hw.platform_subset = act.platform_subset
+WHERE act.record IN ('ACTUALS - HW')
+      AND hw.technology in ('INK','PWA','LASER')
       AND act.official = 1
 GROUP BY ref.region_5
     , act.record
@@ -136,7 +161,7 @@ GROUP BY ref.region_5
     , ltf.country_alpha2
     , ltf.platform_subset
 
-UNION
+UNION ALL
 
 SELECT ref.region_5
     , ltf.record
@@ -205,6 +230,10 @@ SELECT MAX(CASE WHEN record = 'ACTUALS - HW' THEN min_cal_date ELSE NULL END) AS
     , MAX(CASE WHEN record = 'HW_STF_FCST' THEN max_cal_date ELSE NULL END) AS stf_max_cal_date
     , MAX(CASE WHEN record = 'HW_FCST' THEN min_cal_date ELSE NULL END) AS ltf_min_cal_date
     , MAX(CASE WHEN record = 'HW_FCST' THEN max_cal_date ELSE NULL END) AS ltf_max_cal_date
+    , MAX(CASE WHEN record = 'HW_LTF_LF' THEN min_cal_date ELSE NULL END) AS ltf_min_cal_date
+    , MAX(CASE WHEN record = 'HW_LTF_LF' THEN max_cal_date ELSE NULL END) AS ltf_max_cal_date
+    , MAX(CASE WHEN record = 'ACTUALS_LF' THEN min_cal_date ELSE NULL END) AS act_lf_min_cal_date
+    , MAX(CASE WHEN record = 'ACTUALS_LF' THEN max_cal_date ELSE NULL END) AS act_lf_max_cal_date
 FROM nrm_06_printer_month_filters
 ),
 
@@ -233,8 +262,22 @@ SELECT ltf.region_5
 FROM nrm_05_combined_ships AS ltf
 CROSS JOIN nrm_07_printer_dates AS pd
 WHERE 1=1
-    AND ltf.record IN ('HW_LTF_LF','HW_FCST')
+    AND ltf.record IN ('HW_FCST')
     AND ltf.cal_date > pd.stf_max_cal_date
+
+UNION ALL 
+
+SELECT ltf.region_5
+    , ltf.record
+    , ltf.cal_date
+    , ltf.country_alpha2
+    , ltf.platform_subset
+    , ltf.units
+FROM nrm_05_combined_ships AS ltf
+CROSS JOIN nrm_07_printer_dates AS pd
+WHERE 1=1
+    AND ltf.record IN ('HW_LTF_LF')
+    AND ltf.cal_date > pd.act_lf_max_cal_date
 )
 
 --actuals
@@ -366,7 +409,30 @@ JOIN "mdm"."hardware_xref" AS hw
 JOIN "mdm"."iso_country_code_xref" AS cc
     ON cc.country_alpha2 = ns.country_alpha2
 WHERE 1=1
-    AND hw.technology IN ('LASER','INK','PWA','LF')
+    AND hw.technology IN ('LF')
+    and ns.record in ('ACTUALS_LF','HW_LTF_LF')
+
+UNION ALL
+
+SELECT ns.region_5
+    , cc.market10
+    , ns.record
+    , ns.cal_date AS month_begin
+    , ns.country_alpha2
+    , ns.platform_subset
+    , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
+    , ns.units
+FROM "stage"."norm_ships" AS ns
+JOIN ib_01_filter_vars AS fv
+    ON fv.record = 'BUILD_NORM_SHIPS'
+    AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
+JOIN "mdm"."hardware_xref" AS hw
+    ON hw.platform_subset = ns.platform_subset
+JOIN "mdm"."iso_country_code_xref" AS cc
+    ON cc.country_alpha2 = ns.country_alpha2
+WHERE 1=1
+    AND hw.technology IN ('INK','PWA','LASER')
+    and ns.record in ('ACTUALS - HW','HW_STF_FCST' , 'HW_FCST')
 
 ), ib_02a_ce_splits as (
 
@@ -494,7 +560,3 @@ submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_ships; CREA
 
 # copy from stage to scen
 submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_shipments_ce; CREATE TABLE scen.prelim_norm_shipments_ce AS SELECT * FROM stage.norm_shipments_ce;")
-
-# COMMAND ----------
-
-

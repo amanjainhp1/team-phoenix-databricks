@@ -21,6 +21,7 @@ from datetime import date
 
 # COMMAND ----------
 
+
 # Global Variables
 query_list = []
 
