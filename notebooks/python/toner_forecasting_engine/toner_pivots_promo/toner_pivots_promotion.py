@@ -23,7 +23,7 @@ submit_remote_query(configs, query_add_version)
 
 # COMMAND ----------
 
-toner_pivots_promo """
+toner_pivots_promo = ("""
 
 with pivots_promo_01_filter_vars as (
     SELECT record
@@ -120,3 +120,7 @@ df_toner_pivots_promo = read_redshift_to_df(configs).option("query", toner_pivot
 # COMMAND ----------
 
 write_df_to_redshift(configs, df_toner_pivots_promo, "prod.toner_pivots", "append")
+
+# COMMAND ----------
+
+

@@ -1524,7 +1524,7 @@ JOIN pivots_t_18_supplies_xref AS s
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = apf.platform_subset
 WHERE 1=1
-    AND apf.record_type = 'ACTUALS'
+    --AND apf.record_type = 'ACTUALS'
 
 GROUP BY f.date
     , f.fiscal_year_qtr
@@ -1925,7 +1925,7 @@ GROUP BY f.date
 UNION ALL
 
 SELECT 'SUPPLIES FC/ACTUALS' AS record_type
-    , 'HP SELL-IN PAGES' AS record
+    , 'HP SELL-IN PAGES' AS record    -- trade sell-in pages
     , f.date AS month
     , f.fiscal_year_qtr
     , f.fiscal_yr
@@ -2854,3 +2854,7 @@ query_list.append(["stage.toner_pivots_data_source", toner_pivots_data_source, "
 # COMMAND ----------
 
 # MAGIC %run "../../common/output_to_redshift" $query_list=query_list
+
+# COMMAND ----------
+
+
