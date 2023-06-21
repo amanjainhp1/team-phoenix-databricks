@@ -308,14 +308,14 @@ step_1 as
            a.record,
            a.cal_date,
            region_5,
-           country_alpha2,
+           a.country_alpha2,
            a.platform_subset,
            'TRAD' as customer_engagement,
            0 as split_value,
            a.units - coalesce(b.p1_units,0) as units,
            getdate() as load_date,
         '2023.06.13.1' as version
-    from stage.norm_ships a join ns_enrollees b
+    from stage.norm_ships a left join ns_enrollees b
         on a.platform_subset=b.platform_subset
         and a.cal_date=b.cal_date
         and a.country_alpha2 = b.country
@@ -323,21 +323,21 @@ step_1 as
     UNION ALL
     select
         'instant_ink',
-        cal_date,
+        a.cal_date,
         b.region_5,
-        country_alpha2,
-        platform_subset,
+        a.country as country_alpha2,
+        a.platform_subset,
         'I-INK' as customer_engagement,
         0 as split_value,
         a.p1_units as units,
         getdate() as load_date,
         '2023.06.13.1' as version
-    from ns_enrollees a 
+    from ns_enrollees a
     	 left join mdm.iso_country_code_xref b on a.country = b.country_alpha2
-              join stage.norm_ships c on 
+              join stage.norm_ships c on
 	            c.platform_subset = a.platform_subset
         	and c.cal_date = a.cal_date
-	        and c.country_alpha2 = a.country 
+	        and c.country_alpha2 = a.country
     where a.platform_subset not like '%PAAS%'
      UNION ALL
     select
