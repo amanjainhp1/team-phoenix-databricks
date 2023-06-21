@@ -1030,38 +1030,22 @@ cbm_sell_adj5_2 = spark.sql("""
 			from channel_inventory_without_xcodes
 			group by cal_date, region_5, country_alpha2, sales_product_number, pl				
 		),		
-		direct_indirect_mix as
+		inventory_adjust_for_customer_engagement as
 		(
 			select
 				cal_date,
 				country_alpha2,
-				sales_product_number,
-				customer_engagement,
-				case
-					when sum(revenue_units) over (partition by cal_date, country_alpha2, sales_product_number) = 0 then null
-					else revenue_units / sum(revenue_units) over (partition by cal_date, country_alpha2, sales_product_number)
-				end as unit_ce_mix
-			from fin_prod.actuals_supplies_salesprod
-			-- no dollar impact associated with direct fulfillment or i-ink at this time (i-ink subject to change)
-			where customer_engagement not in ('EST_DIRECT_FULFILLMENT', 'I-INK')
-			and revenue_units > 0
-			group by cal_date, country_alpha2, sales_product_number, customer_engagement, revenue_units
-		),
-		inventory_adjust_for_customer_engagement as
-		(
-			select
-				inv.cal_date,
-				inv.country_alpha2,
 				region_5,
-				inv.sales_product_number,
+				sales_product_number,
 				pl,
-				customer_engagement,
-				sum(inventory_usd * coalesce(unit_ce_mix, 1)) as inventory_usd,
-				sum(inventory_qty * coalesce(unit_ce_mix, 1))  as inventory_qty
-			from channel_inventory_without_xcodes2 inv
-			left join direct_indirect_mix mix on inv.cal_date = mix.cal_date and inv.country_alpha2 = mix.country_alpha2 
-				and inv.sales_product_number = mix.sales_product_number
-			group by inv.cal_date, inv.country_alpha2, region_5, inv.sales_product_number, inv.pl, customer_engagement
+				case
+					when pl = 'GD' then  'I-INK'
+					else 'TRAD'
+				end as customer_engagement,
+				sum(inventory_usd) as inventory_usd,
+				sum(inventory_qty)  as inventory_qty
+			from channel_inventory_without_xcodes2 
+			group by cal_date, country_alpha2, region_5, sales_product_number, pl, customer_engagement
 		)
 
 			select
@@ -1070,11 +1054,7 @@ cbm_sell_adj5_2 = spark.sql("""
 				region_5,
 				sales_product_number,
 				pl,
-				case
-					when customer_engagement is null and pl != 'GD' then 'TRAD'
-					when customer_engagement is null and pl = 'GD' then  'I-INK'
-					else customer_engagement
-				end as customer_engagement,
+				customer_engagement,
 				coalesce(sum(inventory_usd), 0) as inventory_usd,
 				coalesce(sum(inventory_qty),0)  as inventory_qty
 			from inventory_adjust_for_customer_engagement
