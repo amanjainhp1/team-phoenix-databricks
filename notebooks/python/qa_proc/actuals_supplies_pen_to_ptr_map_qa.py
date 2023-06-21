@@ -45,10 +45,6 @@ ib = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
-actuals_supplies_baseprod.count()
-
-# COMMAND ----------
-
 import re
 
 tables = [
@@ -396,64 +392,128 @@ shm_12_map_geo_6.createOrReplaceTempView("shm_12_map_geo_6")
 
 # COMMAND ----------
 
-baseprod_na_printer_join_shm.count()
+
+# create a count-based mix to avoid overstating revenue with the left join explosion to shm
+shm_13_map_geo_7 = f"""
+SELECT distinct platform_subset
+    , base_product_number
+    , country_alpha2
+    , customer_engagement
+    ,CASE
+			WHEN COUNT(platform_subset) OVER (PARTITION BY base_product_number, country_alpha2, customer_engagement) = 0 THEN NULL
+			ELSE COUNT(platform_subset) OVER (PARTITION BY base_product_number, country_alpha2, customer_engagement)
+		END AS printers_per_baseprod
+FROM shm_12_map_geo_6
+GROUP BY platform_subset, base_product_number, country_alpha2, customer_engagement
+"""
+
+shm_13_map_geo_7 = spark.sql(shm_13_map_geo_7)
+shm_13_map_geo_7.createOrReplaceTempView("shm_13_map_geo_7")
+
+
+shm_14_map_geo_8 = f"""
+SELECT distinct platform_subset
+    , base_product_number
+    , country_alpha2
+    , customer_engagement
+    , COALESCE(printers_per_baseprod, 0) AS printers_per_baseprod
+FROM shm_13_map_geo_7
+"""
+
+shm_14_map_geo_8 = spark.sql(shm_14_map_geo_8)
+shm_14_map_geo_8.createOrReplaceTempView("shm_14_map_geo_8")
+
+
+shm_15_map_geo_9 = f"""
+SELECT distinct platform_subset
+    , base_product_number
+    , country_alpha2
+    , customer_engagement
+    , CAST(1/printers_per_baseprod AS decimal(10,8)) AS printers_per_baseprod
+FROM shm_14_map_geo_8
+"""
+
+shm_15_map_geo_9 = spark.sql(shm_15_map_geo_9)
+shm_15_map_geo_9.createOrReplaceTempView("shm_15_map_geo_9")
+
 
 # COMMAND ----------
 
 # baseprod NA platform subset map back to data
-baseprod_na_printer_join_shca = f"""
+baseprod_na_printer_join_shm = f"""
 SELECT             
     bnp.cal_date,
     bnp.country_alpha2,
     bnp.market10,
-    shca.platform_subset,
+    shm.platform_subset,
     hx.hw_product_family,
     bnp.base_product_number,
     bnp.pl,
     sx.technology,
-    bnp.customer_engagement,  
-    SUM(bnp.net_revenue) AS net_revenue,
-    SUM(bnp.revenue_units) AS revenue_units,
+    bnp.customer_engagement, 
+    rdma.product_class,
+    rdma.platform,
+    rdma.platform_subset as rdma_platform_subset,
+    rdma.product_technology_name,
+    rdma.product_status, 
+    sx.supplies_family,
+    sx.supplies_technology,
+    sx.crg_chrome,
+    sx.official as sup_xref_official_status,
+    SUM(bnp.net_revenue * COALESCE(printers_per_baseprod, 1)) AS net_revenue,
+    SUM(bnp.revenue_units * COALESCE(printers_per_baseprod, 1)) AS revenue_units,
     SUM(ib.units) as ib_units,
-    SUM(hp_pages) as hp_pages
+    SUM(shca.hp_pages) as hp_pages
 FROM actuals_supplies_baseprod_na_printer bnp
+LEFT JOIN shm_15_map_geo_9 shm
+    ON shm.base_product_number = bnp.base_product_number
+    AND shm.country_alpha2 = bnp.country_alpha2
+    AND shm.customer_engagement = bnp.customer_engagement
 LEFT JOIN shca_mapping_actuals_period_only shca
     ON shca.cal_date = bnp.cal_date
     AND shca.country_alpha2 = bnp.country_alpha2
     AND shca.customer_engagement = bnp.customer_engagement
     AND shca.base_product_number = bnp.base_product_number
+    AND shca.platform_subset = shm.platform_subset
 LEFT JOIN ib_data ib 
     ON ib.cal_date = shca.cal_date
-    AND ib.platform_subset = shca.platform_subset
+    AND ib.platform_subset = shm.platform_subset
     AND ib.country_alpha2 = shca.country_alpha2
 LEFT JOIN mdm.supplies_xref sx
     ON sx.base_product_number = bnp.base_product_number
 LEFT JOIN mdm.hardware_xref hx
-    ON hx.platform_subset = shca.platform_subset
+    ON hx.platform_subset = shm.platform_subset
+LEFT JOIN mdm.rdma rdma 
+    ON rdma.base_prod_number = bnp.base_product_number
 WHERE 1=1
-GROUP BY             
-    bnp.cal_date,
+  AND bnp.revenue_units <> 0 -- Per Alan Hunt
+GROUP BY bnp.cal_date,
     bnp.country_alpha2,
     bnp.market10,
-    shca.platform_subset,
+    shm.platform_subset,
+    hx.hw_product_family,
     bnp.base_product_number,
     bnp.pl,
-    bnp.customer_engagement,
     sx.technology,
-    hx.hw_product_family
+    bnp.customer_engagement, 
+    rdma.product_class,
+    rdma.platform,
+    rdma.platform_subset,
+    rdma.product_technology_name,
+    rdma.product_status, 
+    sx.supplies_family,
+    sx.supplies_technology,
+    sx.crg_chrome,
+    sx.official
 """
 
-baseprod_na_printer_join_shca = spark.sql(baseprod_na_printer_join_shca)
-baseprod_na_printer_join_shca.createOrReplaceTempView("baseprod_na_printer_join_shca")
+baseprod_na_printer_join_shm = spark.sql(baseprod_na_printer_join_shm)
+baseprod_na_printer_join_shm.createOrReplaceTempView("baseprod_na_printer_join_shm")
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC select * 
-# MAGIC from baseprod_na_printer_join_shca 
-# MAGIC where platform_subset is not null
-# MAGIC
+write_df_to_redshift(configs, baseprod_na_printer_join_shm, "scen.supplies_pen_to_ptr_mapping_dropout", "append", postactions = "", preactions = "truncate scen.supplies_pen_to_ptr_mapping_dropout")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, baseprod_na_printer_join_shca, "scen.supplies_pen_to_ptr_mapping_dropout", "append", postactions = "", preactions = "truncate scen.supplies_pen_to_ptr_mapping_dropout")
+
