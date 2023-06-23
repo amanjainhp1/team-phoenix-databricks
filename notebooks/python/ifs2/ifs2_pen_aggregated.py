@@ -176,6 +176,10 @@ pen_inputs.createOrReplaceTempView("pen_inputs")
 
 # COMMAND ----------
 
+pen_inputs.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
+
+# COMMAND ----------
+
 q = '''
 select record
 , region_5
@@ -199,6 +203,10 @@ from pen_inputs
 '''
 pen_pv_cf = spark.sql(q)
 pen_pv_cf.createOrReplaceTempView("pen_pv_cf")
+
+# COMMAND ----------
+
+pen_pv_cf.filter((col('platform_subset') == 'MALBEC YET1') & (col('region_5') == 'NA') & (col('base_product_number') == '3YL58A')).orderBy('year').display()
 
 # COMMAND ----------
 

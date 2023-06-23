@@ -508,7 +508,7 @@ usage_share.createOrReplaceTempView("usage_share")
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, usage_share, "ifs2.usage_share", "overwrite")
+write_df_to_redshift(configs, toner_usage_share_pivot, "ifs2.usage_share_toner", "overwrite")
 
 # COMMAND ----------
 

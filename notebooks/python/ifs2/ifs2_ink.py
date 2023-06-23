@@ -94,6 +94,10 @@ end_ifs2_date = datetime.strptime(str(end_ifs2_date),"%Y-%m-%d")
 
 # COMMAND ----------
 
+usage_share_version
+
+# COMMAND ----------
+
 # MAGIC %md # Delta tables
 
 # COMMAND ----------
@@ -142,14 +146,14 @@ calendar = read_redshift_to_df(configs) \
 
 ## Populating delta tables
 tables = [
-#  ['prod.usage_share_ifs2_ink' , usage_share1],
+ ['prod.usage_share_ifs2_ink' , usage_share1],
 #  ['mdm.hardware_xref' , hardware_xref],
 #  ['mdm.supplies_xref' , supplies_xref],
 #  ['prod.decay_m13' , decay_m13],
 #  ['mdm.yield' , yield_],
- ['ifs2.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ## ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
- ## changes: forecast_supplies_baseprod input table needs to be changed
+#  ['ifs2.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+#  ## ['fin_prod.forecast_supplies_baseprod' , forecast_supplies_baseprod],
+#  ## changes: forecast_supplies_baseprod input table needs to be changed
 #  ['prod.page_cc_mix' , page_cc_mix],
 #  ['mdm.iso_country_code_xref' , iso_country_code_xref],
 #  ['prod.working_forecast' , working_forecast],
@@ -256,6 +260,10 @@ query = '''select cal_date
 ink_usage_share = spark.sql(query)
 ink_usage_share_pivot = ink_usage_share.groupBy("cal_date","year","year_num","month_df","month_num","market10","platform_subset","customer_engagement","hw_product_family","ib_version","us.version").pivot("measure").sum("units")
 ink_usage_share_pivot.createOrReplaceTempView("ink_usage_share_pivot")
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, ink_usage_share_pivot, "ifs2.usage_share_ink", "overwrite")
 
 # COMMAND ----------
 
@@ -375,6 +383,10 @@ select usi.record
 '''
 usage_share = spark.sql(query)
 usage_share.createOrReplaceTempView("usage_share")
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, ink_usage_share_pivot, "ifs2.usage_share_ink_pivot", "overwrite")
 
 # COMMAND ----------
 
