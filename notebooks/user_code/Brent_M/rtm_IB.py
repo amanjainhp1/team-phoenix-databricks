@@ -744,7 +744,124 @@ write_df_to_redshift(configs, rtm_mps_uplift_records, "stage.rtm_ib_mps_uplift_s
 
 # COMMAND ----------
 
-# update rtm ib data
+# fix the allocated units for situations where Total MPS is > than total TRAD units
+rtm_mps_uplift_fix_query = """
+with trad_units as
+(
+    Select
+        country_alpha2,
+        month_begin,
+        a.platform_subset,
+        sum(ib) as trad_ib_units
+    from stage.rtm_ib_staging a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
+    where 1=1
+        and split_name IN ('TRAD')
+        and b.technology = 'LASER'
+    GROUP BY  month_begin, country_alpha2, a.platform_subset
+
+),
+
+compare_mps_allocated_to_trad as
+(
+    select
+        a.country_alpha2,
+        a.month_begin,
+        a.platform_subset,
+        sum(new_mps_units) as new_mps_units,
+        sum(b.trad_ib_units) as trad_ib_units
+    from stage.rtm_ib_mps_uplift_staging a LEFT JOIN trad_units b ON
+        a.country_alpha2=b.country_alpha2
+        and a.month_begin=b.month_begin
+        and a.platform_subset = b.platform_subset
+    GROUP BY a.country_alpha2, a.month_begin, a.platform_subset
+),
+
+new_mps_allocation_units as
+(
+    select
+        country_alpha2,
+        month_begin,
+        platform_subset,
+        new_mps_units,
+        trad_ib_units,
+        CASE
+            WHEN new_mps_units - trad_ib_units > 0 THEN trad_ib_units
+            ELSE new_mps_units
+        END AS new_new_mps_units
+    from compare_mps_allocated_to_trad
+    where new_mps_units > trad_ib_units
+),
+
+new_mix_pct as
+(
+    Select
+        month_begin,
+        country_alpha2,
+        a.platform_subset,
+        split_name,
+        --ib,
+        (a.ib / sum(a.ib) OVER (PARTITION BY a.platform_subset, a.country_alpha2, a.month_begin)) AS pct
+    from stage.rtm_ib_staging a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
+    where 1=1
+        and split_name IN ('DMPS','PMPS')
+        and b.technology = 'LASER'
+        and a.ib <> 0
+    order by platform_subset, country_alpha2, month_begin, split_name
+),
+
+cleaned_up_allocation_units as
+(
+    select
+        a.country_alpha2,
+        a.month_begin,
+        a.platform_subset,
+        b.split_name,
+        new_new_mps_units,
+        b.pct,
+        new_new_mps_units * b.pct as new_allocated_mps_ib_units
+    from new_mps_allocation_units a INNER JOIN new_mix_pct b ON
+        a.country_alpha2 = b.country_alpha2
+        and a.month_begin = b.month_begin
+        and a.platform_subset = b.platform_subset
+)
+
+SELECT 
+    country_alpha2,
+    month_begin,
+    split_name,
+    platform_subset,
+    new_allocated_mps_ib_units
+FROM cleaned_up_allocation_units
+"""
+
+rtm_mps_uplift_fix_records = read_redshift_to_df(configs) \
+    .option("query", rtm_mps_uplift_fix_query) \
+    .load()
+
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_mps_uplift_fix_records, "stage.rtm_ib_mps_uplift_fix_staging", "overwrite")
+
+# COMMAND ----------
+
+# update rtm ib data with adjusted ozzy mps numbers
+rtm_mps_update_fix_query=f"""
+UPDATE stage.rtm_ib_mps_uplift_staging a
+SET new_mps_units = b.new_allocated_mps_ib_units
+FROM stage.rtm_ib_mps_uplift_fix_staging b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name = b.split_name
+    and a.month_begin = b.month_begin
+"""
+
+submit_remote_query(configs, rtm_mps_update_fix_query) 
+
+# COMMAND ----------
+
+# update rtm ib data with finalized ozzy mps ib data
 rtm_mps_update_query=f"""
 UPDATE stage.rtm_ib_staging a
 SET ib = a.ib + b.new_mps_units
@@ -777,11 +894,11 @@ select
     a.month_begin,
     a.split_name,
     a.platform_subset,
-    --CASE
-        --WHEN ib - b.new_mps_units < 1 THEN 1
-        --ELSE ib - b.new_mps_units
-    --END AS ib
-    ib - b.new_mps_units as ib
+    CASE
+        WHEN ib - b.new_mps_units < 1 THEN 1
+        ELSE ib - b.new_mps_units
+    END AS ib
+    --ib - b.new_mps_units as ib
 from stage.rtm_ib_staging a inner join uplift_totals b
 on a.country_alpha2=b.country_alpha2
 and a.platform_subset = b.platform_subset
