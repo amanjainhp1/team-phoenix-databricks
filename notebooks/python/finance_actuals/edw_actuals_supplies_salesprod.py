@@ -7266,7 +7266,7 @@ SELECT
     SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM odw_salesprod_with_country_detail3
+FROM salesprod_with_country_detail3
 WHERE country_alpha2 IN (
                                 SELECT country_alpha2
                                 FROM mdm.iso_country_code_xref
