@@ -140,6 +140,7 @@ SELECT
     base_product_number,
     pl,
     customer_engagement,
+    'NONE' as printer_attribution,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
@@ -207,6 +208,7 @@ SELECT
     act.base_product_number,
     act.pl,
     act.customer_engagement,
+    'HP PAGES' as printer_attribution,
     SUM(gross_revenue * platform_mix) AS gross_revenue,
     SUM(net_currency * platform_mix) AS net_currency,
     SUM(contractual_discounts * platform_mix) AS contractual_discounts,
@@ -568,6 +570,7 @@ SELECT act.cal_date,
     act.base_product_number,
     act.pl,   
     act.customer_engagement,
+    'SUPPLIES HW MAP' as printer_attribution,
     SUM(gross_revenue * COALESCE(printers_per_baseprod, 0)) AS gross_revenue,
     SUM(net_currency * COALESCE(printers_per_baseprod, 0)) AS net_currency,
     SUM(contractual_discounts * COALESCE(printers_per_baseprod, 0)) AS contractual_discounts,
@@ -648,6 +651,7 @@ SELECT act.cal_date,
     act.base_product_number,
     act.pl,   
     act.customer_engagement,
+    'NOT AVAILABLE' as printer_attribution,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
@@ -705,6 +709,7 @@ SELECT
     bp.pl,
     l5_description,
     customer_engagement,
+    printer_attribution,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
@@ -720,7 +725,7 @@ SELECT
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM all_baseprod_with_platform_subsets AS bp
 JOIN mdm.product_line_xref AS plx ON bp.pl = plx.pl
-GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, l5_description
+GROUP BY cal_date, country_alpha2, platform_subset, base_product_number, bp.pl, customer_engagement, market10, l5_description, printer_attribution
 """
 
 baseprod_financials_preplanet_table = spark.sql(baseprod_financials_preplanet_table)
@@ -1115,6 +1120,7 @@ SELECT
     pl,
     l5_description,
     customer_engagement,
+    printer_attribution,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
@@ -1129,7 +1135,7 @@ SELECT
     SUM(yield_x_units) AS yield_x_units,
     SUM(yield_x_units_black_only) AS yield_x_units_black_only
 FROM baseprod_financials_preplanet_table
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, printer_attribution
             
 UNION ALL
             
@@ -1142,6 +1148,7 @@ SELECT
     pl,
     l5_description,
     customer_engagement,
+    'NONE' as printer_attribution,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
@@ -1174,6 +1181,7 @@ SELECT 'actuals - edw supplies base product financials' AS record,
     pl,
     l5_description,
     customer_engagement,
+    printer_attribution,
     COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
     COALESCE(SUM(net_currency), 0) AS net_currency,
     COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
@@ -1191,7 +1199,7 @@ SELECT 'actuals - edw supplies base product financials' AS record,
     '{addversion_info[1]}' AS load_date,
     '{addversion_info[0]}' AS version
 FROM baseprod_add_planet_adjusts
-GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement
+GROUP BY cal_date, country_alpha2, market10, platform_subset, base_product_number, pl, l5_description, customer_engagement, printer_attribution
 """
 
 baseprod_load_financials = spark.sql(baseprod_load_financials)
