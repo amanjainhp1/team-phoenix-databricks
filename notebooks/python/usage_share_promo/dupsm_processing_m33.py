@@ -567,9 +567,9 @@ def transform_usage_share_ib_prep(spark: SparkSession, mps_trad_ib, dupsm_combin
             , Family
             , FYQTR
             , sum(units_USAGE) as units_USAGE
-            , sum(units_COLOR_USAGE) as 
+            , sum(units_COLOR_USAGE) as units_COLOR_USAGE
             , sum(units_HP_SHARE) as units_HP_SHARE
-            ,max(source_USAGE) as source_USAGE
+            , max(source_USAGE) as source_USAGE
             , max(source_COLOR_USAGE) as source_COLOR_USAGE
             , max(source_HP_SHARE) as source_HP_SHARE
         FROM step1
