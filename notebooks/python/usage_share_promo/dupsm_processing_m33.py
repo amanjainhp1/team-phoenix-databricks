@@ -624,20 +624,20 @@ def transform_final_dupsm(spark: SparkSession, usage_share_ib_prep: DataFrame) -
 
 
 # COMMAND ----------
-def transform_ib_dupsm_covid_prep(spark: SparkSession, final_dupsm: DataFrame, geo_ref: DataFrame) -> DataFrame:
+def transform_ib_dupsm_covid_prep0(spark: SparkSession, final_dupsm: DataFrame, geo_ref: DataFrame) -> DataFrame:
     final_dupsm.createOrReplaceTempView('final_dupsm')
     geo_ref.createOrReplaceTempView('geo_ref')
     ib_dupsm_covid_prep0 = spark.sql("""
     SELECT 
         final_dupsm.route_to_market
-        ,final_dupsm.customer_engagement
+        , final_dupsm.customer_engagement
         , final_dupsm.platform_subset
         , geo_ref.market9
         , final_dupsm.country_alpha2
         , final_dupsm.FYQTR
         , final_dupsm.cal_date
         --, final_dupsm.source_USAGE
-        , final_dupsm.source_HP_SHARE
+        --, final_dupsm.source_HP_SHARE
         , final_dupsm.IB
         , final_dupsm.source_USAGE
         , final_dupsm.source_COLOR_USAGE
@@ -661,10 +661,10 @@ def transform_ib_dupsm_covid_prep(spark: SparkSession, final_dupsm: DataFrame, g
 
 # COMMAND ----------
 
-def transform_ib_dupsm_covid(spark: SparkSession, ib_dupsm_covid_prep: DataFrame, geo_ref: DataFrame):
+def transform_ib_dupsm_covid(spark: SparkSession, ib_dupsm_covid_prep: DataFrame, geo_ref: DataFrame) -> DataFrame:
     ib_dupsm_covid_prep.createOrReplaceTempView('ib_dupsm_covid_prep')
     geo_ref.createOrReplaceTempView('geo_ref')
-    ib_dupsm_covid = spark.sql("""
+    ib_dupsm_covid = spark.sql("""    
     WITH step1 AS (
         SELECT 
             ib.route_to_market
@@ -1231,7 +1231,256 @@ def transform_mps_trad_ib1(spark: SparkSession, mps_override: DataFrame) -> Data
 
 # COMMAND ----------
 
-def transform_data(spark: SparkSession, raw_data: dict) -> DataFrame:
+def transform_ib_dupsm_covid_prep(spark: SparkSession, ib_dupsm_covid_prep0: DataFrame, hw_ref: DataFrame) -> DataFrame:
+    ib_dupsm_covid_prep0.createOrReplaceTempView('ib_dupsm_covid_prep0')
+    hw_ref.createOrReplaceTempView('hw_ref')
+    ib_dupsm_covid_prep = spark.sql("""
+        WITH step1 AS (
+            SELECT
+                ib.route_to_market
+                , ib.customer_engagement
+                , ib.platform_subset
+                , ib.market9
+                , ib.country_alpha2
+                , ib.FYQTR
+                , ib.cal_date
+                , ib.IB
+                , ib.source_USAGE
+                , ib.source_COLOR_USAGE
+                , ib.source_HP_SHARE
+                , ib.total_pages/ib.IB AS usage
+                , ib.IB, ib.black_pages
+                , ib.color_pages
+                , ib.total_pages
+                , ib.hp_pages
+                , ib.bd_usage_pages
+                , ib.bd_share_pages
+                , hw.business_feature
+                , hw.format
+                , ib.bd_usage_pages
+                , ib.bd_share_pages
+            FROM ib_dupsm_covid_prep0 ib
+            LEFT JOIN hw_ref hw
+            ON ib.platform_subset=hw.platform_subset
+            WHERE ib.IB>0
+        ), step2 AS (
+            SELECT 
+                cal_date
+                , route_to_market,customer_engagement
+                , platform_subset
+                , market9, country_alpha2
+                , source_USAGE
+                , source_COLOR_USAGE
+                , source_HP_SHARE
+                , lag(usage,12) OVER (partition by route_to_market,customer_engagement, platform_subset, market9, country_alpha2, source_USAGE order by cal_date) as lag_usage
+                , FYQTR
+                , business_feature
+                , usage
+                , format
+                , IB,
+                 black_pages
+                , color_pages
+                , total_pages
+                , hp_pages
+                , bd_usage_pages
+                , bd_share_pages
+            FROM step1
+        ), step3 AS (
+            SELECT
+                step2.cal_date
+                , step2.route_to_market
+                , step2.customer_engagement
+                , step2.platform_subset
+                , step2.market9
+                , step2.country_alpha2
+                , step2.source_USAGE
+                , step2.source_COLOR_USAGE
+                , step2.source_HP_SHARE
+                , step2.usage, step2.lag_usage
+                , step2.FYQTR
+                , ci.YY
+                , step2.IB
+                , step2.black_pages
+                , step2.color_pages
+                , step2.total_pages
+                , step2.hp_pages
+                , step2.bd_usage_pages
+                , step2.bd_share_pages
+                , step2.business_feature
+                , step2.format
+                , CASE WHEN step2.source_USAGE in ('PROXIED','MODELED','filled') THEN 1 ELSE 0 END AS covid_modify
+                , CASE WHEN step2.source_USAGE in ('PROXIED','MODELED','filled') AND ci.YY IS NOT NULL AND step2.lag_usage IS NOT NULL THEN step2.lag_usage*ci.YY
+                    ELSE step2.usage END AS covid_usage
+            FROM step2
+            LEFT JOIN covid_impact ci  
+            ON step2.market9=ci.market9 AND step2.business_feature=ci.business_feature AND step2.format=ci.format 
+                AND step2.FYQTR=ci.FYQTR
+        ), step4 AS (
+            SELECT
+                cal_date
+                , route_to_market
+                , customer_engagement
+                , platform_subset
+                , market9
+                , country_alpha2
+                , source_USAGE
+                , usage
+                , lag_usage
+                , covid_usage
+                , FYQTR
+                , YY
+                , covid_modify
+                , IB
+                , black_pages, color_pages
+                , total_pages
+                , hp_pages
+                , bd_usage_pages
+                , bd_share_pages
+                , business_feature
+                , format
+                , source_COLOR_USAGE
+                , source_HP_SHARE
+                , lag(covid_usage,12) OVER (partition by route_to_market,customer_engagement, platform_subset, market9, country_alpha2 order by cal_date) as lag_covid_usage
+            FROM step3
+        ), step5 AS (
+            SELECT
+                cal_date
+                , route_to_market
+                , customer_engagement
+                , platform_subset
+                , market9
+                , country_alpha2
+                , source_USAGE
+                , source_COLOR_USAGE
+                , source_HP_SHARE
+                , usage
+                , lag_usage
+                , covid_usage
+                , lag_covid_usage
+                , FYQTR
+                , YY
+                , IB
+                , black_pages
+                , color_pages
+                , total_pages
+                , hp_pages
+                , bd_usage_pages
+                , bd_share_pages
+                , business_feature
+                , format
+                , CASE WHEN YY IS NOT NULL AND covid_modify=1 THEN 1 ELSE 0 END AS modified
+                , CASE WHEN YY IS NOT NULL AND covid_modify=1 AND lag_covid_usage IS NOT NULL THEN lag_covid_usage*YY ELSE covid_usage END AS covid_usage_final  
+                , CASE WHEN YY IS NOT NULL AND covid_modify=1 AND lag_covid_usage IS NOT NULL THEN lag_covid_usage*YY*IB ELSE covid_usage*IB END AS covid_total_pages    
+                , CASE WHEN YY IS NOT NULL AND covid_usage IS NULL THEN 1 ELSE 0 END AS covid_usage_drop   
+            FROM step4
+        )
+        SELECT
+            route_to_market
+            , customer_engagement
+            , platform_subset
+            , market9
+            , country_alpha2
+            , FYQTR
+            , source_USAGE
+            , source_COLOR_USAGE
+            , source_HP_SHARE
+            , black_pages
+            , color_pages
+            , total_pages
+            , hp_pages
+            , IB
+            , bd_usage_pages
+            , bd_share_pages
+            , business_feature
+            , format
+            , usage
+            , lag_usage
+            , YY covid_modify
+            , covid_usage
+            , covid_usage_drop
+            , lag_covid_usage
+            , modified
+            , covid_usage_final
+            , covid_total_pages
+        FROM step5
+    """)
+    return ib_dupsm_covid_prep
+
+
+# COMMAND ----------
+
+def transform_covid_impact(spark: SparkSession, final_dupsm: DataFrame, hw_ref: DataFrame, geo_ref: DataFrame, covid_end_quarter: str) -> DataFrame:
+    final_dupsm.createOrReplaceTempView('final_dupsm')
+    hw_ref.createOrReplaceTempView('hw_ref')
+    geo_ref.createOrReplaceTempView('geo_ref')
+    covid_impact = spark.sql(f"""
+        WITH covid_time_frame AS (
+            SELECT distinct FYQTR
+            FROM final_dupsm
+            WHERE FYQTR >= '2020Q1' AND FYQTR <= '{covid_end_quarter}'
+        ), tel AS (
+            SELECT
+                f.cal_date
+                , f.FYQTR
+                , hw_ref.business_feature
+                , hw_ref.format
+                , geo_ref.market9
+                , sum((f.units_USAGE+f.units_COLOR_USAGE)*f.IB) as total_pages
+                , sum(IB) as IB           
+            FROM final_dupsm f
+            LEFT JOIN hw_ref
+            ON f.platform_subset=hw_ref.platform_subset
+            LEFT JOIN geo_ref 
+            ON f.country_alpha2=geo_ref.country_alpha2
+            WHERE f.source_USAGE='TELEMETRY'  
+            GROUP BY  f.cal_date, f.FYQTR, hw_ref.business_feature, hw_ref.format, geo_ref.market9
+        ) , fyqtr AS (
+            SELECT
+                FYQTR
+                , business_feature
+                , format
+                , market9
+                , mean(IB) as IB
+                , mean(total_pages/IB) as usage
+            FROM tel 
+            GROUP BY FYQTR, business_feature, format, market9
+        ) , fyqtr2 AS (
+            SELECT
+                FYQTR
+                , business_feature
+                , format
+                , market9
+                , 3*usage as usage_qtr
+                , IB
+            FROM fyqtr
+        ), lag_fy AS (
+            SELECT
+                FYQTR
+                , business_feature
+                , format
+                , market9
+                , usage_qtr
+                , IB
+                , lag(usage_qtr,4) OVER (partition by business_feature, format, market9 order by FYQTR) as lag_usage_year
+            FROM fyqtr2
+        )
+        SELECT
+            l.market9
+            , l.business_feature
+            , l.format
+            , l.FYQTR
+            , CASE WHEN ctf.FYQTR is not null THEN l.usage_qtr/l.lag_usage_year ELSE NULL END as YY 
+            , concat(l.business_feature,l.format,l.market9) as group
+        FROM lag_fy l
+        LEFT JOIN covid_time_frame ctf
+        ON l.FYQTR=ctf.FYQTR
+    """)
+    return covid_impact
+
+
+# COMMAND ----------
+
+def transform_data(spark: SparkSession, extended_configs: configs, raw_data: dict) -> DataFrame:
     geo_ref = transform_geo_ref(
         spark=spark,
         geo_ref=raw_data['geo_ref']
@@ -1312,10 +1561,24 @@ def transform_data(spark: SparkSession, raw_data: dict) -> DataFrame:
         usage_share_ib_prep=usage_share_ib_prep
     )
 
-    ib_dupsm_covid_prep = transform_ib_dupsm_covid_prep(
+    ib_dupsm_covid_prep0 = transform_ib_dupsm_covid_prep0(
         spark=spark,
         final_dupsm=final_dupsm,
         geo_ref=geo_ref
+    )
+
+    covid_impact = transform_covid_impact(
+        spark=spark,
+        final_dupsm=final_dupsm,
+        hw_ref=raw_data['hw_ref'],
+        geo_ref=geo_ref,
+        covid_end_quarter=extended_configs['covid_end_quarter']
+    )
+
+    ib_dupsm_covid_prep = transform_ib_dupsm_covid_prep(
+        spark=spark,
+        ib_dupsm_covid_prep0=ib_dupsm_covid_prep0,
+        hw_ref=raw_data['hw_ref']
     )
 
     ib_dupsm_covid = transform_ib_dupsm_covid(
@@ -1410,7 +1673,7 @@ def main():
     spark, dbsession = get_spark_session()
     extended_configs = get_dupsm_configs(configs)
     raw_data = extract_data(spark, extended_configs)
-    transformed_data = transform_data(spark, raw_data)
+    transformed_data = transform_data(spark, extended_configs, raw_data)
     load_data(spark, configs, transformed_data)
 
 
