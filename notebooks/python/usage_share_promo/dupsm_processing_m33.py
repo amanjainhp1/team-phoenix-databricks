@@ -359,7 +359,9 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
     :return: Dictionary of input DataFrames
     """
     raw_data = {}
+
     raw_data_w_geo_ref = get_geo_ref(raw_data=raw_data)
+
     raw_data_w_hw_ref = get_hw_ref(raw_data=raw_data_w_geo_ref)
 
     raw_data_w_demand = get_demand(
@@ -395,7 +397,9 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
     )
 
     raw_data_w_calendar = get_calendar(raw_data=raw_data_w_epa_published)
+
     raw_data_w_mps_ib_tie_out = get_mps_ib_tie_out(spark=spark, raw_data=raw_data_w_calendar)
+
     return raw_data_w_mps_ib_tie_out
 
 
@@ -819,12 +823,13 @@ def transform_dupsm_long_current(spark: SparkSession, usage: DataFrame) -> DataF
 
 # COMMAND ----------
 
-def transform_mps_mm(spark: SparkSession, ib_pre: DataFrame, geo_ref: DataFrame, hw_ref: DataFrame) -> DataFrame:
+def transform_mps_mm(spark: SparkSession, ib_pre: DataFrame, geo_ref: DataFrame, hw_ref: DataFrame, mps_ib_pre: DataFrame) -> DataFrame:
     # calculate monthly rate of change for trad platforms that have MPS counterparts at a business_feature, format,
     # market9 level. This will be used to extend the MPS IB (forecast).
     ib_pre.createOrReplaceTempView('ib_pre')
     geo_ref.createOrReplaceTempView('geo_ref')
     hw_ref.createOrReplaceTempView('hw_ref')
+    mps_ib_pre.createOrReplaceTempView('mps_ib_pre')
     mps_mm = spark.sql("""
         WITH ib_pre1 AS (
             SELECT
@@ -841,7 +846,7 @@ def transform_mps_mm(spark: SparkSession, ib_pre: DataFrame, geo_ref: DataFrame,
                 ON ibt.country_alpha2=geo.country_alpha2
             LEFT JOIN hw_ref hw
                 ON ibt.platform_subset=hw.platform_subset
-            LEFT JOIN (SELECT *, 1 as found FROM MPS_IB_pre) mps
+            LEFT JOIN (SELECT *, 1 as found FROM mps_ib_pre) mps
                 ON geo.mps_country=UPPER(mps.MPS_country) and ibt.platform_subset=mps.platform_subset
             WHERE mps.found=1
             GROUP BY ibt.cal_date, ibt.country_alpha2, ibt.platform_subset, hw.business_feature, hw.format, geo.market9, ibt.units
@@ -1233,7 +1238,8 @@ def transform_data(spark: SparkSession, raw_data: dict) -> DataFrame:
         spark=spark,
         ib_pre=raw_data['ib_pre'],
         hw_ref=raw_data['hw_ref'],
-        geo_ref=geo_ref
+        geo_ref=geo_ref,
+        mps_ib_pre=mps_ib_pre
     )
 
     mps_override_pre = transform_mps_override_pre(
@@ -1382,6 +1388,8 @@ def get_spark_session() -> tuple:
             .getOrCreate()
     return spark, db_session
 
+
+# COMMAND ----------
 
 def main():
     spark, dbsession = get_spark_session()
