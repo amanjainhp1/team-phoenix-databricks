@@ -237,6 +237,7 @@ def get_ib(raw_data: dict, ib_version: str, reporting_from: str, reporting_to: s
 
 def get_usage(spark: SparkSession, raw_data: dict, reporting_from: str, reporting_to: str) -> dict:
     raw_data['demand'].createOrReplaceTempView('demand')
+    raw_data['hw_ref'].createOrReplaceTempView('hw_ref')
     usage = spark.sql(f"""
     SELECT cal_date, 
         geography AS country_alpha2, 
@@ -376,7 +377,8 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
     )
 
     raw_data_w_usage = get_usage(
-        spark=spark, raw_data=raw_data_w_ib,
+        spark=spark,
+        raw_data=raw_data_w_ib,
         reporting_from=extended_configs["reporting_from"],
         reporting_to=extended_configs["reporting_to"]
     )
