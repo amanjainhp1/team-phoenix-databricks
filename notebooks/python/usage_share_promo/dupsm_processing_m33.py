@@ -236,6 +236,7 @@ def get_ib(raw_data: dict, ib_version: str, reporting_from: str, reporting_to: s
 # COMMAND ----------
 
 def get_usage(spark: SparkSession, raw_data: dict, reporting_from: str, reporting_to: str) -> dict:
+    raw_data['demand'].createOrReplaceTempView('demand')
     usage = spark.sql(f"""
     SELECT cal_date, 
         geography AS country_alpha2, 
@@ -357,19 +358,46 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
     :return: Dictionary of input DataFrames
     """
     raw_data = {}
-    raw_data_w_geo_ref = get_geo_ref(raw_data)
-    raw_data_w_hw_ref = get_hw_ref(raw_data_w_geo_ref)
+    raw_data_w_geo_ref = get_geo_ref(raw_data=raw_data)
+    raw_data_w_hw_ref = get_hw_ref(raw_data=raw_data_w_geo_ref)
+
     raw_data_w_demand = get_demand(
         spark=spark,
         raw_data=raw_data_w_hw_ref,
         bucket_prefix=f'demand/{extended_configs["usage_version"]}',
         ib_version=extended_configs["ib_version"]
     )
-    raw_data_w_ib = get_ib(raw_data_w_demand, extended_configs["ib_version"], extended_configs["reporting_from"], extended_configs["reporting_to"])
-    raw_data_w_usage = get_usage(spark, raw_data_w_ib, extended_configs["reporting_from"], extended_configs["reporting_to"])
-    raw_data_w_ozzy_mps = get_ozzy_mps(spark, raw_data_w_usage)
-    raw_data_w_epa_published = get_epa_published(spark, raw_data_w_ozzy_mps, f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/epa_published.csv')
-    raw_data_w_plat_family = get_plat_family(spark, raw_data_w_epa_published, f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/UPDATED_PLAT_LIST_2023-01-31.csv')
+
+    raw_data_w_ib = get_ib(
+        raw_data=raw_data_w_demand,
+        ib_version=extended_configs["ib_version"],
+        reporting_from=extended_configs["reporting_from"],
+        reporting_to=extended_configs["reporting_to"]
+    )
+
+    raw_data_w_usage = get_usage(
+        spark=spark, raw_data=raw_data_w_ib,
+        reporting_from=extended_configs["reporting_from"],
+        reporting_to=extended_configs["reporting_to"]
+    )
+
+    raw_data_w_ozzy_mps = get_ozzy_mps(
+        spark=spark,
+        raw_data=raw_data_w_usage
+    )
+
+    raw_data_w_epa_published = get_epa_published(
+        spark=spark,
+        raw_data=raw_data_w_ozzy_mps,
+        file_ref=f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/epa_published.csv'
+    )
+
+    raw_data_w_plat_family = get_plat_family(
+        spark=spark,
+        raw_data=raw_data_w_epa_published,
+        file_ref=f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/UPDATED_PLAT_LIST_2023-01-31.csv'
+    )
+
     raw_data_w_calendar = get_calendar(raw_data=raw_data_w_plat_family)
     raw_data_w_mps_ib_tie_out = get_mps_ib_tie_out(spark=spark, raw_data=raw_data_w_calendar)
     return raw_data_w_mps_ib_tie_out
