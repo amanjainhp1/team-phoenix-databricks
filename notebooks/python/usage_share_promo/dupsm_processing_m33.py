@@ -101,18 +101,6 @@ except ModuleNotFoundError:
 
 # COMMAND ----------
 
-# widgets for interactive sessions
-dbutils.widgets.text('s3_base_dir', '')
-dbutils.widgets.text('usage_version', '')
-dbutils.widgets.text('reporting_from', '')  # like 2015-02-01
-dbutils.widgets.text('reporting_to', '')  # like 2030-02-01
-dbutils.widgets.text('ib_version', '')  # like 2030-02-01
-dbutils.widgets.text('covid_end_quarter', '')  # like 2021 Q3
-dbutils.widgets.text('output_label', '')  # like Q2M3
-
-
-# COMMAND ----------
-
 def get_dupsm_configs(common_configs: dict) -> dict:
     """Extends configs
 
