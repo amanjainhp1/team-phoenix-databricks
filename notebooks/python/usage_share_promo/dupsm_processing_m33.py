@@ -677,14 +677,15 @@ def transform_ib_dupsm_covid(spark: SparkSession, ib_dupsm_covid_prep: DataFrame
             , gr.developed_emerging
             , ib.FYQTR
             , ib.total_pages
-            , ib.hp_pages, 
+            , ib.hp_pages
             , ib.hp_pages/ib.total_pages as covid_share 
             , ib.covid_total_pages/ib.IB as covid_usage
             , ib.covid_total_pages*ib.hp_pages/ib.total_pages as covid_hp_pages
             , ib.covid_total_pages
             , ib.bd_usage_pages
             , ib.bd_share_pages
-            , ib.color_pages, ib.black_pages
+            , ib.color_pages
+            , ib.black_pages
             , ib.IB
             , ib.color_pages/ib.total_pages*ib.covid_total_pages as covid_color_pages
             , ib.black_pages/ib.total_pages*ib.covid_total_pages as covid_black_pages
