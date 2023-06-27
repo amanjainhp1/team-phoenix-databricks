@@ -60,10 +60,10 @@ except ModuleNotFoundError:
 
 # MPS - What We are Doing:
   
-#   The purpose of addition of the MPS data to the dataset is bring the data 100%IB
+# The purpose of addition of the MPS data to the dataset is to bring the data 100%IB
 # processes into parity with the BD dashboards and what they present to executives.
 # That means adding D and P MPS data to the dataset. cMPS data is not added for
-# two reasons; the related IB is likely not mature enough for that application
+# two reasons; the related IB is likely not mature enough for that application,
 # and it is not included in what executives see in their weekly reports.
 
 # The process for adding MPS data is subtraction. We take the MPS IB and subtract
@@ -392,23 +392,18 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
         file_ref=f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/epa_published.csv'
     )
 
-    raw_data_w_plat_family = get_plat_family(
-        spark=spark,
-        raw_data=raw_data_w_epa_published,
-        file_ref=f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/UPDATED_PLAT_LIST_2023-01-31.csv'
-    )
-
-    raw_data_w_calendar = get_calendar(raw_data=raw_data_w_plat_family)
+    raw_data_w_calendar = get_calendar(raw_data=raw_data_w_epa_published)
     raw_data_w_mps_ib_tie_out = get_mps_ib_tie_out(spark=spark, raw_data=raw_data_w_calendar)
     return raw_data_w_mps_ib_tie_out
 
 
 # COMMAND ----------
 
-def transform_geo_ref(spark: SparkSession) -> DataFrame:
+def transform_geo_ref(spark: SparkSession, geo_ref: DataFrame) -> DataFrame:
     # > GEO data
     # took out brazil and replaced with Chile 11/22
     # M34 addition
+    geo_ref.createOrReplaceTempView('geo_ref')
     geo_ref = spark.sql("""
       SELECT geo.country_alpha2, geo.market10, geo.region_5, geo.region_3, geo.developed_emerging, geo.embargoed_sanctioned_flag,
           case 
@@ -1216,7 +1211,10 @@ def transform_mps_trad_ib1(spark: SparkSession, mps_override: DataFrame) -> Data
 # COMMAND ----------
 
 def transform_data(spark: SparkSession, raw_data: dict) -> DataFrame:
-    geo_ref = transform_geo_ref(spark)
+    geo_ref = transform_geo_ref(
+        spark=spark,
+        geo_ref=raw_data['geo_ref']
+    )
 
     mps_ib_pre = transform_mps_ib_pre(
         spark=spark,
