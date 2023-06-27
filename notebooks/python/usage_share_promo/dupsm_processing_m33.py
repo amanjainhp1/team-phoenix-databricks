@@ -1113,8 +1113,9 @@ def transform_mps_trad_ib(spark: SparkSession, mps_trad_ib1: DataFrame) -> DataF
 
 # COMMAND ----------
 
-def transform_mps_override(spark: SparkSession, mps_override_pre: DataFrame) -> DataFrame:
+def transform_mps_override(spark: SparkSession, mps_override_pre: DataFrame, mps_ib_tie_out: DataFrame) -> DataFrame:
     mps_override_pre.createOrReplaceTempView('mps_override_pre')
+    mps_ib_tie_out.createOrReplaceTempView('mps_ib_tie_out')
     mps_override = spark.sql("""
         WITH step1 AS (
             SELECT 
@@ -1142,14 +1143,26 @@ def transform_mps_override(spark: SparkSession, mps_override_pre: DataFrame) -> 
             GROUP BY country_alpha2, platform_subset, customer_engagement, mps_country, market9, FY
         ) 
         , step3 AS (
-            SELECT FY, sum(MPS_IB_extended_FY_avg) as sum_MPS_IB_extended_FY_avg
+            SELECT 
+                FY
+                , sum(MPS_IB_extended_FY_avg) as sum_MPS_IB_extended_FY_avg
             FROM step2
             GROUP BY FY
         )   
         , step4 AS (
-            SELECT step2.country_alpha2, step2.platform_subset, step2.customer_engagement, step2.mps_country, step2.market9, step2.FY, step2.MPS_IB_extended_FY_avg
-                , step2.MPS_IB_extended_FY_avg/step3.sum_MPS_IB_extended_FY_avg AS percentage_MPS_IB_FY, 
-            b.mps_ib, b.mps_pages, b.A3_ib, b.A4_ib
+            SELECT
+                step2.country_alpha2
+                , step2.platform_subset
+                , step2.customer_engagement
+                , step2.mps_country
+                , step2.market9
+                , step2.FY
+                , step2.MPS_IB_extended_FY_avg
+                , step2.MPS_IB_extended_FY_avg/step3.sum_MPS_IB_extended_FY_avg AS percentage_MPS_IB_FY
+                , b.mps_ib
+                , b.mps_pages
+                , b.A3_ib
+                , b.A4_ib
             FROM step2
             LEFT JOIN step3
             ON step2.FY=step3.FY
@@ -1266,7 +1279,8 @@ def transform_data(spark: SparkSession, raw_data: dict) -> DataFrame:
 
     mps_override = transform_mps_override(
         spark=spark,
-        mps_override_pre=mps_override_pre_w_window
+        mps_override_pre=mps_override_pre_w_window,
+        mps_ib_tie_out=raw_data['mps_ib_tie_out']
     )
 
     mps_trad_ib1 = transform_mps_trad_ib1(
