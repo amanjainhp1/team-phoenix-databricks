@@ -27,6 +27,7 @@ INSERT INTO fin_prod.actuals_supplies_baseprod
            ,pl
            ,L5_Description
            ,customer_engagement
+           ,printer_attribution
            ,gross_revenue
            ,net_currency
            ,contractual_discounts
@@ -54,6 +55,7 @@ SELECT
     ,pl
     ,L5_Description
     ,customer_engagement
+    ,printer_attribution
     ,SUM(gross_revenue)
     ,SUM(net_currency)
     ,SUM(contractual_discounts) 
@@ -83,6 +85,7 @@ GROUP BY
     ,pl
     ,L5_Description
     ,customer_engagement
+    ,printer_attribution
     ,official;
 
   
@@ -96,6 +99,7 @@ INSERT INTO fin_prod.actuals_supplies_baseprod
            ,pl
            ,L5_Description
            ,customer_engagement
+           ,printer_attribution
            ,gross_revenue
            ,net_currency
            ,contractual_discounts
@@ -123,6 +127,7 @@ SELECT
     ,pl
     ,L5_Description
     ,customer_engagement
+    ,printer_attribution
     ,SUM(gross_revenue)
     ,SUM(net_currency)
     ,SUM(contractual_discounts) 
@@ -152,6 +157,7 @@ GROUP BY
     ,pl
     ,L5_Description
     ,customer_engagement
+    ,printer_attribution
     ,official;
 """
 
