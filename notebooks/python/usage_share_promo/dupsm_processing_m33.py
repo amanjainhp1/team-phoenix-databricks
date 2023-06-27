@@ -140,7 +140,7 @@ def get_dupsm_configs(common_configs: dict) -> dict:
     extended_configs['mps_additions'] = "ON"
 
     extended_configs['output_path'] = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_ites/"
-    extended_configs['date'] = Date.getDatestamp("%Y-%m-%d")
+    extended_configs['date'] = Date().getDatestamp("%Y-%m-%d")
 
     return extended_configs
 
@@ -1352,7 +1352,7 @@ def load_data(spark: SparkSession, extended_configs: dict, final_dataframe: Data
 
 # COMMAND ----------
 
-def get_spark_session() -> SparkSession:
+def get_spark_session() -> tuple:
     spark = SparkSession.builder.getOrCreate()
     db_session = "local" not in spark.conf.get("spark.master")
     if db_session == 'local':
@@ -1364,11 +1364,11 @@ def get_spark_session() -> SparkSession:
             .config("spark.executor.instances", "1") \
             .config("spark.sql.shuffle.partitions", "1") \
             .getOrCreate()
-    return spark
+    return spark, db_session
 
 
 def main():
-    spark = get_spark_session()
+    spark, dbsession = get_spark_session()
     extended_configs = get_dupsm_configs(configs)
     raw_data = extract_data(spark, extended_configs)
     transformed_data = transform_data(spark, raw_data)
