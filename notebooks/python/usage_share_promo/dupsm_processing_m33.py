@@ -1231,9 +1231,10 @@ def transform_mps_trad_ib1(spark: SparkSession, mps_override: DataFrame) -> Data
 
 # COMMAND ----------
 
-def transform_ib_dupsm_covid_prep(spark: SparkSession, ib_dupsm_covid_prep0: DataFrame, hw_ref: DataFrame) -> DataFrame:
+def transform_ib_dupsm_covid_prep(spark: SparkSession, ib_dupsm_covid_prep0: DataFrame, hw_ref: DataFrame, covid_impact: DataFrame) -> DataFrame:
     ib_dupsm_covid_prep0.createOrReplaceTempView('ib_dupsm_covid_prep0')
     hw_ref.createOrReplaceTempView('hw_ref')
+    covid_impact.createOrReplaceTempView('covid_impact')
     ib_dupsm_covid_prep = spark.sql("""
         WITH step1 AS (
             SELECT
@@ -1578,7 +1579,8 @@ def transform_data(spark: SparkSession, extended_configs: configs, raw_data: dic
     ib_dupsm_covid_prep = transform_ib_dupsm_covid_prep(
         spark=spark,
         ib_dupsm_covid_prep0=ib_dupsm_covid_prep0,
-        hw_ref=raw_data['hw_ref']
+        hw_ref=raw_data['hw_ref'],
+        covid_impact=covid_impact
     )
 
     ib_dupsm_covid = transform_ib_dupsm_covid(
