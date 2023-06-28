@@ -1738,10 +1738,10 @@ final_list2 <- SparkR::sql('
                       , case
                         when upper(rtm)="I-INK" then "I-INK"
                         when a.Platform_Subset_Nm=a.Proxy_PS then
-                          case when a.BD_Share_Flag_PS = 0 then "Modeled"
-                          when a.Share_Raw_PS IN (NULL, 0) then "Modeled"
-                          when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then "Modeled"
-                          else "Have Data"
+                          case when a.BD_Share_Flag_PS = 0 then "MODELED"
+                          when a.Share_Raw_PS IN (NULL, 0) then "MODELED"
+                          when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then "MODELED"
+                          else "HAVE DATA"
                           end
                         else "Modeled by Proxy"
                         end as Share_Source_PS
@@ -1772,7 +1772,7 @@ final_list2 <- SparkR::sql('
                         when a.BD_Share_Flag_PS = 0 then "UPM"
                         when a.MPV_Dash is NULL then "UPM"
                         when a.N_Dash < 20 then "UPM"
-                          else "Dashboard"
+                          else "DASHBOARD"
                           end as Usage_Source
                       , case
                         when a.BD_Usage_Flag is NULL then a.MPV_TD
@@ -1786,7 +1786,7 @@ final_list2 <- SparkR::sql('
                         when a.BD_Share_Flag_PS = 0 then "UPM"
                         when a.MPVC_Dash is NULL then "UPM"
                         when a.N_Dash < 20 then "UPM"
-                          else "Dashboard"
+                          else "DASHBOARD"
                           end as Usage_Sourcec
                       , case
                         when a.BD_Usage_Flag is NULL then a.MPV_TDc
