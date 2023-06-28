@@ -1684,6 +1684,13 @@ def write_final_data_to_parquet(final_dataframe: DataFrame, s3_destination: str)
 
 # COMMAND ----------
 
+def filter_final_data_for_xlsx(final_dataframe: DataFrame) -> DataFrame:
+    filtered_final_dataframe = final_dataframe.filter(col('FYQTR') <= '2024 Q4')
+    return filtered_final_dataframe
+
+
+# COMMAND ----------
+
 def load_data(spark: SparkSession, extended_configs: dict, final_dataframe: DataFrame):
     s3_destination = f"{extended_configs['output_path']}/m33_cupsm_output_{extended_configs['date']}_{extended_configs['output_label']}"
 
@@ -1694,10 +1701,14 @@ def load_data(spark: SparkSession, extended_configs: dict, final_dataframe: Data
         s3_destination=s3_destination
     )
 
+    filtered_final_dataframe = filter_final_data_for_xlsx(
+        final_dataframe=final_dataframe
+    )
+
     write_final_data_to_xlsx(
         spark=spark,
         extended_configs=extended_configs,
-        final_dataframe=final_dataframe,
+        final_dataframe=filtered_final_dataframe,
         s3_destination=s3_destination
     )
 
