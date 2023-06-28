@@ -1654,6 +1654,7 @@ def transform_data(spark: SparkSession, extended_configs: configs, raw_data: dic
 # COMMAND ----------
 
 def write_final_data_to_xlsx(spark: SparkSession, extended_configs: dict, final_dataframe: DataFrame, s3_destination: str) -> None:
+    excel_file = s3_destination + ".xlsx"
     comment = spark.createDataFrame(
         [
             (1, f"The Current data used hes is pulled from ::: usage_version_{extended_configs['usage_version']}"),
@@ -1664,9 +1665,10 @@ def write_final_data_to_xlsx(spark: SparkSession, extended_configs: dict, final_
     )
     commentpd = comment.toPandas()
     fdjpd = final_dataframe.toPandas()
-    with pd.ExcelWriter(path=s3_destination+".xlsx") as writer:
+    with pd.ExcelWriter(path=excel_file) as writer:
         commentpd.to_excel(writer, sheet_name="ABOUT", index=False)
         fdjpd.to_excel(writer, sheet_name='DATA', index=False)
+    print("excel output file name: " + excel_file)
     return None
 
 
@@ -1678,7 +1680,7 @@ def write_final_data_to_parquet(final_dataframe: DataFrame, s3_destination: str)
                    format="parquet",
                    mode="overwrite",
                    upper_strings=True)
-    print("output file name: " + s3_destination)
+    print("parquet output file name: " + s3_destination)
     return None
 
 
