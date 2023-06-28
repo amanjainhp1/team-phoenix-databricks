@@ -128,7 +128,10 @@ def get_dupsm_configs(common_configs: dict) -> dict:
     extended_configs['mps_additions'] = "ON"
 
     extended_configs['output_path'] = f"{constants['S3_BASE_BUCKET'][stack]}cupsm_ites/"
-    extended_configs['date'] = Date().getDatestamp("%Y-%m-%d")
+    date = Date()
+    extended_configs['date'] = date.getDatestamp("%Y-%m-%d")
+    extended_configs['datestamp'] = date.getDatestamp()
+    extended_configs['timestamp'] = date.getTimestamp()
 
     return extended_configs
 
@@ -144,10 +147,19 @@ def compare_demand_and_widget_ib_versions(demand: DataFrame, widget_ib_version: 
 
 # COMMAND ----------
 
-def get_redshift_ref(query: str) -> DataFrame:
+def get_redshift_ref(query: str, extended_configs: dict, label: str, spark: SparkSession) -> DataFrame:
     df = read_redshift_to_df(configs) \
         .option('query', query) \
         .load()
+    s3_path = f'{constants["S3_BASE_BUCKET"]}/dupsm_processing_m33_input/{extended_configs["datestamp"]}/{extended_configs["timestamp"]}/{label}'
+    write_df_to_s3(
+        df=df,
+        destination=s3_path,
+        format='parquet',
+        mode='overwrite',
+        upper_strings=True
+    )
+    df = spark.read.parquet(s3_path)
     return df
 
 
@@ -159,7 +171,7 @@ def get_spectrum_ref(spark: SparkSession, bucket_prefix: str) -> DataFrame:
 
 # COMMAND ----------
 
-def get_geo_ref(raw_data: dict) -> dict:
+def get_geo_ref(raw_data: dict, extended_configs: dict, spark: SparkSession) -> dict:
     query = """
     WITH iso_cc_rollup_xref AS (
         SELECT
@@ -183,19 +195,29 @@ def get_geo_ref(raw_data: dict) -> dict:
     ON iccx.country_alpha2 = icrx.country_alpha2
     WHERE region_5 not like 'X%' 
     """
-    raw_data['geo_ref'] = get_redshift_ref(query)
+    raw_data['geo_ref'] = get_redshift_ref(
+        query=query,
+        extended_configs=extended_configs,
+        label='geo_ref',
+        spark=spark
+    )
     return raw_data
 
 
 # COMMAND ----------
 
-def get_hw_ref(raw_data: dict) -> dict:
+def get_hw_ref(raw_data: dict, extended_configs: dict, spark: SparkSession) -> dict:
     query = """
     SELECT *
     FROM mdm.hardware_xref
     WHERE technology='LASER'
     """
-    raw_data['hw_ref'] = get_redshift_ref(query)
+    raw_data['hw_ref'] = get_redshift_ref(
+        query=query,
+        extended_configs=extended_configs,
+        label='hw_ref',
+        spark=spark
+    )
     return raw_data
 
 
@@ -210,7 +232,7 @@ def get_demand(spark: SparkSession, raw_data: dict, bucket_prefix: str, ib_versi
 
 # COMMAND ----------
 
-def get_ib(raw_data: dict, ib_version: str, reporting_from: str, reporting_to: str) -> dict:
+def get_ib(raw_data: dict, ib_version: str, reporting_from: str, reporting_to: str, extended_configs: dict, spark: SparkSession) -> dict:
     query = f"""
     SELECT cal_date,
         country_alpha2, 
@@ -229,7 +251,12 @@ def get_ib(raw_data: dict, ib_version: str, reporting_from: str, reporting_to: s
     AND platform_subset in (SELECT distinct platform_subset from mdm.hardware_xref where technology='LASER')
     GROUP BY country_alpha2, customer_engagement, platform_subset, cal_date
     """
-    raw_data['ib_pre'] = get_redshift_ref(query)
+    raw_data['ib_pre'] = get_redshift_ref(
+        query=query,
+        extended_configs=extended_configs,
+        label='ib_pre',
+        spark=spark
+    )
     return raw_data
 
 
@@ -266,7 +293,7 @@ def get_usage(spark: SparkSession, raw_data: dict, reporting_from: str, reportin
 
 # COMMAND ----------
 
-def get_ozzy_mps(spark: SparkSession, raw_data: dict) -> dict:
+def get_ozzy_mps(spark: SparkSession, raw_data: dict, extended_configs: dict) -> dict:
     # retrieve ozzy secrets
     ozzy_secret = secrets_get(constants["OZZY_SECRET_NAME"][stack], "us-west-2")
 
@@ -302,7 +329,16 @@ def get_ozzy_mps(spark: SparkSession, raw_data: dict) -> dict:
         .option("query", ozzy_mps_query) \
         .load()
 
-    raw_data['ozzy_mps'] = ozzy_mps_df
+    s3_path = f'{constants["S3_BASE_BUCKET"]}/dupsm_processing_m33_input/{extended_configs["datestamp"]}/{extended_configs["timestamp"]}/ozzy_mps'
+    write_df_to_s3(
+        df=ozzy_mps_df,
+        destination=s3_path,
+        format='parquet',
+        mode='overwrite',
+        upper_strings=True
+    )
+
+    raw_data['ozzy_mps'] = spark.read.parquet(s3_path)
     return raw_data
 
 
@@ -322,14 +358,17 @@ def get_plat_family(spark: SparkSession, raw_data, file_ref):
 
 # COMMAND ----------
 
-def get_calendar(raw_data: dict) -> dict:
+def get_calendar(raw_data: dict, extended_configs: dict, spark: SparkSession) -> dict:
     calendar_query = """
     SELECT date, fiscal_yr, fiscal_year_qtr
     FROM mdm.calendar
     """
-    calendar = read_redshift_to_df(configs) \
-        .option('query', calendar_query) \
-        .load()
+    calendar = get_redshift_ref(
+        query=calendar_query,
+        extended_configs=extended_configs,
+        label='calendar',
+        spark=spark
+    )
     raw_data['calendar'] = calendar
     return raw_data
 
@@ -360,9 +399,9 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
     """
     raw_data = {}
 
-    raw_data_w_geo_ref = get_geo_ref(raw_data=raw_data)
+    raw_data_w_geo_ref = get_geo_ref(raw_data=raw_data, extended_configs=extended_configs, spark=spark)
 
-    raw_data_w_hw_ref = get_hw_ref(raw_data=raw_data_w_geo_ref)
+    raw_data_w_hw_ref = get_hw_ref(raw_data=raw_data_w_geo_ref, extended_configs=extended_configs, spark=spark)
 
     raw_data_w_demand = get_demand(
         spark=spark,
@@ -375,7 +414,9 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
         raw_data=raw_data_w_demand,
         ib_version=extended_configs["ib_version"],
         reporting_from=extended_configs["reporting_from"],
-        reporting_to=extended_configs["reporting_to"]
+        reporting_to=extended_configs["reporting_to"],
+        extended_configs=extended_configs,
+        spark=spark
     )
 
     raw_data_w_usage = get_usage(
@@ -387,7 +428,8 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
 
     raw_data_w_ozzy_mps = get_ozzy_mps(
         spark=spark,
-        raw_data=raw_data_w_usage
+        raw_data=raw_data_w_usage,
+        extended_configs=extended_configs
     )
 
     raw_data_w_epa_published = get_epa_published(
@@ -396,7 +438,11 @@ def extract_data(spark: SparkSession, extended_configs: dict) -> dict:
         file_ref=f'{extended_configs["s3_base_dir"]}/DUPSM_M33_processing_flat_files/epa_published.csv'
     )
 
-    raw_data_w_calendar = get_calendar(raw_data=raw_data_w_epa_published)
+    raw_data_w_calendar = get_calendar(
+        raw_data=raw_data_w_epa_published,
+        extended_configs=extended_configs,
+        spark=spark
+    )
 
     raw_data_w_mps_ib_tie_out = get_mps_ib_tie_out(spark=spark, raw_data=raw_data_w_calendar)
 
