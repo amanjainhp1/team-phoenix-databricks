@@ -151,7 +151,7 @@ def get_redshift_ref(query: str, extended_configs: dict, label: str, spark: Spar
     df = read_redshift_to_df(configs) \
         .option('query', query) \
         .load()
-    s3_path = f'{constants["S3_BASE_BUCKET"]}/dupsm_processing_m33_input/{extended_configs["datestamp"]}/{extended_configs["timestamp"]}/{label}'
+    s3_path = f'{constants["S3_BASE_BUCKET"][stack]}/dupsm_processing_m33_input/{extended_configs["datestamp"]}/{extended_configs["timestamp"]}/{label}'
     write_df_to_s3(
         df=df,
         destination=s3_path,
@@ -329,7 +329,7 @@ def get_ozzy_mps(spark: SparkSession, raw_data: dict, extended_configs: dict) ->
         .option("query", ozzy_mps_query) \
         .load()
 
-    s3_path = f'{constants["S3_BASE_BUCKET"]}/dupsm_processing_m33_input/{extended_configs["datestamp"]}/{extended_configs["timestamp"]}/ozzy_mps'
+    s3_path = f'{constants["S3_BASE_BUCKET"][stack]}/dupsm_processing_m33_input/{extended_configs["datestamp"]}/{extended_configs["timestamp"]}/ozzy_mps'
     write_df_to_s3(
         df=ozzy_mps_df,
         destination=s3_path,
