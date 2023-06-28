@@ -7263,7 +7263,6 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_with_country_detail3
@@ -7278,8 +7277,9 @@ GROUP BY cal_date, region_5, pl, sales_product_number, ce_split
 """
     
 salesprod_apams_with_xcodes_drivers = spark.sql(salesprod_apams_with_xcodes_drivers)
-salesprod_apams_with_xcodes_drivers.createOrReplaceTempView("salesprod_apams_with_xcodes_drivers")    
+salesprod_apams_with_xcodes_drivers.createOrReplaceTempView("salesprod_apams_with_xcodes_drivers")  
 
+# COMMAND ----------
 
 usc_country_page_mix03 = f"""
 SELECT distinct shcam.cal_date
@@ -7327,6 +7327,7 @@ GROUP BY cal_date
 usc_country_page_mix04 = spark.sql(usc_country_page_mix04)
 usc_country_page_mix04.createOrReplaceTempView("usc_country_page_mix04") 
 
+# COMMAND ----------
 
 apams_salesprod_xcode_mash_drivers = f"""
 SELECT
@@ -7341,7 +7342,6 @@ SELECT
     SUM(contractual_discounts * country_mix) AS contractual_discounts,
     SUM(discretionary_discounts * country_mix) AS discretionary_discounts,                
     SUM(warranty * country_mix) AS warranty,
-    SUM(other_cos * country_mix) AS other_cos,
     SUM(total_cos * country_mix) AS total_cos,
     SUM(revenue_units * country_mix) AS revenue_units
 FROM salesprod_apams_with_xcodes_drivers AS sp
@@ -7370,7 +7370,6 @@ SELECT
     SUM(contractual_discounts * COALESCE(country_mix, 1)) AS contractual_discounts,
     SUM(discretionary_discounts * COALESCE(country_mix, 1)) AS discretionary_discounts,                
     SUM(warranty * COALESCE(country_mix, 1)) AS warranty,
-    SUM(other_cos * COALESCE(country_mix, 1)) AS other_cos,
     SUM(total_cos * COALESCE(country_mix, 1)) AS total_cos,
     SUM(revenue_units * COALESCE(country_mix, 1)) AS revenue_units
 FROM salesprod_apams_with_xcodes_drivers AS sp
@@ -7402,7 +7401,6 @@ SELECT
     COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
     COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
     COALESCE(SUM(warranty), 0) AS warranty,    
-    COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
 FROM apams_salesprod_xcode_mash_drivers
@@ -7412,6 +7410,9 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, region_5
 apams_salesprod_xcode_fix_drivers = spark.sql(apams_salesprod_xcode_fix_drivers)
 apams_salesprod_xcode_fix_drivers.createOrReplaceTempView("apams_salesprod_xcode_fix_drivers") 
 
+
+
+# COMMAND ----------
 
 salesprod_with_xcodes_apams_not_drivers = f"""
 SELECT
@@ -7425,10 +7426,9 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
-FROM odw_salesprod_with_country_detail3
+FROM salesprod_with_country_detail3
 WHERE 1=1
     AND country_alpha2 IN (
                                 SELECT country_alpha2
@@ -7452,7 +7452,6 @@ SELECT
     SUM(contractual_discounts) AS contractual_discounts,
     SUM(discretionary_discounts) AS discretionary_discounts,
     SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM apams_salesprod_xcode_mash_drivers_null 
@@ -7710,6 +7709,7 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, region_5
 salesprod_xcode_fix1_apams = spark.sql(salesprod_xcode_fix1_apams)
 salesprod_xcode_fix1_apams.createOrReplaceTempView("salesprod_xcode_fix1_apams")
 
+# COMMAND ----------
 
 salesprod_xcode_adjusted = f"""
 SELECT
@@ -7720,15 +7720,14 @@ SELECT
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM salesprod_with_country_detail4
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 
 UNION ALL
 
@@ -7740,15 +7739,14 @@ SELECT
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM salesprod_xcode_fix1_apams
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 
 UNION ALL
 
@@ -7760,16 +7758,14 @@ SELECT
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM apams_salesprod_xcode_fix_drivers
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 
 UNION ALL
 
@@ -7781,20 +7777,21 @@ SELECT
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM emea_salesprod_xcode_adjusted2
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 """
 
 salesprod_xcode_adjusted = spark.sql(salesprod_xcode_adjusted)
 salesprod_xcode_adjusted.createOrReplaceTempView("salesprod_xcode_adjusted")
 
+
+# COMMAND ----------
 
 salesprod_xcode_adjusted2 = f"""
 SELECT
@@ -7822,6 +7819,8 @@ GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split,
 salesprod_xcode_adjusted2 = spark.sql(salesprod_xcode_adjusted2)
 salesprod_xcode_adjusted2.createOrReplaceTempView("salesprod_xcode_adjusted2")
 
+
+# COMMAND ----------
 
 salesprod_normal_with_currency1 = f"""
 SELECT
@@ -7956,6 +7955,8 @@ salesprod_normal_with_currency2 = spark.sql(salesprod_normal_with_currency2)
 salesprod_normal_with_currency2.createOrReplaceTempView("salesprod_normal_with_currency2")
 
 
+# COMMAND ----------
+
 xcode_adjusted_data = f"""
 SELECT
     cal_date,
@@ -7965,15 +7966,14 @@ SELECT
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM xcode_adjusted_plgd2
-GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 
 UNION ALL
 
@@ -7985,15 +7985,14 @@ SELECT
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM xcode_adjusted_account_jv
-GROUP BY cal_date, currency, region_5, pl, sales_product_number, ce_split, country_alpha2
 
 UNION ALL
 
@@ -8001,19 +8000,18 @@ SELECT
     cal_date,
     country_alpha2,
     currency,
-    region_5,                
+    region_5,
     pl,
     sales_product_number,
     ce_split,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
+    gross_revenue,
+    net_currency,
+    contractual_discounts,
+    discretionary_discounts,
+    warranty,
+    total_cos,
+    revenue_units
 FROM salesprod_normal_with_currency2
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, currency, region_5
 """
 
 xcode_adjusted_data = spark.sql(xcode_adjusted_data)
