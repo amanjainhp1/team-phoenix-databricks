@@ -1904,95 +1904,152 @@ final_list7 <- mutate(final_list6
                      ,index1 = over(dense_rank(), ws)
                      )
 
-#adjval^(preddata$timediff-maxtimediff2)*preddata$fit2+(1-(adjval^(preddata$timediff-maxtimediff2)))*preddata$fit1)
-final_list7$hd_mchange_ps <- ifelse(final_list7$Share_Source_PS=="Modeled"|final_list7$Share_Source_PS=="Modeled by Proxy",ifelse(final_list7$lagShare_Source_PS=="Have Data",final_list7$Page_Share_sig-final_list7$lagShare_PS, NA ),NA)
+final_list7$hd_mchange_ps <- ifelse(substr(final_list7$Share_Source_PS,1,8)=="MODELLED",ifelse(final_list7$lagShare_Source_PS=="HAVE DATA",final_list7$Page_Share_sig-final_list7$lagShare_PS, NA ), NA)
 final_list7$hd_mchange_ps_i <- ifelse(!isNull(final_list7$hd_mchange_ps),final_list7$index1,NA)
+final_list7$hd_mchange_psb <- ifelse(final_list7$Share_Source_PS=="HAVE DATA",ifelse(substr(final_list7$lagShare_Source_PS,1,8)=="MODELLED",final_list7$Page_Share_sig, NA ),NA)
+final_list7$hd_mchange_ps_j <- ifelse(!isNull(final_list7$hd_mchange_psb),final_list7$index1,NA)
 #final_list7$hd_mchange_cu <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse(final_list7$lagShare_Source_CU=="Have Data",final_list7$Crg_Unit_Share-final_list7$lagShare_CU, NA ),NA)
 #final_list7$hd_mchange_cu_i <- ifelse(!is.na(final_list7$hd_mchange_cu),final_list7$index1,NA)
-final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
-final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
-final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="Dashboard",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+final_list7$hd_mchange_use <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="DASHBOARD" | upper(final_list7$lagUsage_Source)=="UPM SAMPLE SIZE",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
+#final_list7$hd_mchange_usec <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$lagUsage_Source=="Dashboard",final_list7$Usage_c-final_list7$lagShare_Usagec, NA ),NA)
+final_list7$hd_mchange_used <- ifelse(final_list7$Usage_Source=="DASHBOARD"| upper(final_list7$Usage_Source)=="UPM SAMPLE SIZE",ifelse(final_list7$lagUsage_Source=="UPM",final_list7$Usage-final_list7$lagShare_Usage, NA ),NA)
 final_list7$hd_mchange_use_i <- ifelse(!isNull(final_list7$hd_mchange_use),final_list7$index1,NA)
+final_list7$hd_mchange_use_j <- ifelse(!isNull(final_list7$hd_mchange_used),final_list7$index1,NA)
 
 createOrReplaceTempView(final_list7, "final_list7")
-
 final_list7 <- SparkR::sql("
                 with sub0 as (
-                    SELECT Platform_Subset_Nm,Country_Cd,rtm
+                    SELECT Platform_Subset_Nm,Country_Cd
                         ,max(hd_mchange_ps_i) as hd_mchange_ps_i
+                        ,min(hd_mchange_ps_j) as hd_mchange_ps_j
                         --,max(hd_mchange_cu_i) as hd_mchange_cu_i
                         ,max(hd_mchange_use_i) as hd_mchange_use_i
+                        ,min(hd_mchange_use_j) as hd_mchange_use_j
                         FROM final_list7
-                        GROUP BY Platform_Subset_Nm,Country_Cd,rtm
+                        GROUP BY Platform_Subset_Nm,Country_Cd
+                )
+                , subusev as (
+                    SELECT Platform_Subset_Nm,Country_Cd, FYearMo, Usage, IB
+                    FROM final_list7
+                    WHERE Usage_Source='DASHBOARD'
+                  )
+                , subusev2 as (
+                    SELECT Platform_Subset_Nm,Country_Cd, FYearMo, Usage*IB as UIB, IB, ROW_NUMBER() 
+                        OVER (PARTITION BY Platform_Subset_Nm,Country_Cd
+                        ORDER BY Platform_Subset_Nm,Country_Cd, FYearMo DESC ) AS Rank
+                    FROM subusev 
+                    order by FYearMo
+                  )
+                , subusev3 as (
+                    SELECT Platform_Subset_Nm,Country_Cd, max(FYearMo) as FYearMo, sum(UIB) as sumUIB, sum(IB) as IB
+                    FROM subusev2
+                    WHERE Rank < 4
+                    GROUP BY Platform_Subset_Nm,Country_Cd
+                  )
+                , subusev4 as (
+                  SELECT Platform_Subset_Nm,Country_Cd, sumUIB/IB as avgUsage
+                  FROM subusev3
                 )
                 , sub1ps as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,final_list7.rtm,sub0.hd_mchange_ps_i
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_ps_i
                         ,final_list7.Page_Share_sig-final_list7.lagShare_PS AS hd_mchange_ps
                         FROM final_list7
                         INNER JOIN 
-                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd and final_list7.rtm=sub0.rtm
+                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
                           and final_list7.hd_mchange_ps_i=sub0.hd_mchange_ps_i
                   )
-                 /*, sub1cu as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,final_list7.rtm,sub0.hd_mchange_cu_i
-                        ,final_list7.Page_Share-final_list7.lagShare_CU AS hd_mchange_cu
+                  , sub1psb as( 
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_ps_j
+                        ,final_list7.Page_Share_sig AS hd_mchange_psb
                         FROM final_list7
                         INNER JOIN 
-                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd and final_list7.rtm=sub0.rtm 
-                          and final_list7.hd_mchange_cu_i=sub0.hd_mchange_cu_i
-                  )*/
+                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
+                          and final_list7.hd_mchange_ps_j=sub0.hd_mchange_ps_j
+                  )
+                 --, sub1cu as( 
+                    --SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_cu_i
+                        --,final_list7.Page_Share-final_list7.lagShare_CU AS hd_mchange_cu
+                        --FROM final_list7
+                        --INNER JOIN 
+                        --sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
+                          --and final_list7.hd_mchange_cu_i=sub0.hd_mchange_cu_i
+                  --)
                   , sub1use as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,final_list7.rtm,sub0.hd_mchange_use_i
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_use_i,final_list7.Usage
                         ,final_list7.Usage-final_list7.lagShare_Usage AS hd_mchange_use
                         FROM final_list7
                         INNER JOIN 
-                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd and final_list7.rtm=sub0.rtm
+                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
                           and final_list7.index1 = sub0.hd_mchange_use_i 
                   )
                   , sub1usec as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,final_list7.rtm,sub0.hd_mchange_use_i
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd,final_list7.FYearMo,sub0.hd_mchange_use_i
                         ,final_list7.Usage_c-final_list7.lagShare_Usagec AS hd_mchange_usec
                         FROM final_list7
                         INNER JOIN 
-                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd and final_list7.rtm=sub0.rtm  
+                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
                           and final_list7.index1 = sub0.hd_mchange_use_i 
                   )
                   , sub1used as( 
-                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo,final_list7.rtm,sub0.hd_mchange_use_i
-                        ,final_list7.Usage-final_list7.lagShare_Usage AS hd_mchange_used
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo,sub0.hd_mchange_use_j
+                        ,final_list7.MPV_Raw-final_list7.MPV_TD AS hd_mchange_used
                         FROM final_list7
                         INNER JOIN 
-                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd and final_list7.rtm=sub0.rtm  
-                          and final_list7.index1=sub0.hd_mchange_use_i-1
+                        sub0 ON final_list7.Platform_Subset_Nm=sub0.Platform_Subset_Nm and final_list7.Country_Cd=sub0.Country_Cd  
+                          and final_list7.index1=sub0.hd_mchange_use_j
+                  )
+                  , sub1used2 as( 
+                    SELECT final_list7.Platform_Subset_Nm,final_list7.Country_Cd, final_list7.FYearMo, subusev4.avgUsage, sub1use.hd_mchange_use_i,final_list7.Usage
+                        ,sub1use.Usage-subusev4.avgUsage AS hd_mchange_useavg, sub1use.hd_mchange_use
+                        FROM final_list7
+                        LEFT JOIN 
+                        subusev4 ON final_list7.Platform_Subset_Nm=subusev4.Platform_Subset_Nm and final_list7.Country_Cd=subusev4.Country_Cd
+                        INNER JOIN 
+                        sub1use ON final_list7.Platform_Subset_Nm=sub1use.Platform_Subset_Nm and final_list7.Country_Cd=sub1use.Country_Cd  
+                          and final_list7.index1=sub1use.hd_mchange_use_i-1
                   )
                   
                   , sub2 as (
-                     SELECT distinct a.*
+                     SELECT a.*
                       ,sub1ps.hd_mchange_ps as adjust_ps
                       ,sub1ps.hd_mchange_ps_i as adjust_ps_i
+                      ,sub1psb.hd_mchange_psb as adjust_psb
+                      ,sub1psb.hd_mchange_ps_j as adjust_ps_j
                       ,sub1use.hd_mchange_use as adjust_use
                       ,sub1usec.hd_mchange_usec as adjust_usec
                       ,sub1used.hd_mchange_used as adjust_used
                       ,sub1use.hd_mchange_use_i as adjust_use_i
-                      --,sub1cu.hd_mchange_ps as adjust_cu
-                      --,sub1cu.hd_mchange_ps_i as adjust_cu_i
+                      ,sub1used.hd_mchange_use_j as adjust_use_j
+                      --,sub1cu.hd_mchange_cu as adjust_cu
+                      --,sub1cu.hd_mchange_cu_i as adjust_cu_i
+                      ,subusev4.avgUsage as avgUsage
+                      ,sub1used2.hd_mchange_useavg as adjust_useav
                         
                       FROM final_list7 a
                       LEFT JOIN 
                         sub1ps
-                        ON a.Platform_Subset_Nm=sub1ps.Platform_Subset_Nm and a.Country_Cd=sub1ps.Country_Cd and a.rtm=sub1ps.rtm
+                        ON a.Platform_Subset_Nm=sub1ps.Platform_Subset_Nm and a.Country_Cd=sub1ps.Country_Cd --and a.FYearMo=sub1ps.FYearMo
+                      LEFT JOIN 
+                        sub1psb
+                        ON a.Platform_Subset_Nm=sub1psb.Platform_Subset_Nm and a.Country_Cd=sub1psb.Country_Cd --and a.FYearMo=sub1psb.FYearMo
                       LEFT JOIN 
                         sub1use
-                        ON a.Platform_Subset_Nm=sub1use.Platform_Subset_Nm and a.Country_Cd=sub1use.Country_Cd and a.rtm=sub1use.rtm
+                        ON a.Platform_Subset_Nm=sub1use.Platform_Subset_Nm and a.Country_Cd=sub1use.Country_Cd --and a.FYearMo=sub1use.FYearMo
                       LEFT JOIN 
                         sub1usec
-                        ON a.Platform_Subset_Nm=sub1usec.Platform_Subset_Nm and a.Country_Cd=sub1usec.Country_Cd and a.rtm=sub1usec.rtm
+                        ON a.Platform_Subset_Nm=sub1usec.Platform_Subset_Nm and a.Country_Cd=sub1usec.Country_Cd --and a.FYearMo=sub1usec.FYearMo
                       LEFT JOIN 
                         sub1used
-                        ON a.Platform_Subset_Nm=sub1used.Platform_Subset_Nm and a.Country_Cd=sub1used.Country_Cd and a.rtm=sub1used.rtm
+                        ON a.Platform_Subset_Nm=sub1used.Platform_Subset_Nm and a.Country_Cd=sub1used.Country_Cd --and a.FYearMo=sub1used.FYearMo
+                      LEFT JOIN 
+                        subusev4
+                        ON a.Platform_Subset_Nm=subusev4.Platform_Subset_Nm and a.Country_Cd=subusev4.Country_Cd --and a.FYearMo=subusev4.FYearMo
+                      LEFT JOIN 
+                        sub1used2
+                        ON a.Platform_Subset_Nm=sub1used2.Platform_Subset_Nm and a.Country_Cd=sub1used2.Country_Cd --and a.FYearMo=sub1used2.FYearMo
                       --LEFT JOIN 
                         --sub1cu
-                        --ON a.Platform_Subset_Nm=sub1cu.Platform_Subset_Nm and a.Country_Cd=sub1cu.Country_Cd and a.rtm=sub1cu.rtm
+                       -- ON a.Platform_Subset_Nm=sub1cu.Platform_Subset_Nm and a.Country_Cd=sub1cu.Country_Cd --and a.FYearMo=sub1cu.FYearMo
                   )
                   SELECT *
                   FROM sub2
@@ -2000,36 +2057,44 @@ final_list7 <- SparkR::sql("
 
 #test1s <- subset(final_list7,Platform_Subset_Nm=="WEBER BASE I-INK" & Region=="NA")
 
-final_list7$adjust_ps <- ifelse(final_list7$adjust_ps == -Inf | isNull(final_list7$adjust_ps), 0, final_list7$adjust_ps)
+final_list7$adjust_ps <- ifelse(isNull(final_list7$adjust_ps), 0, final_list7$adjust_ps)
+final_list7$adjust_psb <- ifelse(isNull(final_list7$adjust_psb), 0, final_list7$adjust_psb)
+final_list7$adjust_ps_i <- ifelse(isNull(final_list7$adjust_ps_i), 10000, final_list7$adjust_ps_i)
+final_list7$adjust_ps_j <- ifelse(isNull(final_list7$adjust_ps_j), 0, final_list7$adjust_ps_j)
+#final_list7$adjust_cu <- ifelse(is.na(final_list7$adjust_cu), 0, final_list7$adjust_cu)
+final_list7$adjust_ps <- ifelse(final_list7$adjust_ps == -Inf, 0, final_list7$adjust_ps)
 #final_list7$adjust_cu <- ifelse(final_list7$adjust_cu == -Inf, 0, final_list7$adjust_cu)
 final_list7$adjust_used <- ifelse(isNull(final_list7$adjust_used),0,final_list7$adjust_used)
 final_list7$adjust_use <- ifelse(isNull(final_list7$adjust_use),0,final_list7$adjust_use)
 final_list7$adjust_usec <- ifelse(isNull(final_list7$adjust_usec),0,final_list7$adjust_usec)
-
-final_list7$adjust_ps_i <- ifelse(isNull(final_list7$adjust_ps_i),1000000,final_list7$adjust_ps_i)
+final_list7$adjust_useav <- ifelse(isNull(final_list7$adjust_useav),0,final_list7$adjust_useav)
 # preddata$fit4 <- ifelse(!is.na(preddata$hp_share),preddata$hp_share, ifelse(preddata$timediff<maxtimediff2,preddata$fit1,
   #                         adjval^(preddata$timediff-maxtimediff2)*preddata$fit2+(1-(adjval^(preddata$timediff-maxtimediff2)))*preddata$fit1))
+					     
 adjval <- 0.99
-final_list7$Page_Share_Adj <- ifelse(final_list7$Share_Source_PS=="Modeled"|final_list7$Share_Source_PS=="Modeled by Proxy",
-                                     ifelse(final_list7$adjust_ps_i <= final_list7$index1,
-                                            lit(adjval)^(final_list7$index1-final_list7$adjust_ps_i+1)*final_list7$Page_Share_lin +(lit(1)-(lit(adjval)^(final_list7$index1-final_list7$adjust_ps_i+1)))*final_list7$Page_Share_sig ,final_list7$Page_Share_sig),
-                                     final_list7$Share_Raw_PS)
+					     
+final_list7$Page_Share_Adj <- ifelse(substr(final_list7$Share_Source_PS,1,8)=="MODELLED"
+                                     ,ifelse(final_list7$adjust_ps_i <= final_list7$index1, 
+                                             lit(adjval)^(final_list7$index1-final_list7$adjust_ps_i+1)*final_list7$Page_Share_lin +(lit(1)-(lit(adjval)^(final_list7$index1-final_list7$adjust_ps_i+1)))*final_list7$Page_Share_sig 
+                                             ,ifelse(final_list7$adjust_ps_j>final_list7$index1
+                                             ,ifelse(final_list7$Page_Share_sig > final_list7$adjust_psb, final_list7$Page_Share_sig, final_list7$adjust_psb)
+                                             #,final_list7$Page_Share_sig)
+                                             ,final_list7$Page_Share_sig))
+                                     ,final_list7$Share_Raw_PS)
 
 final_list7$Page_Share_Adj <- ifelse(final_list7$Page_Share_Adj>1,1,ifelse(final_list7$Page_Share_Adj<0.001,0.001,final_list7$Page_Share_Adj))
 
 #final_list7$CU_Share_Adj <- ifelse(final_list7$Share_Source_CU=="Modeled",ifelse((final_list7$adjust_cu>0) & final_list7$adjust_cu_i<= final_list7$index1,pmax(final_list7$Crg_Unit_Share -2*(final_list7$adjust_cu),0.05),ifelse((final_list7$adjust_cu< -0.05) & final_list7$adjust_cu_i<= final_list7$index1,pmax(final_list7$Crg_Unit_Share -1/2*(final_list7$adjust_cu),0.05),final_list7$Crg_Unit_Share)),final_list7$Crg_Unit_Share)
 #final_list7$CU_Share_Adj <- ifelse(final_list7$CU_Share_Adj>1,1,ifelse(final_list7$CU_Share_Adj)<0,0,final_list7$CU_Share_Adj)
 
-final_list7$adjust_used <- ifelse(final_list7$adjust_used==0, 1, final_list7$adjust_used)
-# final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
-final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",
-                                ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,
-                                       ifelse((final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used)) > 0.05,
-                                              (final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used)),
-                                               0.05),
-                                       final_list7$Usage),
-                                final_list7$Usage)
+final_list7$adjust_use_i <- ifelse(isNull(final_list7$adjust_use_i),0,final_list7$adjust_use_i)
+final_list7$adjust_use_j <- ifelse(isNull(final_list7$adjust_use_j),0,final_list7$adjust_use_j)
 
+#final_list7$adjust_used <- ifelse(final_list7$adjust_used==0, 1, final_list7$adjust_used)
+# final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
+final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index1,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
+
+final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 # final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage_c -(final_list7$adjust_usec+final_list7$adjust_used),0.005),final_list7$Usage_c),final_list7$Usage_c)
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",
                                  ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,
@@ -2039,6 +2104,7 @@ final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",
                                         final_list7$Usage_c),final_list7$Usage_c)
 final_list7$Usagek_Adj <- final_list7$Usage_Adj-final_list7$Usagec_Adj
 
+final_list7$Page_Share_old <- cast(final_list7$Page_Share_sig, "double")
 final_list7$Page_Share <- cast(final_list7$Page_Share_Adj, "double")
 #final_list7$Crg_Unit_Share <- cast(final_list7$CU_Share_Adj, "double")
 final_list7$Usage <- cast(final_list7$Usage_Adj, "double")
