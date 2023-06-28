@@ -1614,7 +1614,8 @@ def write_final_data_to_xlsx(spark: SparkSession, extended_configs: dict, final_
             (2, f"The IB post_applied to the data is ::: ib_version_{extended_configs['ib_version']}"),
             (3, f"COVID: ON ::: COVID END: {extended_configs['covid_end_quarter']}"),
         ],
-        ["id", "Comment"])
+        ["id", "Comment"]
+    )
     commentpd = comment.toPandas()
     fdjpd = final_dataframe.toPandas()
     with pd.ExcelWriter(path=s3_destination+".xlsx") as writer:
@@ -1639,16 +1640,21 @@ def write_final_data_to_parquet(final_dataframe: DataFrame, s3_destination: str)
 
 def load_data(spark: SparkSession, extended_configs: dict, final_dataframe: DataFrame):
     s3_destination = f"{extended_configs['output_path']}/m33_cupsm_output_{extended_configs['date']}_{extended_configs['output_label']}"
+
+    final_dataframe.cache()
+
+    write_final_data_to_parquet(
+        final_dataframe=final_dataframe,
+        s3_destination=s3_destination
+    )
+
     write_final_data_to_xlsx(
         spark=spark,
         extended_configs=extended_configs,
         final_dataframe=final_dataframe,
         s3_destination=s3_destination
     )
-    write_final_data_to_parquet(
-        final_dataframe=final_dataframe,
-        s3_destination=s3_destination
-    )
+
     return None
 
 
