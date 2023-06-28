@@ -1738,12 +1738,12 @@ final_list2 <- SparkR::sql('
                       , case
                         when upper(rtm)="I-INK" then "I-INK"
                         when a.Platform_Subset_Nm=a.Proxy_PS then
-                          case when a.BD_Share_Flag_PS = 0 then "MODELED"
-                          when a.Share_Raw_PS IN (NULL, 0) then "MODELED"
-                          when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then "MODELED"
+                          case when a.BD_Share_Flag_PS = 0 then "MODELLED"
+                          when a.Share_Raw_PS IN (NULL, 0) then "MODELLED"
+                          when a.Share_Raw_N_PS is NULL or a.Share_Raw_N_PS < 20 then "MODELLED"
                           else "HAVE DATA"
                           end
-                        else "Modeled by Proxy"
+                        else "MODELLED BY PROXY"
                         end as Share_Source_PS
                       , case
                         when upper(rtm)="I-INK" then 1
