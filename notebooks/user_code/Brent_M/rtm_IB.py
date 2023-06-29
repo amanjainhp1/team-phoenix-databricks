@@ -612,10 +612,12 @@ rtm_ib_staging_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+# create two copies of the ib_staging data for auditing purposes, this table is the original
 write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_pre_staging", "overwrite")
 
 # COMMAND ----------
 
+# create two copies of the ib_staging data for auditing purposes, this table will be updated from OZZY mps data with MAI uplift units
 write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_staging", "overwrite")
 
 # COMMAND ----------
@@ -934,4 +936,139 @@ submit_remote_query(configs, rtm_trad_update_query)
 
 # COMMAND ----------
 
+
 #create % to uplift forecast
+rtm_forecast_mps_uplift_query=f"""
+with vars as
+(
+    select distinct
+        'date_var' as record,
+        cal_date as max_date,
+        trunc(add_months(cal_date,1)) as new_date
+    from prod.ib_mps
+    WHERE 1=1
+        and cal_date = (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
+),
+
+ozzy_totals as
+(
+    --get ozzy totals for the max month
+    select
+        a.cal_date as ozzy_cal_date,
+        a.country_alpha2,
+        business_type_grp as split_name,
+        sum(device_op_ib_total) as ozzy_ib_units
+    from prod.ib_mps a
+        INNER JOIN mdm.iso_country_code_xref b on a.country_alpha2=b.country_alpha2
+        INNER JOIN vars v on v.record='date_var'
+    where 1=1
+        and business_type_grp in ('DMPS','PMPS')
+        and is_this_a_printer = 'YES'
+        and category_grp = 'LASER'
+        and cal_date = v.max_date
+        and device_op_ib_total > 0
+    GROUP BY a.cal_date,a.country_alpha2, business_type_grp
+),
+
+join_ozzy_and_rtm as
+(
+    select
+        a.month_begin as rtm_cal_date,
+        a.country_alpha2,
+        a.split_name,
+        sum(ib) as rtm_ib_units,
+        c.ozzy_cal_date,
+        c.ozzy_ib_units
+    from stage.rtm_ib_staging a
+        left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
+        left join ozzy_totals c on
+            a.country_alpha2 = c.country_alpha2
+            and a.split_name = c.split_name
+        INNER JOIN vars v on v.record = 'date_var'
+    where 1=1
+        and b.technology = 'LASER'
+        and a.month_begin = v.new_date
+        and a.split_name <> 'TRAD'
+    GROUP BY a.month_begin, a.country_alpha2, a.split_name, c.ozzy_cal_date, c.ozzy_ib_units
+),
+multiplier_set as
+(
+    select
+        rtm_cal_date,
+        country_alpha2,
+        split_name,
+        coalesce(ozzy_cal_date,rtm_cal_date) as ozzy_cal_date,
+        rtm_ib_units,
+        coalesce(ozzy_ib_units, rtm_ib_units) as ozzy_ib_units,
+        --rtm_ib_units/rtm_ib_units as multiplier
+        rtm_ib_units/(coalesce(ozzy_ib_units,rtm_ib_units)) as multiplier
+    from join_ozzy_and_rtm
+)
+
+select
+    a.month_begin,
+    a.country_alpha2,
+    a.split_name,
+    a.platform_subset,
+    a.ib,
+    b.multiplier,
+    a.ib/coalesce(b.multiplier,1) as new_ib,
+    a.ib/coalesce(b.multiplier,1) - a.ib as units_remove_from_trad
+from stage.rtm_ib_staging a
+    left join multiplier_set b on
+        a.country_alpha2=b.country_alpha2
+        and a.split_name = b.split_name
+where 1=1
+    and a.split_name <> 'TRAD'
+order by platform_subset, month_begin, split_name
+"""
+
+rtm_forecast_mps_uplift_records = read_redshift_to_df(configs) \
+    .option("query", rtm_forecast_mps_uplift_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_forecast_mps_uplift_records, "stage.rtm_forecast_mps_uplift_staging", "overwrite")
+
+# COMMAND ----------
+
+#update mps forecast records
+rtm_mps_forecast_update_query=f"""
+UPDATE stage.rtm_ib_staging a
+SET ib = b.new_ib
+FROM stage.rtm_forecast_mps_uplift_staging b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name <> 'TRAD'
+    and a.month_begin = b.month_begin
+    and a.month_begin > (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
+
+"""
+
+submit_remote_query(configs, rtm_mps_forecast_update_query) 
+
+# COMMAND ----------
+
+# update trad forecast records
+rtm_trad_forecast_update_query=f"""
+UPDATE stage.rtm_ib_staging a
+SET ib = ib-b.units
+FROM (  
+    SELECT
+        month_begin,
+        country_alpha2,
+        platform_subset,
+        sum(units_remove_from_trad) as units
+    FROM stage.rtm_forecast_mps_uplift_staging
+    GROUP BY  month_begin, country_alpha2, platform_subset) b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name = 'TRAD'
+    and a.month_begin = b.month_begin
+    and a.month_begin > (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
+"""
+
+submit_remote_query(configs, rtm_trad_forecast_update_query) 
