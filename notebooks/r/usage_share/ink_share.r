@@ -2094,7 +2094,7 @@ final_list7$adjust_use_j <- ifelse(isNull(final_list7$adjust_use_j),0,final_list
 # final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_use/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage -(final_list7$adjust_use+final_list7$adjust_used),0.05),final_list7$Usage),final_list7$Usage)
 final_list7$Usage_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse(final_list7$adjust_use_i <= final_list7$index1, ifelse((final_list7$Usage-final_list7$adjust_useav) > 0.05, (final_list7$Usage-final_list7$adjust_useav), 0.05), ifelse(final_list7$adjust_use_j >= final_list7$index1,final_list7$Usage+final_list7$adjust_used, final_list7$Usage)), final_list7$Usage)
 
-final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
+#final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Adj!=final_list7$Usage,final_list7$Usage_Adj*final_list7$color_pct,final_list7$Usage_c)
 # final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,pmax(final_list7$Usage_c -(final_list7$adjust_usec+final_list7$adjust_used),0.005),final_list7$Usage_c),final_list7$Usage_c)
 final_list7$Usagec_Adj <- ifelse(final_list7$Usage_Source=="UPM",
                                  ifelse((abs(final_list7$adjust_usec/final_list7$adjust_used)>1.5) & final_list7$adjust_use_i<= final_list7$index1,
