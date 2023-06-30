@@ -533,6 +533,7 @@ odw_dollars_raw = f"""
   AND day_of_month = 1
   AND cal.Date > '2021-10-01'
   AND land.profit_center_code NOT IN ('P1082', 'PF001')
+  AND segment_code <> 'SSC9907'
   GROUP BY cal.Date, pl, material_number, segment_code
 """
 
