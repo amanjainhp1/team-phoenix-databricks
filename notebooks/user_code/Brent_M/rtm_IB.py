@@ -11,6 +11,11 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## NORM SHIPS
+
+# COMMAND ----------
+
 # create an allocated temp table for RTM historical actuals
 # CREATE RTM RAW Norm_shipments dataset
 rtm_ns_raw_temp_query = """
@@ -358,6 +363,11 @@ write_df_to_redshift(configs, redshift_rtm_ns_fixed_records, "stage.rtm_ns_stage
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## LAG
+
+# COMMAND ----------
+
 
 # CREATE RTM lagged NS
 ib_01_hw_lagged_query = """
@@ -421,6 +431,11 @@ ib_01_hw_lagged_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_redshift(configs, ib_01_hw_lagged_records, "stage.rtm_ib_hw_lagged", "overwrite")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## DECAY
 
 # COMMAND ----------
 
@@ -585,6 +600,11 @@ write_df_to_redshift(configs, rtm_ib_decayed_records, "stage.rtm_ib_decayed", "o
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## IB STAGING
+
+# COMMAND ----------
+
 # CREATE RTM ib_staging dataset
 rtm_ib_staging_query = """
 SELECT 'IB' AS record
@@ -622,6 +642,13 @@ write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_staging", "o
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## ACTUALS
+
+# COMMAND ----------
+
+# ACTUALS AREA
+
 # update RTM historical actuals dataset with MAI from ozzy
 rtm_mps_uplift_query = """
 --pull IB units from Phoenix (via Ozzy)
@@ -630,6 +657,7 @@ WITH ozzy_ib_units as
     select
         'ozzy' as record,
         cal_date,
+        platform_subset,
         a.country_alpha2,
         business_type_grp as split_name,
         sum(device_op_ib_total) as ib_units
@@ -639,7 +667,7 @@ WITH ozzy_ib_units as
         and is_this_a_printer = 'YES'
         and category_grp = 'LASER'
         and cal_date >= (SELECT MIN(month_begin) FROM stage.rtm_ib_staging WHERE split_name in ('DMPS','PMPS'))
-    GROUP BY cal_date, a.country_alpha2, business_type_grp
+    GROUP BY cal_date, platform_subset, a.country_alpha2, business_type_grp
 ),
 
 --pull calculated RTM IB units from Phoenix
@@ -648,6 +676,7 @@ phoenix_rtm_units as
     Select
         'phoenix' as record,
         month_begin as cal_date,
+        a.platform_subset,
         country_alpha2,
         split_name,
         sum(ib) as ib_units
@@ -655,7 +684,7 @@ phoenix_rtm_units as
     where 1=1
         and split_name IN ('DMPS','PMPS')
         and b.technology = 'LASER'
-    GROUP BY  month_begin, country_alpha2, split_name
+    GROUP BY  month_begin, a.platform_subset, country_alpha2, split_name
 ),
 
 extra_ozzy_units as
@@ -664,12 +693,14 @@ extra_ozzy_units as
     select
         a.cal_date,
         a.country_alpha2,
+        a.platform_subset,
         a.split_name,
         coalesce(b.ib_units,a.ib_units)-a.ib_units as diff
     from phoenix_rtm_units a left join ozzy_ib_units b on
         a.cal_date=b.cal_date
         and a.country_alpha2=b.country_alpha2
         and a.split_name = b.split_name
+        and a.platform_subset=b.platform_subset
     where 1=1
         and a.cal_date >= (SELECT MIN(cal_date) FROM ozzy_ib_units)
         and coalesce(b.ib_units,a.ib_units)-a.ib_units <> 0
@@ -699,12 +730,12 @@ rtm_splits_totals as
     select
         country_alpha2,
         month_begin,
-        split_name,
+        platform_subset,
         sum(ib) as denominator
     from stage.rtm_ib_staging
     where 1=1
         and split_name in ('DMPS','PMPS')
-    group by country_alpha2, month_begin,split_name
+    group by country_alpha2, month_begin, platform_subset
 ),
 
 mix_pct as
@@ -718,7 +749,7 @@ mix_pct as
     from rtm_splits a INNER JOIN rtm_splits_totals b on
         a.country_alpha2=b.country_alpha2
         and a.month_begin=b.month_begin
-        and a.split_name=b.split_name
+        and a.platform_subset=b.platform_subset
     WHERE 1=1
 )
 
@@ -727,12 +758,15 @@ SELECT
     a.country_alpha2,
     month_begin,
     a.split_name,
-    platform_subset,
+    a.platform_subset,
+    split_pct,
     split_pct*b.diff as new_mps_units
 FROM mix_pct a INNER JOIN extra_ozzy_units b
     on a.month_begin = b.cal_date
     and a.split_name=b.split_name
     and a.country_alpha2 = b.country_alpha2
+    and a.platform_subset = b.platform_subset
+where 1=1
 
 """
 
@@ -743,123 +777,6 @@ rtm_mps_uplift_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_redshift(configs, rtm_mps_uplift_records, "stage.rtm_ib_mps_uplift_staging", "overwrite")
-
-# COMMAND ----------
-
-# fix the allocated units for situations where Total MPS is > than total TRAD units
-rtm_mps_uplift_fix_query = """
-with trad_units as
-(
-    Select
-        country_alpha2,
-        month_begin,
-        a.platform_subset,
-        sum(ib) as trad_ib_units
-    from stage.rtm_ib_staging a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
-    where 1=1
-        and split_name IN ('TRAD')
-        and b.technology = 'LASER'
-    GROUP BY  month_begin, country_alpha2, a.platform_subset
-
-),
-
-compare_mps_allocated_to_trad as
-(
-    select
-        a.country_alpha2,
-        a.month_begin,
-        a.platform_subset,
-        sum(new_mps_units) as new_mps_units,
-        sum(b.trad_ib_units) as trad_ib_units
-    from stage.rtm_ib_mps_uplift_staging a LEFT JOIN trad_units b ON
-        a.country_alpha2=b.country_alpha2
-        and a.month_begin=b.month_begin
-        and a.platform_subset = b.platform_subset
-    GROUP BY a.country_alpha2, a.month_begin, a.platform_subset
-),
-
-new_mps_allocation_units as
-(
-    select
-        country_alpha2,
-        month_begin,
-        platform_subset,
-        new_mps_units,
-        trad_ib_units,
-        CASE
-            WHEN new_mps_units - trad_ib_units > 0 THEN trad_ib_units
-            ELSE new_mps_units
-        END AS new_new_mps_units
-    from compare_mps_allocated_to_trad
-    where new_mps_units > trad_ib_units
-),
-
-new_mix_pct as
-(
-    Select
-        month_begin,
-        country_alpha2,
-        a.platform_subset,
-        split_name,
-        --ib,
-        (a.ib / sum(a.ib) OVER (PARTITION BY a.platform_subset, a.country_alpha2, a.month_begin)) AS pct
-    from stage.rtm_ib_staging a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
-    where 1=1
-        and split_name IN ('DMPS','PMPS')
-        and b.technology = 'LASER'
-        and a.ib <> 0
-    order by platform_subset, country_alpha2, month_begin, split_name
-),
-
-cleaned_up_allocation_units as
-(
-    select
-        a.country_alpha2,
-        a.month_begin,
-        a.platform_subset,
-        b.split_name,
-        new_new_mps_units,
-        b.pct,
-        new_new_mps_units * b.pct as new_allocated_mps_ib_units
-    from new_mps_allocation_units a INNER JOIN new_mix_pct b ON
-        a.country_alpha2 = b.country_alpha2
-        and a.month_begin = b.month_begin
-        and a.platform_subset = b.platform_subset
-)
-
-SELECT 
-    country_alpha2,
-    month_begin,
-    split_name,
-    platform_subset,
-    new_allocated_mps_ib_units
-FROM cleaned_up_allocation_units
-"""
-
-rtm_mps_uplift_fix_records = read_redshift_to_df(configs) \
-    .option("query", rtm_mps_uplift_fix_query) \
-    .load()
-
-
-# COMMAND ----------
-
-write_df_to_redshift(configs, rtm_mps_uplift_fix_records, "stage.rtm_ib_mps_uplift_fix_staging", "overwrite")
-
-# COMMAND ----------
-
-# update rtm ib data with adjusted ozzy mps numbers
-rtm_mps_update_fix_query=f"""
-UPDATE stage.rtm_ib_mps_uplift_staging a
-SET new_mps_units = b.new_allocated_mps_ib_units
-FROM stage.rtm_ib_mps_uplift_fix_staging b
-WHERE 1=1
-    and a.platform_subset = b.platform_subset
-    and a.country_alpha2 = b.country_alpha2
-    and a.split_name = b.split_name
-    and a.month_begin = b.month_begin
-"""
-
-submit_remote_query(configs, rtm_mps_update_fix_query) 
 
 # COMMAND ----------
 
@@ -896,15 +813,11 @@ select
     a.month_begin,
     a.split_name,
     a.platform_subset,
-    CASE
-        WHEN ib - b.new_mps_units < 1 THEN 1
-        ELSE ib - b.new_mps_units
-    END AS ib
-    --ib - b.new_mps_units as ib
+    ib - b.new_mps_units as ib
 from stage.rtm_ib_staging a inner join uplift_totals b
-on a.country_alpha2=b.country_alpha2
-and a.platform_subset = b.platform_subset
-and a.month_begin=b.month_begin
+    on a.country_alpha2=b.country_alpha2
+    and a.platform_subset = b.platform_subset
+    and a.month_begin=b.month_begin
 where 1=1
     and split_name = 'TRAD'
 """
@@ -936,15 +849,22 @@ submit_remote_query(configs, rtm_trad_update_query)
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## FORECAST
 
-#create % to uplift forecast
-rtm_forecast_mps_uplift_query=f"""
+# COMMAND ----------
+
+# FORECAST AREA
+
+# create % to uplift forecast
+rtm_forecast_mps_uplift_pct_query=f"""
 with vars as
 (
     select distinct
         'date_var' as record,
         cal_date as max_date,
-        trunc(add_months(cal_date,1)) as new_date
+        trunc(add_months(cal_date,1)) as min_rtm_date,
+        trunc(add_months(cal_date,-11)) as look_back_date
     from prod.ib_mps
     WHERE 1=1
         and cal_date = (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
@@ -952,12 +872,10 @@ with vars as
 
 ozzy_totals as
 (
-    --get ozzy totals for the max month
     select
-        a.cal_date as ozzy_cal_date,
-        a.country_alpha2,
+        b.market10,
         business_type_grp as split_name,
-        sum(device_op_ib_total) as ozzy_ib_units
+        sum(device_op_ib_total)/12 as ozzy_ib_units
     from prod.ib_mps a
         INNER JOIN mdm.iso_country_code_xref b on a.country_alpha2=b.country_alpha2
         INNER JOIN vars v on v.record='date_var'
@@ -965,44 +883,64 @@ ozzy_totals as
         and business_type_grp in ('DMPS','PMPS')
         and is_this_a_printer = 'YES'
         and category_grp = 'LASER'
-        and cal_date = v.max_date
+        and cal_date between v.look_back_date and v.max_date
         and device_op_ib_total > 0
-    GROUP BY a.cal_date,a.country_alpha2, business_type_grp
+    GROUP BY b.market10, business_type_grp
 ),
 
-join_ozzy_and_rtm as
+rtm_ib_totals as
 (
     select
-        a.month_begin as rtm_cal_date,
-        a.country_alpha2,
+        c.market10,
         a.split_name,
-        sum(ib) as rtm_ib_units,
-        c.ozzy_cal_date,
-        c.ozzy_ib_units
-    from stage.rtm_ib_staging a
+        sum(ib)/12 as rtm_ib_units
+    from stage.rtm_ib_pre_staging a
         left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
-        left join ozzy_totals c on
-            a.country_alpha2 = c.country_alpha2
-            and a.split_name = c.split_name
+        left join mdm.iso_country_code_xref c on a.country_alpha2=c.country_alpha2
         INNER JOIN vars v on v.record = 'date_var'
     where 1=1
         and b.technology = 'LASER'
-        and a.month_begin = v.new_date
+        and a.month_begin between v.look_back_date and v.max_date
         and a.split_name <> 'TRAD'
-    GROUP BY a.month_begin, a.country_alpha2, a.split_name, c.ozzy_cal_date, c.ozzy_ib_units
-),
-multiplier_set as
+    GROUP BY c.market10, a.split_name
+)
+
+SELECT
+    a.market10,
+    a.split_name,
+    rtm_ib_units,
+    ozzy_ib_units,
+    ozzy_ib_units - rtm_ib_units as unit_diff,
+    rtm_ib_units / ozzy_ib_units as mix_pct
+FROM rtm_ib_totals a INNER JOIN ozzy_totals b ON
+    a.market10=b.market10
+    and a.split_name = b.split_name
+ORDER BY 1,2
+"""
+
+rtm_forecast_mps_uplift_pct_records = read_redshift_to_df(configs) \
+    .option("query", rtm_forecast_mps_uplift_pct_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_forecast_mps_uplift_pct_records, "stage.rtm_forecast_mps_uplift_pct_staging", "overwrite")
+
+# COMMAND ----------
+
+
+# calculate units to uplift forecast and remove from TRAD
+rtm_forecast_mps_uplift_query=f"""
+
+--blow out Market10 uplift percent to country_alpha2
+with market10_to_country_alpha2 as
 (
-    select
-        rtm_cal_date,
-        country_alpha2,
-        split_name,
-        coalesce(ozzy_cal_date,rtm_cal_date) as ozzy_cal_date,
-        rtm_ib_units,
-        coalesce(ozzy_ib_units, rtm_ib_units) as ozzy_ib_units,
-        --rtm_ib_units/rtm_ib_units as multiplier
-        rtm_ib_units/(coalesce(ozzy_ib_units,rtm_ib_units)) as multiplier
-    from join_ozzy_and_rtm
+    select DISTINCT
+       a.market10,
+       b.country_alpha2,
+       a.split_name,
+       a.mix_pct
+    from stage.rtm_forecast_mps_uplift_pct_staging a inner join mdm.iso_country_code_xref b on a.market10=b.market10
 )
 
 select
@@ -1011,11 +949,11 @@ select
     a.split_name,
     a.platform_subset,
     a.ib,
-    b.multiplier,
-    a.ib/coalesce(b.multiplier,1) as new_ib,
-    a.ib/coalesce(b.multiplier,1) - a.ib as units_remove_from_trad
+    b.mix_pct,
+    a.ib/coalesce(b.mix_pct,1) as new_ib,
+    a.ib/coalesce(b.mix_pct,1) - a.ib as units_remove_from_trad
 from stage.rtm_ib_staging a
-    left join multiplier_set b on
+    left join market10_to_country_alpha2 b on
         a.country_alpha2=b.country_alpha2
         and a.split_name = b.split_name
 where 1=1
