@@ -952,8 +952,7 @@ select
     b.mix_pct,
     a.ib/coalesce(b.mix_pct,1) as new_ib,
     a.ib/coalesce(b.mix_pct,1) - a.ib as units_remove_from_trad
-from stage.rtm_ib_staging a
-    left join market10_to_country_alpha2 b on
+from stage.rtm_ib_staging a left join market10_to_country_alpha2 b on
         a.country_alpha2=b.country_alpha2
         and a.split_name = b.split_name
 where 1=1
@@ -979,7 +978,8 @@ FROM stage.rtm_forecast_mps_uplift_staging b
 WHERE 1=1
     and a.platform_subset = b.platform_subset
     and a.country_alpha2 = b.country_alpha2
-    and a.split_name <> 'TRAD'
+    -- and a.split_name <> 'TRAD'
+    and a.split_name = b.split_name
     and a.month_begin = b.month_begin
     and a.month_begin > (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
 
