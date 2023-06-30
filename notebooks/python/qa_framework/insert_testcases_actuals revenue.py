@@ -78,10 +78,10 @@ VALUES
 group by platform_subset,country_alpha2 having sum(net_revenue)<>0 except select platform_subset,geography from prod.usage_share_country where version in (select max(version) from  prod.usage_share_country )
 group by platform_subset,geography having max(units)<>0','','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','','Biz Validation testing','Actuals Revenue','Drop in PS_Country between Usage Share and Actuals revenue','fin_prod','fin_prod.actuals_supplies_baseprod','units','select platform_subset,geography from prod.usage_share_country where version in (select max(version) from  prod.usage_share_country )
-and cal_date<='2023-05-01' group by platform_subset,geography having max(units)<>0 except select platform_subset,country_alpha2  from fin_prod.actuals_supplies_baseprod
+and cal_date <= ''2023-05-01'' group by platform_subset,geography having max(units)<>0 except select platform_subset,country_alpha2  from fin_prod.actuals_supplies_baseprod
 group by platform_subset,country_alpha2 having sum(net_revenue)<>0','','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','','Biz Validation testing','Actuals Revenue','Drop in PS_Country between IB and Actuals revenue','fin_prod','fin_prod.actuals_supplies_baseprod','units','select platform_subset,country_alpha2 from prod.ib where version in (select max(version) from  prod.ib where official=1 )
-and cal_date<='2023-05-01' group by platform_subset,country_alpha2 having max(units)<>0 except select platform_subset,country_alpha2  from fin_prod.actuals_supplies_baseprod
+and cal_date <= ''2023-05-01'' group by platform_subset,country_alpha2 having max(units)<>0 except select platform_subset,country_alpha2  from fin_prod.actuals_supplies_baseprod
 group by platform_subset,country_alpha2 having sum(net_revenue)<>0','','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','','Duplicate check','Actuals Revenue','Check for duplicate records','prod','prod.actuals_supplies','units',' select cal_date , country_alpha2, market10, platform_subset, customer_engagement ,version, count(1) count_dup  from prod.actuals_supplies as2  where version = (select max(version) from prod.actuals_supplies as2 where official = 1)
  group by cal_date , country_alpha2, market10, platform_subset, customer_engagement,version  having count_dup >1','','1','1',getdate(),'admin',1,'Critical')
@@ -95,4 +95,4 @@ group by platform_subset,country_alpha2 having sum(net_revenue)<>0','','1','1',g
 
 # COMMAND ----------
 
-submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # insert into test cases table
+submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # insert into test cases table9
