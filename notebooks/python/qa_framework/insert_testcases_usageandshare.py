@@ -14,13 +14,13 @@ from pyspark.sql import Window
 # COMMAND ----------
 
 #truncate test case table 
-truncate_testcases_table_query =f""" delete from stage.test_cases where module_name='US';"""
+truncate_testcases_table_query =f""" delete from qa.test_cases where module_name='US';"""
 submit_remote_query(configs,truncate_testcases_table_query )
 
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','','Data availability check','US','Check if ib is available for share data','prod','prod.usage_share_country','share','','QA Framework/usageandshare/shareebutnoIB.sql','1','1',getdate(),'admin',1,'Medium')
@@ -37,7 +37,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','','MDM Check','US'
@@ -73,7 +73,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','','VOV Check','US'
@@ -97,7 +97,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','','Data Check','US'
@@ -152,7 +152,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','','Range Check','US','Usage should not be less than 0','prod','prod.usage_share_country','usage','select * from prod.usage_share_country where measure=''USAGE'' and  units<0','','1','1',getdate(),'admin',1,'Medium')
