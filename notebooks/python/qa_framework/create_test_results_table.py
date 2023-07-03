@@ -64,3 +64,27 @@ CREATE TABLE qa.test_results_detail (
 # COMMAND ----------
 
 submit_remote_query(configs, testresults_detail_create_query) # create test results table
+
+# COMMAND ----------
+
+testresults_detail_vov_create_query=f"""
+CREATE TABLE IF NOT EXISTS qa.test_results_detail_vov
+(
+	measure VARCHAR(100)   
+	,latestversion VARCHAR(100)   
+	,prevversion VARCHAR(100)   
+	,country_alpha2 VARCHAR(100)   
+	,platform_subset VARCHAR(500)   
+	,cal_date DATE   
+	,newunits DOUBLE PRECISION   
+	,prevunits DOUBLE PRECISION   
+	,diff DOUBLE PRECISION   
+	,chgpct DOUBLE PRECISION   
+	,customer_engagement VARCHAR(100)   
+	,module_name VARCHAR(100)   
+)
+;"""
+
+# COMMAND ----------
+
+submit_remote_query(configs, testresults_detail_vov_create_query) # create test results vov table
