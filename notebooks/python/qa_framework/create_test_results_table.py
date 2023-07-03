@@ -28,7 +28,8 @@ CREATE TABLE qa.test_results (
   test_run_by VARCHAR (200),
   test_result_detail VARCHAR (200),
   test_result VARCHAR (200),
-  test_run_id INT NULL
+  test_run_id INT NULL,
+  test_results_s3path varchar(500)
 );
 """
 
