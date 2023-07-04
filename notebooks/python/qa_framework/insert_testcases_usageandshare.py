@@ -161,3 +161,40 @@ VALUES
 # COMMAND ----------
 
 submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # insert into test cases table
+
+# COMMAND ----------
+
+insert_testqueries_in_testcases_table_query= f""" 
+INSERT INTO qa.test_cases
+(project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
+VALUES 
+('Phoenix - QA','','','Biz Validation testing','US','Sum of k usage and color usage equals usage','prod','prod.usage_share_country','usage','with a as 
+(select  geography ,platform_subset ,customer_engagement ,coalesce (sum(units),0) k_color_usage_sum from prod.usage_share_country usc 
+where measure in ( ''K_USAGE'',''COLOR_USAGE'') group by  geography ,platform_subset ,customer_engagement )
+, c as  (select  geography ,platform_subset ,customer_engagement  , coalesce (sum(units),0) usage_sum
+from prod.usage_share_country usc where measure = ''USAGE'' group by  geography ,platform_subset ,customer_engagement )
+select  a.geography ,a.platform_subset ,a.customer_engagement , round(k_color_usage_sum,4) ,round(usage_sum,4) ,hx.product_lifecycle_status_usage 
+from c left join a on  a.geography = c.geography and a.platform_subset = c.platform_subset and a.customer_engagement = c.customer_engagement
+left join mdm.hardware_xref hx on  a.platform_subset = hx.platform_subset
+where coalesce(round(k_color_usage_sum,4),0)<> coalesce(round(usage_sum,4),0)','','1','1',getdate(),'admin',1,'Medium')
+,('Phoenix - QA','','','Biz Validation testing','US','IB units equals US units','prod','prod.usage_share_country','units','with a as
+(select record, cal_date, country_alpha2, platform_subset, customer_engagement,version, sum(units) ib_units from prod.ib where measure =''IB''
+and version = (select max(ib_version) from prod.usage_share_country where version = (select max(version) from prod.usage_share_country))
+group by record, cal_date, country_alpha2, platform_subset, customer_engagement,version)
+,b as (select record, cal_date, geography, platform_subset, customer_engagement,- sum(units) us_units
+from prod.usage_share_country usc where measure =''IB''
+and ib_version = (select max(ib_version) from prod.usage_share_country where version = (select max(version) from prod.usage_share_country))
+group by record, cal_date, geography, platform_subset, customer_engagement)
+select a.record,b.record, a.cal_date,b.cal_date, a.country_alpha2,b.geography, a.platform_subset,b.platform_subset,
+a.customer_engagement,b.customer_engagement,ib_units,us_units
+from a left join b
+on 
+-- record = b.record
+a.cal_date = b.cal_date
+and a.country_alpha2 = b.geography
+and a. platform_subset = b.platform_subset
+and a.customer_engagement=b.customer_engagementwhere ib_units <> us_units','','1','1',getdate(),'admin',1,'Medium')
+
+# COMMAND ----------
+
+submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # insert into test cases table
