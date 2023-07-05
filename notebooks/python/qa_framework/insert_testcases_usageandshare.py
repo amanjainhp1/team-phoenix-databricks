@@ -177,7 +177,7 @@ select  a.geography ,a.platform_subset ,a.customer_engagement , round(k_color_us
 from c left join a on  a.geography = c.geography and a.platform_subset = c.platform_subset and a.customer_engagement = c.customer_engagement
 left join mdm.hardware_xref hx on  a.platform_subset = hx.platform_subset
 where coalesce(round(k_color_usage_sum,4),0)<> coalesce(round(usage_sum,4),0)','','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','','Biz Validation testing','US','IB units equals US units','prod','prod.usage_share_country','units','with a as
+,('Phoenix - QA','','','Biz Validation testing','US','IB units equals US IB units','prod','prod.usage_share_country','units','with a as
 (select record, cal_date, country_alpha2, platform_subset, customer_engagement,version, sum(units) ib_units from prod.ib where measure =''IB''
 and version = (select max(ib_version) from prod.usage_share_country where version = (select max(version) from prod.usage_share_country))
 group by record, cal_date, country_alpha2, platform_subset, customer_engagement,version)
@@ -193,7 +193,7 @@ on
 a.cal_date = b.cal_date
 and a.country_alpha2 = b.geography
 and a. platform_subset = b.platform_subset
-and a.customer_engagement=b.customer_engagementwhere ib_units <> us_units','','1','1',getdate(),'admin',1,'Medium')
+and a.customer_engagement=b.customer_engagementwhere ib_units <> us_units','','1','1',getdate(),'admin',1,'Medium');"""
 
 # COMMAND ----------
 
