@@ -181,7 +181,7 @@ where coalesce(round(k_color_usage_sum,4),0)<> coalesce(round(usage_sum,4),0)','
 (select record, cal_date, country_alpha2, platform_subset, customer_engagement,version, sum(units) ib_units from prod.ib where measure =''IB''
 and version = (select max(ib_version) from prod.usage_share_country where version = (select max(version) from prod.usage_share_country))
 group by record, cal_date, country_alpha2, platform_subset, customer_engagement,version)
-,b as (select record, cal_date, geography, platform_subset, customer_engagement,- sum(units) us_units
+,b as (select record, cal_date, geography, platform_subset, customer_engagement,sum(units) us_units
 from prod.usage_share_country usc where measure =''IB''
 and ib_version = (select max(ib_version) from prod.usage_share_country where version = (select max(version) from prod.usage_share_country))
 group by record, cal_date, geography, platform_subset, customer_engagement)
@@ -193,7 +193,7 @@ on
 a.cal_date = b.cal_date
 and a.country_alpha2 = b.geography
 and a. platform_subset = b.platform_subset
-and a.customer_engagement=b.customer_engagementwhere ib_units <> us_units','','1','1',getdate(),'admin',1,'Medium');"""
+and a.customer_engagement=b.customer_engagement where ib_units <> us_units','','1','1',getdate(),'admin',1,'Medium');"""
 
 # COMMAND ----------
 
