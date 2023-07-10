@@ -43,6 +43,7 @@ INSERT INTO fin_prod.actuals_supplies_baseprod
            ,official
            ,load_date
            ,version
+           ,printer_attribution
            )
 SELECT 
      record
@@ -71,7 +72,8 @@ SELECT
     ,(SELECT distinct load_date from prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS' 
         AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS')) AS load_date
     ,(SELECT distinct version from prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS'
-        AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS')) AS version    
+        AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS')) AS version  
+    ,printer_attribution  
     FROM fin_prod.edw_actuals_supplies_baseprod
 GROUP BY
     record
@@ -83,6 +85,7 @@ GROUP BY
     ,pl
     ,L5_Description
     ,customer_engagement
+    ,printer_attribution
     ,official;
 
   
@@ -112,6 +115,7 @@ INSERT INTO fin_prod.actuals_supplies_baseprod
            ,official
            ,load_date
            ,version
+           ,printer_attribution
            )
 SELECT 
      record
@@ -140,7 +144,8 @@ SELECT
     ,(SELECT distinct load_date from prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS' 
         AND load_date = (SELECT MAX(load_date) FROM prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS')) AS load_date
     ,(SELECT distinct version from prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS'
-        AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS')) AS version    
+        AND version = (SELECT MAX(version) FROM prod.version WHERE record = 'ACTUALS - SUPPLIES BASE PRODUCT FINANCIALS')) AS version
+    ,printer_attribution   
     FROM fin_prod.odw_actuals_supplies_baseprod
 GROUP BY
     record
@@ -152,6 +157,7 @@ GROUP BY
     ,pl
     ,L5_Description
     ,customer_engagement
+    ,printer_attribution
     ,official;
 """
 
