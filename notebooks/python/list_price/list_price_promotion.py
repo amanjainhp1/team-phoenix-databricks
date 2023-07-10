@@ -413,12 +413,12 @@ query_list.append(["fin_prod.list_price_dashboard", list_price_dashboard, "appen
 # COMMAND ----------
 
 list_price_filtered = read_redshift_to_df(configs) \
-    .option("query", f"SELECT * FROM fin_prod.list_price_filtered") \
+    .option("query", f"SELECT * FROM fin_prod.list_price_filtered where load_date = (select max(load_date) from fin_prod.list_price_filtered)") \
     .load()
 
 # COMMAND ----------
 
-load_date = list_price_filtered.sort(col('load_date').desc()).select('load_date').distinct().head()[0]
+load_date = list_price_filtered.agg({"load_date": "max"}).collect()[0][0]
 
 dateTimeStr = str(load_date)
 
@@ -427,7 +427,3 @@ dateTimeStr = str(load_date)
 s3_list_price_output_bucket = constants["S3_BASE_BUCKET"][stack] + "spectrum/list_price_filtered_historical/" + dateTimeStr[:10]
 
 write_df_to_s3(list_price_filtered, s3_list_price_output_bucket, "parquet", "overwrite")
-
-# COMMAND ----------
-
-
