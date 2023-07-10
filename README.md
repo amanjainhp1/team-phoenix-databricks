@@ -49,6 +49,7 @@ dataos-prod: https://dataos-prod.cloud.databricks.com/
 
 ## Azure DevOps Pipeline URLs
 
+notebook: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=21311  
 dev-internal: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=8937    
 itg-internal: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=9373    
 prod-internal: https://dev.azure.com/hpcodeway/dataos/_build?definitionId=10475    

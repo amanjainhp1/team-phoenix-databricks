@@ -1,8 +1,8 @@
 -- financials.act_plus_fcst_financials_vw source
 CREATE OR REPLACE VIEW financials.act_plus_fcst_financials_vw AS --- open supplies actuals base product level of detail
     WITH current_fiscal_yr AS (
-        SELECT fiscal_yr -4 Start_fiscal_yr,
-            fiscal_yr + 5 end_fiscal_yr
+        SELECT CAST(fiscal_yr AS INTEGER) -4 Start_fiscal_yr,
+             CAST(fiscal_yr AS INTEGER) +5 end_fiscal_yr
         FROM mdm.calendar
         WHERE Date = CAST(GETDATE() AS DATE)
     ),

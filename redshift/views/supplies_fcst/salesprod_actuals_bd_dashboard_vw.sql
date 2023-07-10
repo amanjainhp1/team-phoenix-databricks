@@ -1,25 +1,4 @@
-# Databricks notebook source
-from functools import reduce
-from pyspark.sql.functions import col, current_date, regexp_extract
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DateType, DecimalType, TimestampType, DecimalType
-
-# COMMAND ----------
-
-# MAGIC %run ../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../common/database_utils
-
-# COMMAND ----------
-
-# MAGIC %run ../common/s3_utils
-
-# COMMAND ----------
-
-query = """
 CREATE OR REPLACE VIEW supplies_fcst.salesprod_actuals_bd_dashboard_vw AS 
-
 WITH
              supplies_llc_data AS
              (
@@ -96,13 +75,3 @@ WITH
                            GETDATE() AS load_date
                     FROM supplies_llcs_media
                     GROUP BY yearmon, pl, salesProdNbr, Region_3, Region_4, Country, Route_to_market
-
-      
-GRANT ALL ON TABLE supplies_fcst.salesprod_actuals_bd_dashboard_vw TO GROUP phoenix_dev;
-"""
-
-submit_remote_query(configs, query)
-
-# COMMAND ----------
-
-
