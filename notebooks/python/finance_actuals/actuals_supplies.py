@@ -38,7 +38,7 @@ query = f"""
 		platform_subset,
 		base_product_number,
 		customer_engagement,
-		CAST(SUM(revenue_units) AS decimcal(18, 4)) AS base_quantity,
+		CAST(SUM(revenue_units) AS decimal(18, 4)) AS base_quantity,
 		SUM(equivalent_units) AS equivalent_units,
 		SUM(yield_x_units) AS yield_x_units,
 		SUM(yield_x_units_black_only) AS yield_x_units_black_only,
