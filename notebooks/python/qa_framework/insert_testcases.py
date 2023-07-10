@@ -14,14 +14,14 @@ from pyspark.sql import Window
 # COMMAND ----------
 
 #truncate test case table 
-truncate_testcases_table_query =f""" delete from stage.test_cases;"""
+truncate_testcases_table_query =f""" delete from qa.test_cases;"""
 submit_remote_query(configs,truncate_testcases_table_query )
 
 # COMMAND ----------
 
 # insert records into test case table
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category,module_name,test_case_name, schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES('Phoenix - QA','','ITG','Data availability check','Actuals HW/ Actuals LF','Check if base product number is available','stage','stage.actuals_hw','base_product_number','select * from stage.actuals_hw where base_product_number is null or base_product_number= '''' ','','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','ITG','Data availability check','Actuals HW/ Actuals LF','Check if base quantity is available','stage','stage.actuals_hw','base_quantity','select * from stage.actuals_hw where base_quantity = 0 or base_quantity is NULL','','1','1',getdate(),'admin',1,'Very Low')
@@ -60,7 +60,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES ('Phoenix - QA','','ITG','VOV check','HARDWARE LTF','Check for vov change','prod','prod.hardware_ltf','units','','QA Framework/hardware_ltf_vov_check.sql','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','ITG','MDM Check','Instant Ink Enrollees','Check for missing country values in MDM','prod','prod.instant_ink_enrollees','country','select * from (select country from prod.instant_ink_enrollees except select country_alpha2  from mdm.iso_country_code_xref ) ','','1','1',getdate(),'admin',1,'Critical')
@@ -85,7 +85,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES ('Phoenix - QA','','ITG','Data availability check','IB','Check if ib is available','prod','prod.ib','units','select * from prod.ib
 where (units is null or units =0) and official =1','','1','1',getdate(),'admin',1,'Medium')
@@ -94,10 +94,10 @@ where official=1
 group by cal_date,country_alpha2,platform_subset,customer_engagement,version 
 having count(1)>1','','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','ITG','Data availability check','IB','Check if ib is available','prod','prod.ib','platform_subset','select * from prod.ib where platform_subset like ''%GENERIC%'' ','','1','1',getdate(),'admin',1,'Critical')
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','IB Greater than HW','prod','prod.ib','ib','','QA Framework/ib_bizval_IBGreaterthanHW.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','IB late','prod','prod.ib','ib','','QA Framework/ib_bizval_IBLate.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','IB Before NS','prod','prod.ib','ib','','QA Framework/ib_bizval_IBBeforeNS.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','IB Printer validation','prod','prod.ib','ib','','QA Framework/ib_bizval_Printervalidation.sql','1','1',getdate(),'admin',1,'Medium')
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if IB units is greater than HW units','prod','prod.ib','ib','','QA Framework/ib_bizval_IBGreaterthanHW.sql','1','1',getdate(),'admin',1,'Medium')
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if IB min date is later than NS  min date','prod','prod.ib','ib','','QA Framework/ib_bizval_IBLate.sql','1','1',getdate(),'admin',1,'Medium')
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if IB min date is before NS min date','prod','prod.ib','ib','','QA Framework/ib_bizval_IBBeforeNS.sql','1','1',getdate(),'admin',1,'Medium')
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if platform subset is present in hardware_ltf but not in IB','prod','prod.ib','ib','','QA Framework/ib_bizval_Printervalidation.sql','1','1',getdate(),'admin',1,'Medium')
 ;"""
 
 # COMMAND ----------
@@ -107,7 +107,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases 
+INSERT INTO qa.test_cases 
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES ('Phoenix - QA','','ITG','MDM check','Norm Ships','Check for missing country values in MDM','prod','prod.norm_shipments','country_alpha2','select * from (select country_alpha2 from prod.norm_shipments except select country_alpha2  from mdm.iso_country_code_xref )','','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','ITG','MDM check','Norm Ships','Check for missing platform subset values in MDM','prod','prod.norm_shipments','platform_subset','select * from (select platform_subset  from prod.norm_shipments except select platform_subset  from mdm.hardware_xref hx )','','1','1',getdate(),'admin',1,'Critical')
@@ -122,7 +122,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','ITG','STGVSPROD Check','IB','IB Stage vs PROD','prod','prod.ib','ib','','QA Framework/ib_stgvsprod.sql','1','1',getdate(),'admin',1,'Medium')
@@ -137,7 +137,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES 
 ('Phoenix - QA','','ITG','Data availability check','IB','Check if platform subset value is GENERIC','stage','stage.ib_staging','platform_subset','select * from stage.ib_staging where UPPER(platform_subset) like ''%GENERIC%'' ','','1','1',getdate(),'admin',1,'Critical')
@@ -145,13 +145,17 @@ VALUES
 having count(1)>1','','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','ITG','MDM Check','IB','Check for missing platform subset values in MDM','stage','stage.ib_staging','platform_subset','select * from (select platform_subset from stage.ib_staging except select platform_subset from mdm.hardware_xref ) ','','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','ITG','MDM check','IB','Check for missing country values in MDM','stage','stage.ib_staging','country_alpha2','select * from (select country_alpha2 from stage.ib_staging except select country_alpha2  from mdm.iso_country_code_xref )','','1','1',getdate(),'admin',1,'Critical') 
-,('Phoenix - QA','','ITG','Data availability check','IB','Drop out between IB and NS','stage','stage.ib_staging','IB','select * from (select record, country_alpha2, a.platform_subset, count(1) from stage.norm_ships a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset 
-where country_alpha2||UPPER(a.platform_subset) in ( select country_alpha2||UPPER(platform_subset) from stage.norm_ships except select country_alpha2||UPPER(platform_subset) from stage.ib_staging ) group by record,country_alpha2,a.platform_subset )','','1','1',getdate(),'admin',1,'Medium') 
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','I-Ink date before Trad date','prod','prod.ib','ib','','QA Framework/iinkdatelessthantrad.sql','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','I-Ink and Trad IB greater than HW units','prod','prod.ib','ib','select ib.* ,ns_units from ( select platform_subset, country_alpha2, max(units) units from prod.ib where measure in (''IB'') and customer_engagement in (''TRAD'',''I-INK'') 
-and version = (select max(version) from prod.ib where official = 1) group by platform_subset, country_alpha2) ib left join (select platform_subset, country_alpha2, sum(units) ns_units from prod.norm_shipments_ce where customer_engagement in (''TRAD'',''I-INK'') and version = (select max(version) from prod.ib where official = 1)
+,('Phoenix - QA','','ITG','Data availability check','IB','Check for drop in country and platform subset between IB and NS','stage','stage.ib_staging','IB','select record, country_alpha2, platform_subset, count_ps_country from (select record, country_alpha2, a.platform_subset, count(1) count_ps_country
+from stage.norm_ships a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset where country_alpha2||UPPER(a.platform_subset) in 
+( select country_alpha2||UPPER(platform_subset) from stage.norm_ships except 
+select country_alpha2||UPPER(platform_subset) from stage.ib_staging ) group by record,country_alpha2,a.platform_subset )','','1','1',getdate(),'admin',1,'Medium') 
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if I-Ink IB min date is before Trad IB min date','prod','prod.ib','ib','','QA Framework/iinkdatelessthantrad.sql','1','1',getdate(),'admin',1,'Medium')
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if sum of I-Ink and Trad IB units is greater than HW units','prod','prod.ib','ib','select ib.platform_subset, ib.country_alpha2, units,ns_units from ( select platform_subset, country_alpha2, max(units) units 
+from prod.ib where measure in (''IB'') and customer_engagement in (''TRAD'',''I-INK'') and version = (select max(version) from prod.ib where official = 1) 
+group by platform_subset, country_alpha2) ib left join (select platform_subset, country_alpha2, sum(units) ns_units 
+from prod.norm_shipments_ce where customer_engagement in (''TRAD'',''I-INK'') and version = (select max(version) from prod.ib where official = 1)
 group by platform_subset, country_alpha2) ns on ib.platform_subset =ns.platform_subset and ib.country_alpha2 = ns.country_alpha2 where round(units,2) > round(ns_units,2)','','1','1',getdate(),'admin',1,'Medium')
-,('Phoenix - QA','','ITG','Biz Validation testing','IB','IB having all 1 values','prod','prod.ib','ib','select platform_subset,country_alpha2,customer_engagement,sum(reccntwith1ib)reccntwith1ib,sum(recordcount)recordcount from (select  platform_subset,country_alpha2,customer_engagement,cal_date,case when units=1 then 1 else 0 end as reccntwith1ib,1 recordcount from prod.ib where version=(select max(version) from prod.ib where official=1)
+,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if IB is 1 for all dates','prod','prod.ib','ib','select platform_subset,country_alpha2,customer_engagement,sum(reccntwith1ib)reccntwith1ib,sum(recordcount)recordcount from (select  platform_subset,country_alpha2,customer_engagement,cal_date,case when units=1 then 1 else 0 end as reccntwith1ib,1 recordcount from prod.ib where version=(select max(version) from prod.ib where official=1)
 )a group by platform_subset,country_alpha2,customer_engagement having sum(reccntwith1ib)=sum(recordcount)','','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','ITG','MDM Check','IB','Check for missing platform subset values in MDM','prod','prod.ib','platform_subset','select * from (select platform_subset from prod.ib except select platform_subset from mdm.hardware_xref ) ','','1','1',getdate(),'admin',1,'Critical')
 ,('Phoenix - QA','','ITG','MDM check','IB','Check for missing country values in MDM','prod','prod.ib','country_alpha2','select * from (select country_alpha2 from prod.ib except select country_alpha2  from mdm.iso_country_code_xref )','','1','1',getdate(),'admin',1,'Critical')
@@ -165,7 +169,7 @@ submit_remote_query(configs,insert_testqueries_in_testcases_table_query ) # inse
 # COMMAND ----------
 
 insert_testqueries_in_testcases_table_query= f""" 
-INSERT INTO stage.test_cases
+INSERT INTO qa.test_cases
 (project, server_name, database_name, test_category, module_name, test_case_name,schema_name, table_name, element_name, test_query, query_path, min_threshold, max_threshold, test_case_creation_date, test_case_created_by,enabled,severity)
 VALUES
 ('Phoenix - QA','','ITG','Duplicate check','Actuals HW/ Actuals LF','Check for duplicate values','stage','stage.actuals_hw','units','select version,country_alpha2, platform_subset,base_product_number,cal_date,count(1) from stage.actuals_hw group by  version,country_alpha2, platform_subset,base_product_number,cal_date having count(1)>1 ','','1','1',getdate(),'admin',1,'Critical')

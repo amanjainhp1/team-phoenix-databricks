@@ -56,11 +56,11 @@ print(username)
 # COMMAND ----------
 
 #load testcases data into df
-read_testcases_data = read_redshift_to_df(configs).option("query", "SELECT * FROM stage.test_cases where enabled=1").load()
+read_testcases_data = read_redshift_to_df(configs).option("query", "SELECT * FROM qa.test_cases where enabled=1").load()
 
 # COMMAND ----------
 
-read_testrun_data = read_redshift_to_df(configs).option("query", "SELECT coalesce(max(test_run_id),0) test_run_id FROM stage.test_results").load()
+read_testrun_data = read_redshift_to_df(configs).option("query", "SELECT coalesce(max(test_run_id),0) test_run_id FROM qa.test_results").load()
 test_run_id=read_testrun_data.first()['test_run_id']+1
 print(test_run_id)
 
@@ -175,7 +175,7 @@ dbutils.widgets.text("notification_email","swati.gutgutia@hp.com")
 # COMMAND ----------
 
 #truncate test results table to be truncated at the start of every month 
-#truncate_testresults_table_query =f""" TRUNCATE TABLE stage.test_results;"""
+#truncate_testresults_table_query =f""" TRUNCATE TABLE qa.test_results;"""
 #submit_remote_query(configs,truncate_testresults_table_query )
 
 # COMMAND ----------
@@ -214,7 +214,7 @@ with io.BytesIO() as buffer:
             s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
             print(s3_output_bucket) # already created on S3
             write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "overwrite")
-            insert_test_result= f""" INSERT INTO stage.test_results
+            insert_test_result= f""" INSERT INTO qa.test_results
             (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id,test_results_s3path)
             VALUES
             ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}','{s3_output_bucket}');"""
@@ -222,22 +222,22 @@ with io.BytesIO() as buffer:
             if test_result_detail_df.count()>1 and test_result_detail_df.count()<5000:
                 test_result_detail_df.toPandas().to_excel(writer, sheet_name=str(testcase_id), index= False)  
             if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:              
-                insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
+                insert_test_result_detail= f""" INSERT INTO qa.test_results_detail
                 (test_case_id,test_result_id,detail_value)
                 VALUES
-                ('{testcase_id}',(select max(test_result_id) from stage.test_results where test_case_id='{testcase_id}'),'{results}');"""
+                ('{testcase_id}',(select max(test_result_id) from qa.test_results where test_case_id='{testcase_id}'),'{results}');"""
                 submit_remote_query(configs,insert_test_result_detail ) # insert into test result table         
             if testcase_cat=="VOV Check":
-                delete_from_test_results_vov=f""" delete from stage.test_results_detail_vov where module_name='{testcase_module}';"""
+                delete_from_test_results_vov=f""" delete from qa.test_results_detail_vov where module_name='{testcase_module}';"""
                 submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
-                write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="stage.test_results_detail_vov", mode="append")
+                write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="qa.test_results_detail_vov", mode="append")
     Testresultexcel=buffer.getvalue()    
 
 # COMMAND ----------
 
-critical_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id left join stage.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Critical' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
-medium_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id left join stage.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Medium' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
-low_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id left join stage.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Very Low' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
+critical_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from qa.test_results a inner join qa.test_cases b on a.test_case_id =b.test_case_id left join qa.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Critical' and test_run_id=(select max(test_run_id) from qa.test_results ) and test_result='Fail'").load()
+medium_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from qa.test_results a inner join qa.test_cases b on a.test_case_id =b.test_case_id left join qa.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Medium' and test_run_id=(select max(test_run_id) from qa.test_results ) and test_result='Fail'").load()
+low_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from qa.test_results a inner join qa.test_cases b on a.test_case_id =b.test_case_id left join qa.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Very Low' and test_run_id=(select max(test_run_id) from qa.test_results ) and test_result='Fail'").load()
 
 # COMMAND ----------
 
