@@ -151,9 +151,9 @@ from stage.norm_ships a left join mdm.hardware_xref b on a.platform_subset=b.pla
 select country_alpha2||UPPER(platform_subset) from stage.ib_staging ) group by record,country_alpha2,a.platform_subset )','','1','1',getdate(),'admin',1,'Medium') 
 ,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if I-Ink IB min date is before Trad IB min date','prod','prod.ib','ib','','QA Framework/iinkdatelessthantrad.sql','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if sum of I-Ink and Trad IB units is greater than HW units','prod','prod.ib','ib','select ib.platform_subset, ib.country_alpha2, units,ns_units from ( select platform_subset, country_alpha2, max(units) units 
-from prod.ib where measure in ('IB') and customer_engagement in ('TRAD','I-INK') and version = (select max(version) from prod.ib where official = 1) 
+from prod.ib where measure in (''IB'') and customer_engagement in (''TRAD'',''I-INK'') and version = (select max(version) from prod.ib where official = 1) 
 group by platform_subset, country_alpha2) ib left join (select platform_subset, country_alpha2, sum(units) ns_units 
-from prod.norm_shipments_ce where customer_engagement in ('TRAD','I-INK') and version = (select max(version) from prod.ib where official = 1)
+from prod.norm_shipments_ce where customer_engagement in (''TRAD'',''I-INK'') and version = (select max(version) from prod.ib where official = 1)
 group by platform_subset, country_alpha2) ns on ib.platform_subset =ns.platform_subset and ib.country_alpha2 = ns.country_alpha2 where round(units,2) > round(ns_units,2)','','1','1',getdate(),'admin',1,'Medium')
 ,('Phoenix - QA','','ITG','Biz Validation testing','IB','Check if IB is 1 for all dates','prod','prod.ib','ib','select platform_subset,country_alpha2,customer_engagement,sum(reccntwith1ib)reccntwith1ib,sum(recordcount)recordcount from (select  platform_subset,country_alpha2,customer_engagement,cal_date,case when units=1 then 1 else 0 end as reccntwith1ib,1 recordcount from prod.ib where version=(select max(version) from prod.ib where official=1)
 )a group by platform_subset,country_alpha2,customer_engagement having sum(reccntwith1ib)=sum(recordcount)','','1','1',getdate(),'admin',1,'Medium')

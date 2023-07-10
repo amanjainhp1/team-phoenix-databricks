@@ -173,7 +173,7 @@ VALUES
 where measure in ( ''K_USAGE'',''COLOR_USAGE'') group by  geography ,platform_subset ,customer_engagement )
 , c as  (select  geography ,platform_subset ,customer_engagement  , coalesce (sum(units),0) usage_sum
 from prod.usage_share_country usc where measure = ''USAGE'' group by  geography ,platform_subset ,customer_engagement )
-select  a.geography ,a.platform_subset ,a.customer_engagement , round(k_color_usage_sum,4) ,round(usage_sum,4) ,hx.product_lifecycle_status_usage 
+select  a.geography ,a.platform_subset ,a.customer_engagement , round(k_color_usage_sum,4) round_k_color_usage_sum,round(usage_sum,4) round_usage_sum,hx.product_lifecycle_status_usage 
 from c left join a on  a.geography = c.geography and a.platform_subset = c.platform_subset and a.customer_engagement = c.customer_engagement
 left join mdm.hardware_xref hx on  a.platform_subset = hx.platform_subset
 where coalesce(round(k_color_usage_sum,4),0)<> coalesce(round(usage_sum,4),0)','','1','1',getdate(),'admin',1,'Medium')
@@ -185,8 +185,8 @@ group by record, cal_date, country_alpha2, platform_subset, customer_engagement,
 from prod.usage_share_country usc where measure =''IB''
 and ib_version = (select max(ib_version) from prod.usage_share_country where version = (select max(version) from prod.usage_share_country))
 group by record, cal_date, geography, platform_subset, customer_engagement)
-select a.record,b.record, a.cal_date,b.cal_date, a.country_alpha2,b.geography, a.platform_subset,b.platform_subset,
-a.customer_engagement,b.customer_engagement,ib_units,us_units
+select a.record ib_record,b.record us_record, a.cal_date ib_caldate,b.cal_date us_caldate, a.country_alpha2 ib_country,b.geography us_country, a.platform_subset ib_platform_subset,b.platform_subset us_platform_subset,
+a.customer_engagement ib_ce,b.customer_engagement us_ce,ib_units,us_units
 from a left join b
 on 
 -- record = b.record

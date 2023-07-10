@@ -68,6 +68,11 @@ submit_remote_query(configs, testresults_detail_create_query) # create test resu
 
 # COMMAND ----------
 
+drop_testresults_detail_vov_table= "DROP TABLE IF EXISTS qa.test_results_detail_vov;"
+submit_remote_query(configs, drop_testresults_detail_vov_table)
+
+# COMMAND ----------
+
 testresults_detail_vov_create_query=f"""
 CREATE TABLE IF NOT EXISTS qa.test_results_detail_vov
 (
