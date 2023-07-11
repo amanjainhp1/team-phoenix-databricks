@@ -5,20 +5,26 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../../common/database_utils
-
-# COMMAND ----------
-
 # MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
 
+# retrieve wf_version from previous working_forecast_country_promo task
+working_forecast_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_promo", key="working_forecast_version")
+working_forecast_country_version = dbutils.jobs.taskValues.get(taskKey="working_forecast_country_promo", key="working_forecast_country_version")
+
+# COMMAND ----------
+
+wf_country_query = """
+SELECT *
+FROM prod.working_forecast_country
+WHERE 1=1
+    AND version = '{}'
+    AND record = '{}'
+""".format(working_forecast_country_version, f'{technology_label.upper()}_WORKING_FORECAST_COUNTRY')
+
 wf_country = read_redshift_to_df(configs) \
-    .option("query", "select * from prod.working_forecast_country where version = '{}'".format(wf_country_version)) \
+    .option("query", wf_country_query) \
     .load()
     
 tables = [
@@ -27,7 +33,7 @@ tables = [
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
@@ -62,7 +68,7 @@ trade_01_common = spark.sql("""
         , '{}' as version
     FROM prod.working_forecast
     WHERE 1=1
-        AND record = 'IE2-WORKING-FORECAST'
+        AND record = 'TONER-WORKING-FORECAST'
     GROUP BY record
     
     UNION ALL
@@ -73,7 +79,7 @@ trade_01_common = spark.sql("""
     WHERE 1=1
         AND record = 'WORKING_FORECAST_COUNTRY'
     GROUP BY record
-""".format(toner_wf_version, wf_country_version))
+""".format(working_forecast_version, working_forecast_country_version))
     
 trade_01_common.createOrReplaceTempView("trade_01_filter_vars")
 
@@ -482,17 +488,3 @@ write_df_to_redshift(configs, trade_07, "stage.trade_forecast_staging", "overwri
 #spark.sql("""select count(*) from trade_05_working_forecast""").show()
 #spark.sql("""select count(*) from trade_06_trade_forecast""").show()
 spark.sql("""select count(*) from trade_forecast_staging""").show() #5,049,572
-
-# COMMAND ----------
-
-#from plotnine import *
-
-# COMMAND ----------
-
-#import numpy
-
-#numpy.version.version
-
-# COMMAND ----------
-
-#ggplot(data = trade_07, mapping = aes(x = cartridges, y = cal_date))
