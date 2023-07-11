@@ -183,8 +183,8 @@ select record
 	, (after_market_usage)
 	, (lag(after_market_usage) over (partition by market10, platform_subset, base_product_number, crg_chrome, customer_engagement order by year))
 	, case when year_num = 1 and (after_market_usage)<=0 then 0
-		when year_num = 1 and (after_market_usage) > 0 then ((after_market_usage)/yield)*share*remaining_amount*vtc
-	else ((after_market_usage-(coalesce((lag(after_market_usage) over (partition by market10, platform_subset, base_product_number, crg_chrome, customer_engagement order by year)),0)))/yield)*share*remaining_amount*vtc
+		when year_num = 1 and (after_market_usage) > 0 then ((after_market_usage)/yield)*share*remaining_amount*vtc*trade_split
+	else ((after_market_usage-(coalesce((lag(after_market_usage) over (partition by market10, platform_subset, base_product_number, crg_chrome, customer_engagement order by year)),0)))/yield)*share*remaining_amount*trade_split
 	end as cartridge
 	, list_price
 	, variable_cost
