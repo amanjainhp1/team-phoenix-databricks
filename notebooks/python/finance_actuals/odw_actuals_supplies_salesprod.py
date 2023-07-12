@@ -22,9 +22,6 @@ cbm_st_data = read_sql_server_to_df(configs) \
 odw_revenue_units_sales_actuals = read_redshift_to_df(configs) \
     .option("dbtable", "fin_prod.odw_revenue_units_sales_actuals") \
     .load()
-odw_document_currency = read_redshift_to_df(configs) \
-    .option("dbtable", "fin_prod.odw_document_currency") \
-    .load()
 odw_report_rac_product_financials_actuals = read_redshift_to_df(configs) \
    .option("dbtable", "fin_prod.odw_report_rac_product_financials_actuals") \
    .load()
@@ -518,6 +515,7 @@ odw_dollars_raw = f"""
       ,segment_code
       ,pl
       ,material_number as sales_product_option
+      ,transaction_currency_code
       ,SUM(gross_trade_revenues_usd) as gross_revenue    
       ,SUM(net_currency_usd) * -1 as net_currency  -- * -1 makes the data like it was in edw
       ,SUM(contractual_discounts_usd) * -1 as contractual_discounts
@@ -534,7 +532,7 @@ odw_dollars_raw = f"""
   AND cal.Date > '2021-10-01'
   AND land.profit_center_code NOT IN ('P1082', 'PF001')
   AND segment_code <> 'SSC9907'
-  GROUP BY cal.Date, pl, material_number, segment_code
+  GROUP BY cal.Date, pl, material_number, segment_code, transaction_currency_code
 """
 
 odw_dollars_raw = spark.sql(odw_dollars_raw)
@@ -561,6 +559,7 @@ SELECT
         WHEN sales_product_option is null THEN CONCAT('UNKN', pl)
         ELSE sales_product_option
     END AS sales_product_option,
+    transaction_currency_code,
     SUM(gross_revenue) as gross_revenue,
     SUM(net_currency) as net_currency, 
     SUM(contractual_discounts) as contractual_discounts,
@@ -571,7 +570,7 @@ SELECT
 FROM odw_dollars_raw odw
 LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 WHERE 1=1
-GROUP BY cal_date, country_alpha2, pl, sales_product_option
+GROUP BY cal_date, country_alpha2, pl, sales_product_option, transaction_currency_code
 """
 
 odw_dollars = spark.sql(odw_dollars)
@@ -585,6 +584,7 @@ SELECT
     country_alpha2,
     pl,
     sales_product_option,
+    transaction_currency_code,
     SUM(gross_revenue) as gross_revenue,
     SUM(net_currency) as net_currency, 
     SUM(contractual_discounts) as contractual_discounts,
@@ -603,7 +603,8 @@ WHERE pl IN (
 GROUP BY cal_date,
     country_alpha2,
     pl,
-    sales_product_option
+    sales_product_option,
+    transaction_currency_code
 """
 
 supplies_dollars = spark.sql(supplies_dollars)
@@ -1488,17 +1489,6 @@ JOIN mdm.iso_country_code_xref AS geo ON st.country_alpha2 = geo.country_alpha2
 WHERE region_3 = 'EMEA'
   AND sell_thru_usd > 0
   AND sell_thru_qty > 0
-  AND st.country_alpha2 IN 
-    (
-        SELECT distinct country_alpha2
-        FROM fin_stage.odw_document_currency doc
-        WHERE 1=1
-            AND revenue <> 0
-            AND country_alpha2 <> 'XW'
-            AND document_currency_code is not null
-            AND region_5 = 'EU'
-        GROUP BY country_alpha2
-    )
 GROUP BY cal_date, st.country_alpha2, pl, sales_product_number
 """
 
@@ -5373,25 +5363,25 @@ SELECT
         WHEN pl = 'GM' THEN 'K6'
         ELSE pl
     END AS pl,
-    country_alpha2,
+    doc.country_alpha2,
     region_5,
-    document_currency_code,
-    SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-FROM fin_stage.odw_document_currency doc
+    transaction_currency_code aS document_currency_code,
+    SUM(gross_revenue) + SUM(net_currency) + sum(contractual_discounts) + sum(discretionary_discounts) AS revenue -- check signs
+FROM supplies_dollars doc
 LEFT JOIN mdm.calendar cal ON doc.cal_date = cal.Date
+LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = doc.country_alpha2
 WHERE 1=1
-    AND revenue <> 0
-    AND country_alpha2 <> 'XW'
+    AND doc.country_alpha2 <> 'XW'
     AND cal_date > '2021-10-01'
     AND day_of_month = 1
-    --AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.odw_document_currency)
+    --AND cal_date = (SELECT MAX(cal_date) FROM supplies_dollars)
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
     pl,
-    country_alpha2,
+    doc.country_alpha2,
     region_5,
-    document_currency_code
+    transaction_currency_code
 """
 
 edw_document_currency_2023_restatements = spark.sql(edw_document_currency_2023_restatements)
@@ -5409,6 +5399,8 @@ SELECT
     document_currency_code,
     SUM(revenue) AS revenue 
 FROM edw_document_currency_2023_restatements
+WHERE 1=1
+  AND revenue <> 0
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
@@ -7497,26 +7489,48 @@ plgd_document_currency = f"""
 SELECT
     cal_date,
     pl,
-    country_alpha2,
+    doc.country_alpha2,
     region_5,
-    document_currency_code,
-    SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
-FROM fin_stage.odw_document_currency doc
+    transaction_currency_code,
+    SUM(gross_revenue) + SUM(net_currency) + sum(contractual_discounts) + SUM(discretionary_discounts) AS revenue 
+FROM supplies_dollars doc
+LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = doc.country_alpha2
 WHERE 1=1
-    AND document_currency_code <> '?'
-    AND country_alpha2 NOT LIKE 'X%'
+    AND doc.country_alpha2 NOT LIKE 'X%'
     AND cal_date > '2021-10-01'
-    --AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.odw_document_currency)
+    --AND cal_date = (SELECT MAX(cal_date) FROM supplies_dollars)
     AND pl = 'GD'
 GROUP BY cal_date,
     pl,
     region_5,
-    country_alpha2,
-    document_currency_code
+    doc.country_alpha2,
+    transaction_currency_code
 """
 
 plgd_document_currency = spark.sql(plgd_document_currency)
 plgd_document_currency.createOrReplaceTempView("plgd_document_currency")
+
+
+plgd_document_currency2 = f"""
+SELECT
+    cal_date,
+    pl,
+    doc.country_alpha2,
+    region_5,
+    transaction_currency_code,
+    SUM(revenue) AS revenue 
+FROM plgd_document_currency 
+WHERE 1=1
+  AND revenue > 0
+GROUP BY cal_date,
+    pl,
+    region_5,
+    doc.country_alpha2,
+    transaction_currency_code
+"""
+
+plgd_document_currency2 = spark.sql(plgd_document_currency2)
+plgd_document_currency2.createOrReplaceTempView("plgd_document_currency2")
 
 
 plgd_doc_currency_mix = f"""
@@ -7524,14 +7538,14 @@ SELECT
     cal_date,
     country_alpha2,
     region_5,
-    document_currency_code AS currency,
+    transaction_currency_code AS currency,
     pl,
     CASE
         WHEN SUM(revenue) OVER (PARTITION BY cal_date, region_5, country_alpha2, pl) = 0 THEN NULL
         ELSE revenue / SUM(revenue) OVER (PARTITION BY cal_date, region_5, country_alpha2, pl)
     END AS gd_proxy_mix
-FROM plgd_document_currency doc
-GROUP BY cal_date, document_currency_code, pl, revenue, region_5, country_alpha2
+FROM plgd_document_currency2 doc
+GROUP BY cal_date, transaction_currency_code, pl, revenue, region_5, country_alpha2
 """
 
 plgd_doc_currency_mix = spark.sql(plgd_doc_currency_mix)
