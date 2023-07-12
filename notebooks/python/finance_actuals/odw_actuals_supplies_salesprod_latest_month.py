@@ -292,7 +292,6 @@ odw_dollars_raw = f"""
   LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
   LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_report_rac_product_financials_actuals)
   AND day_of_month = 1
   AND cal.Date > '2021-10-01'
   AND land.profit_center_code NOT IN ('P1082', 'PF001')
@@ -377,6 +376,18 @@ supplies_dollars.createOrReplaceTempView("supplies_dollars")
 
 # COMMAND ----------
 
+# Write out supplies_dollars to its delta table target.  Needed to replace odw document currency for adjusted revenue salesprod notebook
+supplies_dollars.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/final_union_odw_data")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.supplies_dollars USING DELTA LOCATION '/tmp/delta/fin_stage/supplies_dollars'")
+
+# COMMAND ----------
+
 # COMBINE FINANCIAL AND UNIT DATA, CLEAN IT UP, FIX "MISTAKES" (per business input)
 
 # COMMAND ----------
@@ -395,6 +406,8 @@ SELECT
     SUM(total_cos_without_warranty) as total_cos_without_warranty,
     SUM(revenue_units) AS revenue_units
 FROM supplies_dollars
+WHERE 1=1
+  AND cal_date = (SELECT max(cal_date from supplies_dollars))
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 
 UNION ALL

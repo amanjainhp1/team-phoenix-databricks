@@ -612,6 +612,18 @@ supplies_dollars.createOrReplaceTempView("supplies_dollars")
 
 # COMMAND ----------
 
+# Write out supplies_dollars to its delta table target.  Needed to replace odw document currency for adjusted revenue salesprod notebook
+supplies_dollars.write \
+  .format("delta") \
+  .option("overwriteSchema", "true") \
+  .mode("overwrite") \
+  .save("/tmp/delta/fin_stage/final_union_odw_data")
+
+# Create the table.
+spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.supplies_dollars USING DELTA LOCATION '/tmp/delta/fin_stage/supplies_dollars'")
+
+# COMMAND ----------
+
 # COMBINE FINANCIAL AND UNIT DATA, CLEAN IT UP, FIX "MISTAKES" (per business input)
 
 # COMMAND ----------
