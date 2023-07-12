@@ -1338,18 +1338,17 @@ select 'odw' as record,
 	fiscal_yr,
 	pl,
 	doc.country_alpha2,
-	doc.region_5,
-	document_currency_code,
-	sum(revenue) as revenue
-from fin_stage.odw_document_currency doc
+	region_5,
+	transaction_currency_code,
+	sum(gross_revenue) + sum(net_currency) + sum(contractual_discounts) + sum(discretionary_discounts) as revenue
+from fin_stage.supplies_dollars doc
 left join mdm.calendar cal on cal.date = doc.cal_date
 left join mdm.profit_center_code_xref pcx on doc.segment = pcx.profit_center_code
+left join mdm.iso_country_code_xref on doc.country_alpha2 = iso.country_alpha2
 where 1=1
 	and day_of_month = 1
-	and revenue <> 0
 	and doc.country_alpha2 <> 'XW'
-	and document_currency_code <> '?'
-group by cal_date, doc.country_alpha2, document_currency_code, pl, doc.region_5, fiscal_year_qtr, fiscal_yr
+group by cal_date, doc.country_alpha2, transaction_currency_code, pl, doc.region_5, fiscal_year_qtr, fiscal_yr
  """)
 
 ci_rates_4.createOrReplaceTempView("odw_document_currency_raw")
@@ -1385,6 +1384,7 @@ select
 	document_currency_code,
 	revenue
 from odw_document_currency_raw
+where revenue <> 0
 )
 
 select 	record,
@@ -1556,7 +1556,7 @@ select
 	sum(revenue) as revenue
 from edw_document_currency1
 where 1=1
-	and region_5 <> 'eu'
+	and region_5 <> 'EU'
 group by cal_date, country_alpha2, document_currency_code, pl, revenue, region_5
  """)
 
