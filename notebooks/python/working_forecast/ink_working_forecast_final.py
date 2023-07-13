@@ -1,6 +1,5 @@
 # Databricks notebook source
 # create empty widgets for interactive sessions
-dbutils.widgets.text('norm_shipments_version', '') # norm shipments version
 dbutils.widgets.text('installed_base_version', '') # installed-base version
 dbutils.widgets.text('usage_share_version', '') # usage-share version
 dbutils.widgets.text('run_vtc_and_adjusted_cartridges', '') # run notebook boolean
@@ -10,13 +9,12 @@ dbutils.widgets.text('run_vtc_and_adjusted_cartridges', '') # run notebook boole
 # exit notebook if task boolean is False, else continue
 notebook_run_parameter_label = 'run_vtc_and_adjusted_cartridges' 
 if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
-	dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
+    dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
 
 # COMMAND ----------
 
 # Global Variables
 # retrieve widget values and assign to variables
-norm_shipments_version = dbutils.widgets.get('norm_shipments_version')
 installed_base_version = dbutils.widgets.get('installed_base_version')
 usage_share_version = dbutils.widgets.get('usage_share_version')
 
@@ -206,7 +204,7 @@ WITH cfadj_01_c2c                AS
          ON cc.country_alpha2 = ns.country_alpha2
      WHERE 1 = 1
        AND UPPER(cc.country_scenario) = 'MARKET10'
-       AND ns.version = '{norm_shipments_version}'
+       AND ns.version = '{installed_base_version}'
      GROUP BY cc.country_level_2
             , ns.platform_subset)
 
@@ -430,7 +428,7 @@ WITH crg_months AS
                    ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
                        AND UPPER(cref.country_scenario) = 'MARKET10'
      WHERE 1=1
-        AND ns.version = '{norm_shipments_version}'
+        AND ns.version = '{installed_base_version}'
      GROUP BY ns.cal_date
             , cref.country_level_2
             , ns.country_alpha2)
@@ -735,7 +733,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '{norm_shipments_version}'
+       AND ns.version = '{installed_base_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'REGION_5'
      GROUP BY ns.cal_date
@@ -769,7 +767,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '{norm_shipments_version}'
+       AND ns.version = '{installed_base_version}'
        AND ns.units >= 0.0
        AND UPPER(cc.country_scenario) = 'HOST_REGION_8'
        AND cc.official = 1
@@ -811,7 +809,7 @@ WITH shm_07_geo_1_host           AS
          AND UPPER(shm.platform_subset) = UPPER(ns.platform_subset)
          AND UPPER(shm.customer_engagement) = UPPER(ns.customer_engagement)
      WHERE 1 = 1
-       AND ns.version = '{norm_shipments_version}'
+       AND ns.version = '{installed_base_version}'
        AND ns.units >= 0.0
        AND UPPER(shm.geography_grain) = 'MARKET10'
      GROUP BY ns.cal_date
@@ -1034,7 +1032,7 @@ WITH vtc_01_analytic_cartridges AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '{norm_shipments_version}'
+       AND ns.version = '{installed_base_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)
@@ -1122,7 +1120,7 @@ WITH vtc_01_analytic_cartridges AS
                    AND sup.official = 1) AS sup
      WHERE 1 = 1
        AND UPPER(hw.record) = 'ACTUALS - HW'
-       AND hw.version = '{norm_shipments_version}')
+       AND hw.version = '{installed_base_version}')
 
    , c2c_vtc_06_vol_count       AS
     (SELECT DISTINCT geography
@@ -1386,7 +1384,7 @@ WITH geography_mapping   AS
          ON UPPER(cref.country_alpha2) = UPPER(ns.country_alpha2)
          AND UPPER(cref.country_scenario) = 'Market10'
      WHERE 1 = 1
-       AND ns.version = '{norm_shipments_version}'
+       AND ns.version = '{installed_base_version}'
      GROUP BY cref.country_level_2
             , ns.cal_date
             , ns.platform_subset)

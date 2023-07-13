@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC 
+# MAGIC
 # MAGIC # page_cc_cartridges
 
 # COMMAND ----------
@@ -8,13 +8,53 @@
 # MAGIC %md
 # MAGIC ## Documentation
 # MAGIC *Note well:* mdm, prod schema tables listed in alphabetical order, stage schema tables listed in build order
-# MAGIC 
+# MAGIC
 # MAGIC Stepwise process:
 # MAGIC   1. page_cc_cartridges
 # MAGIC   
 # MAGIC Detail:
 # MAGIC + page_cc_cartridges
 # MAGIC   + pages / ccs are distributed to platform_subset / base_product_number combinations
+
+# COMMAND ----------
+
+# create empty widgets for interactive sessions
+dbutils.widgets.text('technology', '') # technology to run
+dbutils.widgets.text('run_base_forecast', '') # run notebook boolean
+
+# COMMAND ----------
+
+# exit notebook if task boolean is False, else continue
+notebook_run_parameter_label = 'run_base_forecast' 
+if dbutils.widgets.get(notebook_run_parameter_label).lower().strip() != 'true':
+	dbutils.notebook.exit(f"EXIT: {notebook_run_parameter_label} parameter is not set to 'true'")
+
+# COMMAND ----------
+
+technology = dbutils.widgets.get('technology').lower()
+
+supply_unit = 'cc' if technology == 'ink' else 'page'
+supply_units = supply_unit + 's'
+
+# for labelling tables, laser/toner = toner, ink = ink
+technology_label = ''
+if technology == 'ink':
+    technology_label = 'ink'
+elif technology == 'laser':
+    technology_label = 'toner'
+
+
+technologies_list = {}
+technologies_list["ink"] = ['INK', 'PWA']
+technologies_list["laser"] = ['LASER']
+
+# COMMAND ----------
+
+# join lists used in SQL queries to comma and single quote separated strings 
+def join_list(list_to_join: list) -> str:
+    return '\'' + '\',\''.join(list_to_join) + '\''
+
+technologies = join_list(technologies_list[technology])
 
 # COMMAND ----------
 
@@ -28,7 +68,7 @@ query_list = []
 
 # COMMAND ----------
 
-page_cc_cartridges = """
+page_cc_cartridges = f"""
 WITH crg_months AS
     (SELECT date_key
           , [date] AS cal_date
@@ -80,11 +120,11 @@ WITH crg_months AS
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_K_PAGES' THEN units END)     AS black_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END)     AS color_demand
           , MAX(CASE WHEN UPPER(d.measure) = 'HP_COLOR_PAGES' THEN units END * 3) AS cmy_demand
-     FROM stage.demand AS d
+     FROM stage.{technology_label}_demand AS d
      JOIN mdm.hardware_xref AS hw
         ON UPPER(hw.platform_subset) = UPPER(d.platform_subset)
      WHERE 1 = 1
-        AND UPPER(hw.technology) IN ('INK', 'LASER', 'PWA')
+        AND UPPER(hw.technology) IN ({technologies})
      GROUP BY d.cal_date
             , d.geography
             , d.platform_subset
@@ -100,7 +140,7 @@ WITH crg_months AS
                    , v.crg_chrome
                    , v.consumable_type
                    , v.cartridge_volume
-     FROM stage.cartridge_units AS v
+     FROM stage.{technology_label}_cartridge_units AS v
               JOIN stage.shm_base_helper AS shm
                    ON UPPER(shm.base_product_number) = UPPER(v.base_product_number)
                        AND UPPER(shm.geography) = UPPER(v.geography)
@@ -141,7 +181,7 @@ WITH crg_months AS
                        AND UPPER(shm.platform_subset) = UPPER(v.platform_subset)
                        AND UPPER(shm.customer_engagement) = UPPER(dmd.customer_engagement)
      WHERE 1 = 1
-       AND UPPER(hw.technology) IN ('INK', 'LASER', 'PWA'))
+       AND UPPER(hw.technology) IN ({technologies}))
 
    , pcrg_01_k_acts AS
     (SELECT pcm.type
@@ -180,7 +220,7 @@ WITH crg_months AS
              NULLIF(SUM(dmd.black_demand)
                     OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
                     0))                                              AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
+     FROM stage.{technology_label}_{supply_unit}_mix AS pcm
               JOIN mdm.supplies_xref AS S
                    ON UPPER(S.base_product_number) = UPPER(pcm.base_product_number)
               JOIN pcm_02_hp_demand AS dmd
@@ -239,7 +279,7 @@ WITH crg_months AS
              NULLIF(SUM(dmd.color_demand)
                     OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
                     0))                                              AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
+     FROM stage.{technology_label}_{supply_unit}_mix AS pcm
               JOIN mdm.supplies_xref AS s
                    ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN pcm_02_hp_demand AS dmd
@@ -299,7 +339,7 @@ WITH crg_months AS
              NULLIF(SUM(dmd.cmy_demand)
                     OVER (PARTITION BY dmd.cal_date, dmd.geography, pcm.base_product_number),
                     0))                                            AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
+     FROM stage.{technology_label}_{supply_unit}_mix AS pcm
               JOIN mdm.supplies_xref AS s
                    ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN pcm_02_hp_demand AS dmd
@@ -342,7 +382,7 @@ WITH crg_months AS
           , 1.0                                                            AS imp
           , pcm.mix_rate * dmd.black_demand / NULLIF(pf.yield, 0) *
             1.0                                                            AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
+     FROM stage.{technology_label}_{supply_unit}_mix AS pcm
               JOIN mdm.supplies_xref AS s
                    ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN mdm.hardware_xref AS hw
@@ -379,7 +419,7 @@ WITH crg_months AS
           , 1.0                                                            AS imp
           , pcm.mix_rate * dmd.color_demand / NULLIF(pf.yield, 0) *
             1.0                                                            AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
+     FROM stage.{technology_label}_{supply_unit}_mix AS pcm
               JOIN mdm.supplies_xref AS s
                    ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN mdm.hardware_xref AS hw
@@ -419,7 +459,7 @@ WITH crg_months AS
           , 1.0                                                          AS imp
           , pcm.mix_rate * dmd.cmy_demand / NULLIF(pf.yield, 0) *
             1.0                                                          AS imp_corrected_cartridges
-     FROM stage.page_cc_mix AS pcm
+     FROM stage.{technology_label}_{supply_unit}_mix AS pcm
               JOIN mdm.supplies_xref AS s
                    ON UPPER(s.base_product_number) = UPPER(pcm.base_product_number)
               JOIN mdm.hardware_xref AS hw
@@ -548,7 +588,7 @@ SELECT type
 FROM pcrg_05_color_fcst
 """
 
-query_list.append(["stage.page_cc_cartridges", page_cc_cartridges, "overwrite"])
+query_list.append([f"stage.{technology_label}_{supply_unit}_cartridges", page_cc_cartridges, "overwrite"])
 
 # COMMAND ----------
 
@@ -562,7 +602,7 @@ query_list.append(["stage.page_cc_cartridges", page_cc_cartridges, "overwrite"])
 # COMMAND ----------
 
 submit_remote_query(configs, 
-"""
+f"""
 with ac_ce as (
 select ac.cal_date,ac.market10,ac.country_alpha2,ac.platform_subset,ac.base_product_number,CASE WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%STND%' THEN 'STD'
        WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%YET2%' THEN 'HP+'
@@ -578,9 +618,9 @@ from ac_ce
 group by cal_date,market10,platform_subset,base_product_number,customer_engagement
 )
 
-UPDATE stage.page_cc_cartridges
+UPDATE stage.{technology_label}_{supply_unit}_cartridges
 set imp_corrected_cartridges = ac.base_quantity
-FROM stage.page_cc_cartridges ccs
+FROM stage.{technology_label}_{supply_unit}_cartridges ccs
 INNER JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
 						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement                 
 """
@@ -590,7 +630,7 @@ INNER JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.marke
 # COMMAND ----------
 
 submit_remote_query(configs, 
-"""
+f"""
 with ac_ce as (
 select ac.cal_date,ac.market10,ac.country_alpha2,ac.platform_subset,ac.base_product_number,CASE WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%STND%' THEN 'STD'
        WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%YET2%' THEN 'HP+'
@@ -606,15 +646,15 @@ from ac_ce
 group by cal_date,market10,platform_subset,base_product_number,customer_engagement
 )
 
-UPDATE stage.page_cc_cartridges 
+UPDATE stage.{technology_label}_{supply_unit}_cartridges 
 set imp_corrected_cartridges = 0, cartridges = 0
-FROM (select ccs.* from stage.page_cc_cartridges ccs
+FROM (select ccs.* from stage.{technology_label}_{supply_unit}_cartridges ccs
 LEFT JOIN act_m10 ac on ac.cal_date = ccs.cal_date and ccs.geography = ac.market10 and  ac.base_product_number = ccs.base_product_number 
 						and ac.platform_subset = ccs.platform_subset and ccs.customer_engagement = ac.customer_engagement 
 WHERE ccs.cal_date <= (SELECT MAX(cal_date) FROM prod.actuals_supplies WHERE official = 1) 
 and ac.base_quantity is null) cc
-where stage.page_cc_cartridges.cal_date = cc.cal_date and stage.page_cc_cartridges.geography  = cc.geography  and stage.page_cc_cartridges.platform_subset = cc.platform_subset 
-and stage.page_cc_cartridges.base_product_number = cc.base_product_number and stage.page_cc_cartridges.customer_engagement = cc.customer_engagement 
+where stage.{technology_label}_{supply_unit}_cartridges.cal_date = cc.cal_date and stage.{technology_label}_{supply_unit}_cartridges.geography  = cc.geography  and stage.{technology_label}_{supply_unit}_cartridges.platform_subset = cc.platform_subset 
+and stage.{technology_label}_{supply_unit}_cartridges.base_product_number = cc.base_product_number and stage.{technology_label}_{supply_unit}_cartridges.customer_engagement = cc.customer_engagement 
 """
 )
 

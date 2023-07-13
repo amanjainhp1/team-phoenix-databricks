@@ -124,6 +124,7 @@ for table in tables:
     df.write \
         .format(write_format) \
         .mode("overwrite") \
+        .option("overwriteSchema", "true") \
         .saveAsTable(table[0])
 
     spark.table(table[0]).createOrReplaceTempView(table_name)

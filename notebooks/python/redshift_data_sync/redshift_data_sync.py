@@ -20,6 +20,12 @@ from datetime import datetime
 
 # COMMAND ----------
 
+# create empty widgets for interactive sessions
+dbutils.widgets.text('destination_envs', '')
+dbutils.widgets.text('tables', '')
+
+# COMMAND ----------
+
 # Retrieve credentials
 def retrieve_credentials(env: str) -> dict[str, str]:
     try:
@@ -63,12 +69,14 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         # Retrieve all columns except those with identity type
         cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_schema='{schema}' AND table_name='{table}' AND (column_default NOT LIKE '%identity%' OR column_default IS NULL) ORDER BY ordinal_position asc")
         data = cur.fetchall()
+        if len(data) == 0:
+            raise Exception(f"Unable to retrieve table information for {schema}.{table}. Check DDL.")
         col_list = [row[0] for row in data]
         select_statement = "SELECT " + ", ".join(col_list) + f" FROM {schema}.{table}"
         cur.close()
     except Exception as error:
         print (f"prod|An exception has occured while attempting to retrieve column names of {schema}.{table}:", error)
-        print (f"{destination_env}|Exception Type:", type(error))
+        print (f"prod|Exception Type:", type(error))
         raise Exception(error)
 
     try:
@@ -78,7 +86,7 @@ def redshift_unload(dbname: str, port: str, user: str, password: str, host: str,
         print(f'prod|Finished unloading {schema}.{table} in {function_duration}s')
     except Exception as error:
         print (f"prod|An exception has occured while attempting to unload {schema}.{table}:", error)
-        print (f"{destination_env}|Exception Type:", type(error))
+        print (f"prod|Exception Type:", type(error))
         raise Exception(error)
 
 # Retrieve ddl
@@ -114,6 +122,11 @@ def redshift_copy(dbname:str, port: str, user: str, password: str, host:str, sch
         raise Exception(error)
     function_duration = round(time.time()-start_time, 2)
     print(f'{destination_env}|Finished copying {schema}.{table} in {function_duration}s')
+
+# Replace "invalid" characters for each element in a list of strings
+def replace_invalid_characters(list_of_strings: list, string_pattern: str, string_replacement: str = '') -> list:
+    pattern = re.compile(string_pattern)
+    return [re.sub(pattern, string_replacement, element) for element in list_of_strings]
 
 # COMMAND ----------
 
@@ -183,12 +196,26 @@ def main():
     timestamp = date.getTimestamp()
 
     # Define destination envs
-    destination_envs = ['itg', 'dev']
+    destination_envs = ['itg', 'dev'] if dbutils.widgets.get('destination_envs') == '' else dbutils.widgets.get('destination_envs').lower().split(',')
+    destination_envs = replace_invalid_characters(list_of_strings=destination_envs, string_pattern='[^a-zA-Z]+')
     
     # Define tables to copy
     tables = []
-    for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
-        tables += get_redshift_table_names(configs, schema)
+    if dbutils.widgets.get('tables') == '':
+        for schema in ['fin_prod', 'mdm', 'prod', 'scen']:
+            tables += get_redshift_table_names(configs, schema)
+    elif "." not in dbutils.widgets.get('tables'):
+        schemas = dbutils.widgets.get('tables') \
+            .lower() \
+            .split(',')
+        schemas = replace_invalid_characters(list_of_strings=schemas, string_pattern='[^0-9a-zA-Z]+')
+        for schema in schemas:
+            tables += get_redshift_table_names(configs, schema)
+    else:
+        tables = dbutils.widgets.get('tables') \
+            .lower() \
+            .split(',')
+        tables = replace_invalid_characters(list_of_strings=tables, string_pattern='[^0-9a-zA-Z._]+')
 
     # Retrieve credentials for each env
     credentials = {env:retrieve_credentials(env) for env in destination_envs}

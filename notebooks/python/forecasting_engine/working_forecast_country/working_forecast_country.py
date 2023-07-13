@@ -11,14 +11,6 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../../common/database_utils
-
-# COMMAND ----------
-
 # MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
@@ -29,25 +21,25 @@
 
 # COMMAND ----------
 
-working_forecast_combined = read_redshift_to_df(configs) \
-    .option("dbtable", "scen.working_forecast_combined") \
+working_forecast = read_redshift_to_df(configs) \
+    .option("dbtable", f"scen.{technology_label}_working_fcst") \
     .load()
 
 # COMMAND ----------
 
 tables = [
-    ["scen.working_forecast_combined", working_forecast_combined, "overwrite"]
+    [f"scen.{technology_label}_working_forecast", working_forecast, "overwrite"]
 ]
 
 # COMMAND ----------
 
-# MAGIC %run "../../common/delta_lake_load_with_params" $tables=tables
+# MAGIC %run "../common/delta_lake_load_with_params" $tables=tables
 
 # COMMAND ----------
 
-spark.sql("""
+spark.sql(f"""
     select count(*)
-    from scen.working_forecast_combined
+    from scen.{technology_label}_working_forecast
 """).show()
 
 # COMMAND ----------
@@ -79,7 +71,7 @@ vtc_02.createOrReplaceTempView("c2c_vtc_02_forecast_months")
 # COMMAND ----------
 
 # originally ctrypf_07_c2c_adj_agg
-ctry_01 = spark.sql("""
+ctry_01 = spark.sql(f"""
     SELECT geography
         , cal_date
         , platform_subset
@@ -88,7 +80,7 @@ ctry_01 = spark.sql("""
         , SUM(vtc) as vtc
         , SUM(cartridges) AS cartridges
         , SUM(adjusted_cartridges) AS mvtc_adjusted_crgs
-    FROM scen.working_forecast_combined
+    FROM scen.{technology_label}_working_forecast
     WHERE 1=1
         AND geography_grain = 'MARKET10'
     GROUP BY geography
@@ -103,13 +95,13 @@ ctry_01.createOrReplaceTempView("ctry_01_c2c_adj_agg")
 
 # COMMAND ----------
 
-ctry_02 = spark.sql("""
+ctry_02 = spark.sql(f"""
 
     with vol_2_crg_mapping as (
 
         SELECT DISTINCT base_product_number
             , geography
-        FROM stage.shm_base_helper
+        FROM scen.{technology_label}_shm_base_helper
         WHERE 1=1
     )-- negative values in source table
         SELECT DISTINCT acts.market10
@@ -370,7 +362,7 @@ ctry_07.createOrReplaceTempView("ctry_07_adj_fcst_mix_type_1")
 
 # COMMAND ----------
 
-ctry_08 = spark.sql("""
+ctry_08 = spark.sql(f"""
 
 SELECT 2 AS mix_type
     , c2c.geography
@@ -397,7 +389,7 @@ JOIN ctry_05_hist_country_mix AS hist
     AND hist.platform_subset = hw.predecessor
 WHERE 1=1
     AND c2c.cal_date >= fcst.supplies_forecast_start
-    AND hw.technology IN ('LASER','INK','PWA')
+    AND hw.technology IN ({technologies_list})
 """)
 
 ctry_08.createOrReplaceTempView("ctry_08_adj_fcst_mix_type_2")
@@ -611,7 +603,7 @@ ctry_13.createOrReplaceTempView("ctry_13_adj_fcst_ctry_mix")
 
 # COMMAND ----------
 
-ctry_14 = spark.sql("""
+ctry_14 = spark.sql(f"""
 
 SELECT acts.geography
     , acts.country_alpha2
@@ -638,16 +630,13 @@ SELECT fcst.geography
 FROM ctry_13_adj_fcst_ctry_mix AS fcst
 """)
 
+ctry_14.cache()
 ctry_14.createOrReplaceTempView("c2c_adj_country_pf_split")
 
 # COMMAND ----------
 
-spark.sql("""select count(*) from c2c_adj_country_pf_split""").show()
+ctry_14.count()
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ctry_14, "scen.working_forecast_country", "overwrite")
-
-# COMMAND ----------
-
-
+write_df_to_redshift(configs=configs, df=ctry_14, destination=f"scen.{technology_label}_working_forecast_country", mode="overwrite")

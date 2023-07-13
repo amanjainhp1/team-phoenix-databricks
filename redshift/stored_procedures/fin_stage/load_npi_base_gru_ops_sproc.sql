@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS fin_stage.npi_base_gru_ops_staging(
     ,gru DOUBLE PRECISION
 );
 GRANT ALL ON TABLE fin_stage.npi_base_gru_ops_staging TO auto_glue;
-EXECUTE 'GRANT ALL ON TABLE fin_stage.forecast_contra_input_lt_staging TO GROUP '||group_param||';';
+EXECUTE 'GRANT ALL ON TABLE fin_stage.npi_base_gru_ops_staging TO GROUP '||group_param||';';
 
 ---------------------TRUNCATE NPI BASE TABLE IN fin_stage----------------------------------
 
