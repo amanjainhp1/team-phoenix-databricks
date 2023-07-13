@@ -1518,7 +1518,7 @@ JOIN pivots_t_18_supplies_xref AS s
 JOIN pivots_t_19_hw_xref AS hw
     ON hw.platform_subset = apf.platform_subset
 WHERE 1=1
-    AND apf.record_type = 'ACTUALS'
+    --AND apf.record_type = 'ACTUALS'
 
 GROUP BY f.date
     , f.fiscal_year_qtr
