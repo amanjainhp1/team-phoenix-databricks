@@ -5,11 +5,7 @@
 
 # COMMAND ----------
 
-# MAGIC %run ../../common/configs
-
-# COMMAND ----------
-
-# MAGIC %run ../../common/database_utils
+# MAGIC %run ../config_forecasting_engine
 
 # COMMAND ----------
 
@@ -40,7 +36,3 @@ toner_por.createOrReplaceTempView("toner_por")
 # COMMAND ----------
 
 write_df_to_redshift(configs, toner_por, "prod.usage_share_por_toner", "overwrite")
-
-# COMMAND ----------
-
-

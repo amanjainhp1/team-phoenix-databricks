@@ -52,13 +52,13 @@ for obj in query_list:
         read_obj = RedshiftOut()
         data_df = read_obj.get_data(configs, table_name, query)
         print("Query " + query_name + " retrieved.")
-    except Exception(e):
+    except Exception as e:
         print("Error, query " + query_name + " not retrieved.")
-        print(e)
+        raise e
     
     try:
         read_obj.save_table(data_df, table_name, write_mode)
         print("Table " + table_name + " created.\n")
-    except Exception(e):
+    except Exception as e:
         print("Error, table " + table_name + " not created.\n")
-        print(e)
+        raise e

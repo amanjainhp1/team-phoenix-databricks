@@ -1623,7 +1623,7 @@ WITH geography_mapping     AS
      FROM scen.working_forecast_mix_rate AS smr
      WHERE 1 = 1
        AND smr.upload_type = 'WORKING-FORECAST'
-       AND UPPER(smr.user_name) IN ('JON.LINDBERG@HP.COM', 'JOHNF', 'JOHN.FLOCK@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
+       AND UPPER(smr.user_name) IN ('JON.LINDBERG@HP.COM','GRETCHENB', 'GRETCHEN.BRUNNER@HP.COM', 'VANB', 'WILLIAM.VAN.BAIN@HP.COM', 'YONGHOONL', 'YONGHOON.LEE@HP.COM'))
 
    , toner_mix_rate_prep   AS
     (SELECT fv.user_name

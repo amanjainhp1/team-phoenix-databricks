@@ -4,6 +4,10 @@
 
 # COMMAND ----------
 
+# MAGIC %pip install xlsxwriter
+
+# COMMAND ----------
+
 import pyspark.sql.functions as f
 import time
 from pyspark.sql import Window, SparkSession
@@ -14,12 +18,15 @@ from pathlib import Path
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 from email.utils import COMMASPACE, formatdate
 from email import encoders
 import pandas as pd
 import numpy as np
+import io
 from IPython.core.display import HTML
 from IPython.display import HTML
+from io import BytesIO
 
 # COMMAND ----------
 
@@ -43,12 +50,17 @@ print(s3_bucket1)
 
 # COMMAND ----------
 
-#load testcases data into df
-read_testcases_data = read_redshift_to_df(configs).option("query", "SELECT * FROM stage.test_cases where enabled=1").load()
+username=dbutils.notebook.entry_point.getDbutils().notebook().getContext().userName().get()
+print(username)
 
 # COMMAND ----------
 
-read_testrun_data = read_redshift_to_df(configs).option("query", "SELECT coalesce(max(test_run_id),0) test_run_id FROM stage.test_results").load()
+#load testcases data into df
+read_testcases_data = read_redshift_to_df(configs).option("query", "SELECT * FROM qa.test_cases where enabled=1").load()
+
+# COMMAND ----------
+
+read_testrun_data = read_redshift_to_df(configs).option("query", "SELECT coalesce(max(test_run_id),0) test_run_id FROM qa.test_results").load()
 test_run_id=read_testrun_data.first()['test_run_id']+1
 print(test_run_id)
 
@@ -157,8 +169,13 @@ filtered_test_cases.show()
 
 # COMMAND ----------
 
+dbutils.widgets.text("notification_email","swati.gutgutia@hp.com")
+
+
+# COMMAND ----------
+
 #truncate test results table to be truncated at the start of every month 
-#truncate_testresults_table_query =f""" TRUNCATE TABLE stage.test_results;"""
+#truncate_testresults_table_query =f""" TRUNCATE TABLE qa.test_results;"""
 #submit_remote_query(configs,truncate_testresults_table_query )
 
 # COMMAND ----------
@@ -170,51 +187,57 @@ filtered_test_cases.show()
 
 #insert test cases into test results table
 data_collect = filtered_test_cases.collect()
-for row in data_collect:
-    test_query=row["test_query"]   
-    min_threshold=row["min_threshold"]
-    max_threshold=row["max_threshold"]
-    testcase_id=row["test_case_id"]
-    testcase_module=row["module_name"]
-    testcase_cat=row["test_category"]
-    query_path=row["query_path"]
-    element_name=row["element_name"]
-    print(test_query)
-    if('QA' in query_path):
-        test_query=(get_file_content_from_s3(s3_bucket,query_path))
-        print(test_query)
-    test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
-    print(test_result_detail_df.count())
-    results=0
-    if test_result_detail_df.count()<1000:
-        results = test_result_detail_df.toPandas().to_json(orient='records')
-    print(results)
-    #test_result_detail=test_result_detail_df.first()['count']
-    test_result_detail=test_result_detail_df.count()
-    #test_result=''
-    insert_test_result= f""" INSERT INTO stage.test_results
-    (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id)
-    VALUES
-    ('{testcase_id}','',getdate(),'admin','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}');"""
-    submit_remote_query(configs,insert_test_result ) # insert into test result table
-    if test_result_detail_df.count()>1:
-        insert_test_result_detail= f""" INSERT INTO stage.test_results_detail
-        (test_case_id,test_result_id,detail_value)
-        VALUES
-        ('{testcase_id}',(select max(test_result_id) from stage.test_results),'{results}');"""
-        submit_remote_query(configs,insert_test_result_detail ) # insert into test result table
-    #if test_result_detail_df.count()>=1000:
-     #   s3_output_bucket = s3_bucket1+"QA Framework/test_results/"
-        #+{testcase_module}+"/"+{testcase_cat}
-        #s3_output_bucket=s3_bucket+"/QA Framework/"+testcase_module+testcase_cat+"_detail"
-      #  print(s3_output_bucket)
-       # write_df_to_s3(test_result_detail_df, s3_output_bucket, "parquet", "append")
+with io.BytesIO() as buffer:
+    with pd.ExcelWriter(buffer,engine='xlsxwriter') as writer:
+        for row in data_collect:
+            test_query=row["test_query"]   
+            min_threshold=row["min_threshold"]
+            max_threshold=row["max_threshold"]
+            testcase_id=row["test_case_id"]
+            testcase_module=row["module_name"]
+            testcase_cat=row["test_category"]
+            query_path=row["query_path"]
+            element_name=row["element_name"]
+            print(test_query)
+            if('QA' in query_path):
+                test_query=(get_file_content_from_s3(s3_bucket,query_path))
+                print(test_query)
+            test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
+            print(test_result_detail_df.count())
+            results=0
+            if test_result_detail_df.count()<100:
+                results = test_result_detail_df.toPandas().to_json(orient='records')
+            print(results)
+            #test_result_detail=test_result_detail_df.first()['count']
+            test_result_detail=test_result_detail_df.count()
+            #test_result=''
+            s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
+            print(s3_output_bucket) # already created on S3
+            write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "overwrite")
+            insert_test_result= f""" INSERT INTO qa.test_results
+            (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id,test_results_s3path)
+            VALUES
+            ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}','{s3_output_bucket}');"""
+            submit_remote_query(configs,insert_test_result ) # insert into test result table 
+            if test_result_detail_df.count()>1 and test_result_detail_df.count()<5000:
+                test_result_detail_df.toPandas().to_excel(writer, sheet_name=str(testcase_id), index= False)  
+            if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:              
+                insert_test_result_detail= f""" INSERT INTO qa.test_results_detail
+                (test_case_id,test_result_id,detail_value)
+                VALUES
+                ('{testcase_id}',(select max(test_result_id) from qa.test_results where test_case_id='{testcase_id}'),'{results}');"""
+                submit_remote_query(configs,insert_test_result_detail ) # insert into test result table         
+            if testcase_cat=="VOV Check":
+                delete_from_test_results_vov=f""" delete from qa.test_results_detail_vov where module_name='{testcase_module}';"""
+                submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
+                write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="qa.test_results_detail_vov", mode="append")
+    Testresultexcel=buffer.getvalue()    
 
 # COMMAND ----------
 
-critical_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Critical' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
-medium_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Medium' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
-low_cases_df= read_redshift_to_df(configs).option("query", "select b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate  from stage.test_results a inner join stage.test_cases b on a.test_case_id =b.test_case_id where severity='Very Low' and test_run_id=(select max(test_run_id) from stage.test_results ) and test_result='Fail'").load()
+critical_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from qa.test_results a inner join qa.test_cases b on a.test_case_id =b.test_case_id left join qa.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Critical' and test_run_id=(select max(test_run_id) from qa.test_results ) and test_result='Fail'").load()
+medium_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from qa.test_results a inner join qa.test_cases b on a.test_case_id =b.test_case_id left join qa.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Medium' and test_run_id=(select max(test_run_id) from qa.test_results ) and test_result='Fail'").load()
+low_cases_df= read_redshift_to_df(configs).option("query", "select b.test_case_id,b.test_category ,b.test_case_name ,b.module_name ,b.table_name ,test_result ,test_result_detail ,test_rundate,a.test_results_s3path  from qa.test_results a inner join qa.test_cases b on a.test_case_id =b.test_case_id left join qa.test_results_detail c on a.test_result_id =c.test_result_id  and detail_value like '%s3a%' where severity='Very Low' and test_run_id=(select max(test_run_id) from qa.test_results ) and test_result='Fail'").load()
 
 # COMMAND ----------
 
@@ -228,12 +251,18 @@ def send_email(email_from, email_to, subject, message):
   msg['From'] = email_from
   msg['To'] =  ', '.join(email_to)
   
+  #filedata = sc.textFile("/dbfs/df_testqa.csv", use_unicode=False)
+  
+  part = MIMEApplication(Testresultexcel)
+  part.add_header('Content-Disposition','attachment',filename="testresulexcel.xlsx")
   msg.attach(MIMEText(message.encode('utf-8'), 'html', 'utf-8'))
+  msg.attach(part)
   
   ses_service = boto3.client(service_name = 'ses', region_name = 'us-west-2')
     
   try:
     response = ses_service.send_raw_email(Source = email_from, Destinations = email_to, RawMessage = {'Data': msg.as_string()})
+  
   
   except ClientError as e:
     raise Exception(str(e.response['Error']['Message']))
@@ -249,19 +278,23 @@ critical_cases_df.display()
 
 # COMMAND ----------
 
+send_to_email=dbutils.widgets.get("notification_email")
+
+# COMMAND ----------
+
 if low_cases_df.count()>=1:
     subject='QA Framework - Low Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+low_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
 if medium_cases_df.count()>=1:
     subject='QA Framework - Medium Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'Please investigate the issues'+'\n'+medium_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
 
 # COMMAND ----------
 
 if critical_cases_df.count()>=1:
     subject='QA Framework - Critical Severity cases Failed'
     message='Below is the details of failed test cases for ' +module_name_values_str+'\n'+ 'The notebook will exit. Please investigate the issues'+'\n'+ critical_cases_df.toPandas().to_html()
-    send_email('phoenix_qa_team@hpdataos.com',['swati.gutgutia@hp.com','shreyashree.misra@hp.com'], subject, message)
+    send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
     dbutils.notebook.exit(json.dumps(subject))

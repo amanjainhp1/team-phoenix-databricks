@@ -132,9 +132,10 @@ for table in tables:
     print(f'loading {table[0]}...')
     # Write the data to its target.
     df.write \
-      .format(write_format) \
-      .mode("overwrite") \
-      .save(save_path)
+        .format(write_format) \
+        .mode("overwrite") \
+        .option("overwriteSchema", "true") \
+        .save(save_path)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
     

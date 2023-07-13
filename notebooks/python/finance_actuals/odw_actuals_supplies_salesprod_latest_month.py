@@ -296,6 +296,7 @@ odw_dollars_raw = f"""
   AND day_of_month = 1
   AND cal.Date > '2021-10-01'
   AND land.profit_center_code NOT IN ('P1082', 'PF001')
+  AND segment_code <> 'SSC9907'
   GROUP BY cal.Date, pl, material_number, segment_code
 """
 
@@ -1570,7 +1571,7 @@ WHERE Prod_Line IN
         OR PL IN ('GO', 'GN', 'IE')
     ) 
     AND Fiscal_Yr > '2015' AND Day_of_Month = 1
-    AND cal.Date > '2021-10-01'
+    AND cal.Date = (select max(cal_date) from odw_salesprod_all_cleaned)
 GROUP BY cal.Date, country, direct_or_indirect_sf, Product_Nbr, Prod_Line, category
 """
 
@@ -1612,21 +1613,6 @@ mps_data_add_country_alpha = spark.sql(mps_data_add_country_alpha)
 mps_data_add_country_alpha.createOrReplaceTempView("mps_data_add_country_alpha")
 
 
-mps_indirect = f"""
-SELECT
-    cal_date,
-    country_alpha2,
-    sales_product_number,
-    SUM(shipped_qty) AS indirect_units
-FROM mps_data_add_country_alpha
-WHERE ce_split = 'EST_INDIRECT_FULFILLMENT'
-and shipped_qty > 0
-GROUP BY cal_date, country_alpha2, sales_product_number
-"""
-
-mps_indirect = spark.sql(mps_indirect)
-mps_indirect.createOrReplaceTempView("mps_indirect")
-
 
 mps_direct = f"""
 SELECT
@@ -1644,107 +1630,10 @@ mps_direct = spark.sql(mps_direct)
 mps_direct.createOrReplaceTempView("mps_direct")
 
 
-# add mps data to the supplies sales product data
-
-supplies_salesprod3 = f"""
-SELECT
-    cal_date,
-    country_alpha2,
-    pl,
-    sales_product_number,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-                SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
-FROM odw_salesprod_all_cleaned
-WHERE revenue_units > 0
-GROUP BY cal_date, country_alpha2, pl, sales_product_number
-"""
-
-supplies_salesprod3 = spark.sql(supplies_salesprod3)
-supplies_salesprod3.createOrReplaceTempView("supplies_salesprod3")
-
-
-supplies_salesprod3a_zero_below_units = f"""
-SELECT
-    cal_date,
-    country_alpha2,
-    pl,
-    sales_product_number,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units
-FROM odw_salesprod_all_cleaned
-where revenue_units <= 0
-GROUP BY cal_date, country_alpha2, pl, sales_product_number
-"""
-
-supplies_salesprod3a_zero_below_units = spark.sql(supplies_salesprod3a_zero_below_units)
-supplies_salesprod3a_zero_below_units.createOrReplaceTempView("supplies_salesprod3a_zero_below_units")
-
-
-supplies_join_mps_indirect = f"""
-SELECT sup.cal_date,
-    sup.country_alpha2,
-    sup.pl, 
-    sup.sales_product_number,
-    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
-    COALESCE(SUM(net_currency), 0) AS net_currency,
-    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
-    COALESCE(SUM(discretionary_discounts),0) AS discretionary_discounts,
-    COALESCE(SUM(warranty), 0) AS warranty,
-    COALESCE(SUM(other_cos), 0) AS other_cos,
-    COALESCE(SUM(total_cos), 0) AS total_cos,
-    COALESCE(SUM(revenue_units), 0) AS revenue_units,
-    COALESCE(SUM(indirect_units), 0) AS indirect_units
-FROM supplies_salesprod3 AS sup
-LEFT JOIN mps_indirect AS mps ON (sup.cal_date = mps.cal_date AND sup.country_alpha2 = mps.country_alpha2
-        AND sup.sales_product_number = mps.sales_product_number)
-GROUP BY sup.cal_date, sup.country_alpha2, sup.pl, sup.sales_product_number
-"""
-
-supplies_join_mps_indirect = spark.sql(supplies_join_mps_indirect)
-supplies_join_mps_indirect.createOrReplaceTempView("supplies_join_mps_indirect")
-
-
-supplies_join_mps_direct = f"""
-SELECT sup.cal_date,
-    sup.country_alpha2,
-    sup.pl, 
-    sup.sales_product_number,
-    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
-    COALESCE(SUM(net_currency), 0) AS net_currency,
-    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
-    COALESCE(SUM(discretionary_discounts),0) AS discretionary_discounts,
-    COALESCE(SUM(warranty), 0) AS warranty,
-    COALESCE(SUM(other_cos), 0) AS other_cos,
-    COALESCE(SUM(total_cos), 0) AS total_cos,
-    COALESCE(SUM(revenue_units), 0) AS revenue_units,
-    COALESCE(SUM(indirect_units), 0) AS indirect_units,
-    COALESCE(SUM(direct_units), 0) AS direct_units
-FROM supplies_join_mps_indirect AS sup
-LEFT JOIN mps_direct AS mps ON (sup.cal_date = mps.cal_date AND sup.country_alpha2 = mps.country_alpha2
-        AND sup.sales_product_number = mps.sales_product_number)
-GROUP BY sup.cal_date, sup.country_alpha2, sup.pl, sup.sales_product_number
-"""
-
-supplies_join_mps_direct = spark.sql(supplies_join_mps_direct)
-supplies_join_mps_direct.createOrReplaceTempView("supplies_join_mps_direct")
-
-
 date_helper = f"""
 SELECT date_key, 
  Date as cal_date
-FROM calendar
+FROM mdm.calendar
 WHERE day_of_month = 1
 """
 
@@ -1756,21 +1645,11 @@ supplies_mps_analytic_setup = f"""
 SELECT
     cal_date,
     country_alpha2,
-    pl,
     sales_product_number,
-    gross_revenue,
-    net_currency,
-    contractual_discounts,
-    discretionary_discounts,
-    warranty,
-    other_cos,
-    total_cos,
-    revenue_units,
-    indirect_units,
     direct_units,
-        (select min(cal_date) from odw_salesprod_all_cleaned) as min_cal_date,
-        (select max(cal_date) from odw_salesprod_all_cleaned) as max_cal_date
-FROM supplies_join_mps_direct
+        (select min(cal_date) from mps_direct) as min_cal_date,
+        (select max(cal_date) from mps_direct) as max_cal_date
+FROM mps_direct
 """
 
 supplies_mps_analytic_setup = spark.sql(supplies_mps_analytic_setup)
@@ -1780,7 +1659,6 @@ supplies_mps_analytic_setup.createOrReplaceTempView("supplies_mps_analytic_setup
 supplies_mps_full_calendar_cross_join = f"""
 SELECT distinct d.cal_date,
     country_alpha2,
-    pl,
     sales_product_number
 FROM date_helper d
 CROSS JOIN supplies_mps_analytic_setup mps
@@ -1795,23 +1673,12 @@ fill_gap1 = f"""
 SELECT
     mps.cal_date,
     coalesce(mps.country_alpha2, setup.country_alpha2) as country_alpha2,
-    coalesce(mps.pl, setup.pl) as pl,
     coalesce(mps.sales_product_number, setup.sales_product_number) as sales_product_number,
-    gross_revenue,
-    net_currency,
-    contractual_discounts,
-    discretionary_discounts,
-    warranty,
-    other_cos,
-    total_cos,
-    revenue_units,
-    indirect_units,
     direct_units
 from supplies_mps_full_calendar_cross_join mps
 left join supplies_mps_analytic_setup setup on
     mps.cal_date = setup.cal_date and
     mps.country_alpha2 = setup.country_alpha2 and
-    mps.pl = setup.pl and
     mps.sales_product_number = setup.sales_product_number
 """
 
@@ -1823,19 +1690,9 @@ fill_gap2 = f"""
 select 
     cal_date,
     country_alpha2,
-    pl,
     sales_product_number,
-    gross_revenue,
-    net_currency,
-    contractual_discounts,
-    discretionary_discounts,
-    warranty,
-    other_cos,
-    total_cos,
-    revenue_units,
-    indirect_units,
     direct_units,
-        min(cal_date) over (partition by sales_product_number, pl, country_alpha2 order by cal_date) as min_cal_date
+        min(cal_date) over (partition by sales_product_number, country_alpha2 order by cal_date) as min_cal_date
 from fill_gap1
 """
 
@@ -1848,20 +1705,10 @@ select
     cal_date,
     min_cal_date,
         country_alpha2,
-        pl,
         sales_product_number,
-        gross_revenue,
-        net_currency,
-        contractual_discounts,
-        discretionary_discounts,
-        warranty,
-        other_cos,
-        total_cos,
-        revenue_units,
-        indirect_units,
         direct_units,
         --CASE WHEN min_cal_date < CAST(GETDATE() - DAY(GETDATE()) + 1 AS DATE) THEN 1 ELSE 0 END as actuals_flag,
-        COUNT(cal_date) OVER (PARTITION BY sales_product_number, pl, country_alpha2 
+        COUNT(cal_date) OVER (PARTITION BY sales_product_number, country_alpha2 
             ORDER BY cal_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as running_count
 from fill_gap2
 """
@@ -1874,20 +1721,10 @@ supplies_mps_full_calendar = f"""
 select
     cal_date,
     country_alpha2,
-    pl,
     sales_product_number,
-    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
-    COALESCE(SUM(net_currency), 0) AS net_currency,
-    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
-    COALESCE(SUM(discretionary_discounts),0) AS discretionary_discounts,
-    COALESCE(SUM(warranty), 0) AS warranty,    
-    COALESCE(SUM(other_cos), 0) AS other_cos,
-    COALESCE(SUM(total_cos), 0) AS total_cos,
-    COALESCE(SUM(revenue_units), 0) AS revenue_units,
-    COALESCE(SUM(indirect_units), 0) AS indirect_units,
     COALESCE(SUM(direct_units), 0) AS direct_units
 FROM fill_gap2
-GROUP BY cal_date, country_alpha2, pl, sales_product_number
+GROUP BY cal_date, country_alpha2, sales_product_number
 """
 
 supplies_mps_full_calendar = spark.sql(supplies_mps_full_calendar)
@@ -1897,33 +1734,64 @@ supplies_mps_full_calendar.createOrReplaceTempView("supplies_mps_full_calendar")
 mps_data_lagged = f"""
 SELECT
     cal_date,
-    pl,
     country_alpha2,
     sales_product_number,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units,
-    LAG(COALESCE(SUM(indirect_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_indirect_ships,
-    LAG(COALESCE(SUM(direct_units), 0), -1) OVER (PARTITION BY sales_product_number, country_alpha2, pl ORDER BY cal_date) AS lagged_direct_ships
+    SUM(direct_units) AS direct_units,
+    LAG(COALESCE(SUM(direct_units), 0), -2) OVER (PARTITION BY sales_product_number, country_alpha2 ORDER BY cal_date) AS lagged_direct_ships
 FROM supplies_mps_full_calendar
-GROUP BY cal_date, country_alpha2, pl, sales_product_number, indirect_units, direct_units
+GROUP BY cal_date, country_alpha2, sales_product_number, direct_units
 """
 
 mps_data_lagged = spark.sql(mps_data_lagged)
 mps_data_lagged.createOrReplaceTempView("mps_data_lagged")
 
 
-mps_data_average = f"""
+mps_data_lagged_pl = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    sales_product_line_code as pl,
+    mps.sales_product_number,
+    SUM(lagged_direct_ships) AS lagged_direct_ships
+FROM mps_data_lagged mps
+LEFT JOIN mdm.rdma_base_to_sales_product_map rdma
+    ON rdma.sales_product_number = mps.sales_product_number
+WHERE 1=1
+AND sales_product_line_code is not null
+GROUP BY cal_date, country_alpha2, mps.sales_product_number, sales_product_line_code
+"""
+
+mps_data_lagged_pl = spark.sql(mps_data_lagged_pl)
+mps_data_lagged_pl.createOrReplaceTempView("mps_data_lagged_pl")
+
+
+mps_data_lagged_pl2 = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    CASE
+        WHEN pl = '65' THEN 'HF'
+        WHEN pl = 'EO' THEN 'GL'
+        WHEN pl = 'GM' THEN 'K6'
+        ELSE pl
+    END AS pl,
+    sales_product_number,
+    SUM(lagged_direct_ships) AS lagged_direct_ships
+FROM mps_data_lagged_pl
+GROUP BY cal_date, country_alpha2, sales_product_number, pl
+"""
+
+mps_data_lagged_pl2 = spark.sql(mps_data_lagged_pl2)
+mps_data_lagged_pl2.createOrReplaceTempView("mps_data_lagged_pl2")
+
+
+salesprod_join_mps_direct_units_only = f"""
 SELECT 
     cal_date,
-    pl,
     country_alpha2,
-    sales_product_number,                
+    pl,
+    sales_product_number, 
+    'TRAD' AS ce_split,   
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
     SUM(contractual_discounts) AS contractual_discounts,
@@ -1931,397 +1799,39 @@ SELECT
     SUM(warranty) AS warranty,
     SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units,
-    AVG(lagged_indirect_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS indirect_ships,
-    AVG(lagged_direct_ships) OVER 
-        (PARTITION BY sales_product_number, pl, country_alpha2 ORDER BY cal_date ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING) AS direct_ships
-FROM mps_data_lagged
-GROUP BY cal_date, pl, country_alpha2, sales_product_number, lagged_indirect_ships, lagged_direct_ships
-"""
-
-mps_data_average = spark.sql(mps_data_average)
-mps_data_average.createOrReplaceTempView("mps_data_average")
-
-
-salesprod_pre_rtm = f"""
-SELECT 
-    cal_date,
-    pl,
+    SUM(revenue_units) AS revenue_units
+FROM odw_salesprod_all_cleaned
+GROUP BY cal_date,
     country_alpha2,
-    sales_product_number,
-    CASE 
-        WHEN SUM(revenue_units) >= 0 AND SUM(indirect_ships) >= 0
-        THEN 'Y'
-    ELSE 'N'
-    END AS rboth_positive,
-    CASE 
-        WHEN SUM(revenue_units) < 0 AND SUM(indirect_ships) < 0
-        THEN 'Y'
-    ELSE 'N'
-    END AS rboth_negative,
-    CASE 
-        WHEN SUM(revenue_units) > SUM(indirect_ships)
-        THEN 'Y'
-    ELSE 'N'
-    END AS edw_greater_than_pmps,                
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units,
-    SUM(indirect_ships) AS indirect_ships,
-    SUM(direct_ships) AS direct_ships
-FROM mps_data_average
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-"""
-
-salesprod_pre_rtm = spark.sql(salesprod_pre_rtm)
-salesprod_pre_rtm.createOrReplaceTempView("salesprod_pre_rtm")
-
-
-
-salesprod_pre_rtm2 = f"""
-SELECT 
-    cal_date,
     pl,
-    country_alpha2,
-    sales_product_number,
-    rboth_positive,
-    rboth_negative,
-    edw_greater_than_pmps,                
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units,
-    SUM(indirect_ships) AS indirect_ships,
-    SUM(direct_ships) AS direct_ships,
-    CASE
-        WHEN SUM(indirect_ships) = 0 THEN SUM(revenue_units)
-        WHEN rboth_positive = 'Y' AND edw_greater_than_pmps = 'Y'
-        THEN SUM(revenue_units) - SUM(indirect_ships)
-        WHEN rboth_positive = 'Y' AND edw_greater_than_pmps = 'N'
-        THEN 0
-        WHEN rboth_negative = 'Y' AND edw_greater_than_pmps = 'Y'
-        THEN 0
-        WHEN rboth_negative = 'Y' AND edw_greater_than_pmps = 'N'
-        THEN SUM(revenue_units) - SUM(indirect_ships)
-    ELSE SUM(revenue_units)
-    END AS trade_units,
-    CASE 
-        WHEN SUM(indirect_ships) = 0 THEN 0
-        WHEN rboth_positive = 'Y' AND edw_greater_than_pmps = 'Y'
-        THEN SUM(indirect_ships)
-        WHEN rboth_positive = 'Y' AND edw_greater_than_pmps = 'N'
-        THEN SUM(revenue_units)
-        WHEN rboth_negative = 'Y' AND edw_greater_than_pmps = 'Y'
-        THEN SUM(revenue_units)
-        WHEN rboth_negative = 'Y' AND edw_greater_than_pmps = 'N'
-        THEN SUM(indirect_ships)
-    ELSE 0
-    END AS indirect_ships_adjusted
-FROM salesprod_pre_rtm
-GROUP BY cal_date, pl, country_alpha2, sales_product_number, rboth_negative, rboth_positive, edw_greater_than_pmps
-"""
+    sales_product_number
 
-salesprod_pre_rtm2 = spark.sql(salesprod_pre_rtm2)
-salesprod_pre_rtm2.createOrReplaceTempView("salesprod_pre_rtm2")
+ UNION ALL
 
-
-salesprod_pre_rtm2_cleaned = f"""
-SELECT 
+ SELECT 
     cal_date,
-    pl,
     country_alpha2,
-    sales_product_number,            
-    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
-    COALESCE(SUM(net_currency), 0) AS net_currency,
-    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
-    COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
-    COALESCE(SUM(warranty), 0) AS warranty,                
-    COALESCE(SUM(other_cos), 0) AS other_cos,
-    COALESCE(SUM(total_cos), 0) AS total_cos,
-    COALESCE(SUM(revenue_units), 0) AS revenue_units,
-    COALESCE(SUM(indirect_ships), 0) AS indirect_ships,
-    COALESCE(SUM(direct_ships), 0) AS direct_ships,
-    COALESCE(SUM(trade_units), 0) AS trade_units,
-    COALESCE(SUM(indirect_ships_adjusted), 0) AS indirect_ships_adjusted,
-    SUM(indirect_ships_adjusted) + SUM(trade_units) AS sales_quantity
-FROM salesprod_pre_rtm2
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-
-UNION ALL
-
-SELECT
-    cal_date,
     pl,
-    country_alpha2,
-    sales_product_number,
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,        
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units,
-    0 as indirect_ships,
-    0 as direct_ships,
-    SUM(revenue_units) as trade_units,
-    0 as indirect_ships_adjusted,
-    SUM(revenue_units) as sales_quantity
-FROM supplies_salesprod3a_zero_below_units
-GROUP BY cal_date, country_alpha2, pl, sales_product_number
-"""
-
-salesprod_pre_rtm2_cleaned = spark.sql(salesprod_pre_rtm2_cleaned)
-salesprod_pre_rtm2_cleaned.createOrReplaceTempView("salesprod_pre_rtm2_cleaned")
-
-
-supplies_salesprod_rtm1= f"""
-SELECT 
-    cal_date,
-    pl,
-    country_alpha2,
-    sales_product_number,                
-    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
-    COALESCE(SUM(net_currency), 0) AS net_currency,
-    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
-    COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
-    COALESCE(SUM(warranty), 0) AS warranty,    
-    COALESCE(SUM(other_cos), 0) AS other_cos,
-    COALESCE(SUM(total_cos), 0) AS total_cos,
-    COALESCE(SUM(revenue_units), 0) AS revenue_units,
-    COALESCE(SUM(indirect_ships), 0) AS indirect_ships,
-    COALESCE(SUM(direct_ships), 0) AS direct_ships,
-    COALESCE(SUM(trade_units), 0) AS trade_units,
-    COALESCE(SUM(indirect_ships_adjusted), 0) AS indirect_ships_adjusted,
-    COALESCE(SUM(sales_quantity), 0) AS sales_quantity
-FROM salesprod_pre_rtm2_cleaned
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-"""
-
-supplies_salesprod_rtm1 = spark.sql(supplies_salesprod_rtm1)
-supplies_salesprod_rtm1.createOrReplaceTempView("supplies_salesprod_rtm1")
-
-
-salesprod_pre_rtm2_cleaned2 = f"""
-SELECT 
-    cal_date,
-    pl,
-    country_alpha2,
-    sales_product_number,            
-    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
-    COALESCE(SUM(net_currency), 0) AS net_currency,
-    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
-    COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
-    COALESCE(SUM(warranty), 0) AS warranty,
-    COALESCE(SUM(other_cos), 0) AS other_cos,
-    COALESCE(SUM(total_cos), 0) AS total_cos,
-    COALESCE(SUM(revenue_units), 0) AS revenue_units,
-    COALESCE(SUM(indirect_ships), 0) AS indirect_ships,
-    COALESCE(SUM(direct_ships), 0) AS direct_ships,
-    COALESCE(SUM(trade_units), 0) AS trade_units,
-    COALESCE(SUM(indirect_ships_adjusted), 0) AS indirect_ships_adjusted,
-    COALESCE(SUM(sales_quantity), 0) AS sales_quantity
-FROM supplies_salesprod_rtm1
-WHERE pl != 'GD'
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-"""
-
-salesprod_pre_rtm2_cleaned2 = spark.sql(salesprod_pre_rtm2_cleaned2)
-salesprod_pre_rtm2_cleaned2.createOrReplaceTempView("salesprod_pre_rtm2_cleaned2")
-
-
-salesprod_pre_rtm3 = f"""
-SELECT 
-    cal_date,
-    pl,
-    country_alpha2,
-    sales_product_number,                
-    SUM(gross_revenue) AS gross_revenue,
-    SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,            
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
-    SUM(revenue_units) AS revenue_units,
-    SUM(trade_units) AS trade_units,
-    SUM(indirect_ships_adjusted) AS indirect_ships_adjusted,
-    SUM(direct_ships) AS direct_ships,
-    SUM(sales_quantity) AS sales_quantity,
-    CASE
-        WHEN COALESCE(SUM(gross_revenue) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(gross_revenue)
-        ELSE SUM(gross_revenue) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_gross_rev,
-    CASE
-        WHEN COALESCE(SUM(gross_revenue) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(gross_revenue) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_gross_rev,
-    CASE
-        WHEN COALESCE(SUM(contractual_discounts) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(contractual_discounts)
-        ELSE SUM(contractual_discounts) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_contractual_discounts,
-    CASE
-        WHEN COALESCE(SUM(contractual_discounts) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(contractual_discounts) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_contractual_discounts,
-    CASE
-        WHEN COALESCE(SUM(discretionary_discounts) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(discretionary_discounts)
-        ELSE SUM(discretionary_discounts) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_discretionary_discounts,
-    CASE
-        WHEN COALESCE(SUM(discretionary_discounts) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(discretionary_discounts) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_discretionary_discounts,
-    CASE
-        WHEN COALESCE(SUM(warranty) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(warranty)
-        ELSE SUM(warranty) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_warranty,
-    CASE
-        WHEN COALESCE(SUM(warranty) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(warranty) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_warranty,
-    CASE
-        WHEN COALESCE(SUM(other_cos) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(other_cos)
-        ELSE SUM(other_cos) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_other_cos,
-    CASE
-        WHEN COALESCE(SUM(other_cos) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(other_cos) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_other_cos,
-   CASE
-        WHEN COALESCE(SUM(total_cos) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(total_cos)
-        ELSE SUM(total_cos) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_cos,
-    CASE
-        WHEN COALESCE(SUM(total_cos) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(total_cos) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_cos,
-    CASE
-        WHEN COALESCE(SUM(net_currency) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN SUM(net_currency)
-        ELSE SUM(net_currency) / SUM(sales_quantity) * SUM(trade_units)
-    END AS trade_currency,
-    CASE
-        WHEN COALESCE(SUM(net_currency) / NULLIF(SUM(sales_quantity), 0), 0) = 0
-        THEN 0
-        ELSE SUM(net_currency) / SUM(sales_quantity) * SUM(indirect_ships_adjusted)
-    END AS indirect_currency            
-FROM salesprod_pre_rtm2_cleaned2
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-"""
-
-salesprod_pre_rtm3 = spark.sql(salesprod_pre_rtm3)
-salesprod_pre_rtm3.createOrReplaceTempView("salesprod_pre_rtm3")
-
-
-trade_salesprod = f"""
-SELECT
-    cal_date,
-    pl,
-    country_alpha2,
-    sales_product_number,
-    'TRAD' AS ce_split,                
-    SUM(trade_gross_rev) AS gross_revenue,
-    SUM(trade_currency) AS net_currency,
-    SUM(trade_contractual_discounts) AS contractual_discounts,
-    SUM(trade_discretionary_discounts) AS discretionary_discounts,
-    SUM(trade_warranty) AS warranty,
-    SUM(trade_other_cos) AS other_cos,
-    SUM(trade_cos) AS total_cos,
-    SUM(trade_units) AS revenue_units
-FROM salesprod_pre_rtm3
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-"""
-
-trade_salesprod = spark.sql(trade_salesprod)
-trade_salesprod.createOrReplaceTempView("trade_salesprod")
-
-
-indirect_salesprod = f"""
-SELECT
-    cal_date,
-    pl,
-    country_alpha2,
-    sales_product_number,
-    'EST_INDIRECT_FULFILLMENT' AS ce_split,                
-    SUM(indirect_gross_rev) AS gross_revenue,
-    SUM(indirect_currency) AS net_currency,
-    SUM(indirect_contractual_discounts) AS contractual_discounts,
-    SUM(indirect_discretionary_discounts) AS discretionary_discounts,
-    SUM(indirect_warranty) AS warranty,
-    SUM(indirect_other_cos) AS other_cos,
-    SUM(indirect_cos) AS total_cos,
-    SUM(indirect_ships_adjusted) AS revenue_units
-FROM salesprod_pre_rtm3
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
-"""
-
-indirect_salesprod = spark.sql(indirect_salesprod)
-indirect_salesprod.createOrReplaceTempView("indirect_salesprod")
-
-direct_salesprod = f"""
-SELECT
-    cal_date,
-    pl,
-    country_alpha2,
-    sales_product_number,
-    'EST_DIRECT_FULFILLMENT' AS ce_split,                
+    sales_product_number, 
+    'EST_DIRECT_FULFILLMENT' AS ce_split,   
     0 AS gross_revenue,
     0 AS net_currency,
     0 AS contractual_discounts,
     0 AS discretionary_discounts,
-    0 AS warranty,    
-    0 AS other_cos,
+    0 AS warranty,
+    0 as other_cos,
     0 AS total_cos,
-    SUM(direct_ships) AS revenue_units
-FROM salesprod_pre_rtm3
-WHERE direct_ships != 0
-GROUP BY cal_date, pl, country_alpha2, sales_product_number
+    SUM(lagged_direct_ships) AS revenue_units
+FROM mps_data_lagged_pl2
+GROUP BY cal_date,
+    country_alpha2,
+    pl,
+    sales_product_number
 """
 
-direct_salesprod = spark.sql(direct_salesprod)
-direct_salesprod.createOrReplaceTempView("direct_salesprod")
+salesprod_join_mps_direct_units_only = spark.sql(salesprod_join_mps_direct_units_only)
+salesprod_join_mps_direct_units_only.createOrReplaceTempView("salesprod_join_mps_direct_units_only")
 
-
-salesprod_with_ce_splits = f"""
-SELECT *
-FROM trade_salesprod
-
-UNION ALL
-
-SELECT *
-FROM indirect_salesprod
-
-UNION ALL
-
-SELECT *
-FROM direct_salesprod
-"""
-
-salesprod_with_ce_splits = spark.sql(salesprod_with_ce_splits)
-salesprod_with_ce_splits.createOrReplaceTempView("salesprod_with_ce_splits")
 
 
 salesprod_join_mps_data = f"""
@@ -2339,7 +1849,7 @@ SELECT
     COALESCE(SUM(other_cos), 0) AS other_cos,
     COALESCE(SUM(total_cos), 0) AS total_cos,
     COALESCE(SUM(revenue_units), 0) AS revenue_units
-FROM salesprod_with_ce_splits
+FROM salesprod_join_mps_direct_units_only
 GROUP BY cal_date, pl, country_alpha2, sales_product_number, ce_split
 """
 
@@ -3103,6 +2613,28 @@ estimated_mps_revenue = spark.sql(estimated_mps_revenue)
 estimated_mps_revenue.createOrReplaceTempView("estimated_mps_revenue")
 
 
+estimated_mps_revenue_offset = f"""
+SELECT 
+    cal_date,
+    country_alpha2,
+    pl,
+    'UNKN5T' AS sales_product_number,                
+    ce_split,    
+    SUM(gross_revenue) * -1 AS gross_revenue,
+    0 AS net_currency,
+    0 AS contractual_discounts,
+    0 AS discretionary_discounts,
+    0 AS warranty,
+    0 AS total_cos,
+    0 AS revenue_units
+FROM estimated_mps_revenue
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split
+"""
+
+estimated_mps_revenue_offset = spark.sql(estimated_mps_revenue_offset)
+estimated_mps_revenue_offset.createOrReplaceTempView("estimated_mps_revenue_offset")
+
+
 salesprod_add_mcodes = f"""
 SELECT 
     cal_date,
@@ -3631,7 +3163,7 @@ SELECT
       WHEN sales_product_line_code = 'GM' THEN 'K6'
       ELSE sales_product_line_code
     END AS sales_product_line_code
-FROM rdma_base_to_sales_product_map
+FROM mdm.rdma_base_to_sales_product_map
 WHERE 1=1
 """
 
@@ -3818,6 +3350,13 @@ SELECT cal_date,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM edw_data_with_updated_rdma_pl2
+WHERE 1=1
+AND pl IN (
+    SELECT DISTINCT pl 
+    FROM mdm.product_line_xref 
+    WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
+        AND PL_category IN ('SUP', 'LLC')
+    )
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split
 """
 
@@ -3885,7 +3424,7 @@ SELECT
         WHEN currency = 'EURO' THEN 'EUR'
         ELSE 'USD'                
     END AS currency
-FROM list_price_eu_country_list
+FROM mdm.list_price_eu_country_list
 WHERE country_alpha2 NOT IN ('ZM', 'ZW')
 """
 
@@ -3899,8 +3438,8 @@ SELECT
     cmap.country_alpha2,
     cmap.country,
     currency_iso_code AS currency 
-FROM country_currency_map_landing cmap
-LEFT JOIN iso_country_code_xref iso ON cmap.country_alpha2 = iso.country_alpha2 AND cmap.country = iso.country
+FROM fin_stage.country_currency_map_landing cmap
+LEFT JOIN mdm.iso_country_code_xref iso ON cmap.country_alpha2 = iso.country_alpha2 AND cmap.country = iso.country
 WHERE cmap.country_alpha2 NOT IN (
     SELECT DISTINCT country_alpha2
     FROM emea_currency_table)
@@ -4114,7 +3653,7 @@ FROM edw_restated_data2
 WHERE pl = 'GP'
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4167,7 +3706,7 @@ FROM edw_restated_data2
 WHERE pl IN ('LU', '1N') -- blending these PLs for fuller history
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4195,7 +3734,7 @@ FROM edw_restated_data2
 WHERE pl IN ('G0', 'E5', 'GL', 'EO') -- blending these PLs for fuller history
 AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4870,7 +4409,7 @@ SELECT
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM salesprod_data_normalish_items  AS act
-LEFT JOIN calendar AS cal ON cal_date = cal.Date
+LEFT JOIN mdm.calendar AS cal ON cal_date = cal.Date
 LEFT JOIN currency cmap 
     ON act.country_alpha2 = cmap.country_alpha2
 WHERE 1=1
@@ -4933,7 +4472,7 @@ SELECT
 FROM salesprod_currency_emea2
 WHERE country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -4944,7 +4483,7 @@ salesprod_emea_with_country_detail = spark.sql(salesprod_emea_with_country_detai
 salesprod_emea_with_country_detail.createOrReplaceTempView("salesprod_emea_with_country_detail")    
 
 
-salesprod_emea_with_xcodes = f"""
+salesprod_emea_with_xcodes_drivers = f"""
 SELECT
     cal_date,
     Fiscal_Yr,
@@ -4963,15 +4502,209 @@ SELECT
 FROM salesprod_currency_emea2
 WHERE country_alpha2 IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
+AND pl IN (SELECT pl FROM mdm.product_line_xref where pl_category = 'SUP' AND technology IN ('PWA', 'LASER', 'INK'))
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, Fiscal_Yr
 """
     
-salesprod_emea_with_xcodes = spark.sql(salesprod_emea_with_xcodes)
-salesprod_emea_with_xcodes.createOrReplaceTempView("salesprod_emea_with_xcodes")    
+salesprod_emea_with_xcodes_drivers = spark.sql(salesprod_emea_with_xcodes_drivers)
+salesprod_emea_with_xcodes_drivers.createOrReplaceTempView("salesprod_emea_with_xcodes_drivers")    
+
+
+usc_country_page_mix01 = f"""
+SELECT distinct shcam.cal_date
+    , shcam.country_alpha2
+    , iso.region_5
+    , rdma.sales_product_number
+    , sum(shcam.hp_pages) as hp_pages
+FROM stage.supplies_hw_country_actuals_mapping shcam
+LEFT JOIN mdm.iso_country_code_xref iso
+    ON shcam.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.rdma_base_to_sales_product_map rdma
+    ON rdma.base_product_number = shcam.base_product_number
+INNER JOIN salesprod_emea_with_xcodes_drivers sewxd
+    ON sewxd.sales_product_number = rdma.sales_product_number
+    AND sewxd.cal_date = shcam.cal_date
+WHERE 1=1
+GROUP BY shcam.cal_date
+    , shcam.country_alpha2
+    , iso.region_5
+    , rdma.sales_product_number
+"""
+
+usc_country_page_mix01 = spark.sql(usc_country_page_mix01)
+usc_country_page_mix01.createOrReplaceTempView("usc_country_page_mix01")    
+
+
+usc_country_page_mix02 = f"""
+SELECT cal_date
+    , country_alpha2
+    , region_5
+    , sales_product_number
+    ,CASE
+        WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, sales_product_number) = 0 THEN NULL
+        ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, sales_product_number)
+    END AS country_mix
+FROM usc_country_page_mix01 shcam
+WHERE 1=1
+GROUP BY cal_date
+    , country_alpha2
+    , region_5
+    , sales_product_number
+    , hp_pages
+"""
+
+usc_country_page_mix02 = spark.sql(usc_country_page_mix02)
+usc_country_page_mix02.createOrReplaceTempView("usc_country_page_mix02") 
+
+
+emea_salesprod_xcode_mash_drivers = f"""
+SELECT
+    sp.cal_date,
+    cd.country_alpha2,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split,
+    SUM(gross_revenue * country_mix) AS gross_revenue,
+    SUM(net_currency * country_mix) AS net_currency,
+    SUM(contractual_discounts * country_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * country_mix) AS discretionary_discounts,                
+    SUM(warranty * country_mix) AS warranty,
+    SUM(other_cos * country_mix) AS other_cos,
+    SUM(total_cos * country_mix) AS total_cos,
+    SUM(revenue_units * country_mix) AS revenue_units
+FROM salesprod_emea_with_xcodes_drivers AS sp
+INNER JOIN usc_country_page_mix02 AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.sales_product_number = cd.sales_product_number)
+GROUP BY sp.cal_date,
+    cd.country_alpha2,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split
+"""        
+
+emea_salesprod_xcode_mash_drivers = spark.sql(emea_salesprod_xcode_mash_drivers)
+emea_salesprod_xcode_mash_drivers.createOrReplaceTempView("emea_salesprod_xcode_mash_drivers")    
+
+
+emea_salesprod_xcode_mash_drivers_null = f"""
+SELECT
+    sp.cal_date,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split,
+    SUM(gross_revenue * COALESCE(country_mix, 1)) AS gross_revenue,
+    SUM(net_currency * COALESCE(country_mix, 1)) AS net_currency,
+    SUM(contractual_discounts * COALESCE(country_mix, 1)) AS contractual_discounts,
+    SUM(discretionary_discounts * COALESCE(country_mix, 1)) AS discretionary_discounts,                
+    SUM(warranty * COALESCE(country_mix, 1)) AS warranty,
+    SUM(other_cos * COALESCE(country_mix, 1)) AS other_cos,
+    SUM(total_cos * COALESCE(country_mix, 1)) AS total_cos,
+    SUM(revenue_units * COALESCE(country_mix, 1)) AS revenue_units
+FROM salesprod_emea_with_xcodes_drivers AS sp
+LEFT JOIN usc_country_page_mix02 AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.sales_product_number = cd.sales_product_number)
+WHERE 1=1
+    AND cd.country_alpha2 is null
+GROUP BY sp.cal_date,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split
+"""        
+
+emea_salesprod_xcode_mash_drivers_null = spark.sql(emea_salesprod_xcode_mash_drivers_null)
+emea_salesprod_xcode_mash_drivers_null.createOrReplaceTempView("emea_salesprod_xcode_mash_drivers_null")  
+
+
+emea_salesprod_xcode_fix_drivers = f"""    
+SELECT
+    cal_date,
+    country_alpha2,
+    'USD' AS currency,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
+    COALESCE(SUM(net_currency), 0) AS net_currency,
+    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
+    COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
+    COALESCE(SUM(warranty), 0) AS warranty,    
+    COALESCE(SUM(other_cos), 0) AS other_cos,
+    COALESCE(SUM(total_cos), 0) AS total_cos,
+    COALESCE(SUM(revenue_units), 0) AS revenue_units
+FROM emea_salesprod_xcode_mash_drivers
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, region_5
+"""
+
+emea_salesprod_xcode_fix_drivers = spark.sql(emea_salesprod_xcode_fix_drivers)
+emea_salesprod_xcode_fix_drivers.createOrReplaceTempView("emea_salesprod_xcode_fix_drivers") 
+
+
+salesprod_emea_with_xcodes_not_drivers = f"""
+SELECT
+    cal_date,
+    Fiscal_Yr,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM salesprod_currency_emea2
+WHERE country_alpha2 IN (
+                                SELECT country_alpha2
+                                FROM mdm.iso_country_code_xref
+                                WHERE country_alpha2 LIKE 'X%'
+                                AND country_alpha2 != 'XK'
+                            )
+AND pl NOT IN (SELECT pl FROM mdm.product_line_xref where pl_category = 'SUP' AND technology IN ('PWA', 'LASER', 'INK'))
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split, Fiscal_Yr
+
+UNION ALL
+
+SELECT
+    cal_date,
+    Fiscal_Yr,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM emea_salesprod_xcode_mash_drivers_null esx
+LEFT JOIN mdm.calendar c
+    ON c.Date = esx.cal_date
+WHERE 1=1
+AND day_of_month = 1
+GROUP BY 
+    cal_date,
+    Fiscal_Yr,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split
+"""
+
+salesprod_emea_with_xcodes_not_drivers = spark.sql(salesprod_emea_with_xcodes_not_drivers)
+salesprod_emea_with_xcodes_not_drivers.createOrReplaceTempView("salesprod_emea_with_xcodes_not_drivers")    
 
 
 emea_country_mix_by_PL_dollar_data = f"""
@@ -5181,7 +4914,7 @@ SELECT
     SUM(other_cos * COALESCE(country_rev_mix, 0)) AS other_cos,
     SUM(total_cos * COALESCE(country_rev_mix, 0)) AS total_cos,
     SUM(revenue_units * COALESCE(country_unit_mix, 0)) AS revenue_units
-FROM salesprod_emea_with_xcodes AS sp
+FROM salesprod_emea_with_xcodes_not_drivers AS sp
 LEFT JOIN emea_combined_mix_4 AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.pl = cd.pl)
 GROUP BY sp.cal_date, country_alpha2, sp.region_5, sp.pl, sales_product_number, ce_split
 """        
@@ -5255,6 +4988,27 @@ SELECT
     SUM(revenue_units) AS revenue_units
 FROM emea_salesprod_xcode_fix1
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
+
+UNION ALL
+            
+SELECT
+    cal_date,
+    country_alpha2,
+    currency,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,            
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM emea_salesprod_xcode_fix_drivers
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 """
 
 emea_salesprod_xcode_adjusted = spark.sql(emea_salesprod_xcode_adjusted)
@@ -5307,13 +5061,13 @@ SELECT
     document_currency_code,
     SUM(revenue) AS revenue -- at net revenue level but sources does not have hedge, so equivalent to revenue before hedge
 FROM fin_stage.odw_document_currency doc
-LEFT JOIN calendar cal ON doc.cal_date = cal.Date
+LEFT JOIN mdm.calendar cal ON doc.cal_date = cal.Date
 WHERE 1=1
     AND revenue <> 0
     AND country_alpha2 <> 'XW'
     AND cal_date > '2021-10-01'
     AND day_of_month = 1
-    AND cal_date = (SELECT MAX(cal_date) FROM odw_document_currency)
+    AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.odw_document_currency)
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
@@ -5714,7 +5468,7 @@ FROM odw_salesprod_with_country_detail3  AS act
 WHERE 1=1
     AND country_alpha2 NOT IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
                             )
@@ -5725,7 +5479,169 @@ salesprod_with_country_detail4 = spark.sql(salesprod_with_country_detail4)
 salesprod_with_country_detail4.createOrReplaceTempView("salesprod_with_country_detail4")
 
 
-salesprod_with_xcodes_apams = f"""
+salesprod_apams_with_xcodes_drivers = f"""
+SELECT
+    cal_date,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM odw_salesprod_with_country_detail3
+WHERE country_alpha2 IN (
+                                SELECT country_alpha2
+                                FROM mdm.iso_country_code_xref
+                                WHERE country_alpha2 LIKE 'X%'
+                                AND country_alpha2 != 'XK'
+                            )
+AND pl IN (SELECT pl FROM mdm.product_line_xref where pl_category = 'SUP' AND technology IN ('PWA', 'LASER', 'INK'))
+GROUP BY cal_date, region_5, pl, sales_product_number, ce_split
+"""
+
+salesprod_apams_with_xcodes_drivers = spark.sql(salesprod_apams_with_xcodes_drivers)
+salesprod_apams_with_xcodes_drivers.createOrReplaceTempView("salesprod_apams_with_xcodes_drivers")    
+
+
+usc_country_page_mix03 = f"""
+SELECT distinct shcam.cal_date
+    , shcam.country_alpha2
+    , iso.region_5
+    , rdma.sales_product_number
+    , sum(shcam.hp_pages) as hp_pages
+FROM stage.supplies_hw_country_actuals_mapping shcam
+LEFT JOIN mdm.iso_country_code_xref iso
+    ON shcam.country_alpha2 = iso.country_alpha2
+LEFT JOIN mdm.rdma_base_to_sales_product_map rdma
+    ON rdma.base_product_number = shcam.base_product_number
+INNER JOIN salesprod_apams_with_xcodes_drivers sewxd
+    ON sewxd.sales_product_number = rdma.sales_product_number
+    AND sewxd.cal_date = shcam.cal_date
+WHERE 1=1
+GROUP BY shcam.cal_date
+    , shcam.country_alpha2
+    , iso.region_5
+    , rdma.sales_product_number
+"""
+
+usc_country_page_mix03 = spark.sql(usc_country_page_mix03)
+usc_country_page_mix03.createOrReplaceTempView("usc_country_page_mix03")    
+
+
+usc_country_page_mix04 = f"""
+SELECT cal_date
+    , country_alpha2
+    , region_5
+    , sales_product_number
+    ,CASE
+        WHEN SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, sales_product_number) = 0 THEN NULL
+        ELSE hp_pages / SUM(hp_pages) OVER (PARTITION BY cal_date, region_5, sales_product_number)
+    END AS country_mix
+FROM usc_country_page_mix03 shcam
+WHERE 1=1
+GROUP BY cal_date
+    , country_alpha2
+    , region_5
+    , sales_product_number
+    , hp_pages
+"""
+
+usc_country_page_mix04 = spark.sql(usc_country_page_mix04)
+usc_country_page_mix04.createOrReplaceTempView("usc_country_page_mix04") 
+
+
+apams_salesprod_xcode_mash_drivers = f"""
+SELECT
+    sp.cal_date,
+    cd.country_alpha2,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split,
+    SUM(gross_revenue * country_mix) AS gross_revenue,
+    SUM(net_currency * country_mix) AS net_currency,
+    SUM(contractual_discounts * country_mix) AS contractual_discounts,
+    SUM(discretionary_discounts * country_mix) AS discretionary_discounts,                
+    SUM(warranty * country_mix) AS warranty,
+    SUM(other_cos * country_mix) AS other_cos,
+    SUM(total_cos * country_mix) AS total_cos,
+    SUM(revenue_units * country_mix) AS revenue_units
+FROM salesprod_apams_with_xcodes_drivers AS sp
+INNER JOIN usc_country_page_mix04 AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.sales_product_number = cd.sales_product_number)
+GROUP BY sp.cal_date,
+    cd.country_alpha2,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split
+"""        
+
+apams_salesprod_xcode_mash_drivers = spark.sql(apams_salesprod_xcode_mash_drivers)
+apams_salesprod_xcode_mash_drivers.createOrReplaceTempView("apams_salesprod_xcode_mash_drivers")    
+
+
+apams_salesprod_xcode_mash_drivers_null = f"""
+SELECT
+    sp.cal_date,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split,
+    SUM(gross_revenue * COALESCE(country_mix, 1)) AS gross_revenue,
+    SUM(net_currency * COALESCE(country_mix, 1)) AS net_currency,
+    SUM(contractual_discounts * COALESCE(country_mix, 1)) AS contractual_discounts,
+    SUM(discretionary_discounts * COALESCE(country_mix, 1)) AS discretionary_discounts,                
+    SUM(warranty * COALESCE(country_mix, 1)) AS warranty,
+    SUM(other_cos * COALESCE(country_mix, 1)) AS other_cos,
+    SUM(total_cos * COALESCE(country_mix, 1)) AS total_cos,
+    SUM(revenue_units * COALESCE(country_mix, 1)) AS revenue_units
+FROM salesprod_apams_with_xcodes_drivers AS sp
+LEFT JOIN usc_country_page_mix04 AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.sales_product_number = cd.sales_product_number)
+WHERE 1=1
+    AND cd.country_alpha2 is null
+GROUP BY sp.cal_date,
+    sp.region_5,
+    pl,
+    sp.sales_product_number,
+    ce_split
+"""        
+
+apams_salesprod_xcode_mash_drivers_null = spark.sql(apams_salesprod_xcode_mash_drivers_null)
+apams_salesprod_xcode_mash_drivers_null.createOrReplaceTempView("apams_salesprod_xcode_mash_drivers_null")  
+
+
+apams_salesprod_xcode_fix_drivers = f"""    
+SELECT
+    cal_date,
+    country_alpha2,
+    'USD' AS currency,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    COALESCE(SUM(gross_revenue), 0) AS gross_revenue,
+    COALESCE(SUM(net_currency), 0) AS net_currency,
+    COALESCE(SUM(contractual_discounts), 0) AS contractual_discounts,
+    COALESCE(SUM(discretionary_discounts), 0) AS discretionary_discounts,
+    COALESCE(SUM(warranty), 0) AS warranty,    
+    COALESCE(SUM(other_cos), 0) AS other_cos,
+    COALESCE(SUM(total_cos), 0) AS total_cos,
+    COALESCE(SUM(revenue_units), 0) AS revenue_units
+FROM apams_salesprod_xcode_mash_drivers
+GROUP BY cal_date, country_alpha2, pl, sales_product_number, ce_split, region_5
+"""
+
+apams_salesprod_xcode_fix_drivers = spark.sql(apams_salesprod_xcode_fix_drivers)
+apams_salesprod_xcode_fix_drivers.createOrReplaceTempView("apams_salesprod_xcode_fix_drivers") 
+
+
+salesprod_with_xcodes_apams_not_drivers = f"""
 SELECT
     cal_date,
     region_5,
@@ -5744,15 +5660,41 @@ FROM odw_salesprod_with_country_detail3
 WHERE 1=1
     AND country_alpha2 IN (
                                 SELECT country_alpha2
-                                FROM iso_country_code_xref
+                                FROM mdm.iso_country_code_xref
                                 WHERE country_alpha2 LIKE 'X%'
                                 AND country_alpha2 != 'XK'
-                            )
+                            )                            
+AND pl NOT IN (SELECT pl FROM mdm.product_line_xref where pl_category = 'SUP' AND technology IN ('PWA', 'LASER', 'INK'))
 GROUP BY cal_date, region_5, pl, sales_product_number, ce_split
+
+UNION ALL
+
+SELECT
+    cal_date,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM apams_salesprod_xcode_mash_drivers_null 
+WHERE 1=1
+GROUP BY 
+    cal_date,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split
 """        
 
-salesprod_with_xcodes_apams = spark.sql(salesprod_with_xcodes_apams)
-salesprod_with_xcodes_apams.createOrReplaceTempView("salesprod_with_xcodes_apams")
+salesprod_with_xcodes_apams_not_drivers = spark.sql(salesprod_with_xcodes_apams_not_drivers)
+salesprod_with_xcodes_apams_not_drivers.createOrReplaceTempView("salesprod_with_xcodes_apams_not_drivers")
 
 
 country_mix_by_PL_dollar_data_apams = f"""
@@ -5964,7 +5906,7 @@ SELECT
     SUM(other_cos * COALESCE(country_rev_mix, 0)) AS other_cos,
     SUM(total_cos * COALESCE(country_rev_mix, 0)) AS total_cos,
     SUM(revenue_units * COALESCE(country_unit_mix, 0)) AS revenue_units
-FROM salesprod_with_xcodes_apams AS sp
+FROM salesprod_with_xcodes_apams_not_drivers AS sp
 LEFT JOIN combined_mix_4_apams AS cd ON (sp.cal_date = cd.cal_date AND sp.region_5 = cd.region_5 AND sp.pl = cd.pl)
 GROUP BY sp.cal_date, country_alpha2, sp.region_5, sp.pl, sales_product_number, ce_split
 """
@@ -6057,6 +5999,27 @@ SELECT
     SUM(other_cos) AS other_cos,
     SUM(total_cos) AS total_cos,
     SUM(revenue_units) AS revenue_units
+FROM apams_salesprod_xcode_fix_drivers
+GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
+
+UNION ALL
+
+SELECT
+    cal_date,
+    country_alpha2,
+    currency,
+    region_5,
+    pl,
+    sales_product_number,
+    ce_split,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
 FROM emea_salesprod_xcode_adjusted2
 GROUP BY cal_date, country_alpha2, region_5, pl, sales_product_number, ce_split, currency
 """
@@ -6070,7 +6033,7 @@ SELECT
     cal_date,
     country_alpha2,
     CASE
-        WHEN sales_product_number LIKE 'mps%' THEN 'USD'
+        WHEN sales_product_number LIKE 'MPS%' THEN 'USD'
         ELSE currency
     END AS currency,
     region_5,
