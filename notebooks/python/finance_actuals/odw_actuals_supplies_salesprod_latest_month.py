@@ -381,7 +381,7 @@ supplies_dollars.write \
   .format("delta") \
   .option("overwriteSchema", "true") \
   .mode("overwrite") \
-  .save("/tmp/delta/fin_stage/final_union_odw_data")
+  .save("/tmp/delta/fin_stage/supplies_dollars")
 
 # Create the table.
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.supplies_dollars USING DELTA LOCATION '/tmp/delta/fin_stage/supplies_dollars'")
@@ -405,9 +405,9 @@ SELECT
     SUM(warranty) as warranty,
     SUM(total_cos_without_warranty) as total_cos_without_warranty,
     SUM(revenue_units) AS revenue_units
-FROM supplies_dollars
+FROM fin_stage.supplies_dollars
 WHERE 1=1
-  AND cal_date = (SELECT max(cal_date from supplies_dollars))
+  AND cal_date = (SELECT max(cal_date from fin_stage.supplies_dollars))
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 
 UNION ALL
@@ -5065,14 +5065,14 @@ SELECT
     region_5,
     transaction_currency_code as document_currency_code,
     SUM(gross_revenue) + SUM(net_currency) + sum(contractual_discounts) + sum(discretionary_discounts) AS revenue
-FROM supplies_dollars doc
+FROM fin_stage.supplies_dollars doc
 LEFT JOIN mdm.calendar cal ON doc.cal_date = cal.Date
 LEFT JOIN mdm.iso_country_code_xref iso ON iso.country_alpha2 = doc.country_alpha2
 WHERE 1=1
     AND doc.country_alpha2 <> 'XW'
     AND cal_date > '2021-10-01'
     AND day_of_month = 1
-    AND cal_date = (SELECT MAX(cal_date) FROM supplies_dollars)
+    AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.supplies_dollars)
 GROUP BY cal_date,
     Fiscal_year_qtr,
     Fiscal_yr,
@@ -7183,11 +7183,11 @@ SELECT
     region_5,
     transaction_currency_code,
     SUM(gross_revenue) + SUM(net_currency) + sum(contractual_discounts) + SUM(discretionary_discounts) AS revenue
-FROM supplies_dollars doc
+FROM fin_stage.supplies_dollars doc
 WHERE 1=1
     AND country_alpha2 NOT LIKE 'X%'
     AND cal_date > '2021-10-01'
-    AND cal_date = (SELECT MAX(cal_date) FROM supplies_dollars)
+    AND cal_date = (SELECT MAX(cal_date) FROM fin_stage.supplies_dollars)
     AND pl = 'GD'
 GROUP BY cal_date,
     pl,
