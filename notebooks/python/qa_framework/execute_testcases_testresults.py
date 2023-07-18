@@ -47,7 +47,7 @@ dbutils.widgets.text("skip_notebook","true")
 # COMMAND ----------
 
 if dbutils.widgets.get("skip_notebook")=="true":
-    dbutils.notebook.exit()
+    dbutils.notebook.exit("skip notebook set to true")
 
 # COMMAND ----------
 
