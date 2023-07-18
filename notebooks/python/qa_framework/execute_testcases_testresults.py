@@ -42,6 +42,15 @@ from io import BytesIO
 
 # COMMAND ----------
 
+dbutils.widgets.text("skip_notebook","true")
+
+# COMMAND ----------
+
+if dbutils.widgets.get("skip_notebook")="true":
+    dbutils.notebook.exit()
+
+# COMMAND ----------
+
 #s3_bucket ='dataos-core-itg-team-phoenix'
 s3_bucket1=constants['S3_BASE_BUCKET'][stack]
 s3_bucket=s3_bucket1[6:-1]
