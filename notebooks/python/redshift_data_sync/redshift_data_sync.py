@@ -23,6 +23,7 @@ from datetime import datetime
 # create empty widgets for interactive sessions
 dbutils.widgets.text('destination_envs', '')
 dbutils.widgets.text('tables', '')
+dbutils.widgets.text('backup_only', '')
 
 # COMMAND ----------
 
@@ -58,7 +59,7 @@ def get_redshift_table_names(configs:dict, schema: str):
 
 # Unload data to S3 from Redshift
 def redshift_unload(dbname: str, port: str, user: str, password: str, host: str, schema: str, table: str, s3_url: str, iam_role: str):
-    print(f'prod|Started unloading {schema}.{table}')
+    print(f'prod|Started unloading {schema}.{table} to {s3_url}')
     start_time = time.time()
     select_statement = ""
     try:
@@ -131,13 +132,19 @@ def replace_invalid_characters(list_of_strings: list, string_pattern: str, strin
 # COMMAND ----------
 
 # Unload data from prod
-def redshift_data_sync(datestamp: str, timestamp:str, table: str, credentials: dict[str, str], destination_envs: str) -> None:
-    # Unload location for both dev and itg is itg S3 bucket 
-    REDSHIFT_DATA_SYNC_BUCKET = f"{constants['S3_BASE_BUCKET']['itg']}redshift_data_sync".replace("s3a://", "s3://")
+def redshift_data_sync(datestamp: str, timestamp:str, table: str, credentials: dict[str, str], destination_envs: str, backup_only: bool) -> None:
+    if backup_only:
+        REDSHIFT_DATA_SYNC_BUCKET = f"{constants['S3_BASE_BUCKET'][stack]}redshift_data_sync".replace("s3a://", "s3://")
+        iam_role=f"{configs['aws_iam_role']}"
+    else:
+        # Unload location for both dev and itg is itg S3 bucket 
+        REDSHIFT_DATA_SYNC_BUCKET = f"{constants['S3_BASE_BUCKET']['itg']}redshift_data_sync".replace("s3a://", "s3://")
+        iam_role = f"{configs['aws_iam_role']},{constants['REDSHIFT_IAM_ROLE']['dev']}"
 
     schema_name = table.split(".")[0]
     table_name = table.split(".")[1]
-    
+
+
     redshift_unload(dbname=configs["redshift_dbname"],
                     port=configs["redshift_port"],
                     user=configs["redshift_username"],
@@ -146,43 +153,44 @@ def redshift_data_sync(datestamp: str, timestamp:str, table: str, credentials: d
                     schema=schema_name,
                     table=table_name,
                     s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{timestamp}/{schema_name}/{table_name}/",
-                    iam_role=f"{configs['aws_iam_role']},{constants['REDSHIFT_IAM_ROLE']['dev']}")
+                    iam_role=iam_role)
 
-    # Build query to drop and rebuild table in lower environment/s
-    ddl = redshift_retrieve_ddl(dbname=configs["redshift_dbname"],
-                                port=configs["redshift_port"],
-                                user=configs["redshift_username"],
-                                password=configs["redshift_password"],
-                                host=configs["redshift_url"],
-                                schema=schema_name,
-                                table=table_name)
-    drop_table_query = f"DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE;\n" + ddl
-    
-    # Copy data to itg/dev
-    for destination_env in destination_envs:
-        try:
-            submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
-                                constants['REDSHIFT_PORT'][destination_env],
-                                credentials[destination_env]['username'],
-                                credentials[destination_env]['password'],
-                                constants['REDSHIFT_URL'][destination_env],
-                                drop_table_query)
-        except Exception as error:
-            print (f"{destination_env}|An exception has occured while attempting to drop/create {table}:", error)
-            print (f"{destination_env}|Exception Type:", type(error))
-            raise Exception(error)
+    if not backup_only:
+        # Build query to drop and rebuild table in lower environment/s
+        ddl = redshift_retrieve_ddl(dbname=configs["redshift_dbname"],
+                                    port=configs["redshift_port"],
+                                    user=configs["redshift_username"],
+                                    password=configs["redshift_password"],
+                                    host=configs["redshift_url"],
+                                    schema=schema_name,
+                                    table=table_name)
+        drop_table_query = f"DROP TABLE IF EXISTS {schema_name}.{table_name} CASCADE;\n" + ddl
+        
+        # Copy data to itg/dev
+        for destination_env in destination_envs:
+            try:
+                submit_remote_query(constants['REDSHIFT_DATABASE'][destination_env],
+                                    constants['REDSHIFT_PORT'][destination_env],
+                                    credentials[destination_env]['username'],
+                                    credentials[destination_env]['password'],
+                                    constants['REDSHIFT_URL'][destination_env],
+                                    drop_table_query)
+            except Exception as error:
+                print (f"{destination_env}|An exception has occured while attempting to drop/create {table}:", error)
+                print (f"{destination_env}|Exception Type:", type(error))
+                raise Exception(error)
 
-        # Copy data from ITG bucket to Redshift
-        redshift_copy(dbname=constants['REDSHIFT_DATABASE'][destination_env],
-                        port=constants['REDSHIFT_PORT'][destination_env],
-                        user=credentials[destination_env]['username'],
-                        password=credentials[destination_env]['password'],
-                        host=constants['REDSHIFT_URL'][destination_env],
-                        schema=schema_name,
-                        table=table_name,
-                        s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{timestamp}/{schema_name}/{table_name}/",
-                        iam_role=constants['REDSHIFT_IAM_ROLE'][destination_env],
-                        destination_env=destination_env)
+            # Copy data from ITG bucket to Redshift
+            redshift_copy(dbname=constants['REDSHIFT_DATABASE'][destination_env],
+                            port=constants['REDSHIFT_PORT'][destination_env],
+                            user=credentials[destination_env]['username'],
+                            password=credentials[destination_env]['password'],
+                            host=constants['REDSHIFT_URL'][destination_env],
+                            schema=schema_name,
+                            table=table_name,
+                            s3_url=f"{REDSHIFT_DATA_SYNC_BUCKET}/{datestamp}/{timestamp}/{schema_name}/{table_name}/",
+                            iam_role=constants['REDSHIFT_IAM_ROLE'][destination_env],
+                            destination_env=destination_env)
     return None
 
 # COMMAND ----------
@@ -194,6 +202,9 @@ def main():
     datestamp = date.getDatestamp("%Y-%m-%d")
     # UNIX timestamp
     timestamp = date.getTimestamp()
+
+    # parse backup_only parameter
+    backup_only = True if dbutils.widgets.get('backup_only').lower().strip() == 'true' else False
 
     # Define destination envs
     destination_envs = ['itg', 'dev'] if dbutils.widgets.get('destination_envs') == '' else dbutils.widgets.get('destination_envs').lower().split(',')
@@ -223,7 +234,7 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         future_to_table = {}
         for table in tables:
-            future = executor.submit(redshift_data_sync, datestamp, timestamp, table, credentials, destination_envs)
+            future = executor.submit(redshift_data_sync, datestamp, timestamp, table, credentials, destination_envs, backup_only)
             future_to_table[future] = table
         
         for future in concurrent.futures.as_completed(future_to_table):
