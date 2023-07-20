@@ -312,9 +312,7 @@ step_1 as
            a.platform_subset,
            'TRAD' as customer_engagement,
            0 as split_value,
-           a.units - coalesce(b.p1_units,0) as units,
-           getdate() as load_date,
-        '2023.06.13.1' as version
+           a.units - coalesce(b.p1_units,0) as units
     from stage.norm_ships a left join ns_enrollees b
         on a.platform_subset=b.platform_subset
         and a.cal_date=b.cal_date
@@ -329,9 +327,7 @@ step_1 as
         a.platform_subset,
         'I-INK' as customer_engagement,
         0 as split_value,
-        a.p1_units as units,
-        getdate() as load_date,
-        '2023.06.13.1' as version
+        a.p1_units as units
     from ns_enrollees a
     	 left join mdm.iso_country_code_xref b on a.country = b.country_alpha2
               join stage.norm_ships c on
@@ -348,9 +344,7 @@ step_1 as
         platform_subset,
         'I-INK' as customer_engagement,
         0 as split_value,
-        a.units as units,
-        getdate() as load_date,
-        '2023.06.13.1' as version
+        a.units as units
     from stage.norm_ships a left join mdm.iso_country_code_xref b on a.country_alpha2 = b.country_alpha2
     where a.platform_subset like '%PAAS%'
 )
@@ -362,9 +356,7 @@ select 'NORM_SHIPS_CE' record,
        platform_subset,
        customer_engagement,
        split_value,
-       units,
-       getdate() as load_date,
-       '2023.06.13.1' version
+       units
 from step_1
 where 1=1
 """
@@ -439,7 +431,6 @@ SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
     , '1.1' version
 FROM "stage"."norm_ships"
 WHERE 1=1
-   -- AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
 
 UNION ALL
 
@@ -506,7 +497,3 @@ submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_ships; CREA
 
 # copy from stage to scen
 submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_shipments_ce; CREATE TABLE scen.prelim_norm_shipments_ce AS SELECT * FROM stage.norm_shipments_ce;")
-
-# COMMAND ----------
-
-
