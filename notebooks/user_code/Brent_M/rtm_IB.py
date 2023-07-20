@@ -11,6 +11,11 @@
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## NORM SHIPS
+
+# COMMAND ----------
+
 # create an allocated temp table for RTM historical actuals
 # CREATE RTM RAW Norm_shipments dataset
 rtm_ns_raw_temp_query = """
@@ -358,6 +363,11 @@ write_df_to_redshift(configs, redshift_rtm_ns_fixed_records, "stage.rtm_ns_stage
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## LAG
+
+# COMMAND ----------
+
 
 # CREATE RTM lagged NS
 ib_01_hw_lagged_query = """
@@ -421,6 +431,11 @@ ib_01_hw_lagged_records = read_redshift_to_df(configs) \
 # COMMAND ----------
 
 write_df_to_redshift(configs, ib_01_hw_lagged_records, "stage.rtm_ib_hw_lagged", "overwrite")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## DECAY
 
 # COMMAND ----------
 
@@ -585,6 +600,11 @@ write_df_to_redshift(configs, rtm_ib_decayed_records, "stage.rtm_ib_decayed", "o
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## IB STAGING
+
+# COMMAND ----------
+
 # CREATE RTM ib_staging dataset
 rtm_ib_staging_query = """
 SELECT 'IB' AS record
@@ -612,8 +632,333 @@ rtm_ib_staging_records = read_redshift_to_df(configs) \
 
 # COMMAND ----------
 
+# create two copies of the ib_staging data for auditing purposes, this table is the original
+write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_pre_staging", "overwrite")
+
+# COMMAND ----------
+
+# create two copies of the ib_staging data for auditing purposes, this table will be updated from OZZY mps data with MAI uplift units
 write_df_to_redshift(configs, rtm_ib_staging_records, "stage.rtm_ib_staging", "overwrite")
 
 # COMMAND ----------
 
-# test
+# MAGIC %md
+# MAGIC ## ACTUALS
+
+# COMMAND ----------
+
+# update RTM historical actuals dataset with MAI from ozzy
+rtm_mps_actuals_uplift_query = """
+--pull IB units from Phoenix (via Ozzy)
+WITH ozzy_ib_units as
+(
+    select
+        'ozzy' as record,
+        cal_date,
+        platform_subset,
+        a.country_alpha2,
+        business_type_grp as split_name,
+        sum(device_op_ib_total) as ib_units
+    from prod.ib_mps a INNER JOIN mdm.iso_country_code_xref b on a.country_alpha2=b.country_alpha2
+    where 1=1
+        and business_type_grp in ('DMPS','PMPS')
+        and is_this_a_printer = 'YES'
+        and category_grp = 'LASER'
+        and cal_date >= (SELECT MIN(month_begin) FROM stage.rtm_ib_staging WHERE split_name in ('DMPS','PMPS'))
+    GROUP BY 
+        cal_date, 
+        platform_subset, 
+        a.country_alpha2, 
+        business_type_grp
+),
+
+--pull calculated RTM IB units from Phoenix
+phoenix_rtm_units as
+(
+    Select
+        'phoenix' as record,
+        month_begin as cal_date,
+        a.platform_subset,
+        country_alpha2,
+        split_name,
+        sum(ib) as ib_units
+    from stage.rtm_ib_staging a left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
+    where 1=1
+        and split_name IN ('DMPS','PMPS')
+        and b.technology = 'LASER'
+    GROUP BY 
+        month_begin, 
+        a.platform_subset, 
+        country_alpha2, 
+        split_name
+)
+
+--Calculate how many extra units are in Ozzy IB compared to phoenix calculated RTM IB
+    select
+        a.cal_date,
+        a.country_alpha2,
+        a.platform_subset,
+        a.split_name,
+        coalesce(b.ib_units,a.ib_units)-a.ib_units as diff
+    from phoenix_rtm_units a left join ozzy_ib_units b on
+        a.cal_date=b.cal_date
+        and a.country_alpha2=b.country_alpha2
+        and a.split_name = b.split_name
+        and a.platform_subset=b.platform_subset
+    where 1=1
+        and a.cal_date >= (SELECT MIN(cal_date) FROM ozzy_ib_units)
+        and coalesce(b.ib_units,a.ib_units)-a.ib_units <> 0
+
+"""
+
+rtm_mps_actuals_uplift_records = read_redshift_to_df(configs) \
+    .option("query", rtm_mps_actuals_uplift_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_mps_actuals_uplift_records, "stage.rtm_mps_actuals_uplift_staging", "overwrite")
+
+# COMMAND ----------
+
+# update rtm ib data with finalized ozzy mps ib data
+rtm_mps_update_query=f"""
+UPDATE stage.rtm_ib_staging a
+SET ib = a.ib + b.diff
+FROM stage.rtm_mps_actuals_uplift_staging b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name = b.split_name
+    and a.month_begin = b.cal_date
+"""
+
+submit_remote_query(configs, rtm_mps_update_query) 
+
+# COMMAND ----------
+
+# drop TRAD units
+rtm_trad_uplift_query=f"""
+with uplift_totals as
+(
+    select
+        country_alpha2,
+        cal_date as month_begin,
+        platform_subset,
+        sum(diff) as new_mps_units
+    from stage.rtm_mps_actuals_uplift_staging
+    GROUP BY country_alpha2, cal_date, platform_subset
+)
+select
+    a.country_alpha2,
+    a.month_begin,
+    a.split_name,
+    a.platform_subset,
+    ib - b.new_mps_units as ib
+from stage.rtm_ib_staging a inner join uplift_totals b
+    on a.country_alpha2=b.country_alpha2
+    and a.platform_subset = b.platform_subset
+    and a.month_begin=b.month_begin
+where 1=1
+    and split_name = 'TRAD'
+"""
+
+rtm_trad_uplift_records = read_redshift_to_df(configs) \
+    .option("query", rtm_trad_uplift_query) \
+    .load()
+
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_trad_uplift_records, "stage.rtm_ib_trad_uplift_staging", "overwrite")
+
+# COMMAND ----------
+
+# update rtm ib data
+rtm_trad_update_query=f"""
+UPDATE stage.rtm_ib_staging a
+SET ib = b.ib
+FROM stage.rtm_ib_trad_uplift_staging b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name = 'TRAD'
+    and a.month_begin = b.month_begin
+"""
+
+submit_remote_query(configs, rtm_trad_update_query) 
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## FORECAST
+
+# COMMAND ----------
+
+# FORECAST AREA
+
+# create % to uplift forecast
+rtm_forecast_mps_uplift_pct_query=f"""
+with vars as
+(
+    select distinct
+        'date_var' as record,
+        cal_date as max_date,
+        trunc(add_months(cal_date,1)) as min_rtm_date,
+        trunc(add_months(cal_date,-11)) as look_back_date
+    from prod.ib_mps
+    WHERE 1=1
+        and cal_date = (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
+),
+
+ozzy_totals as
+(
+    select
+        platform_subset,
+        a.country_alpha2,
+        business_type_grp as split_name,
+        CASE WHEN sum(device_op_ib_total)/12 < 1 THEN 1
+            ELSE sum(device_op_ib_total)/12
+            END as ozzy_ib_units
+        --sum(device_op_ib_total)/12 as ozzy_ib_units
+        --Case statement here: if sum/12 < 1 , then 1
+    from prod.ib_mps a
+        INNER JOIN mdm.iso_country_code_xref b on a.country_alpha2=b.country_alpha2
+        INNER JOIN vars v on v.record='date_var'
+    where 1=1
+        and business_type_grp in ('DMPS','PMPS')
+        and is_this_a_printer = 'YES'
+        and category_grp = 'LASER'
+        and cal_date between v.look_back_date and v.max_date
+        and device_op_ib_total > 0
+    GROUP BY platform_subset, a.country_alpha2, business_type_grp
+),
+
+rtm_ib_totals as
+(
+    select
+        a.platform_subset,
+        country_alpha2,
+        a.split_name,
+        CASE WHEN sum(ib)/12 < 1 then 1
+            ELSE sum(ib)/12
+            END as rtm_ib_units
+        --sum(ib)/12 as rtm_ib_units
+    from stage.rtm_ib_pre_staging a
+        left join mdm.hardware_xref b on a.platform_subset=b.platform_subset
+        INNER JOIN vars v on v.record = 'date_var'
+    where 1=1
+        and b.technology = 'LASER'
+        and a.month_begin between v.look_back_date and v.max_date
+        --and a.month_begin = v.min_rtm_date
+        and a.split_name <> 'TRAD'
+    GROUP BY a.platform_subset, country_alpha2, a.split_name
+)
+
+SELECT
+    a.platform_subset,
+    a.country_alpha2,
+    a.split_name,
+    rtm_ib_units,
+    ozzy_ib_units,
+    ozzy_ib_units - rtm_ib_units as unit_diff,
+    CASE WHEN rtm_ib_units / ozzy_ib_units = 0 then 1
+        ELSE rtm_ib_units / ozzy_ib_units
+        END as mix_pct
+FROM rtm_ib_totals a INNER JOIN ozzy_totals b ON
+    a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name = b.split_name
+ORDER BY 1,2
+"""
+
+rtm_forecast_mps_uplift_pct_records = read_redshift_to_df(configs) \
+    .option("query", rtm_forecast_mps_uplift_pct_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_forecast_mps_uplift_pct_records, "stage.rtm_forecast_mps_uplift_pct_staging", "overwrite")
+
+# COMMAND ----------
+
+
+# calculate units to uplift forecast and remove from TRAD
+# Some products have an outrageous mix_pct, like WRIGELY MANAGED, GB (0.00423728813559322) -- So we're setting a cap on how low the mix_pct can go.
+rtm_forecast_mps_uplift_query=f"""
+
+select
+    a.month_begin,
+    a.country_alpha2,
+    a.split_name,
+    a.platform_subset,
+    a.ib,
+    b.mix_pct,
+    --a.ib/coalesce(b.mix_pct,1) as new_ib,
+    --a.ib/coalesce(b.mix_pct,1) - a.ib as units_remove_from_trad
+    CASE WHEN coalesce(b.mix_pct,1) < .05 then a.ib/.05
+        ELSE a.ib/coalesce(b.mix_pct,1)
+        END as new_ib,
+    CASE WHEN coalesce(b.mix_pct,1) < .05 then (a.ib/.05) - a.ib
+        ELSE a.ib/coalesce(b.mix_pct,1) - a.ib
+        END as units_remove_from_trad
+from stage.rtm_ib_staging a left join stage.rtm_forecast_mps_uplift_pct_staging b on
+        a.platform_subset = b.platform_subset
+        and a.country_alpha2=b.country_alpha2
+        and a.split_name = b.split_name
+where 1=1
+    and a.split_name <> 'TRAD'
+    and a.ib <> 0
+order by platform_subset, month_begin, split_name
+"""
+
+rtm_forecast_mps_uplift_records = read_redshift_to_df(configs) \
+    .option("query", rtm_forecast_mps_uplift_query) \
+    .load()
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, rtm_forecast_mps_uplift_records, "stage.rtm_forecast_mps_uplift_staging", "overwrite")
+
+# COMMAND ----------
+
+#update mps forecast records
+rtm_mps_forecast_update_query=f"""
+UPDATE stage.rtm_ib_staging a
+SET ib = b.new_ib
+FROM stage.rtm_forecast_mps_uplift_staging b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    -- and a.split_name <> 'TRAD'
+    and a.split_name = b.split_name
+    and a.month_begin = b.month_begin
+    and a.month_begin > (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
+
+"""
+
+submit_remote_query(configs, rtm_mps_forecast_update_query) 
+
+# COMMAND ----------
+
+# update trad forecast records
+rtm_trad_forecast_update_query=f"""
+UPDATE stage.rtm_ib_staging a
+SET ib = ib-b.units
+FROM (  
+    SELECT
+        month_begin,
+        country_alpha2,
+        platform_subset,
+        sum(units_remove_from_trad) as units
+    FROM stage.rtm_forecast_mps_uplift_staging
+    GROUP BY  month_begin, country_alpha2, platform_subset) b
+WHERE 1=1
+    and a.platform_subset = b.platform_subset
+    and a.country_alpha2 = b.country_alpha2
+    and a.split_name = 'TRAD'
+    and a.month_begin = b.month_begin
+    and a.month_begin > (SELECT MAX(cal_date) from prod.ib_mps WHERE business_type_grp in ('DMPS','PMPS') and is_this_a_printer = 'YES' and category_grp = 'LASER')
+"""
+
+submit_remote_query(configs, rtm_trad_forecast_update_query) 

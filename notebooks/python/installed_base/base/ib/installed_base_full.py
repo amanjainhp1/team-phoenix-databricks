@@ -74,10 +74,10 @@ WHERE 1=1
 UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments"
+    , '1.1' version
+FROM "stage"."norm_shipments_ce"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+    --AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
 
 UNION ALL
 
@@ -171,10 +171,10 @@ WHERE 1=1
 UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments"
+    , '1.1' version
+FROM "stage"."norm_shipments_ce"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
+  --  AND version = (SELECT MAX(version) FROM "prod"."norm_shipments_ce" )
 
 UNION ALL
 
@@ -188,9 +188,10 @@ SELECT ns.region_5
     , ns.cal_date AS month_begin
     , ns.country_alpha2
     , ns.platform_subset
+    , ns.customer_engagement
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships" AS ns
+FROM "stage"."norm_shipments_ce" AS ns
 JOIN ib_01_filter_vars AS fv
     ON fv.record = 'BUILD_NORM_SHIPS'
     AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
@@ -224,14 +225,14 @@ SELECT CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month,
     , ucep.country_alpha2
     , iso.market13
     , ucep.hps_ops
-    , ucep.split_name
+    , ucep.customer_engagement split_name
     , ucep.platform_subset
     , SUM(ucep.units * pl.value) AS printer_installs
 FROM "stage"."ib_04_units_ce_splits_pre" AS ucep
 JOIN "mdm"."printer_lag" AS pl  -- implicit cross join (or cartesian product)
     ON ucep.region_5 = pl.region_5
     AND ucep.hps_ops = pl.hps_ops
-    AND ucep.split_name = pl.split_name
+    AND ucep.customer_engagement = pl.split_name
     AND pl.pre_post_flag = 'PRE'
 LEFT JOIN iso ON ucep.country_alpha2=iso.country_alpha2
 GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month, ucep.month_begin) AS INTEGER) + pl.month_lag - 1) / 12
@@ -241,7 +242,7 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , iso.market13
     , ucep.country_alpha2
     , ucep.hps_ops
-    , ucep.split_name
+    , ucep.customer_engagement
     , ucep.platform_subset
 """
 
@@ -445,19 +446,14 @@ SELECT ib.month_begin
     , ib.region_5
     , ib.country_alpha2
     , ib.hps_ops
-    , COALESCE(ce.split_name, ib.split_name, 'TRAD') AS split_name
+    , ib.split_name AS split_name
     , ib.platform_subset
-    , ib.printer_installs * COALESCE(ce.value, 1.0) AS printer_installs
-    , ib.ib * COALESCE(ce.value, 1.0) AS ib
+    , ib.printer_installs AS printer_installs
+    , ib.ib AS ib
 FROM ib_11_prelim_output AS ib
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ib.platform_subset
-LEFT JOIN ib_02c_ce_splits_final AS ce
-    ON ce.platform_subset = ib.platform_subset
-    AND ce.country_alpha2 = ib.country_alpha2
-    AND ce.pre_post_flag = 'POST'
-    AND ce.month_begin = ib.month_begin
-    AND ce.value > 0
+
 WHERE 1=1
     AND hw.technology IN ('INK', 'PWA')
     

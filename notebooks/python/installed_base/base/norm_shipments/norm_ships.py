@@ -274,6 +274,96 @@ query_list.append(["stage.norm_ships", norm_ships, "overwrite"])
 
 # COMMAND ----------
 
+norm_ships_ce = """
+with ns_enrollees as
+(
+    select
+        'stf' as record,
+        cal_date,
+        country,
+        platform_subset,
+        sum(p1_enrollees) as p1_units
+    from prod.instant_ink_enrollees_stf
+    where 1=1
+        aND official=1
+        and p1_enrollees <> 0
+    GROUP BY cal_date, country, platform_subset
+    UNION ALL
+    select
+        'ltf' as record,
+        cal_date,
+        country,
+        platform_subset,
+        sum(p1_enrollees) as p1_units
+    from prod.instant_ink_enrollees_ltf
+    where 1=1
+        and official=1
+        and p1_enrollees <> 0
+    GROUP BY cal_date, country, platform_subset
+),
+
+step_1 as
+(
+    select
+           a.record,
+           a.cal_date,
+           region_5,
+           a.country_alpha2,
+           a.platform_subset,
+           'TRAD' as customer_engagement,
+           0 as split_value,
+           a.units - coalesce(b.p1_units,0) as units
+    from stage.norm_ships a left join ns_enrollees b
+        on a.platform_subset=b.platform_subset
+        and a.cal_date=b.cal_date
+        and a.country_alpha2 = b.country
+    where a.platform_subset not like '%PAAS%'
+    UNION ALL
+    select
+        'instant_ink',
+        a.cal_date,
+        b.region_5,
+        a.country as country_alpha2,
+        a.platform_subset,
+        'I-INK' as customer_engagement,
+        0 as split_value,
+        a.p1_units as units
+    from ns_enrollees a
+    	 left join mdm.iso_country_code_xref b on a.country = b.country_alpha2
+              join stage.norm_ships c on
+	            c.platform_subset = a.platform_subset
+        	and c.cal_date = a.cal_date
+	        and c.country_alpha2 = a.country
+    where a.platform_subset not like '%PAAS%'
+     UNION ALL
+    select
+        'instant_ink',
+        cal_date,
+        b.region_5,
+        a.country_alpha2,
+        platform_subset,
+        'I-INK' as customer_engagement,
+        0 as split_value,
+        a.units as units
+    from stage.norm_ships a left join mdm.iso_country_code_xref b on a.country_alpha2 = b.country_alpha2
+    where a.platform_subset like '%PAAS%'
+)
+
+select 'NORM_SHIPS_CE' record,
+       cal_date,
+       region_5,
+       country_alpha2,
+       platform_subset,
+       customer_engagement,
+       split_value,
+       units
+from step_1
+where 1=1
+"""
+query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
+
+# COMMAND ----------
+
 ce_splits_pre = """
 
 with ib_01_filter_vars as (
@@ -338,10 +428,9 @@ WHERE 1=1
 UNION ALL
 
 SELECT DISTINCT 'PROD_NORM_SHIPS' AS record
-    , version
-FROM "prod"."norm_shipments"
+    , '1.1' version
+FROM "stage"."norm_ships"
 WHERE 1=1
-    AND version = (SELECT MAX(version) FROM "prod"."norm_shipments" )
 
 UNION ALL
 
@@ -355,12 +444,10 @@ SELECT ns.region_5
     , ns.cal_date AS month_begin
     , ns.country_alpha2
     , ns.platform_subset
+    , ns.customer_engagement 
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships" AS ns
-JOIN ib_01_filter_vars AS fv
-    ON fv.record = 'BUILD_NORM_SHIPS'
-    AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
+FROM "stage"."norm_shipments_ce" AS ns
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ns.platform_subset
 JOIN "mdm"."iso_country_code_xref" AS cc
@@ -368,105 +455,21 @@ JOIN "mdm"."iso_country_code_xref" AS cc
 WHERE 1=1
     AND hw.technology IN ('LASER','INK','PWA','LF')
 
-), ib_02a_ce_splits as (
-
-SELECT ce.record
-    , ce.platform_subset
-    , ce.region_5
-    , ce.country_alpha2
-    , ce.month_begin
-    , ce.split_name
-    , ce.pre_post_flag
-    , ce.value
-    , ce.load_date
-FROM "prod"."ce_splits" AS ce
-WHERE 1=1
-    AND ce.official = 1
-    AND ce.record IN ('CE_SPLITS_I-INK', 'CE_SPLITS_I-INK LF','CE_SPLITS')
-
-),  ib_02b_ce_splits_filter as (
-
-SELECT DISTINCT record
-    , platform_subset
-    , country_alpha2
-    , split_name
-    , load_date
-    , ROW_NUMBER() OVER (PARTITION BY platform_subset, country_alpha2, split_name ORDER BY load_date DESC) AS load_select
-FROM
-(
-    SELECT DISTINCT ce.record
-        , ce.platform_subset
-        , ce.country_alpha2
-        , ce.split_name
-        , ce.load_date
-    FROM ib_02a_ce_splits AS ce
-    WHERE 1=1
-        AND pre_post_flag = 'PRE'
-) AS sub
-WHERE 1=1
-
-),  ib_02c_ce_splits_final as (
-
-SELECT ce.record
-    , ce.platform_subset
-    , ce.region_5
-    , ce.country_alpha2
-    , ce.month_begin
-    , ce.split_name
-    , ce.pre_post_flag
-    , ce.value
-    , ce.load_date
-FROM ib_02a_ce_splits AS ce
-JOIN ib_02b_ce_splits_filter AS f
-    ON f.record = ce.record
-    AND f.load_date = ce.load_date
-    AND f.platform_subset = ce.platform_subset
-    AND f.country_alpha2 = ce.country_alpha2
-    AND f.split_name = ce.split_name
-WHERE 1=1
-    AND ce.pre_post_flag = 'PRE'
-    AND f.load_select = 1
-)SELECT ns.region_5
+)
+SELECT ns.region_5
     , ns.market10
     , ns.hps_ops
     , ns.country_alpha2
     , ns.platform_subset
     , ns.month_begin
-    , CASE WHEN ns.platform_subset LIKE '%PAAS%' THEN COALESCE(ce.split_name, 'I-INK') ELSE COALESCE(ce.split_name, 'TRAD') END AS split_name
-    , COALESCE(ce.value, 1.0) AS split_value
-    , ns.units * COALESCE(ce.value, 1.0) AS units
+    , ns.customer_engagement
+    , 1.0 AS split_value
+    , ns.units  AS units
 FROM ib_03_norm_shipments_agg AS ns
-LEFT JOIN ib_02c_ce_splits_final AS ce
-    ON ce.country_alpha2 = ns.country_alpha2
-    AND ce.platform_subset = ns.platform_subset
-    AND ce.month_begin = ns.month_begin
-    AND ce.pre_post_flag = 'PRE'  -- filter to only PRE splits
-    AND ce.value > 0  -- filter out rows where value = 0 (this is just adding rows and not information)
 WHERE 1=1
 """
 
 query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"])
-
-# COMMAND ----------
-
-norm_ships_ce = """
-
-SELECT
-    'NORM_SHIPS_CE' AS record
-    , ns.month_begin AS cal_date
-    , ns.region_5 AS region_5
-    , ns.country_alpha2
-    , ns.platform_subset
-    , UPPER(ns.split_name) AS customer_engagement
-    , ns.split_value
-    , ns.units AS units
-    , getdate() as load_date
-    , 'staging' as version
-FROM stage.ib_04_units_ce_splits_pre ns
-WHERE 1=1
-
-"""
-query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
 
 # COMMAND ----------
 
@@ -494,7 +497,3 @@ submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_ships; CREA
 
 # copy from stage to scen
 submit_remote_query(configs, f"DROP TABLE IF EXISTS scen.prelim_norm_shipments_ce; CREATE TABLE scen.prelim_norm_shipments_ce AS SELECT * FROM stage.norm_shipments_ce;")
-
-# COMMAND ----------
-
-
