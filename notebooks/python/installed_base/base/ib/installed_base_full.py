@@ -194,7 +194,7 @@ SELECT ns.region_5
 FROM "stage"."norm_shipments_ce" AS ns
 JOIN ib_01_filter_vars AS fv
     ON fv.record = 'BUILD_NORM_SHIPS'
-    AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
+    --AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
 JOIN "mdm"."hardware_xref" AS hw
     ON hw.platform_subset = ns.platform_subset
 JOIN "mdm"."iso_country_code_xref" AS cc
