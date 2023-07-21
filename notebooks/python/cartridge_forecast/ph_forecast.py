@@ -113,7 +113,7 @@ select p.cal_date,m.geography,p.hw_product_family,m.base_product_number,m.platfo
 , (p.mvtc_adjusted_market_ccs *  m.mix)  as mvtc_adjusted_market_ccs
 from ph_forecast p
 left join mix_cc m on m.hw_product_family = p.hw_product_family and m.cal_date = p.cal_date
-where p.cal_date between '2022-11-01' and '2023-10-31' and m.geography is not null
+where  m.geography is not null
 )select *
 from final_forecast
 """
