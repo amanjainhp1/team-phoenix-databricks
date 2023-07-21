@@ -49,6 +49,7 @@ toner_telemetry_df.show()
 toner_telemetry_df.filter(toner_telemetry_df['printer_count_fyqtr_page_share_flag_sum']>20)
 print(toner_telemetry_df.count())
 toner_telemetry_df=toner_telemetry_df.select(['printer_platform_name','printer_country_iso_code','customer_engagement','date_month_dim_ky']).distinct()
+toner_telemetry_df = toner_telemetry_df.withColumn("customer_engagement", when(toner_telemetry_df.customer_engagement == "STANDARD","STD").when(toner_telemetry_df.customer_engagement == "NON-YETI","TRAD").otherwise(toner_telemetry_df.customer_engagement))
 toner_telemetry_df.show()
 #toner_telemetry_df_ce=toner_telemetry_df.select(['customer_engagement']).distinct()
 #toner_telemetry_df_ce.show()
@@ -67,6 +68,7 @@ df_result_toner.show()
 with io.BytesIO() as buffer:
     with pd.ExcelWriter(buffer,engine='xlsxwriter') as writer:
         df_result_ink.toPandas().to_excel(writer, sheet_name=str('ink'), index= False)
+        df_result_toner.toPandas().to_excel(writer, sheet_name=str('toner'), index= False)
     Testresultexcel=buffer.getvalue() 
 
 # COMMAND ----------
@@ -99,6 +101,6 @@ def send_email(email_from, email_to, subject, message):
 
 # COMMAND ----------
 
-subject='QA Framework - US Ink Telemetry Override'
-message='Attached is the drop in Ink telemetry'
+subject='QA Framework - US Telemetry Override'
+message='Attached is the drop in Ink and Toner telemetry'
 send_email('phoenix_qa_team@hpdataos.com',send_to_email, subject, message)
