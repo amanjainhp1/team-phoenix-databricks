@@ -54,7 +54,7 @@ c2c_02_geography_mapping.createOrReplaceTempView("c2c_02_geography_mapping")
 
 # COMMAND ----------
 
-trade_01_common = spark.sql("""
+trade_01_common = spark.sql(f"""
     SELECT record
         , MAX(version) AS version
     FROM fin_prod.stf_dollarization
@@ -68,7 +68,7 @@ trade_01_common = spark.sql("""
         , '{}' as version
     FROM prod.working_forecast
     WHERE 1=1
-        AND record = 'TONER-WORKING-FORECAST'
+        AND record = '{technology_label.upper()}-WORKING-FORECAST'
     GROUP BY record
     
     UNION ALL
@@ -77,7 +77,7 @@ trade_01_common = spark.sql("""
         , '{}' as version
     FROM prod.working_forecast_country
     WHERE 1=1
-        AND record = 'WORKING_FORECAST_COUNTRY'
+        AND record = '{technology_label.upper()}_WORKING_FORECAST_COUNTRY'
     GROUP BY record
 """.format(working_forecast_version, working_forecast_country_version))
     
@@ -89,7 +89,7 @@ spark.sql("""select * from trade_01_filter_vars""").show()
 
 # COMMAND ----------
 
-trade_01 = spark.sql("""
+trade_01 = spark.sql(f"""
 
 with trade_05_supplies_stf_agg as (
     SELECT stf.geography AS region_5  -- region_5
@@ -102,7 +102,7 @@ with trade_05_supplies_stf_agg as (
         ON fv.version = stf.version
         AND fv.record = stf.record
     WHERE 1=1
-        AND technology = 'LASER'
+        AND technology = '{technology.upper()}'
     GROUP BY stf.geography
         , stf.cal_date
         , stf.base_product_number
@@ -122,7 +122,7 @@ with trade_05_supplies_stf_agg as (
     JOIN c2c_02_geography_mapping AS geo
         ON geo.market_10 = wfc.geography
     WHERE 1=1
-        AND hw.technology = 'LASER'
+        AND hw.technology = '{technology.upper()}'
     GROUP BY wfc.base_product_number
         , wfc.cal_date
         , geo.region_5
@@ -142,7 +142,7 @@ with trade_05_supplies_stf_agg as (
     JOIN c2c_02_geography_mapping AS geo
         ON geo.market_10 = wfc.geography
     WHERE 1=1
-        AND hw.technology = 'LASER'
+        AND hw.technology = '{technology.upper()}'
     GROUP BY wfc.base_product_number
         , wfc.cal_date
         , geo.region_5
@@ -202,7 +202,7 @@ with trade_08_pfs_ce_split_1 as (
     JOIN mdm.hardware_xref AS hw
         ON hw.platform_subset = wf.platform_subset
     WHERE 1=1
-        AND hw.technology = 'LASER'
+        AND hw.technology = '{technology.upper()}'
     
 ),  trade_09_pfs_ce_split_2 as (
     select cal_date
@@ -368,7 +368,7 @@ trade_05 = spark.sql("""
     JOIN c2c_02_geography_mapping AS g
         ON g.market_10 = wf.geography
     WHERE 1=1
-        AND hw.technology = 'LASER'
+        AND hw.technology = '{technology.upper()}'
 """)
 
 trade_05.createOrReplaceTempView("trade_05_working_forecast")
