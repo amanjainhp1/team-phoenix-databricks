@@ -68,7 +68,7 @@ GROUP BY record, forecast_name
 FROM nrm_01_filter_vars
 """
 
-query_list.append(["stage.norm_ships_inputs", norm_ships_inputs, "overwrite"])
+query_list.append(["stage.norm_ships_inputs_lf", norm_ships_inputs, "overwrite"])
 
 # COMMAND ----------
 
@@ -127,7 +127,7 @@ SELECT ref.region_5
     , ltf.platform_subset
     , SUM(ltf.units) AS units
 FROM "prod"."hardware_ltf" AS ltf
-JOIN stage.norm_ships_inputs vars
+JOIN stage.norm_ships_inputs_lf vars
     ON vars.version = ltf.version
     AND vars.record = ltf.record
 JOIN "mdm"."iso_country_code_xref" AS ref
@@ -149,7 +149,7 @@ SELECT ref.region_5
     , ltf.platform_subset
     , SUM(ltf.units) AS units
 FROM "prod"."hardware_ltf" AS ltf
-JOIN stage.norm_ships_inputs vars
+JOIN stage.norm_ships_inputs_lf vars
     ON vars.version = ltf.version
     AND vars.record = ltf.record
 JOIN "mdm"."iso_country_code_xref" AS ref
@@ -170,7 +170,7 @@ SELECT ref.region_5
     , ltf.platform_subset
     , SUM(ltf.units) AS units
 FROM "prod"."hardware_ltf" AS ltf
-JOIN stage.norm_ships_inputs vars
+JOIN stage.norm_ships_inputs_lf vars
     ON vars.version = ltf.version
     AND vars.record = ltf.record
 JOIN "mdm"."iso_country_code_xref" AS ref
@@ -313,7 +313,7 @@ WHERE 1=1
     AND NOT hw.pl IN ('GW', 'LX')
 """
 
-query_list.append(["stage.norm_ships", norm_ships, "overwrite"])
+query_list.append(["stage.norm_ships_lf", norm_ships, "overwrite"])
 
 # COMMAND ----------
 
@@ -400,7 +400,7 @@ SELECT ns.region_5
     , ns.platform_subset
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships" AS ns
+FROM "stage"."norm_ships_lf" AS ns
 JOIN ib_01_filter_vars AS fv
     ON fv.record = 'BUILD_NORM_SHIPS'
     AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
@@ -422,7 +422,7 @@ SELECT ns.region_5
     , ns.platform_subset
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships" AS ns
+FROM "stage"."norm_ships_lf" AS ns
 JOIN ib_01_filter_vars AS fv
     ON fv.record = 'BUILD_NORM_SHIPS'
     AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
@@ -511,7 +511,7 @@ LEFT JOIN ib_02c_ce_splits_final AS ce
 WHERE 1=1
 """
 
-query_list.append(["stage.ib_04_units_ce_splits_pre", ce_splits_pre, "overwrite"])
+query_list.append(["stage.ib_04_units_ce_splits_pre_lf", ce_splits_pre, "overwrite"])
 
 # COMMAND ----------
 
@@ -528,11 +528,11 @@ SELECT
     , ns.units AS units
     , getdate() as load_date
     , 'staging' as version
-FROM stage.ib_04_units_ce_splits_pre ns
+FROM stage.ib_04_units_ce_splits_pre_lf ns
 WHERE 1=1
 
 """
-query_list.append(["stage.norm_shipments_ce", norm_ships_ce, "overwrite"])
+query_list.append(["stage.norm_shipments_ce_lf", norm_ships_ce, "overwrite"])
 
 # COMMAND ----------
 

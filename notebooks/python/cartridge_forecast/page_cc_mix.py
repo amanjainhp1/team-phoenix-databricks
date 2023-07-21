@@ -354,7 +354,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = ('2023.06.09.1')
+       AND ib.version = ('2023.07.18.1')
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LASER', 'INK', 'PWA' , 'LF')    --lf_comment added LF as technology
        AND ib.cal_date > CAST('2015-10-01' AS DATE)
@@ -660,7 +660,7 @@ WITH pcm_02_hp_demand AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS date)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
               JOIN geography_mapping AS map
                    ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -1224,7 +1224,7 @@ WITH pcm_02_hp_demand AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS date)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
               JOIN geography_mapping AS map
                    ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -1610,7 +1610,7 @@ WITH pcm_02_hp_demand AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS date)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
               JOIN geography_mapping AS map
                    ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -1948,7 +1948,7 @@ WITH crg_months AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS DATE)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
               JOIN geography_mapping AS map
                    ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -1967,9 +1967,8 @@ WITH crg_months AS
 
     , c2c_vtc_02_forecast_months AS
     (SELECT DATEADD(MONTH, 1, MAX(sup.cal_date)) AS supplies_forecast_start
-     FROM prod.actuals_supplies AS sup
-     WHERE 1 = 1
-       AND sup.official = 1)
+     FROM stage.actuals_supplies_lf AS sup
+     WHERE 1 = 1)
 
    , prod_crg_mix_region5 AS
     (SELECT cmo.cal_date

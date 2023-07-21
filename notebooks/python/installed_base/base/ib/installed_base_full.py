@@ -190,7 +190,7 @@ SELECT ns.region_5
     , ns.platform_subset
     , case when hw.business_feature is null then 'other' else hw.business_feature end as hps_ops
     , ns.units
-FROM "stage"."norm_ships" AS ns
+FROM "stage"."norm_ships_lf" AS ns
 JOIN ib_01_filter_vars AS fv
     ON fv.record = 'BUILD_NORM_SHIPS'
     AND fv.version = CASE WHEN 'BUILD_NORM_SHIPS' = 'PROD_NORM_SHIPS' THEN ns.version ElSE '1.1' END
@@ -226,7 +226,7 @@ SELECT CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(month,
     , ucep.split_name
     , ucep.platform_subset
     , SUM(ucep.units * pl.value) AS printer_installs
-FROM "stage"."ib_04_units_ce_splits_pre" AS ucep
+FROM "stage"."ib_04_units_ce_splits_pre_lf" AS ucep
 JOIN "mdm"."printer_lag" AS pl  -- implicit cross join (or cartesian product)
     ON ucep.region_5 = pl.region_5
     AND ucep.hps_ops = pl.hps_ops
@@ -244,7 +244,7 @@ GROUP BY CAST(DATEPART(year, ucep.month_begin) AS INTEGER) + (CAST(DATEPART(mont
     , ucep.platform_subset
 """
 
-query_list.append(["stage.ib_01_hw_decay", hw_decay, "overwrite"])
+query_list.append(["stage.ib_01_hw_decay_lf", hw_decay, "overwrite"])
 
 # COMMAND ----------
 
@@ -341,7 +341,7 @@ SELECT hw_lag.year + CAST((hw_lag.month + amt.month_offset - 1) AS INTEGER) / 12
     , hw_lag.country_alpha2
     , hw_lag.platform_subset
     , SUM(amt.remaining_amt * hw_lag.printer_installs) AS ib
-FROM "stage"."ib_01_hw_decay" AS hw_lag
+FROM "stage"."ib_01_hw_decay_lf" AS hw_lag
 JOIN ib_09_remaining_amt AS amt
     ON hw_lag.platform_subset = amt.platform_subset
     AND hw_lag.region_5 = amt.geography
@@ -367,7 +367,7 @@ SELECT to_date(cast(ic.month as varchar) + '/' + '01' + '/' + cast(ic.year as va
            ELSE CAST(hw.printer_installs AS FLOAT) END AS printer_installs
     , ic.ib
 FROM ib_10_hw_lag_w_remaining_amt AS ic
-LEFT JOIN "stage"."ib_01_hw_decay" AS hw
+LEFT JOIN "stage"."ib_01_hw_decay_lf" AS hw
     ON hw.year = ic.year
     AND hw.month = ic.month
     AND hw.country_alpha2 = ic.country_alpha2

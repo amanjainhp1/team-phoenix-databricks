@@ -80,7 +80,7 @@ bucket_prefix = "landing/ODW/"
 
 
 
-mix_override = "Usage_Share 060623.xlsx"
+mix_override = "Book3.xlsx"
 
 print(mix_override)
 
@@ -92,6 +92,19 @@ usage_share = spark.read \
         .load(f"s3a://{bucket}/{bucket_prefix}/{mix_override}")
 
 usage_share.createOrReplaceTempView("usage_share")
+usage_share = usage_share.withColumnRenamed("Usage Split","measure")
+usage_share = usage_share.withColumnRenamed("Subset","platform_subset")
+usage_share = usage_share.withColumnRenamed("FY23","2023")
+usage_share = usage_share.withColumnRenamed("FY24","2024")
+usage_share = usage_share.withColumnRenamed("FY25","2025")
+usage_share = usage_share.withColumnRenamed("FY26","2026")
+usage_share = usage_share.withColumnRenamed("FY27","2027")
+usage_share = usage_share.withColumnRenamed("FY28","2028")
+
+# COMMAND ----------
+
+usage_share = usage_share.melt(['measure','platform_subset'] ,['2023', '2024', '2025','2026','2027','2028'], 'year', 'units')
+usage_share.createOrReplaceTempView("usage_share")
 
 # COMMAND ----------
 
@@ -102,16 +115,16 @@ with market10_temp as (
     select distinct market10
     from mdm.iso_country_code_xref
 )
-select us.record 
+select "USAGE_SHARE" as record 
     , c.date as cal_date
     , market10 as geography
     , platform_subset
-    , customer_engagement
+    , "TRAD" as customer_engagement
     , measure
     , units
     , cast (NULL as string) as ib_version
-    , cast (NULL as string) as version
-    , cast (NULL as timestamp) as load_date
+    , '2021.01.19.1' as version
+    , getdate() as load_date
     , "MARKET10" as geography_grain
 from usage_share us
 inner join mdm.calendar c
@@ -137,7 +150,7 @@ bucket_prefix = "landing/ODW/"
 
 
 
-mix_override = "lf_cc_mix_overrides.xlsx"
+mix_override = "Book6.xlsx"
 
 print(mix_override)
 
@@ -165,6 +178,10 @@ mix_override = mix_override.withColumn("load_date", current_timestamp())
 mix_override = mix_override.select('platform_subset', 'crg_base_prod_number','geography' , 'geography_grain' , 'mix_pct' , 'product_lifecycle_status' , 'customer_engagement','load_date')
 
 mix_override.createOrReplaceTempView("mix_override")
+
+# COMMAND ----------
+
+mix_override.select(col("platform_subset")).distinct().display()
 
 # COMMAND ----------
 
@@ -273,6 +290,32 @@ write_df_to_redshift(configs, actuals_supplies_lf, "stage.actuals_supplies_lf", 
 
 # COMMAND ----------
 
+actuals_supplies_lf = """
+SELECT *
+FROM IE2_Prod.dbo.actuals_supplies_lf_0330
+"""
+
+actuals_supplies_lf = read_sql_server_to_df(configs) \
+    .option("query", actuals_supplies_lf) \
+    .load()
+
+write_df_to_redshift(configs, actuals_supplies_lf, "stage.actuals_supplies_lf", "overwrite")
+
+# COMMAND ----------
+
+actuals_supplies_lf = """
+SELECT *
+FROM  IE2_landing.lfd.actuals_supplies_lf12
+"""
+
+actuals_supplies_lf = read_sql_server_to_df(configs) \
+    .option("query", actuals_supplies_lf) \
+    .load()
+
+write_df_to_redshift(configs, actuals_supplies_lf, "stage.actuals_supplies_lf12", "overwrite")
+
+# COMMAND ----------
+
 
 usage_share_lf = """
 SELECT 
@@ -365,7 +408,72 @@ write_df_to_redshift(configs, supplies_xref_lf, "stage.supplies_xref_lf", "overw
 
 # COMMAND ----------
 
+from pyspark.sql.functions import current_timestamp
+from pyspark.sql.types import BooleanType
 
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/"
+
+supplies_xref_2 = "supplies_xref.xlsx"
+
+print(supplies_xref_2)
+
+supplies_xref_design = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{bucket}/{bucket_prefix}/{supplies_xref_2}")
+
+write_df_to_redshift(configs, supplies_xref_design, "stage.supplies_xref_design", "overwrite")
+
+# COMMAND ----------
+
+from pyspark.sql.functions import current_timestamp
+from pyspark.sql.types import BooleanType
+
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/"
+
+supplies_xref_2 = "supplies_xref_pro.xlsx"
+
+print(supplies_xref_2)
+
+supplies_xref_pro = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{bucket}/{bucket_prefix}/{supplies_xref_2}")
+
+
+write_df_to_redshift(configs, supplies_xref_pro, "stage.supplies_xref_pro", "overwrite")
+
+# COMMAND ----------
+
+supplies_xref_pro.filter(col("SKU") == '2QU12A').display()
+
+# COMMAND ----------
+
+from pyspark.sql.functions import current_timestamp
+from pyspark.sql.types import BooleanType
+
+bucket = f"dataos-core-{stack}-team-phoenix-fin" 
+bucket_prefix = "landing/odw/"
+
+supplies_xref_2 = "shu_family.xlsx"
+
+print(supplies_xref_2)
+
+swm_lf = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load(f"s3a://{bucket}/{bucket_prefix}/{supplies_xref_2}")
+
+
+write_df_to_redshift(configs, swm_lf, "stage.swm_lf", "overwrite")
 
 # COMMAND ----------
 

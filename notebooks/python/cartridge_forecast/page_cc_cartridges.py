@@ -836,7 +836,7 @@ WITH crg_months AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS date)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
               JOIN geography_mapping AS map
                    ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -1622,9 +1622,9 @@ with ac_ce as (
 select ac.cal_date,ac.market10,ac.country_alpha2,ac.platform_subset,ac.base_product_number,CASE WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%STND%' THEN 'STD'
        WHEN hw.technology = 'LASER' AND ac.platform_subset LIKE '%YET2%' THEN 'HP+'
                 ELSE ac.customer_engagement END AS customer_engagement,ac.base_quantity
-from prod.actuals_supplies ac 
+from stage.actuals_supplies_lf ac 
 left join mdm.hardware_xref hw on hw.platform_subset = ac.platform_subset
-where ac.official = 1
+--where ac.official = 1
 ),
 
 act_m10 as (

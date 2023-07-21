@@ -1,8 +1,4 @@
 # Databricks notebook source
-constants['S3_BASE_BUCKET'][stack]
-
-# COMMAND ----------
-
 # MAGIC %run ../common/configs
 
 # COMMAND ----------
@@ -11,16 +7,33 @@ constants['S3_BASE_BUCKET'][stack]
 
 # COMMAND ----------
 
+constants['S3_BASE_BUCKET'][stack]
+
+# COMMAND ----------
+
+yield_1 = spark.read \
+        .format("com.crealytics.spark.excel") \
+        .option("inferSchema", "True") \
+        .option("header","True") \
+        .option("treatEmptyValuesAsNulls", "False")\
+        .load('s3a://dataos-core-itg-team-phoenix-fin/landing/odw/yield.xlsx')
+
+# COMMAND ----------
+
+write_df_to_redshift(configs, yield_1, "stage.yield_lf", "overwrite")
+
+# COMMAND ----------
+
 lf_actuals = spark.read \
         .format("com.crealytics.spark.excel") \
         .option("inferSchema", "True") \
         .option("header","True") \
         .option("treatEmptyValuesAsNulls", "False")\
-        .load('{}landing/ODW/lf_months.xlsx'.format(constants['S3_BASE_BUCKET'][stack]))
+        .load('s3a://dataos-core-itg-team-phoenix/landing/ODW/lf_actuals.xlsx')
 
 # COMMAND ----------
 
-lf_actuals.count()
+lf_actuals.select(col("cal_date")).distinct().display()
 
 # COMMAND ----------
 
@@ -28,15 +41,11 @@ lf_actuals.createOrReplaceTempView("lf_actuals_view")
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
 df_iink_stf = spark.read.format('csv').options(header='true', inferSchema='true').load('{}landing/ODW/lf_actuals_subset.xlsx'.format(constants['S3_BASE_BUCKET'][stack]))
 
 # COMMAND ----------
 
-lf_actuals.count()
+df_iink_stf.display()
 
 # COMMAND ----------
 
