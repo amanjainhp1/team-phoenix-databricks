@@ -42,7 +42,7 @@ from io import BytesIO
 
 # COMMAND ----------
 
-dbutils.widgets.text("skip_notebook","true")
+dbutils.widgets.text("skip_notebook","false")
 
 # COMMAND ----------
 
@@ -208,38 +208,41 @@ with io.BytesIO() as buffer:
             query_path=row["query_path"]
             element_name=row["element_name"]
             print(test_query)
-            if('QA' in query_path):
-                test_query=(get_file_content_from_s3(s3_bucket,query_path))
-                print(test_query)
-            test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
-            print(test_result_detail_df.count())
-            results=0
-            if test_result_detail_df.count()<100:
-                results = test_result_detail_df.toPandas().to_json(orient='records')
-            print(results)
-            #test_result_detail=test_result_detail_df.first()['count']
-            test_result_detail=test_result_detail_df.count()
-            #test_result=''
-            s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
-            print(s3_output_bucket) # already created on S3
-            write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "overwrite")
-            insert_test_result= f""" INSERT INTO qa.test_results
-            (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id,test_results_s3path)
-            VALUES
-            ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}','{s3_output_bucket}');"""
-            submit_remote_query(configs,insert_test_result ) # insert into test result table 
-            if test_result_detail_df.count()>1 and test_result_detail_df.count()<5000:
-                test_result_detail_df.toPandas().to_excel(writer, sheet_name=str(testcase_id), index= False)  
-            if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:              
-                insert_test_result_detail= f""" INSERT INTO qa.test_results_detail
-                (test_case_id,test_result_id,detail_value)
+            if('notebook' in test_query):
+                dbutils.notebook.run(query_path,100)
+            else:
+                if('QA' in query_path):
+                    test_query=(get_file_content_from_s3(s3_bucket,query_path))
+                    print(test_query)
+                test_result_detail_df = read_redshift_to_df(configs).option("query", test_query).load()
+                print(test_result_detail_df.count())
+                results=0
+                if test_result_detail_df.count()<100:
+                    results = test_result_detail_df.toPandas().to_json(orient='records')
+                print(results)
+                #test_result_detail=test_result_detail_df.first()['count']
+                test_result_detail=test_result_detail_df.count()
+                #test_result=''
+                s3_output_bucket = s3_bucket1+"QA Framework/test_results/"+str(testcase_module)+"/"+str(testcase_module)+"_"+str(testcase_id)
+                print(s3_output_bucket) # already created on S3
+                write_df_to_s3(test_result_detail_df, s3_output_bucket, "csv", "overwrite")
+                insert_test_result= f""" INSERT INTO qa.test_results
+                (test_case_id, version_id, test_rundate, test_run_by, test_result_detail, test_result,test_run_id,test_results_s3path)
                 VALUES
-                ('{testcase_id}',(select max(test_result_id) from qa.test_results where test_case_id='{testcase_id}'),'{results}');"""
-                submit_remote_query(configs,insert_test_result_detail ) # insert into test result table         
-            if testcase_cat=="VOV Check":
-                delete_from_test_results_vov=f""" delete from qa.test_results_detail_vov where module_name='{testcase_module}';"""
-                submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
-                write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="qa.test_results_detail_vov", mode="append")
+                ('{testcase_id}','',getdate(),'{username}','{test_result_detail}',case when '{test_result_detail}'>='{min_threshold}' and '{test_result_detail}'<='{max_threshold}' then 'Pass' when '{test_result_detail}'='0' then 'Pass' else 'Fail' end,'{test_run_id}','{s3_output_bucket}');"""
+                submit_remote_query(configs,insert_test_result ) # insert into test result table 
+                if test_result_detail_df.count()>1 and test_result_detail_df.count()<5000:
+                    test_result_detail_df.toPandas().to_excel(writer, sheet_name=str(testcase_id), index= False)  
+                if test_result_detail_df.count()>1 and test_result_detail_df.count()<500:              
+                    insert_test_result_detail= f""" INSERT INTO qa.test_results_detail
+                    (test_case_id,test_result_id,detail_value)
+                    VALUES
+                    ('{testcase_id}',(select max(test_result_id) from qa.test_results where test_case_id='{testcase_id}'),'{results}');"""
+                    submit_remote_query(configs,insert_test_result_detail ) # insert into test result table         
+                if testcase_cat=="VOV Check":
+                    delete_from_test_results_vov=f""" delete from qa.test_results_detail_vov where module_name='{testcase_module}';"""
+                    submit_remote_query(configs,delete_from_test_results_vov ) # delete from vov table
+                    write_df_to_redshift(configs=configs, df=test_result_detail_df, destination="qa.test_results_detail_vov", mode="append")
     Testresultexcel=buffer.getvalue()    
 
 # COMMAND ----------
