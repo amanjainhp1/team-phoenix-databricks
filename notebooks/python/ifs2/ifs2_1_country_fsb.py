@@ -965,8 +965,8 @@ select distinct
 --    us.sum_of_k_usage_till_date,
     us.usage,
     us.sum_of_usage_till_date,
-    case when us.crg_chrome = 'DRUM' and (us.sum_of_usage_till_date - 100000) < 0 then 0
-        when us.crg_chrome = 'DRUM' and (us.sum_of_usage_till_date - 100000) >= 0 then (us.sum_of_usage_till_date - 100000)
+    case when us.crg_chrome = 'DRUM' and (us.sum_of_usage_till_date - y.value) < 0 then 0
+        when us.crg_chrome = 'DRUM' and (us.sum_of_usage_till_date - y.value) >= 0 then (us.sum_of_usage_till_date - y.value)
         when (us.sum_of_usage_till_date - hy.host_yield) < 0 then 0
         else (us.sum_of_usage_till_date - hy.host_yield)
         end as after_market_usage_cumulative,
@@ -974,7 +974,7 @@ select distinct
     d.value as decay,
     d.remaining_amount,
     y.value as yield,
-    case when us.crg_chrome = 'DRUM' and us.record = 'TONER' then 100000
+    case when us.crg_chrome = 'DRUM' and us.record = 'TONER' then y.value
         else hy.host_yield 
         end as host_yield,
     case when (us.record = 'INK' and us.crg_chrome in ('CYN','MAG','YEL')) then t.trade_split*3
@@ -1236,7 +1236,7 @@ ifs2.filter((col('platform_subset') == 'RUBY LITE 60 MANAGED') & (col('market10'
 
 # COMMAND ----------
 
-write_df_to_redshift(configs, ifs2, "ifs2.ifs2_country_fsb_04_24", "overwrite")
+write_df_to_redshift(configs, ifs2, "ifs2.ifs2_country_fsb", "overwrite")
 
 # COMMAND ----------
 
