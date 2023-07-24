@@ -768,6 +768,87 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 
 # COMMAND ----------
 
+offsetting_country_data_check1 = f"""
+SELECT cal_date,
+    odw.country_alpha2,
+    country,
+    region_5,
+    market8,
+    market10,
+    pl,
+    sales_product_option,    
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(gross_revenue) + SUM(net_currency) + SUM(contractual_discounts) + SUM(discretionary_discounts) as net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM fin_stage.final_union_odw_data odw
+LEFT JOIN mdm.iso_country_code_xref iso
+    ON odw.country_alpha2 = iso.country_alpha2
+GROUP BY cal_date,
+    odw.country_alpha2,
+    country,
+    region_5,
+    market8,
+    market10,
+    pl,
+    sales_product_option
+"""
+
+offsetting_country_data_check1 = spark.sql(offsetting_country_data_check1)
+offsetting_country_data_check1.createOrReplaceTempView("offsetting_country_data_check1")
+
+
+offsetting_country_data_check2 = f"""
+SELECT cal_date,
+    country_alpha2,
+    country,
+    region_5,
+    market8,
+    market10,
+    pl,
+    sales_product_option,    
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(net_revenue) as net_revenue,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units, 
+    CASE
+        WHEN SUM(revenue_units) OVER (PARTITION BY cal_date, region_5, sales_product_option, pl) = 0 THEN NULL
+        ELSE revenue_units / SUM(revenue_units) OVER (PARTITION BY cal_date, region_5, sales_product_option, pl)
+    END AS product_country_mix
+FROM offsetting_country_data_check1
+GROUP BY cal_date,
+    country_alpha2,
+    country,
+    region_5,
+    market8,
+    market10,
+    pl,
+    sales_product_option,
+    revenue_units
+"""
+
+offsetting_country_data_check2 = spark.sql(offsetting_country_data_check2)
+offsetting_country_data_check2.createOrReplaceTempView("offsetting_country_data_check2")
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select * from offsetting_country_data_check2 
+# MAGIC where product_country_mix is null
+# MAGIC and revenue_units <> 0
+
+# COMMAND ----------
+
 # MPS SUPPLIES SHIPMENTS CLEAN UP
 
 # COMMAND ----------
@@ -3056,7 +3137,6 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_before_plcharges_t
 #spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTempView("odw_salesprod_before_plcharges_temp")
 
 # COMMAND ----------
-
 
 spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTempView("odw_salesprod_before_plcharges_temp2")
 
@@ -7744,7 +7824,3 @@ WHERE revenue_units >-.000001 and revenue_units < 0;
 """
 
 submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], query)
-
-# COMMAND ----------
-
-
