@@ -112,10 +112,10 @@ SELECT cal.Date AS cal_date
       ,unit_reporting_description
       ,SUM(revenue_unit_quantity) as extended_quantity
   FROM fin_stage.odw_revenue_units_sales_actuals land
-  LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
-  LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_revenue_units_sales_actuals)
+  AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM fin_stage.odw_revenue_units_sales_actuals)
   AND Day_of_Month = 1
   AND cal.Date > '2021-10-01'
   AND revenue_unit_quantity <> 0
@@ -137,7 +137,7 @@ SELECT
     unit_reporting_description,
     SUM(extended_quantity) as extended_quantity
 FROM odw_extended_quantity odw
-LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
+LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 GROUP BY cal_date, country_alpha2, pl, sales_product_option, unit_reporting_code, unit_reporting_description
 """
 
@@ -162,7 +162,7 @@ SELECT
 FROM odw_extended_quantity_country
 WHERE pl IN (
     SELECT distinct pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE 1=1
     AND pl_category IN ('SUP') 
     AND technology IN ('PWA', 'LASER', 'INK', 'LF')
@@ -194,10 +194,11 @@ SELECT
 FROM odw_extended_quantity_country
 WHERE pl IN (
     SELECT distinct pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE 1=1
     AND pl_category IN ('LLC') 
     AND technology IN ('LLCS')
+    OR pl = 'AU'
     )
     --AND unit_reporting_code = 'O'
 GROUP BY cal_date,
@@ -289,10 +290,10 @@ odw_dollars_raw = f"""
       ,SUM(total_cost_of_sales_usd) * -1 as total_cos
       ,SUM(gross_margin_usd) as gross_profit
   FROM fin_stage.odw_report_rac_product_financials_actuals land
-  LEFT JOIN calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
-  LEFT JOIN product_line_xref plx ON land.profit_center_code = plx.profit_center_code
+  LEFT JOIN mdm.calendar cal ON ms4_Fiscal_Year_Period = fiscal_year_period
+  LEFT JOIN mdm.product_line_xref plx ON land.profit_center_code = plx.profit_center_code
   WHERE 1=1
-  AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM odw_report_rac_product_financials_actuals)
+  AND fiscal_year_period = (SELECT MAX(fiscal_year_period) FROM fin_stage.odw_report_rac_product_financials_actuals)
   AND day_of_month = 1
   AND cal.Date > '2021-10-01'
   AND land.profit_center_code NOT IN ('P1082', 'PF001')
@@ -307,7 +308,7 @@ odw_dollars_raw.createOrReplaceTempView("odw_dollars_raw")
 odw_history_periods = f"""
 SELECT distinct Edw_fiscal_yr_mo 
 FROM odw_dollars_raw d
-LEFT JOIN calendar cal ON d.cal_date = cal.Date
+LEFT JOIN mdm.calendar cal ON d.cal_date = cal.Date
 WHERE day_of_month = 1
 """
 
@@ -332,7 +333,7 @@ SELECT
     SUM(total_cos) as total_cos,
     SUM(total_cos) - SUM(warranty) as total_cos_without_warranty
 FROM odw_dollars_raw odw
-LEFT JOIN profit_center_code_xref s ON segment_code = profit_center_code
+LEFT JOIN mdm.profit_center_code_xref s ON segment_code = profit_center_code
 WHERE 1=1
 GROUP BY cal_date, country_alpha2, pl, sales_product_option
 """
@@ -358,10 +359,11 @@ SELECT
 FROM odw_dollars
 WHERE pl IN (
     SELECT distinct pl 
-    FROM product_line_xref 
+    FROM mdm.product_line_xref 
     WHERE 1=1
     AND pl_category IN ('SUP', 'LLC') 
     AND technology IN ('LLCS', 'PWA', 'LASER', 'INK', 'LF')
+    OR pl = 'AU'
     )
 GROUP BY cal_date,
     country_alpha2,
@@ -460,6 +462,31 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_option
 findata_clean_zeros = spark.sql(findata_clean_zeros)
 findata_clean_zeros.createOrReplaceTempView("findata_clean_zeros")
 
+
+odw_media = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,        
+    sales_product_option,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) * -1 AS contractual_discounts,
+    SUM(discretionary_discounts)  * -1 AS discretionary_discounts,
+    SUM(warranty)   * -1 AS warranty,
+    SUM(other_cos)  * -1 AS other_cos,
+    SUM(total_cos)  * -1 AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM findata_clean_zeros
+WHERE total_sum != 0
+    AND pl = 'AU'
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+"""
+
+odw_media = spark.sql(odw_media)
+odw_media.createOrReplaceTempView("odw_media")
+
+
         
 final_findata = f"""
 SELECT
@@ -479,7 +506,7 @@ FROM findata_clean_zeros
 WHERE total_sum != 0
     AND pl IN (
         SELECT DISTINCT (pl) 
-        FROM product_line_xref 
+        FROM mdm.product_line_xref 
         WHERE Technology IN ('INK', 'LASER', 'PWA', 'LLCS', 'LF')
         AND PL_category IN ('SUP', 'LLC')
         OR pl = 'IE'
@@ -526,6 +553,40 @@ final_union_odw_data.write \
 spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.final_union_odw_data USING DELTA LOCATION '/tmp/delta/fin_stage/final_union_odw_data'")
 spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_union_odw_data")
 
+
+# COMMAND ----------
+
+#MEDIA
+
+from datetime import datetime
+from pyspark.sql.types import StringType
+
+max_redshift_cal_date = '1900-01-01'
+try:
+    max_redshift_cal_date = read_redshift_to_df(configs) \
+        .option("query", "SELECT MAX(cal_date) AS max_cal_date FROM fin_prod.odw_actuals_supplies_salesprod") \
+        .load() \
+        .rdd.flatMap(lambda x: x).collect()[0] \
+        .strftime("%Y-%m-%d")
+except:
+    print("fin_prod.odw_actuals_supplies_salesprod doesn't exist. Setting max_redshift_cal_date to a default value of '1900-01-01'")
+
+print("max_redshift_cal_date: " + max_redshift_cal_date)
+
+max_databricks_cal_date = odw_media \
+    .select("cal_date") \
+    .distinct() \
+    .rdd.flatMap(lambda x: x).collect()[0] \
+    .strftime("%Y-%m-%d")
+
+print("max_databricks_cal_date: " + max_databricks_cal_date)
+
+if max_databricks_cal_date > max_redshift_cal_date:
+    #LOAD TO MEDIA
+    write_df_to_redshift(configs, odw_media, "fin_prod.odw_actuals_media", "append", postactions = "", preactions = "")
+    write_df_to_redshift(configs, salesprod_financials, "fin_prod.odw_actuals_supplies_salesprod", "append",postactions = "", preactions = "")
+else:
+    raise Exception("fin_prod.odw_actuals_media already contains data for cal_date: " + max_databricks_cal_date)
 
 # COMMAND ----------
 
