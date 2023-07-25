@@ -769,6 +769,11 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 
 # COMMAND ----------
 
+#MEDIA
+write_df_to_redshift(configs, findata_clean_zeros, "fin_prod.odw_actuals_media", "append", postactions = "", preactions = "truncate fin_prod.odw_actuals_media")
+
+# COMMAND ----------
+
 # MPS SUPPLIES SHIPMENTS CLEAN UP
 
 # COMMAND ----------
@@ -3058,7 +3063,6 @@ spark.sql("CREATE TABLE IF NOT EXISTS fin_stage.odw_salesprod_before_plcharges_t
 #spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTempView("odw_salesprod_before_plcharges_temp")
 
 # COMMAND ----------
-
 
 spark.table("fin_stage.odw_salesprod_before_plcharges_temp").createOrReplaceTempView("odw_salesprod_before_plcharges_temp2")
 
@@ -7798,7 +7802,3 @@ WHERE revenue_units >-.000001 and revenue_units < 0;
 """
 
 submit_remote_query(configs['redshift_dbname'], configs['redshift_port'], configs['redshift_username'], configs['redshift_password'], configs['redshift_url'], query)
-
-# COMMAND ----------
-
-
