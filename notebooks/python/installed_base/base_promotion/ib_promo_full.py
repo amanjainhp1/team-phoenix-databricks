@@ -21,7 +21,6 @@ from datetime import date
 
 # COMMAND ----------
 
-
 # Global Variables
 query_list = []
 
@@ -136,7 +135,7 @@ WHERE record in ('IB', 'NORM_SHIPMENTS')
     , ns.units
     , vars.load_date
     , vars.version
-FROM "stage"."norm_ships" AS ns
+FROM "stage"."norm_ships_lf" AS ns
 CROSS JOIN ib_promo_01_filter_vars AS vars
 WHERE vars.record = 'NORM_SHIPMENTS'
 """

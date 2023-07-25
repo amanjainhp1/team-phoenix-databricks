@@ -316,7 +316,6 @@ write_df_to_redshift(configs, actuals_supplies_lf, "stage.actuals_supplies_lf12"
 
 # COMMAND ----------
 
-
 usage_share_lf = """
 SELECT 
 FROM IE2_Staging.test.usage_share_lf 
@@ -373,7 +372,6 @@ mix_override = mix_override.withColumnRenamed("crg_base_product_number","crg_bas
 mix_override = mix_override.withColumn("load_date", current_timestamp())
 
 # COMMAND ----------
-
 
 supplies_xref_lf = """
 SELECT  id
@@ -476,7 +474,6 @@ swm_lf = spark.read \
 write_df_to_redshift(configs, swm_lf, "stage.swm_lf", "overwrite")
 
 # COMMAND ----------
-
 
 supplies_xref_lf = """
 SELECT  id

@@ -115,7 +115,7 @@ WITH dmd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.03.10.1'
+       AND ib.version = '2023.07.25.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LF')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -298,7 +298,7 @@ WITH dbd_01_ib_load AS
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = ib.platform_subset
      WHERE 1 = 1
-       AND ib.version = '2023.03.10.1'
+       AND ib.version = '2023.07.25.1'
        AND NOT UPPER(hw.product_lifecycle_status) = 'E'
        AND UPPER(hw.technology) IN ('LF')
        AND ib.cal_date > CAST('2015-10-01' AS DATE))
@@ -329,11 +329,11 @@ WITH dbd_01_ib_load AS
           , us.platform_subset
           , us.measure
           , us.units
-     FROM prod.usage_share_ink  AS us           -- stage.usage_share_lf     lf_comment 
+     FROM stage.usage_share_lf  as us    --lf_comment 
               JOIN mdm.hardware_xref AS hw
                    ON hw.platform_subset = us.platform_subset
      WHERE 1 = 1
-       AND us.version = '2023.03.17.2'
+       --AND us.version = '2023.03.17.2'
        AND UPPER(us.measure) IN
            ('USAGE', 'COLOR_USAGE', 'K_USAGE', 'HP_SHARE')
        AND UPPER(us.geography_grain) = 'MARKET10'
@@ -448,8 +448,8 @@ query_list.append(["scen.lf_demand", lf_demand, "overwrite"])
 
 lf_03_usage_share = """
 WITH override_filters  AS
-    (SELECT '2023.03.10.1'    AS ib_version
-          , '2023.03.17.2' AS us_version
+    (SELECT '2023.07.25.1'    AS ib_version
+          , '2021.01.19.1' AS us_version
 )
 
 
@@ -721,7 +721,7 @@ WITH pcm_02_hp_demand AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS date)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
               JOIN geography_mapping AS map
                    ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -892,7 +892,7 @@ WITH pcm_02_hp_demand AS
 
    , supplies_forecast_months AS
     (SELECT DATEADD(MONTH, 1, MAX(sup.cal_date)) AS supplies_forecast_start
-     FROM prod.actuals_supplies AS sup
+     FROM stage.actuals_supplies_lf AS sup
      WHERE 1 = 1
        AND sup.official = 1)
 
@@ -1062,7 +1062,7 @@ WITH crg_months            AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS DATE)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
      JOIN geography_mapping AS map
          ON map.region_5 = y.geography
      WHERE 1 = 1
@@ -1109,7 +1109,7 @@ WITH crg_months            AS
             WHEN sup.crg_chrome IN ('DRUM') THEN 'DRUM'
                                             ELSE 'CARTRIDGE' END                      AS consumable_type
           , cmo.load_date
-     FROM prod.cartridge_mix_override AS cmo
+     FROM stage.cartridge_mix_override_lf AS cmo
      JOIN stage.supplies_xref_lf AS sup
          ON cmo.crg_base_prod_number = sup.base_product_number
      JOIN mdm.hardware_xref AS hw
@@ -1154,7 +1154,7 @@ WITH crg_months            AS
             WHEN sup.crg_chrome IN ('DRUM') THEN 'DRUM'
                                             ELSE 'CARTRIDGE' END                      AS consumable_type
           , cmo.load_date
-     FROM prod.cartridge_mix_override AS cmo
+     FROM stage.cartridge_mix_override_lf AS cmo
      JOIN stage.supplies_xref_lf AS sup
          ON cmo.crg_base_prod_number = sup.base_product_number
      JOIN mdm.hardware_xref AS hw
@@ -1382,7 +1382,7 @@ query_list.append(["scen.lf_cc_mix_complete", lf_cc_mix_complete, "overwrite"])
 
 # COMMAND ----------
 
-ink_04_cc_mix = """
+lf_04_cc_mix = """
 SELECT type
      , cal_date
      , geography_grain
@@ -1395,7 +1395,7 @@ SELECT type
 FROM scen.lf_cc_mix_complete
 """
 
-query_list.append(["scen.ink_04_cc_mix", ink_04_cc_mix, "overwrite"])
+query_list.append(["scen.lf_04_cc_mix", lf_04_cc_mix, "overwrite"])
 
 # COMMAND ----------
 
@@ -1472,7 +1472,7 @@ SELECT *
 FROM lf_mix_rate_subset
 """
 
-query_list.append(["scen.ink_05_mix_uploads", ink_05_mix_uploads, "overwrite"])
+query_list.append(["scen.lf_05_mix_uploads", lf_05_mix_uploads, "overwrite"])
 
 # COMMAND ----------
 
@@ -1572,7 +1572,7 @@ WITH crg_months               AS
                      OVER (PARTITION BY y.base_product_number, map.market_10 ORDER BY y.effective_date)
             , CAST('2119-08-30' AS date)) AS next_effective_date
           , y.value                       AS yield
-     FROM mdm.yield AS y
+     FROM stage.yield_lf AS y
      JOIN geography_mapping AS map
          ON map.region_5 = y.geography
      WHERE 1 = 1
