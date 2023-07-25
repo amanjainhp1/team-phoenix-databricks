@@ -231,6 +231,7 @@ WHERE pl IN (
     WHERE 1=1
     AND pl_category IN ('LLC') 
     AND technology IN ('LLCS')
+    OR pl = 'AU'
     )
     AND unit_reporting_code = 'O'
 GROUP BY cal_date,
@@ -398,6 +399,7 @@ WHERE pl IN (
     WHERE 1=1
     AND pl_category IN ('LLC') 
     AND technology IN ('LLCS')
+    OR pl = 'AU'
     )
     --AND unit_reporting_code = 'O'
 GROUP BY cal_date,
@@ -599,6 +601,7 @@ WHERE pl IN (
     WHERE 1=1
     AND pl_category IN ('SUP', 'LLC') 
     AND technology IN ('LLCS', 'PWA', 'LASER', 'INK', 'LF')
+    OR pl = 'AU'
     )
 GROUP BY cal_date,
     country_alpha2,
@@ -697,6 +700,30 @@ GROUP BY cal_date, country_alpha2, pl, sales_product_option
 findata_clean_zeros = spark.sql(findata_clean_zeros)
 findata_clean_zeros.createOrReplaceTempView("findata_clean_zeros")
 
+
+odw_media = f"""
+SELECT
+    cal_date,
+    country_alpha2,
+    pl,        
+    sales_product_option,
+    SUM(gross_revenue) AS gross_revenue,
+    SUM(net_currency) AS net_currency,
+    SUM(contractual_discounts) AS contractual_discounts,
+    SUM(discretionary_discounts) AS discretionary_discounts,
+    SUM(warranty) AS warranty,
+    SUM(other_cos) AS other_cos,
+    SUM(total_cos) AS total_cos,
+    SUM(revenue_units) AS revenue_units
+FROM findata_clean_zeros
+WHERE total_sum != 0
+    AND pl = 'AU'
+GROUP BY cal_date, country_alpha2, pl, sales_product_option
+"""
+
+odw_media = spark.sql(odw_media)
+odw_media.createOrReplaceTempView("odw_media")
+
         
 final_findata = f"""
 SELECT
@@ -770,7 +797,7 @@ spark.table("fin_stage.final_union_odw_data").createOrReplaceTempView("final_uni
 # COMMAND ----------
 
 #MEDIA
-write_df_to_redshift(configs, findata_clean_zeros, "fin_prod.odw_actuals_media", "append", postactions = "", preactions = "truncate fin_prod.odw_actuals_media")
+write_df_to_redshift(configs, odw_media, "fin_prod.odw_actuals_media", "append", postactions = "", preactions = "truncate fin_prod.odw_actuals_media")
 
 # COMMAND ----------
 
