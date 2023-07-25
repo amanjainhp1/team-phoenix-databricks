@@ -709,11 +709,11 @@ SELECT
     sales_product_option,
     SUM(gross_revenue) AS gross_revenue,
     SUM(net_currency) AS net_currency,
-    SUM(contractual_discounts) AS contractual_discounts,
-    SUM(discretionary_discounts) AS discretionary_discounts,
-    SUM(warranty) AS warranty,
-    SUM(other_cos) AS other_cos,
-    SUM(total_cos) AS total_cos,
+    SUM(contractual_discounts) * -1 AS contractual_discounts,
+    SUM(discretionary_discounts)  * -1 AS discretionary_discounts,
+    SUM(warranty)   * -1 AS warranty,
+    SUM(other_cos)  * -1 AS other_cos,
+    SUM(total_cos)  * -1 AS total_cos,
     SUM(revenue_units) AS revenue_units
 FROM findata_clean_zeros
 WHERE total_sum != 0
