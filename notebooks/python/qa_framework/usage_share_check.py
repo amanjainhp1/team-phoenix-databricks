@@ -33,6 +33,30 @@ import numpy as np
 
 # COMMAND ----------
 
+dbutils.widgets.text("skip_usage_share_check","false")
+
+# COMMAND ----------
+
+#import json
+
+#context_str = dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
+#context = json.loads(context_str)
+
+## retrieve current task name from context
+#task_key = context['tags']['taskKey']
+#skip_task_key = f'skip_{task_key}'
+
+#skip_task_bool = dbutils.widgets.get(skip_task_key)
+
+#dbutils.jobs.taskValues.set(key = skip_task_key, value = skip_task_bool)
+
+#if bool(skip_task_bool):
+    #dbutils.notebook.exit(f"EXIT: {skip_task_key} is 'true'")
+
+#print(f'running more {task_key} code')
+
+# COMMAND ----------
+
 send_to_email='swati.gutgutia@hp.com'
 
 # COMMAND ----------
@@ -41,7 +65,9 @@ ink_telemetry_df=spark.read.parquet(constants["S3_BASE_BUCKET"][stack]+"/cupsm_i
 ink_telemetry_df.show()
 print(ink_telemetry_df.count())
 ink_telemetry_df=ink_telemetry_df.filter(ink_telemetry_df['hp_share']>0.05)
-ink_telemetry_df=ink_telemetry_df.filter(ink_telemetry_df['reporting_printers']>20)
+ink_telemetry_df_group=ink_telemetry_df.groupby(['printer_platform_name','country_alpha2','printer_managed','quarter']).sum('reporting_printers').withColumnRenamed("sum(reporting_printers)", "rep_pr").filter("rep_pr > 20")
+ink_telemetry_df_group.show()
+ink_telemetry_df=ink_telemetry_df.join(ink_telemetry_df_group,["printer_platform_name","country_alpha2","printer_managed","quarter"])
 ink_telemetry_df=ink_telemetry_df.select(['printer_platform_name','country_alpha2','printer_managed','date_month_dim_ky']).distinct()
 ink_telemetry_df.show()
 print(ink_telemetry_df.count())
